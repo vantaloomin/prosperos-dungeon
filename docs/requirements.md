@@ -235,6 +235,25 @@ Decided 2026-10-21.
   player rests, time passes: NPCs act, deadlines tick, rumors spread, shops restock, and wounds
   and stress recover under the Injuries rules.
 
+## Inventory and equipment
+
+Decided 2026-10-21. Code owns every item; the narrator can't add, remove or invent gear.
+
+- **Carrying limits: slots, with a toggle.** Every character has carry slots in every ruleset:
+  more with Vitality (or the ruleset's strength stat), packs, and mounts or vehicles. A dagger
+  takes a fraction of a slot, a sword one, armor several. A campaign setting turns carrying limits
+  off entirely.
+- **Visible gear is tracked.** Code knows what is worn, wielded and on display (a drawn sword,
+  fine silks, a guild badge, blood on your clothes, a stolen ring its owner would recognize).
+  It feeds NPC reactions, guards, thieves, reputation and shop prices.
+- **Wear: breaks on bad rolls.** No durability numbers. Critical failures and heavy hits can
+  damage or break weapons, armor, tools and clothes. Damaged gear works worse until repaired;
+  repairs are a priced shop service (smiths, tailors, tinkers).
+- **Loot: plausible, plus hoards.** Bodies and pockets hold what that person plausibly carried,
+  built by code from who they were (a bandit's few coins, knife and stolen ring; a noble's signet
+  and purse). Lairs, vaults and bosses use the ruleset's own treasure tables (5e SRD treasure,
+  Ironsworn rewards), adapted to the world's currency.
+
 ## World packages (proposed)
 
 The three bases arrive in three shapes: Mabry (canon / hidden / continuity markdown plus dice
