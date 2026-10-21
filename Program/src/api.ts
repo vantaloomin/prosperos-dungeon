@@ -1,0 +1,62 @@
+// Request helper adapted from prosperos-study src/api.ts at bbcbde4: Companion header and error codes.
+export class ApiError extends Error {
+  constructor(message: string, public status: number, public code?: string) { super(message) }
+}
+
+function errorMessage(status: number, data: { detail?: unknown }): string {
+  if (typeof data.detail === 'string') return data.detail
+  if (Array.isArray(data.detail)) return data.detail.map((item) => item.msg).join('; ')
+  return `The Dungeon could not finish that (error ${status}). Please try again.`
+}
+
+let world: string | null = null
+
+/** The world this page shows (src/features/worlds/useWorlds.ts). Sent with every request, so a page left open in
+ * one world never changes another the PC or phone has since moved to (dungeon/main.py stay_in_world). */
+export function openedIn(id: string) { world = id }
+
+function headers(type: string): Record<string, string> {
+  return { 'Content-Type': type, 'X-Dungeon-Client': 'workspace', ...(world ? { 'X-Dungeon-World': world } : {}) }
+}
+
+export async function api<T>(path: string, body?: unknown, method?: string): Promise<T> {
+  let response: Response
+  try {
+    response = await fetch(`/api${path}`, {
+      method: method ?? (body === undefined ? 'GET' : 'POST'),
+      headers: headers('application/json'),
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+  } catch {
+    throw new ApiError('Cannot reach the Dungeon. Check that it is still running.', 0, 'offline')
+  }
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw failure(response.status, data)
+  return data as T
+}
+
+/** A phone whose pairing was removed on the PC goes back to the pairing screen (src/features/phone). */
+function failure(status: number, data: { detail?: unknown; code?: string }): ApiError {
+  if (data.code === 'phone_unpaired') window.dispatchEvent(new Event('companion:unpaired'))
+  if (data.code === 'world_changed') { window.location.hash = '#conversation'; window.location.reload() }
+  return new ApiError(errorMessage(status, data), status, data.code)
+}
+
+export { newId } from './ids.ts'
+
+/** Send a file as the request body, with its details in the query string. */
+export async function upload<T>(path: string, file: Blob, params: Record<string, string>): Promise<T> {
+  let response: Response
+  try {
+    response = await fetch(`/api${path}?${new URLSearchParams(params)}`, {
+      method: 'POST',
+      headers: headers('application/octet-stream'),
+      body: file,
+    })
+  } catch {
+    throw new ApiError('Cannot reach the Dungeon. Check that it is still running.', 0, 'offline')
+  }
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw failure(response.status, data)
+  return data as T
+}

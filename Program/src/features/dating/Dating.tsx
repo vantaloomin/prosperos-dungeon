@@ -1,0 +1,183 @@
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { MapPin } from 'lucide-react'
+import { api } from '../../api'
+import type { View } from '../../companion'
+import type { CitySummary, Dating as DatingData, DatingCard, DatingMatch, DatingProfile } from '../../types'
+import { Loading, Notice } from '../../components/Feedback'
+import { ErrorNotice } from '../../components/ErrorNotice'
+import { useStartWith, useSwitchBack } from '../character/useSwitchBack'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { DATING_STATUS_KEY, cardHeading, humanTerms, interestText } from './datingText'
+import { Deck } from './Deck'
+import { formerly, townLeft } from '../today/townText'
+import { CityOptions } from '../world/CityOptions'
+import { AboutYou, IntoWho, Setup, WhatYouWant } from './Setup'
+
+const DATING_KEY = ['dating']
+
+/** The dating app: swipe through townsfolk (Deck.tsx), and a match can become a companion. Older eras get a personal column. */
+export function Dating({ go }: { go: (view: View) => void }) {
+  const dating = useQuery({ queryKey: DATING_KEY, queryFn: () => api<DatingData>('/dating') })
+  const client = useQueryClient()
+  const [editing, setEditing] = useState(false)
+  const [matched, setMatched] = useState<DatingCard | null>(null)
+  const [error, setError] = useState('')
+  if (dating.isPending) return <Loading label="Opening the app" />
+  if (dating.isError) return <ErrorNotice error={dating.error} action={<button type="button" className="text-button" onClick={() => void dating.refetch()}>Try again</button>} />
+  const data = dating.data
+  const run = async (request: () => Promise<DatingData>) => {
+    setError('')
+    try {
+      const next = await request()
+      client.setQueryData(DATING_KEY, next)
+      return next
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'That did not work. Try again.')
+      return null
+    }
+  }
+  const save = async (profile: DatingProfile) => {
+    const next = await run(() => api<DatingData>('/dating/profile', profile, 'PUT'))
+    await client.invalidateQueries({ queryKey: DATING_STATUS_KEY })
+    return next
+  }
+  const undo = async (key: string) => {
+    const next = await run(() => api<DatingData>(`/dating/swipes/${encodeURIComponent(key)}`, undefined, 'DELETE'))
+    if (next) setMatched(null)
+    return next !== null
+  }
+  const swipe = async (key: string, like: boolean) => {
+    const next = await run(() => api<DatingData>('/dating/swipes', { key, like }))
+    if (next) setMatched(next.matched ?? null)
+    return next !== null
+  }
+  return (
+    <section className="page dating" aria-labelledby="dating-heading">
+      <header className="page-header"><div>
+        <h1 id="dating-heading">{data.words.title}</h1>
+        <p className="subtle">Meet people around town. Someone you match with can become a companion. {data.surface === 'app' ? 'Your companions never see who you swipe on.' : 'Your companions never see who you pass on.'}</p>
+        {data.all_matches && <p className="subtle dating-debug">Debug: everyone you like matches back. Turn off in <a className="text-button inline" href="#settings/debug" onClick={(event) => { event.preventDefault(); go('settings/debug') }}>Settings &gt; Debug</a>.</p>}
+      </div></header>
+      {error && <Notice tone="error">{error}</Notice>}
+      {!data.profile ? <Setup words={data.words} surface={data.surface} persona={data.persona} onSave={async (profile) => { await save(profile) }} />
+        : editing ? <ProfileForm profile={data.profile} onCancel={() => setEditing(false)} onSave={async (profile) => { if (await save(profile)) setEditing(false) }}
+          onDelete={() => void run(() => api<DatingData>('/dating/profile', undefined, 'DELETE')).then(() => { setEditing(false); void client.invalidateQueries({ queryKey: DATING_STATUS_KEY }) })} />
+        : <>
+          <LookingIn data={data} onEdit={() => setEditing(true)} onMove={(cityId) => void run(() => api<DatingData>('/dating/city', { city_id: cityId }, 'PUT'))} />
+          {data.date && <Notice action={<button type="button" className="text-button" onClick={() => void api('/dating/dates/current', undefined, 'DELETE').then(() => client.invalidateQueries())}>End the date</button>}>
+            You are on a date with {data.date.name} in your story.</Notice>}
+          {matched && <Notice action={<StartTalking name={matched.name} matchKey={matched.key} go={go} />}>
+            {data.words.matched}: {matched.name} likes you too.</Notice>}
+          <Deck data={data} onSwipe={swipe} onUndo={undo} onPassedAgain={() => void run(() => api<DatingData>('/dating/swipes/passed', undefined, 'DELETE'))} />
+          <Matches data={data} go={go} onUnmatch={(key) => void run(() => api<DatingData>(`/dating/matches/${encodeURIComponent(key)}`, undefined, 'DELETE')).then(() => setMatched((shown) => shown?.key === key ? null : shown))}
+            onDate={async (key, placeId) => { await run(async () => { await api('/dating/dates', { key, place_id: placeId }); return api<DatingData>('/dating') }); go('story') }} />
+        </>}
+    </section>
+  )
+}
+
+interface ProfileFormProps { profile: DatingProfile; onSave: (profile: DatingProfile) => Promise<void>; onCancel: () => void; onDelete: () => void }
+
+/** Changing the profile later: every setup screen on one page, and a way to delete it. */
+function ProfileForm({ profile, onSave, onCancel, onDelete }: ProfileFormProps) {
+  const [draft, setDraft] = useState<DatingProfile>(profile)
+  const [busy, setBusy] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const set = (change: Partial<DatingProfile>) => setDraft((old) => ({ ...old, ...change }))
+  const ready = draft.age >= 18 && draft.age_min >= 18 && draft.age_min <= draft.age_max && draft.interested_in.length > 0
+  return (
+    <form className="form-stack dating-setup" onSubmit={(event) => { event.preventDefault(); setBusy(true); void onSave(draft).finally(() => setBusy(false)) }}>
+      <h2>Your profile</h2>
+      <AboutYou draft={draft} set={set} />
+      <IntoWho draft={draft} set={set} />
+      <WhatYouWant draft={draft} set={set} />
+      <label>About you <textarea rows={3} maxLength={1000} value={draft.bio} onChange={(event) => set({ bio: event.target.value })} /></label>
+      <div className="form-actions">
+        <button type="submit" className="button primary" disabled={busy || !ready}>Save</button>
+        <button type="button" className="text-button" onClick={onCancel}>Cancel</button>
+        <button type="button" className="text-button" onClick={() => setDeleting(true)}>Delete your profile…</button>
+      </div>
+      {deleting && <ConfirmDialog title="Delete your profile?" onClose={() => setDeleting(false)} actions={<>
+        <button type="button" className="button" onClick={() => setDeleting(false)}>Cancel</button>
+        <button type="button" className="button primary" onClick={onDelete}>Delete</button>
+      </>}><p>Your profile, likes and matches go for good. Anyone who already became a companion stays one.</p></ConfirmDialog>}
+    </form>
+  )
+}
+
+function LookingIn({ data, onEdit, onMove }: { data: DatingData; onEdit: () => void; onMove: (cityId: string) => void }) {
+  const cities = useQuery({ queryKey: ['world-cities'], queryFn: () => api<CitySummary[]>('/world/cities') })
+  const profile = data.profile!
+  return (
+    <div className="dating-bar">
+      <label><MapPin aria-hidden="true" /> Looking in
+        <select value={data.city.id} onChange={(event) => onMove(event.target.value)}>
+          <CityOptions cities={cities.data ?? [data.city]} />
+        </select>
+      </label>
+      <p className="subtle">{interestText(profile)} <button type="button" className="text-button inline" onClick={onEdit}>Edit your profile</button></p>
+    </div>
+  )
+}
+
+/** One tap makes a match a companion and opens the chat; their profile can be read and changed first, or later. */
+function StartTalking({ name, matchKey, go, primary = false }: { name: string; matchKey: string; go: (view: View) => void; primary?: boolean }) {
+  const { startWith, busy, error } = useStartWith(go)
+  return (<>
+    <button type="button" className={primary ? 'button primary' : 'text-button'} disabled={busy !== null} onClick={() => void startWith(matchKey)}>{busy ? 'Starting…' : `Start talking to ${name}`}</button>
+    <button type="button" className="text-button" onClick={() => go(`match/${encodeURIComponent(matchKey)}`)}>Read their profile first</button>
+    {error && <Notice tone="error">{error}</Notice>}
+  </>)
+}
+
+interface MatchesProps { data: DatingData; go: (view: View) => void; onUnmatch: (key: string) => void; onDate: (key: string, placeId: string) => Promise<void> }
+
+function Matches({ data, go, onUnmatch, onDate }: MatchesProps) {
+  const { switchTo, busy, error } = useSwitchBack(go)
+  if (!data.matches.length) return null
+  return (
+    <section className="dating-matches" aria-labelledby="matches-heading">
+      <h2 id="matches-heading">Your matches</h2>
+      {error && <Notice tone="error">{error}</Notice>}
+      <ul>
+        {data.matches.map((match) => <li key={match.key}>
+          <p><strong>{cardHeading(match)}</strong>{humanTerms(match) && <span className="subtle"> ({humanTerms(match)})</span>}{matchJob(match)} · {match.city.name}</p>
+          {match.left ? <div className="form-actions">
+            <p className="subtle">{townLeft(match.left)}</p>
+            <button type="button" className="text-button" onClick={() => onUnmatch(match.key)}>Unmatch</button>
+          </div> : <div className="form-actions">
+            {match.companion_id
+              ? <button type="button" className="button primary" disabled={busy !== null} onClick={() => void switchTo(match.companion_id!)}>Talk to {match.name}</button>
+              : <StartTalking name={match.name} matchKey={match.key} go={go} primary />}
+            {data.story && <MeetInStory match={match} onDate={onDate} />}
+            {!match.companion_id && <button type="button" className="text-button" onClick={() => onUnmatch(match.key)}>Unmatch</button>}
+          </div>}
+        </li>)}
+      </ul>
+    </section>
+  )
+}
+
+/** " · Librarian at Enoch Pratt", or " · Formerly a librarian" once they have left town. */
+function matchJob(match: DatingMatch): string {
+  if (match.left) return ` · ${formerly(match.job)}`
+  return match.job ? ` · ${match.job}` : ''
+}
+
+function MeetInStory({ match, onDate }: { match: DatingMatch; onDate: (key: string, placeId: string) => Promise<void> }) {
+  const [open, setOpen] = useState(false)
+  const [place, setPlace] = useState(match.places[0]?.id ?? '')
+  if (!open) return <button type="button" className="button" onClick={() => setOpen(true)}>Meet in your story…</button>
+  return (
+    <span className="dating-date">
+      <label>Where
+        <select value={place} onChange={(event) => setPlace(event.target.value)}>
+          {match.places.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.kind}, {item.neighborhood}){item.theirs ? ' · their usual spot' : ''}</option>)}
+        </select>
+      </label>
+      <button type="button" className="button primary" disabled={!place} onClick={() => void onDate(match.key, place)}>Go on the date</button>
+      <button type="button" className="text-button" onClick={() => setOpen(false)}>Not now</button>
+    </span>
+  )
+}

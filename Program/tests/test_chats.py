@@ -1,0 +1,164 @@
+"""Every companion texts first, within one shared allowance, and each chat shows what is unread (dungeon/chats.py,
+dungeon/away.py)."""
+from datetime import timedelta
+
+from conftest import send, set_life
+
+from dungeon.characters import insert_version
+from dungeon.database import identifier
+from dungeon.models import CharacterDefinition
+
+
+def ok(response):
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def check(client):
+    return ok(client.post('/api/life/texts/check'))
+
+
+def chats(client):
+    return ok(client.get('/api/chats'))
+
+
+def another(client, name='Sally', **changes):
+    """A second companion, out of focus, the way one is after switching away from them."""
+    database = client.app.state.database
+    mira = ok(client.get('/api/companion'))['companion']
+    definition = CharacterDefinition(**{**mira['version']['definition'], 'name': name, **changes})
+    timestamp = database.now()
+    with database.connect(write=True) as connection:
+        companion_id, timeline_id = identifier(), identifier()
+        connection.execute('INSERT INTO companions (id, slot, stepped_back_at, created_at) VALUES (?, NULL, ?, ?)',
+                           (companion_id, timestamp, timestamp))
+        version_id = insert_version(connection, companion_id, 1, definition, '', timestamp)
+        connection.execute("INSERT INTO timelines (id, companion_id, status, created_at) VALUES (?, ?, 'active', ?)",
+                           (timeline_id, companion_id, timestamp))
+        connection.execute('UPDATE companions SET active_version_id=?, active_timeline_id=? WHERE id=?',
+                           (version_id, timeline_id, companion_id))
+    return companion_id, timeline_id
+
+
+def focus(client, companion_id):
+    return ok(client.post('/api/companion/cast/focus', json={'companion_id': companion_id}))
+
+
+def missed_by(client, clock, mira):
+    """Sally, who misses the user when they go quiet, talked with them three days ago; Mira is in focus."""
+    sally, timeline = another(client, emotional_traits=[{'name': 'guilt over absence', 'intensity': 'moderate'}])
+    focus(client, sally)
+    send(client, 'Talk soon', 'client-sally-01')
+    focus(client, mira['id'])
+    clock.advance(timedelta(days=3))
+    return sally, timeline
+
+
+def test_a_companion_out_of_focus_texts_first_and_shows_unread(client, companion, clock):
+    sally, timeline = missed_by(client, clock, companion)
+    result = check(client)
+    assert result['state'] == 'sent' and result['kind'] == 'silence'
+    assert result['companion_id'] == sally and result['focus'] is False
+    # It lands in Sally's chat, not in the one on screen.
+    assert ok(client.get('/api/conversation'))['messages'] == []
+    listed = chats(client)
+    assert [chat['name'] for chat in listed['chats']] == ['Sally', 'Mira']
+    sally_chat = listed['chats'][0]
+    assert sally_chat['unread'] == 1 and sally_chat['thread_id'] == timeline and sally_chat['focus'] is False
+    assert sally_chat['last']['role'] == 'companion' and sally_chat['last']['text'] == result['message']['text']
+    assert listed['unread'] == 1
+    # Seen: nothing unread any more.
+    assert ok(client.post('/api/chats/read', json={'thread_id': timeline}))['unread'] == 0
+
+
+def test_writing_back_counts_as_reading(client, companion, clock):
+    sally, _timeline = missed_by(client, clock, companion)
+    check(client)
+    focus(client, sally)
+    send(client, 'Sorry, busy week!', 'client-sally-02')
+    assert chats(client)['unread'] == 0
+
+
+def test_all_companions_share_one_allowance(client, companion, clock):
+    sally, _timeline = missed_by(client, clock, companion)
+    assert ok(client.get('/api/life/settings'))['away_daily'] == 6
+    set_life(client, away_daily=0)
+    assert check(client) == {'state': 'away_cap', 'message': None}
+    set_life(client, away_daily=1)
+    assert check(client)['companion_id'] == sally
+    database = client.app.state.database
+    with database.connect() as connection:
+        from dungeon import away
+        assert away.spent(connection, clock.now()) == 1 and not away.allowed(connection, clock.now())
+    assert client.put('/api/life/settings', json={'away_daily': 41}).status_code == 422
+
+
+def test_a_notification_names_the_companion_who_wrote(client, companion, clock):
+    sally, _timeline = missed_by(client, clock, companion)
+    ok(client.put('/api/notifications/settings', json={'enabled': True, 'quiet_start': '00:00', 'quiet_end': '00:00'}))
+    message = check(client)['message']
+    shown = ok(client.post('/api/notifications/next', json={'focused': False}))['notification']
+    assert shown['kind'] == 'message' and shown['title'] == 'Sally' and shown['companion_id'] == sally
+    assert shown['body'] == 'Sally sent you a message.' and message['text']
+
+
+def test_a_held_back_companion_does_not_stop_the_others(client, companion, clock):
+    sally, _timeline = missed_by(client, clock, companion)
+    set_life(client, texts_first=True)
+    # Mira has nothing to say; Sally does.
+    assert check(client)['companion_id'] == sally
+    # Sally waits for an answer now, and Mira still has nothing: the focus companion's state is reported.
+    clock.advance(timedelta(hours=4))
+    assert check(client)['state'] == 'nothing'
+
+
+def test_a_group_chat_is_listed_with_its_unread(client, companion, clock):
+    sally, _timeline = another(client)
+    group = ok(client.post('/api/groups', json={'companion_ids': [companion['id'], sally], 'name': 'Book club'}))
+    database = client.app.state.database
+    with database.connect(write=True) as connection:
+        for seq, (author, name, text) in enumerate([('user', '', 'Who finished it?'),
+                                                    (f'companion:{sally}', 'Sally', 'Me! Loved it.'),
+                                                    (f'companion:{companion["id"]}', 'Mira', 'Halfway.')], 100):
+            connection.execute('INSERT INTO group_messages (id, group_id, seq, author, name, text, created_at) '
+                               'VALUES (?, ?, ?, ?, ?, ?, ?)', (identifier(), group['id'], seq, author, name, text,
+                                                                 database.now()))
+    listed = {chat['kind']: chat for chat in chats(client)['chats']}
+    book = listed['group']
+    assert book['name'] == 'Book club' and book['thread_id'] == group['id'] and book['unread'] == 2
+    assert book['last'] == {'role': 'companion', 'text': 'Mira: Halfway.', 'at': book['last']['at']}
+    assert ok(client.post('/api/chats/read', json={'thread_id': group['id']}))['unread'] == 0
+
+
+def test_every_companion_keeps_and_shows_their_own_picture_across_a_switch(client, companion):
+    sally, _timeline = another(client)
+    with client.app.state.database.connect(write=True) as connection:
+        connection.execute('UPDATE companions SET portrait_reference_id=? WHERE id=?', ('mira-picture', companion['id']))
+        connection.execute('UPDATE companions SET portrait_reference_id=? WHERE id=?', ('sally-picture', sally))
+    for focused in (sally, companion['id'], sally):
+        focus(client, focused)
+        pictures = {chat['id']: chat['portrait_reference_id'] for chat in chats(client)['chats']}
+        assert pictures == {companion['id']: 'mira-picture', sally: 'sally-picture'}
+
+
+def test_a_companion_out_of_focus_still_shows_their_picture_but_not_their_other_pictures(client, companion):
+    """The chats list loads every companion's profile picture by its file address; the rest of an out-of-focus
+    companion's reference set stays out of reach until they are in focus again."""
+    from dungeon.lora import references
+
+    sally, _timeline = another(client)
+    database = client.app.state.database
+    folder = references.directory(database)
+    folder.mkdir(parents=True, exist_ok=True)
+    timestamp = database.now()
+    with database.connect(write=True) as connection:
+        for reference_id in ('sally-picture', 'sally-other'):
+            (folder / f'{reference_id}.png').write_bytes(b'picture')
+            connection.execute(
+                'INSERT INTO lora_references (id, companion_id, file, media_type, sha256, width, height, bytes, '
+                "created_at, updated_at) VALUES (?, ?, ?, 'image/png', ?, 64, 64, 7, ?, ?)",
+                (reference_id, sally, f'{reference_id}.png', reference_id, timestamp, timestamp))
+        connection.execute('UPDATE companions SET portrait_reference_id=? WHERE id=?', ('sally-picture', sally))
+    shown = client.get('/api/lora/references/sally-picture/file')
+    assert shown.status_code == 200 and shown.content == b'picture'
+    assert client.get('/api/lora/references/sally-other/file').status_code == 404

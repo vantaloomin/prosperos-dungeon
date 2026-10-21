@@ -1,0 +1,2640 @@
+-- Prospero Dungeon workspace schema. One database is one workspace with one focal companion.
+-- Separate tables keep each source of truth distinct (PRD M1): character definitions, user
+-- statements, committed fictional events, conversation and structured memories.
+
+CREATE TABLE IF NOT EXISTS app_identity (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS workspace_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  user_timezone TEXT NOT NULL DEFAULT 'UTC',
+  -- 'default' until set: 'pc' follows this PC's timezone, 'chosen' was picked in Settings and is kept.
+  user_timezone_source TEXT NOT NULL DEFAULT 'default' CHECK (user_timezone_source IN ('default', 'pc', 'chosen')),
+  automatic_memory INTEGER NOT NULL DEFAULT 0 CHECK (automatic_memory IN (0, 1)),
+  sensitive_memory INTEGER NOT NULL DEFAULT 0 CHECK (sensitive_memory IN (0, 1)),
+  share_profile_across_timelines INTEGER NOT NULL DEFAULT 1
+    CHECK (share_profile_across_timelines IN (0, 1)),
+  background_activity INTEGER NOT NULL DEFAULT 0 CHECK (background_activity IN (0, 1)),
+  model_memory_suggestions INTEGER NOT NULL DEFAULT 0 CHECK (model_memory_suggestions IN (0, 1)),
+  -- How the chat looks; presentation only, the same messages in every style.
+  chat_style TEXT NOT NULL DEFAULT 'feed' CHECK (chat_style IN ('feed', 'bubbles', 'community', 'retro', 'novel')),
+  chat_sounds INTEGER NOT NULL DEFAULT 0 CHECK (chat_sounds IN (0, 1)),
+  chat_retro_dark INTEGER NOT NULL DEFAULT 0 CHECK (chat_retro_dark IN (0, 1)),
+  -- Start the local programs in use when the Dungeon starts (dungeon/launcher.py); off until turned on.
+  auto_launch INTEGER NOT NULL DEFAULT 0 CHECK (auto_launch IN (0, 1)),
+  -- The app's colors, Prospero's Study's palettes; Retro IM keeps its own. custom_palette is JSON hex colors.
+  color_scheme TEXT NOT NULL DEFAULT 'ink' CHECK (color_scheme IN ('ink', 'slate', 'umber', 'moss', 'wine', 'ash', 'custom')),
+  custom_palette TEXT NOT NULL DEFAULT '',
+  -- Light or dark: 'system' matches the computer (Paper or Ink), 'paper' is the light profile, 'scheme' uses color_scheme.
+  theme TEXT NOT NULL DEFAULT 'system' CHECK (theme IN ('system', 'scheme', 'paper')),
+  -- Story mode (dungeon/story.py) is opt-in: off, its tab and API stay hidden.
+  story_mode INTEGER NOT NULL DEFAULT 0 CHECK (story_mode IN (0, 1)),
+  -- The note under a group message when someone lets a secret slip (dungeon/secrets.py).
+  show_secret_slips INTEGER NOT NULL DEFAULT 1 CHECK (show_secret_slips IN (0, 1)),
+  -- Hidden values (Settings > Hidden values): how companions feel and who has heard their news stay unseen
+  -- unless the user turns them on, so the default keeps some mystique. They still shape every reply.
+  show_moods INTEGER NOT NULL DEFAULT 0 CHECK (show_moods IN (0, 1)),
+  show_news INTEGER NOT NULL DEFAULT 0 CHECK (show_news IN (0, 1)),
+  -- "Why it went this way": the odds behind how a turning went (dungeon/consequences.py).
+  show_odds INTEGER NOT NULL DEFAULT 0 CHECK (show_odds IN (0, 1)),
+  -- Settings > Realism > Adult side of life (dungeon/world/intimacy.py): off until the user turns it on; showing
+  -- what townsfolk are like that way is a hidden value.
+  adult_side INTEGER NOT NULL DEFAULT 0 CHECK (adult_side IN (0, 1)),
+  show_adult_side INTEGER NOT NULL DEFAULT 0 CHECK (show_adult_side IN (0, 1)),
+  -- Settings > Debug: write every model request and response in full to logs/model-calls (dungeon/model_calls.py).
+  record_model_calls INTEGER NOT NULL DEFAULT 0 CHECK (record_model_calls IN (0, 1)),
+  paused_at TEXT,
+  review_required INTEGER NOT NULL DEFAULT 0 CHECK (review_required IN (0, 1)),
+  permission_revision INTEGER NOT NULL DEFAULT 1,
+  memory_revision INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS pauses (
+  id TEXT PRIMARY KEY,
+  started_at TEXT NOT NULL,
+  ended_at TEXT
+);
+
+-- Before model profiles there was one connection. Kept so an older workspace can be read; opening
+-- it moves the row into a profile (dungeon/text_models.py adopt_legacy) and leaves this empty.
+CREATE TABLE IF NOT EXISTS connection (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  base_url TEXT NOT NULL,
+  model TEXT NOT NULL,
+  credential_ref TEXT,
+  max_output_tokens INTEGER NOT NULL,
+  context_tokens INTEGER NOT NULL,
+  timeout_seconds INTEGER NOT NULL,
+  updated_at TEXT NOT NULL,
+  -- Optional; when set, semantic recall uses this model through the same connection's /embeddings.
+  embedding_model TEXT
+);
+
+-- Settings > Models: one provider, model and saved key each (config is JSON; the key lives in the
+-- OS credential vault under credential_ref).
+CREATE TABLE IF NOT EXISTS model_profiles (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  config TEXT NOT NULL,
+  credential_ref TEXT,
+  revision INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- Which profile does each job; a job without a row uses the 'chat' job's profile.
+CREATE TABLE IF NOT EXISTS model_routes (
+  job TEXT PRIMARY KEY,
+  profile_id TEXT NOT NULL REFERENCES model_profiles(id) ON DELETE CASCADE,
+  updated_at TEXT NOT NULL
+);
+
+-- The companion in slot 1 is the one the app is about. Others the user has switched away from keep
+-- their history with no slot (dungeon/cast.py).
+CREATE TABLE IF NOT EXISTS companions (
+  id TEXT PRIMARY KEY,
+  slot INTEGER UNIQUE DEFAULT 1 CHECK (slot = 1),
+  active_version_id TEXT,
+  active_timeline_id TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS character_versions (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  number INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  definition TEXT NOT NULL,
+  relationship TEXT NOT NULL,
+  timezone TEXT NOT NULL,
+  note TEXT NOT NULL DEFAULT '',
+  effective_at TEXT NOT NULL,
+  UNIQUE (companion_id, number)
+);
+
+CREATE TABLE IF NOT EXISTS timelines (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  parent_id TEXT REFERENCES timelines(id),
+  forked_after_seq INTEGER,
+  status TEXT NOT NULL CHECK (status IN ('active', 'frozen')),
+  created_at TEXT NOT NULL,
+  frozen_at TEXT,
+  -- A historical edit (C4): the parent's history before `forked_at` is copied in, and the edited
+  -- words wait in `draft` until they are sent on this timeline.
+  label TEXT NOT NULL DEFAULT '',
+  fork_message_id TEXT,
+  forked_at TEXT,
+  draft TEXT,
+  activated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  seq INTEGER NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('user', 'companion')),
+  text TEXT NOT NULL,
+  client_id TEXT UNIQUE,
+  reply_to TEXT REFERENCES messages(id),
+  status TEXT NOT NULL CHECK (status IN
+    ('complete', 'streaming', 'incomplete', 'cancelled', 'failed', 'withheld')),
+  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+  character_version_id TEXT REFERENCES character_versions(id),
+  memory_revision INTEGER,
+  receipt TEXT,
+  error TEXT,
+  redacted_at TEXT,
+  created_at TEXT NOT NULL,
+  completed_at TEXT,
+  -- For a message copied into a forked timeline, the message it was first written as.
+  origin_id TEXT,
+  UNIQUE (timeline_id, seq)
+);
+CREATE INDEX IF NOT EXISTS messages_reply ON messages(reply_to);
+
+CREATE TABLE IF NOT EXISTS life_events (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  idempotency_key TEXT NOT NULL UNIQUE,
+  kind TEXT NOT NULL CHECK (kind IN ('routine', 'plan', 'ordinary', 'thread')),
+  status TEXT NOT NULL CHECK (status IN ('proposed', 'committed', 'rejected', 'superseded')),
+  summary TEXT NOT NULL,
+  details TEXT NOT NULL DEFAULT '{}',
+  starts_at TEXT NOT NULL,
+  ends_at TEXT NOT NULL,
+  character_version_id TEXT NOT NULL REFERENCES character_versions(id),
+  permission_revision INTEGER NOT NULL,
+  inputs TEXT NOT NULL DEFAULT '{}',
+  revision INTEGER NOT NULL DEFAULT 1,
+  supersedes_id TEXT REFERENCES life_events(id),
+  rejection TEXT,
+  created_at TEXT NOT NULL,
+  decided_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS memories (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  layer TEXT NOT NULL CHECK (layer IN
+    ('user_fact', 'shared_experience', 'plan', 'temporary', 'relationship', 'companion_life')),
+  subject TEXT NOT NULL,
+  value TEXT NOT NULL,
+  reality TEXT NOT NULL CHECK (reality IN ('real', 'fiction')),
+  authority TEXT NOT NULL CHECK (authority IN ('stated', 'confirmed', 'tentative')),
+  status TEXT NOT NULL CHECK (status IN ('active', 'superseded', 'excluded')),
+  boundary INTEGER NOT NULL DEFAULT 0 CHECK (boundary IN (0, 1)),
+  pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0, 1)),
+  sensitive INTEGER NOT NULL DEFAULT 0 CHECK (sensitive IN (0, 1)),
+  plan_status TEXT CHECK (plan_status IN
+    ('proposed', 'agreed', 'postponed', 'cancelled', 'completed')),
+  event_id TEXT REFERENCES life_events(id),
+  stated_at TEXT NOT NULL,
+  applies_from TEXT,
+  applies_until TEXT,
+  revision INTEGER NOT NULL DEFAULT 1,
+  supersedes_id TEXT REFERENCES memories(id),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  -- Normalised subject; single-valued keys such as home_city hold one current value (M8).
+  subject_key TEXT NOT NULL DEFAULT '',
+  origin TEXT NOT NULL DEFAULT 'user' CHECK (origin IN ('user', 'automatic', 'suggestion')),
+  -- The later memory whose start ended this one ("I moved to Boston" ends Chicago, which stays history).
+  ended_by_id TEXT,
+  dates_uncertain INTEGER NOT NULL DEFAULT 0 CHECK (dates_uncertain IN (0, 1)),
+  -- Set when the user accepted merging this memory into a near-identical one (M11).
+  merged_into_id TEXT
+);
+CREATE INDEX IF NOT EXISTS memories_current ON memories(companion_id, status, layer);
+
+-- Automatic extraction work, one job per user message, queued only while automatic memory is on.
+-- A job runs only under the permission revision it was queued with (M7).
+CREATE TABLE IF NOT EXISTS memory_jobs (
+  message_id TEXT PRIMARY KEY REFERENCES messages(id),
+  permission_revision INTEGER NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('queued', 'done', 'stale', 'skipped', 'failed')),
+  queued_at TEXT NOT NULL,
+  finished_at TEXT,
+  error TEXT,
+  -- Model suggestions for this message, when enabled: NULL (not yet), done, skipped, failed or stale.
+  model_status TEXT
+);
+CREATE INDEX IF NOT EXISTS memory_jobs_status ON memory_jobs(status, queued_at);
+
+-- Extracted candidates. Committed ones point at their memory; pending ones are suggestions the user
+-- reviews. A declined fingerprint is never suggested again (M7).
+CREATE TABLE IF NOT EXISTS memory_candidates (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  message_id TEXT NOT NULL REFERENCES messages(id),
+  source TEXT NOT NULL CHECK (source IN ('rule', 'model')),
+  rule TEXT NOT NULL,
+  proposal TEXT NOT NULL,
+  fingerprint TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('pending', 'committed', 'declined', 'dismissed')),
+  reason TEXT,
+  memory_id TEXT,
+  created_at TEXT NOT NULL,
+  resolved_at TEXT,
+  UNIQUE (message_id, fingerprint)
+);
+CREATE INDEX IF NOT EXISTS memory_candidates_status ON memory_candidates(companion_id, status);
+
+-- Embeddings of memories and messages for semantic recall, keyed by the digest of the text embedded.
+CREATE TABLE IF NOT EXISTS memory_vectors (
+  owner_kind TEXT NOT NULL CHECK (owner_kind IN ('memory', 'message', 'storyline')),
+  owner_id TEXT NOT NULL,
+  model TEXT NOT NULL,
+  digest TEXT NOT NULL,
+  vector BLOB NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (owner_kind, owner_id, model)
+);
+
+-- Episode summaries (M11): quotes of the user's own sentences from one day, with exact sources.
+-- A retrieval aid only; dropped when any source is deleted, declined or blocked.
+CREATE TABLE IF NOT EXISTS memory_summaries (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  day TEXT NOT NULL,
+  text TEXT NOT NULL,
+  source_message_ids TEXT NOT NULL,
+  basis TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  UNIQUE (timeline_id, day)
+);
+
+-- Consolidation proposals the user decides on, such as merging two near-identical memories.
+CREATE TABLE IF NOT EXISTS memory_proposals (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL CHECK (kind IN ('merge')),
+  keep_id TEXT NOT NULL,
+  merge_id TEXT NOT NULL,
+  fingerprint TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL CHECK (status IN ('pending', 'accepted', 'declined')),
+  created_at TEXT NOT NULL,
+  resolved_at TEXT
+);
+
+-- What memory formation did, by identity and reason code only, so deletion leaves no content here.
+CREATE TABLE IF NOT EXISTS memory_activity (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  at TEXT NOT NULL,
+  action TEXT NOT NULL,
+  memory_id TEXT,
+  candidate_id TEXT,
+  message_id TEXT,
+  detail TEXT
+);
+
+CREATE TABLE IF NOT EXISTS memory_sources (
+  memory_id TEXT NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
+  message_id TEXT NOT NULL REFERENCES messages(id),
+  PRIMARY KEY (memory_id, message_id)
+);
+
+-- Statements the user asked not to turn into structured memory (M7, M12).
+CREATE TABLE IF NOT EXISTS memory_declines (
+  message_id TEXT PRIMARY KEY REFERENCES messages(id),
+  created_at TEXT NOT NULL
+);
+
+-- Non-content markers that stop a deleted record being reintroduced (M5, M12).
+CREATE TABLE IF NOT EXISTS deletion_markers (
+  target_id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  deleted_at TEXT NOT NULL
+);
+
+-- Life simulation (PRD T3–T7). Limits are user-visible and bounded by tested ceilings.
+CREATE TABLE IF NOT EXISTS life_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  automatic_events INTEGER NOT NULL DEFAULT 1 CHECK (automatic_events IN (0, 1)),
+  catch_up_on_return INTEGER NOT NULL DEFAULT 1 CHECK (catch_up_on_return IN (0, 1)),
+  phrase_with_model INTEGER NOT NULL DEFAULT 1 CHECK (phrase_with_model IN (0, 1)),
+  catch_up_max_events INTEGER NOT NULL DEFAULT 3,
+  catch_up_lookback_hours INTEGER NOT NULL DEFAULT 48,
+  return_gap_hours INTEGER NOT NULL DEFAULT 4,
+  background_interval_minutes INTEGER NOT NULL DEFAULT 60,
+  background_daily_events INTEGER NOT NULL DEFAULT 3,
+  updated_at TEXT NOT NULL
+);
+
+-- How far each timeline's fictional time has been simulated. It only moves forward, so a clock
+-- moving backward or a second launch can never simulate the same real interval twice.
+CREATE TABLE IF NOT EXISTS life_cursors (
+  timeline_id TEXT PRIMARY KEY REFERENCES timelines(id),
+  simulated_through TEXT NOT NULL,
+  last_reconciled_at TEXT,
+  updated_at TEXT NOT NULL
+);
+
+-- One catch-up or background batch. The plan is fixed when the batch is created, so a batch
+-- resumed after a restart produces the same slots and its events stay idempotent.
+CREATE TABLE IF NOT EXISTS life_runs (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  run_key TEXT NOT NULL UNIQUE,
+  mode TEXT NOT NULL CHECK (mode IN ('return', 'background')),
+  status TEXT NOT NULL CHECK (status IN ('planned', 'running', 'completed', 'failed', 'interrupted')),
+  window_start TEXT NOT NULL,
+  window_end TEXT NOT NULL,
+  plan TEXT NOT NULL,
+  results TEXT NOT NULL DEFAULT '[]',
+  character_version_id TEXT NOT NULL REFERENCES character_versions(id),
+  permission_revision INTEGER NOT NULL,
+  owner TEXT,
+  lease_until TEXT,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  error TEXT,
+  created_at TEXT NOT NULL,
+  started_at TEXT,
+  finished_at TEXT
+);
+CREATE INDEX IF NOT EXISTS life_runs_timeline ON life_runs(timeline_id, created_at);
+
+-- Private feed (PRD F1, F2, F4). A post shows committed events by reference, so a corrected
+-- event changes the post too, and a rejected proposal never appears.
+CREATE TABLE IF NOT EXISTS feed_posts (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  kind TEXT NOT NULL CHECK (kind IN ('event', 'digest')),
+  idempotency_key TEXT NOT NULL UNIQUE,
+  run_id TEXT REFERENCES life_runs(id),
+  intro TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'visible' CHECK (status IN ('visible', 'hidden', 'removed')),
+  reaction TEXT,
+  occurs_at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  read_at TEXT,
+  removed_at TEXT,
+  -- Hook for a later image job: state of the post's illustration, never blocking its text.
+  image_status TEXT NOT NULL DEFAULT 'none' CHECK (image_status IN
+    ('none', 'queued', 'running', 'completed', 'failed', 'cancelled', 'interrupted')),
+  image_job_id TEXT,
+  image_ref TEXT,
+  image_error TEXT,
+  image_updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS feed_posts_order ON feed_posts(timeline_id, occurs_at, id);
+
+CREATE TABLE IF NOT EXISTS feed_post_events (
+  post_id TEXT NOT NULL REFERENCES feed_posts(id),
+  event_id TEXT NOT NULL REFERENCES life_events(id),
+  position INTEGER NOT NULL,
+  PRIMARY KEY (post_id, event_id)
+);
+
+-- A chat message written in reply to a post (PRD F1).
+CREATE TABLE IF NOT EXISTS message_post_links (
+  message_id TEXT PRIMARY KEY REFERENCES messages(id),
+  post_id TEXT NOT NULL REFERENCES feed_posts(id)
+);
+
+-- When the user last looked at Today; only moves forward.
+CREATE TABLE IF NOT EXISTS visits (
+  timeline_id TEXT PRIMARY KEY REFERENCES timelines(id),
+  last_seen_at TEXT NOT NULL
+);
+
+-- Visible, resettable relationship mood from the user's absence (PRD C6, M4). Only created
+-- when the character has an absence trait; never a hidden score.
+CREATE TABLE IF NOT EXISTS relationship_moods (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  kind TEXT NOT NULL CHECK (kind IN ('absence')),
+  away_from TEXT NOT NULL,
+  away_until TEXT NOT NULL,
+  intensity INTEGER NOT NULL CHECK (intensity BETWEEN 1 AND 3),
+  traits TEXT NOT NULL,
+  character_version_id TEXT NOT NULL REFERENCES character_versions(id),
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  cleared_at TEXT,
+  UNIQUE (timeline_id, kind, away_from)
+);
+
+-- Paused intervals the user chose to catch up (PRD T6); otherwise a pause blocks its interval.
+CREATE TABLE IF NOT EXISTS pause_catch_ups (
+  pause_id TEXT PRIMARY KEY REFERENCES pauses(id),
+  requested_at TEXT NOT NULL
+);
+
+-- Cities the user wrote or copied (PRD W5). Built-in cities ship as files and are never stored here.
+CREATE TABLE IF NOT EXISTS world_cities (
+  id TEXT PRIMARY KEY,
+  definition TEXT NOT NULL,
+  revision INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- The companion's social circle (PRD T8): supporting characters assembled from world data and a
+-- seed. Never the user, never a real person, never a source of user facts.
+CREATE TABLE IF NOT EXISTS circle_people (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  ordinal INTEGER NOT NULL,
+  seed TEXT NOT NULL,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  career TEXT NOT NULL,
+  details TEXT NOT NULL,
+  schedule TEXT NOT NULL,
+  revision INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'removed')),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE (timeline_id, ordinal)
+);
+
+-- Precomputed schedules for the companion and the circle (PRD T9). Upcoming entries stay hidden;
+-- `basis` names the character version or person revision an entry was built from.
+CREATE TABLE IF NOT EXISTS life_agenda (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  subject TEXT NOT NULL,
+  slot_key TEXT NOT NULL,
+  starts_at TEXT NOT NULL,
+  ends_at TEXT NOT NULL,
+  local_date TEXT NOT NULL,
+  block TEXT NOT NULL,
+  entry TEXT,
+  basis TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'upcoming' CHECK (status IN ('upcoming', 'happened', 'skipped')),
+  prepared TEXT,
+  created_at TEXT NOT NULL,
+  UNIQUE (timeline_id, subject, slot_key)
+);
+CREATE INDEX IF NOT EXISTS life_agenda_due ON life_agenda (timeline_id, status, ends_at);
+
+CREATE TABLE IF NOT EXISTS agenda_cursors (
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  subject TEXT NOT NULL,
+  through TEXT NOT NULL,
+  PRIMARY KEY (timeline_id, subject)
+);
+
+-- Image generation (PRD F3–F9). Every backend is off until the user configures it; text never
+-- waits for an image.
+CREATE TABLE IF NOT EXISTS image_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  automatic_images INTEGER NOT NULL DEFAULT 0 CHECK (automatic_images IN (0, 1)),
+  automatic_since TEXT,
+  daily_limit INTEGER NOT NULL DEFAULT 3,
+  queue_limit INTEGER NOT NULL DEFAULT 6,
+  fallback INTEGER NOT NULL DEFAULT 0 CHECK (fallback IN (0, 1)),
+  aspect TEXT NOT NULL DEFAULT 'landscape' CHECK (aspect IN ('square', 'landscape', 'portrait')),
+  style TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL
+);
+
+-- A configured backend. Secrets live in the OS vault under `credential_ref`, never here.
+CREATE TABLE IF NOT EXISTS image_backends (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL CHECK (kind IN ('comfyui', 'codex', 'hosted')),
+  provider TEXT NOT NULL,
+  label TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  position INTEGER NOT NULL,
+  config TEXT NOT NULL DEFAULT '{}',
+  credential_ref TEXT,
+  -- The user marked a non-loopback ComfyUI address as a machine they control (F6).
+  controlled_machine INTEGER NOT NULL DEFAULT 0 CHECK (controlled_machine IN (0, 1)),
+  concurrency INTEGER NOT NULL DEFAULT 1,
+  -- Set when the backend must not run until the user acts, such as signing in to Codex again (F8).
+  blocked_reason TEXT,
+  disclosure_accepted_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- One image request. `inputs` freezes what was asked so a retry can repeat it exactly (F4).
+CREATE TABLE IF NOT EXISTS image_jobs (
+  id TEXT PRIMARY KEY,
+  post_id TEXT NOT NULL REFERENCES feed_posts(id),
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  status TEXT NOT NULL CHECK (status IN
+    ('queued', 'running', 'completed', 'failed', 'cancelled', 'interrupted')),
+  trigger TEXT NOT NULL CHECK (trigger IN ('manual', 'automatic', 'retry', 'fallback')),
+  retry_of TEXT REFERENCES image_jobs(id),
+  inputs TEXT NOT NULL,
+  character_version_id TEXT NOT NULL REFERENCES character_versions(id),
+  classification TEXT NOT NULL CHECK (classification IN ('safe', 'nsfw', 'prohibited')),
+  classification_reasons TEXT NOT NULL DEFAULT '[]',
+  classifier TEXT NOT NULL,
+  routing_reason TEXT NOT NULL,
+  backend_id TEXT,
+  backend_kind TEXT,
+  provider TEXT,
+  model TEXT,
+  workflow TEXT,
+  identity_method TEXT,
+  seed INTEGER,
+  remote_id TEXT,
+  output_file TEXT,
+  raw_file TEXT,
+  width INTEGER,
+  height INTEGER,
+  usage TEXT,
+  error TEXT,
+  error_code TEXT,
+  created_at TEXT NOT NULL,
+  started_at TEXT,
+  finished_at TEXT
+);
+CREATE INDEX IF NOT EXISTS image_jobs_post ON image_jobs(post_id, created_at);
+CREATE INDEX IF NOT EXISTS image_jobs_status ON image_jobs(status, created_at);
+
+-- Current context through MCP (PRD X1-X3). The user's own location is kept here, apart from the
+-- companion's fictional location in its character definition.
+CREATE TABLE IF NOT EXISTS context_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  user_place TEXT NOT NULL DEFAULT '',
+  user_latitude REAL,
+  user_longitude REAL,
+  -- Links pasted in chat are opened on this computer so the companion can talk about them.
+  read_links INTEGER NOT NULL DEFAULT 1 CHECK (read_links IN (0, 1)),
+  updated_at TEXT NOT NULL
+);
+
+-- MCP servers the user configured. Nothing runs until a category on it is enabled.
+CREATE TABLE IF NOT EXISTS context_services (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  transport TEXT NOT NULL CHECK (transport IN ('stdio', 'http')),
+  command TEXT,
+  url TEXT,
+  credential_ref TEXT,
+  secret_name TEXT NOT NULL DEFAULT '',
+  tools TEXT NOT NULL DEFAULT '[]',
+  server_info TEXT,
+  checked_at TEXT,
+  check_error TEXT,
+  cooldown_until TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- Which tool answers a category, which arguments it receives and when it may run. `approved`
+-- is the digest of the disclosure the user confirmed; a changed mapping needs a new confirmation.
+CREATE TABLE IF NOT EXISTS context_tools (
+  service_id TEXT NOT NULL REFERENCES context_services(id) ON DELETE CASCADE,
+  -- The categories are checked by the app (dungeon/mcp/services.py CATEGORIES).
+  category TEXT NOT NULL,
+  tool TEXT NOT NULL,
+  arguments TEXT NOT NULL,
+  run_in TEXT NOT NULL DEFAULT '["conversation"]',
+  enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)),
+  approved TEXT,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (service_id, category)
+);
+
+-- Every lookup attempt with what was sent, where, when and how long it counts as fresh.
+CREATE TABLE IF NOT EXISTS context_observations (
+  id TEXT PRIMARY KEY,
+  service_id TEXT REFERENCES context_services(id) ON DELETE SET NULL,
+  service_name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  purpose TEXT NOT NULL,
+  tool TEXT NOT NULL,
+  arguments TEXT NOT NULL,
+  destination TEXT NOT NULL,
+  location TEXT,
+  status TEXT NOT NULL CHECK (status IN ('ok', 'failed', 'refused')),
+  content TEXT NOT NULL DEFAULT '',
+  structured TEXT,
+  error_code TEXT,
+  error TEXT,
+  attempts INTEGER NOT NULL DEFAULT 1,
+  requested_at TEXT NOT NULL,
+  retrieved_at TEXT,
+  fresh_until TEXT
+);
+CREATE INDEX IF NOT EXISTS context_observations_recent ON context_observations (category, requested_at);
+
+-- Which observations a user message's reply was given.
+CREATE TABLE IF NOT EXISTS context_uses (
+  message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+  observation_id TEXT NOT NULL REFERENCES context_observations(id) ON DELETE CASCADE,
+  PRIMARY KEY (message_id, observation_id)
+);
+
+-- Character LoRA maker (PRD "Character LoRA maker requirements"). Files live in `lora/` beside the
+-- workspace database; these tables hold what they are, where they came from and who chose them.
+CREATE TABLE IF NOT EXISTS lora_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  trainer TEXT NOT NULL DEFAULT 'ai-toolkit',
+  -- The trainer's own Python interpreter and checkout; the app never installs either.
+  python_path TEXT NOT NULL DEFAULT '',
+  trainer_dir TEXT NOT NULL DEFAULT '',
+  base_model TEXT NOT NULL DEFAULT 'krea/Krea-2-Raw',
+  -- ComfyUI's models/loras folder, so an adopted adapter can be copied where ComfyUI finds it.
+  comfy_lora_dir TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL
+);
+
+-- One reference picture. The original file is never changed; a crop is a separate copy.
+CREATE TABLE IF NOT EXISTS lora_references (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  file TEXT NOT NULL,
+  original_name TEXT NOT NULL DEFAULT '',
+  media_type TEXT NOT NULL,
+  sha256 TEXT NOT NULL,
+  -- 64-bit difference hash computed by the interface, for near-duplicate warnings.
+  dhash TEXT,
+  width INTEGER NOT NULL,
+  height INTEGER NOT NULL,
+  bytes INTEGER NOT NULL,
+  rights TEXT NOT NULL DEFAULT 'unknown' CHECK (rights IN
+    ('own_work', 'commissioned', 'licensed', 'generated', 'unknown')),
+  source_note TEXT NOT NULL DEFAULT '',
+  role TEXT NOT NULL DEFAULT 'train' CHECK (role IN ('train', 'evaluation', 'excluded')),
+  exclusion_reason TEXT NOT NULL DEFAULT '',
+  caption TEXT NOT NULL DEFAULT '',
+  caption_origin TEXT NOT NULL DEFAULT 'empty' CHECK (caption_origin IN ('empty', 'suggested', 'edited')),
+  crop TEXT,
+  crop_file TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE (companion_id, sha256)
+);
+
+-- A trained or imported adapter file and its provenance.
+CREATE TABLE IF NOT EXISTS lora_adapters (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  origin TEXT NOT NULL CHECK (origin IN ('trained', 'imported')),
+  run_id TEXT,
+  step INTEGER,
+  name TEXT NOT NULL,
+  file TEXT NOT NULL,
+  sha256 TEXT NOT NULL,
+  bytes INTEGER NOT NULL,
+  format TEXT NOT NULL CHECK (format IN ('lora', 'lokr', 'unknown')),
+  base_model TEXT NOT NULL,
+  trainer TEXT NOT NULL DEFAULT '',
+  trigger TEXT NOT NULL DEFAULT '',
+  license_note TEXT NOT NULL DEFAULT '',
+  metadata TEXT NOT NULL DEFAULT '{}',
+  note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  -- Removing an adapter deletes its file but keeps this record, since images may name it.
+  removed_at TEXT
+);
+
+-- How images draw the character from a point in time (PRD F2). Jobs freeze the version they used,
+-- so adopting a new one never changes an image already made.
+CREATE TABLE IF NOT EXISTS appearance_versions (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  number INTEGER NOT NULL,
+  method TEXT NOT NULL CHECK (method IN ('text', 'lora')),
+  adapter_id TEXT REFERENCES lora_adapters(id),
+  strength REAL NOT NULL DEFAULT 1.0,
+  comfy_name TEXT,
+  note TEXT NOT NULL DEFAULT '',
+  adopted_at TEXT NOT NULL,
+  UNIQUE (companion_id, number)
+);
+
+CREATE TABLE IF NOT EXISTS appearance_current (
+  companion_id TEXT PRIMARY KEY REFERENCES companions(id),
+  version_id TEXT NOT NULL REFERENCES appearance_versions(id)
+);
+
+-- One training run: the Configure and Train steps. `options`, `trainer_config` and `dataset` freeze
+-- what was asked and what the trainer received, so the adapter's provenance survives.
+CREATE TABLE IF NOT EXISTS lora_runs (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  name TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('running', 'completed', 'failed', 'cancelled', 'interrupted')),
+  trainer TEXT NOT NULL,
+  trainer_tested TEXT NOT NULL,
+  base_model TEXT NOT NULL,
+  trigger TEXT NOT NULL,
+  options TEXT NOT NULL,
+  trainer_config TEXT NOT NULL,
+  dataset TEXT NOT NULL,
+  folder TEXT NOT NULL,
+  attempt INTEGER NOT NULL DEFAULT 1,
+  resumed_from_step INTEGER,
+  -- Only what the trainer printed; never estimated.
+  progress_step INTEGER,
+  progress_total INTEGER,
+  progress_at TEXT,
+  checkpoints TEXT NOT NULL DEFAULT '[]',
+  adapter_id TEXT,
+  pid INTEGER,
+  exit_code INTEGER,
+  log_tail TEXT NOT NULL DEFAULT '',
+  error TEXT,
+  error_code TEXT,
+  disclosure_accepted_at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  started_at TEXT,
+  finished_at TEXT
+);
+CREATE INDEX IF NOT EXISTS lora_runs_companion ON lora_runs(companion_id, created_at);
+
+-- The Evaluate step: a fixed set of prompts rendered with an adapter (and, for comparison, from the
+-- text description alone) on a local ComfyUI backend. Every output and failure is kept.
+CREATE TABLE IF NOT EXISTS lora_evaluations (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  adapter_id TEXT NOT NULL REFERENCES lora_adapters(id),
+  set_version INTEGER NOT NULL,
+  strength REAL NOT NULL,
+  comfy_name TEXT NOT NULL,
+  backend_id TEXT,
+  held_out TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL CHECK (status IN ('running', 'completed', 'cancelled', 'interrupted')),
+  note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  finished_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS lora_eval_images (
+  id TEXT PRIMARY KEY,
+  evaluation_id TEXT NOT NULL REFERENCES lora_evaluations(id),
+  position INTEGER NOT NULL,
+  prompt_key TEXT NOT NULL,
+  variant TEXT NOT NULL CHECK (variant IN ('lora', 'text')),
+  prompt TEXT NOT NULL,
+  negative TEXT NOT NULL,
+  seed INTEGER NOT NULL,
+  width INTEGER NOT NULL,
+  height INTEGER NOT NULL,
+  status TEXT NOT NULL CHECK (status IN
+    ('queued', 'running', 'completed', 'failed', 'cancelled', 'interrupted')),
+  classification TEXT NOT NULL,
+  workflow TEXT,
+  model TEXT,
+  output_file TEXT,
+  error TEXT,
+  rating TEXT NOT NULL DEFAULT '' CHECK (rating IN ('', 'good', 'weak')),
+  started_at TEXT,
+  finished_at TEXT
+);
+CREATE INDEX IF NOT EXISTS lora_eval_images_evaluation ON lora_eval_images(evaluation_id, position);
+
+-- Candidate reference pictures generated in the Prepare step from an editable shot list. One
+-- seed and one base description keep a set consistent. Each shot is classified and routed like
+-- any image request; nothing joins the dataset until the user keeps it.
+CREATE TABLE IF NOT EXISTS lora_generations (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  base TEXT NOT NULL,
+  seed INTEGER NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('running', 'completed', 'cancelled', 'interrupted')),
+  created_at TEXT NOT NULL,
+  finished_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS lora_gen_images (
+  id TEXT PRIMARY KEY,
+  generation_id TEXT NOT NULL REFERENCES lora_generations(id),
+  position INTEGER NOT NULL,
+  label TEXT NOT NULL,
+  shot TEXT NOT NULL,
+  prompt TEXT NOT NULL,
+  negative TEXT NOT NULL,
+  aspect TEXT NOT NULL CHECK (aspect IN ('square', 'landscape', 'portrait')),
+  seed INTEGER NOT NULL,
+  classification TEXT NOT NULL,
+  reasons TEXT NOT NULL DEFAULT '[]',
+  route_reason TEXT NOT NULL DEFAULT '',
+  backend_id TEXT,
+  backend_label TEXT,
+  backend_kind TEXT,
+  status TEXT NOT NULL CHECK (status IN
+    ('queued', 'running', 'completed', 'failed', 'cancelled', 'interrupted')),
+  error TEXT,
+  output_file TEXT,
+  width INTEGER,
+  height INTEGER,
+  used_seed INTEGER,
+  model TEXT,
+  workflow TEXT,
+  decision TEXT CHECK (decision IN ('kept', 'discarded')),
+  reference_id TEXT,
+  started_at TEXT,
+  finished_at TEXT
+);
+CREATE INDEX IF NOT EXISTS lora_gen_images_generation ON lora_gen_images(generation_id, position);
+
+-- Desktop notifications (PRD compute and job control): off by default; quiet hours, preview
+-- privacy and a frequency cap. Settings never depend on the character's traits.
+CREATE TABLE IF NOT EXISTS notification_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)),
+  quiet_start TEXT NOT NULL DEFAULT '22:00',
+  quiet_end TEXT NOT NULL DEFAULT '08:00',
+  preview TEXT NOT NULL DEFAULT 'name' CHECK (preview IN ('full', 'name', 'private')),
+  daily_cap INTEGER NOT NULL DEFAULT 3,
+  min_gap_minutes INTEGER NOT NULL DEFAULT 120,
+  updated_at TEXT NOT NULL
+);
+
+-- One per post a background batch published while notifications were on. Several waiting at
+-- delivery collapse into one digest delivery.
+CREATE TABLE IF NOT EXISTS notifications (
+  id TEXT PRIMARY KEY,
+  post_id TEXT NOT NULL UNIQUE REFERENCES feed_posts(id),
+  status TEXT NOT NULL CHECK (status IN ('queued', 'delivered', 'digested', 'dropped', 'cancelled')),
+  delivery_id TEXT,
+  reason TEXT,
+  created_at TEXT NOT NULL,
+  settled_at TEXT
+);
+CREATE INDEX IF NOT EXISTS notifications_status ON notifications(status, created_at);
+
+CREATE TABLE IF NOT EXISTS notification_deliveries (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL CHECK (kind IN ('post', 'digest', 'message')),
+  post_count INTEGER NOT NULL,
+  delivered_at TEXT NOT NULL
+);
+
+-- Where an imported companion came from: a reviewed copy of one Prospero's Study character
+-- version. Study ids are kept only as attribution; every local row has a new id.
+CREATE TABLE IF NOT EXISTS study_imports (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  character_version_id TEXT NOT NULL REFERENCES character_versions(id),
+  workspace_path TEXT NOT NULL,
+  database_path TEXT NOT NULL,
+  study_version TEXT NOT NULL DEFAULT '',
+  schema_fingerprint TEXT NOT NULL,
+  source_character_id TEXT NOT NULL,
+  source_version_id TEXT NOT NULL,
+  source_version_number INTEGER NOT NULL,
+  source_name TEXT NOT NULL,
+  review_token TEXT NOT NULL,
+  fields TEXT NOT NULL,
+  artwork TEXT NOT NULL,
+  imported_at TEXT NOT NULL
+);
+
+-- The user's own wording for an editable prompt (dungeon/prompt_library.py); without a row the default is used.
+-- default_text (ADDED_COLUMNS) is the default it replaced, so a newer default can be pointed out.
+CREATE TABLE IF NOT EXISTS prompt_overrides (
+  name TEXT PRIMARY KEY,
+  text TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- Closeness stages (PRD M3, M4) are worked out from shared history, never stored as a score. These rows
+-- hold only the user's own choices for one timeline: when counting restarted, a held stage, a nickname
+-- and the shared moments they made running jokes. Columns added later (dungeon/database.py
+-- ADDED_COLUMNS): head_start and set_on (a stage the user set, which keeps growing), ceiling_level and
+-- cooling_since (gentle cooling after long silences, opt-in).
+CREATE TABLE IF NOT EXISTS closeness_settings (
+  timeline_id TEXT PRIMARY KEY REFERENCES timelines(id),
+  counted_from TEXT,
+  held_level INTEGER CHECK (held_level BETWEEN 1 AND 5),
+  nickname TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS closeness_jokes (
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  memory_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (timeline_id, memory_id)
+);
+
+-- A message the companion sent first (dungeon/life/openers.py). Each trigger fires once per
+-- timeline; `notify` follows its desktop notification like `notifications` does for posts.
+CREATE TABLE IF NOT EXISTS openers (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  trigger_key TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  facts TEXT NOT NULL,
+  message_id TEXT NOT NULL REFERENCES messages(id),
+  wording TEXT NOT NULL CHECK (wording IN ('model', 'template')),
+  notify TEXT CHECK (notify IN ('queued', 'delivered', 'dropped', 'cancelled')),
+  created_at TEXT NOT NULL,
+  UNIQUE (timeline_id, trigger_key)
+);
+CREATE INDEX IF NOT EXISTS openers_message ON openers(message_id);
+
+-- What the companion said about themselves (dungeon/self_facts.py): fiction about the character,
+-- tied to the message it came from, noted automatically and kept or removed by the user.
+CREATE TABLE IF NOT EXISTS self_facts (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  message_id TEXT NOT NULL REFERENCES messages(id),
+  key TEXT NOT NULL,
+  category TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  value TEXT NOT NULL,
+  statement TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('noted', 'kept', 'rejected', 'conflict')),
+  conflicts_with TEXT,
+  created_at TEXT NOT NULL,
+  decided_at TEXT,
+  UNIQUE (message_id, key)
+);
+CREATE INDEX IF NOT EXISTS self_facts_message ON self_facts(message_id);
+-- Changes to a city the workspace keeps (dungeon/world/changes.py): the user's own, and headlines remembered
+-- from real local-event lookups, deleted with their lookup. Seeded changes are computed from the city and month,
+-- not stored; one the user dismisses is listed in world_change_dismissals and never happens.
+CREATE TABLE IF NOT EXISTS world_changes (
+  id TEXT PRIMARY KEY,
+  city_id TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('opening', 'closing', 'renovation', 'roadworks', 'news')),
+  origin TEXT NOT NULL CHECK (origin IN ('user', 'real')),
+  place_id TEXT,
+  neighborhood_id TEXT,
+  name TEXT NOT NULL,
+  summary TEXT NOT NULL DEFAULT '',
+  details TEXT,
+  announced_on TEXT NOT NULL,
+  starts_on TEXT NOT NULL,
+  ends_on TEXT,
+  observation_id TEXT REFERENCES context_observations(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS world_changes_city ON world_changes(city_id, starts_on);
+
+CREATE TABLE IF NOT EXISTS world_change_dismissals (
+  change_id TEXT PRIMARY KEY,
+  city_id TEXT NOT NULL,
+  dismissed_at TEXT NOT NULL
+);
+
+-- A recommendation the user made (dungeon/life/recommendations.py); its sessions are agenda entries
+-- that carry `recommendation.id`.
+CREATE TABLE IF NOT EXISTS recommendations (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  message_id TEXT NOT NULL REFERENCES messages(id),
+  kind TEXT NOT NULL CHECK (kind IN ('show', 'movie', 'book', 'music', 'game', 'outing')),
+  title TEXT NOT NULL,
+  sessions INTEGER NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('waiting', 'dropped')),
+  starts_after TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS recommendations_timeline ON recommendations(timeline_id, status);
+
+-- Storylines in the companion's and their circle's lives (dungeon/life/storylines.py): a seeded
+-- template, its cast (circle_people ids) and its beats with their local dates. Beats stay hidden
+-- until their date; `storyline_days` is how far starting days have been decided.
+CREATE TABLE IF NOT EXISTS storylines (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  story TEXT NOT NULL,
+  level INTEGER NOT NULL,
+  cast_ids TEXT NOT NULL,
+  stages TEXT NOT NULL,
+  started_on TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('running', 'ended')),
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS storylines_timeline ON storylines(timeline_id, status, started_on);
+
+CREATE TABLE IF NOT EXISTS storyline_days (
+  timeline_id TEXT PRIMARY KEY REFERENCES timelines(id),
+  through TEXT NOT NULL
+);
+-- A picture the companion sent with a chat reply (dungeon/images/photos.py): a photo, selfie or
+-- view of the current moment, made on the post keyed to the slot it shows so the chat and the feed
+-- share one picture, or a meme on a post of its own that never reaches the feed. `job_id` is the
+-- version this reply showed.
+CREATE TABLE IF NOT EXISTS chat_photos (
+  message_id TEXT PRIMARY KEY REFERENCES messages(id),
+  post_id TEXT NOT NULL REFERENCES feed_posts(id),
+  job_id TEXT REFERENCES image_jobs(id),
+  kind TEXT NOT NULL DEFAULT 'moment' CHECK (kind IN ('moment', 'selfie', 'view', 'meme')),
+  event_key TEXT NOT NULL DEFAULT '',
+  summary TEXT NOT NULL,
+  top_text TEXT NOT NULL DEFAULT '',
+  bottom_text TEXT NOT NULL DEFAULT '',
+  -- 1 when the companion chose to send it without being asked.
+  unasked INTEGER NOT NULL DEFAULT 0 CHECK (unasked IN (0, 1)),
+  created_at TEXT NOT NULL
+);
+
+-- The companion's home and belongings (dungeon/life/home.py): assembled once per timeline from
+-- the city data and a seed, then changed slowly by seeded draws, at most one per two weeks.
+CREATE TABLE IF NOT EXISTS home_state (
+  timeline_id TEXT PRIMARY KEY REFERENCES timelines(id),
+  seed TEXT NOT NULL,
+  started TEXT NOT NULL,
+  era TEXT NOT NULL,
+  next_period INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- One belonging, kept from local date `since` until `until` (exclusive; NULL while they still have it).
+CREATE TABLE IF NOT EXISTS home_items (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  kind TEXT NOT NULL CHECK (kind IN ('home', 'pet', 'plant', 'vehicle', 'favorite')),
+  name TEXT NOT NULL,
+  variety TEXT NOT NULL DEFAULT '',
+  details TEXT NOT NULL,
+  origin TEXT NOT NULL CHECK (origin IN ('generated', 'change', 'user')),
+  since TEXT NOT NULL,
+  until TEXT,
+  edited INTEGER NOT NULL DEFAULT 0 CHECK (edited IN (0, 1)),
+  revision INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS home_items_timeline ON home_items(timeline_id, since);
+
+-- Each change to the home, on the local date it happens; `until` ends a repair.
+CREATE TABLE IF NOT EXISTS home_log (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  period INTEGER NOT NULL,
+  local_date TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  item_id TEXT,
+  until TEXT,
+  text TEXT NOT NULL,
+  spend TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  UNIQUE (timeline_id, period)
+);
+
+-- People the companion met through their circle (dungeon/life/network.py): a friend of a friend,
+-- keyed by the seeded path that builds them, with a snapshot of who they are. A meeting counts once
+-- the agenda slot it happened in has happened and still records it.
+CREATE TABLE IF NOT EXISTS acquaintances (
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  key TEXT NOT NULL,
+  person TEXT NOT NULL,
+  slot_key TEXT NOT NULL,
+  occasion TEXT NOT NULL,
+  met_on TEXT NOT NULL,
+  met_at TEXT NOT NULL,
+  PRIMARY KEY (timeline_id, key, slot_key)
+);
+
+-- The social side of the feed (dungeon/life/social.py): the circle's posts and the companion's posts that
+-- are not life events. `author` is 'companion' or a circle person's id. Likes and comments are derived, not stored.
+CREATE TABLE IF NOT EXISTS social_posts (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  kind TEXT NOT NULL CHECK (kind IN ('status', 'friend', 'birthday', 'holiday', 'city', 'question')),
+  author TEXT NOT NULL,
+  idempotency_key TEXT NOT NULL UNIQUE,
+  content TEXT NOT NULL,
+  answer TEXT,
+  status TEXT NOT NULL DEFAULT 'visible' CHECK (status IN ('visible', 'hidden', 'removed')),
+  reaction TEXT,
+  occurs_at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  read_at TEXT,
+  removed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS social_posts_order ON social_posts(timeline_id, occurs_at, id);
+
+-- A chat message written in reply to a social post.
+CREATE TABLE IF NOT EXISTS message_social_links (
+  message_id TEXT PRIMARY KEY REFERENCES messages(id),
+  post_id TEXT NOT NULL REFERENCES social_posts(id)
+);
+
+-- People in the user's real life the companion has heard about (dungeon/memory/people.py). Everything said
+-- about them is an ordinary memory carrying memories.person_id, so consent, correction, exclusion and deletion
+-- work as for any memory; a person with no memories left is removed with the last one.
+CREATE TABLE IF NOT EXISTS user_people (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  name TEXT,
+  relation TEXT,
+  last_mentioned_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS user_people_companion ON user_people(companion_id);
+
+-- Phone access over Tailscale (dungeon/phone/). The server still listens only on this PC; a paired phone
+-- reaches it through `tailscale serve`, or through the opt-in home Wi-Fi listener (lan_enabled, dungeon/phone/lan.py). Only a hash of each device's sign-in token is kept.
+CREATE TABLE IF NOT EXISTS phone_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)),
+  address TEXT,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS phone_devices (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL,
+  last_seen_at TEXT,
+  revoked_at TEXT
+);
+
+-- Where to send a paired phone's notifications while the app is closed (dungeon/phone/push.py).
+CREATE TABLE IF NOT EXISTS phone_push (
+  id TEXT PRIMARY KEY,
+  device_id TEXT NOT NULL REFERENCES phone_devices(id),
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+-- Townsfolk the companion ran into around the city (dungeon/life/encounters.py). The people are seeded
+-- from the city data (dungeon/world/townsfolk.py) and rebuilt from `key`; only the meeting is kept. A
+-- meeting counts once its agenda slot has happened and the slot's entry still records it.
+CREATE TABLE IF NOT EXISTS townsfolk_encounters (
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  key TEXT NOT NULL,
+  slot_key TEXT NOT NULL,
+  place TEXT NOT NULL,
+  local_date TEXT NOT NULL,
+  met_at TEXT NOT NULL,
+  PRIMARY KEY (timeline_id, key, slot_key)
+);
+CREATE INDEX IF NOT EXISTS townsfolk_encounters_day ON townsfolk_encounters(timeline_id, local_date);
+
+-- Debug time (Settings > Debug, dungeon/debug_time.py). While the row exists the app clock reads
+-- app_anchor + (real time since real_anchor) * speed. `snapshot` is the database copy taken first, which
+-- returning to real time restores unless the user keeps what happened; `backup` is the verified archive.
+CREATE TABLE IF NOT EXISTS debug_time (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  app_anchor TEXT NOT NULL,
+  real_anchor TEXT NOT NULL,
+  speed REAL NOT NULL DEFAULT 1 CHECK (speed >= 1),
+  started_at TEXT NOT NULL,
+  app_started_at TEXT NOT NULL,
+  snapshot TEXT NOT NULL,
+  backup TEXT NOT NULL
+);
+
+-- Built-in recall (Settings > Models, dungeon/providers/builtin_recall.py): a llama.cpp server the
+-- Dungeon starts on this PC with an embedding model file the user downloaded. While enabled it does
+-- semantic recall instead of a profile.
+CREATE TABLE IF NOT EXISTS builtin_recall (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)),
+  model_path TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL
+);
+
+-- Pictures the user sends in chat (dungeon/pictures.py). `message_id` is empty until the message that
+-- carries the upload is sent. The description is written once by the Seeing pictures model; `unseen`
+-- keeps the reason it could not be described. Copies in forked timelines share the file.
+CREATE TABLE IF NOT EXISTS message_pictures (
+  id TEXT PRIMARY KEY,
+  message_id TEXT REFERENCES messages(id),
+  position INTEGER NOT NULL DEFAULT 0,
+  file TEXT NOT NULL,
+  media_type TEXT NOT NULL,
+  width INTEGER NOT NULL,
+  height INTEGER NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('pending', 'seen', 'unseen')),
+  description TEXT,
+  reason TEXT,
+  model TEXT,
+  created_at TEXT NOT NULL,
+  described_at TEXT
+);
+CREATE INDEX IF NOT EXISTS message_pictures_message ON message_pictures(message_id);
+
+-- The companion's wardrobe (dungeon/life/wardrobe.py): assembled once per timeline from their pay,
+-- job, personality and city, then changed slowly by seeded draws, at most one per two weeks. `profile`
+-- keeps what it was assembled from (styles, size, dress code). Outfits are drawn, never stored.
+CREATE TABLE IF NOT EXISTS wardrobe_state (
+  timeline_id TEXT PRIMARY KEY REFERENCES timelines(id),
+  seed TEXT NOT NULL,
+  started TEXT NOT NULL,
+  profile TEXT NOT NULL,
+  next_period INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- One piece of clothing, kept from local date `since` until `until` (exclusive; NULL while they still have it).
+CREATE TABLE IF NOT EXISTS wardrobe_items (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  category TEXT NOT NULL,
+  name TEXT NOT NULL,
+  variety TEXT NOT NULL DEFAULT '',
+  details TEXT NOT NULL,
+  origin TEXT NOT NULL CHECK (origin IN ('generated', 'change', 'user')),
+  since TEXT NOT NULL,
+  until TEXT,
+  edited INTEGER NOT NULL DEFAULT 0 CHECK (edited IN (0, 1)),
+  revision INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS wardrobe_items_timeline ON wardrobe_items(timeline_id, since);
+
+-- Each change to the wardrobe, on the local date it happens; `spend` is a purchase's price tier.
+CREATE TABLE IF NOT EXISTS wardrobe_log (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  period INTEGER NOT NULL,
+  local_date TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  item_id TEXT,
+  text TEXT NOT NULL,
+  spend TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  UNIQUE (timeline_id, period)
+);
+
+-- Plans the companion made in chat for a date (dungeon/life/own_plans.py), tied to the message they came
+-- from like self_facts; the agenda gives each one the day's matching free slot.
+CREATE TABLE IF NOT EXISTS companion_plans (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  message_id TEXT NOT NULL REFERENCES messages(id),
+  local_date TEXT NOT NULL,
+  at_time TEXT,
+  activity TEXT NOT NULL,
+  form TEXT NOT NULL CHECK (form IN ('doing', 'thing', 'scene')),
+  statement TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  UNIQUE (message_id, local_date)
+);
+CREATE INDEX IF NOT EXISTS companion_plans_message ON companion_plans(message_id);
+
+-- Story mode (dungeon/story.py): the user's own free-form story with a narrator, apart from every
+-- companion. One scene (where the user is) and its history; no companion prompt ever reads them.
+CREATE TABLE IF NOT EXISTS story_scene (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  city_id TEXT NOT NULL,
+  place_id TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS story_messages (
+  id TEXT PRIMARY KEY,
+  seq INTEGER NOT NULL UNIQUE,
+  role TEXT NOT NULL CHECK (role IN ('user', 'narrator', 'scene')),
+  text TEXT NOT NULL,
+  client_id TEXT UNIQUE,
+  reply_to TEXT,
+  status TEXT NOT NULL DEFAULT 'complete' CHECK (status IN ('complete', 'failed')),
+  error TEXT,
+  city_id TEXT NOT NULL,
+  place_id TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+-- People the user has met in their story (dungeon/story_people.py): one meeting a local day, a few notes.
+CREATE TABLE IF NOT EXISTS story_people (
+  key TEXT PRIMARY KEY,
+  city_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  first_met_at TEXT NOT NULL,
+  last_met_at TEXT NOT NULL,
+  last_day TEXT NOT NULL,
+  meetings INTEGER NOT NULL DEFAULT 1,
+  notes TEXT NOT NULL DEFAULT '[]'
+);
+
+-- The dating app (dungeon/dating.py): the user's own dating profile, who they swiped on and the dates they
+-- went on in Story mode. No companion prompt reads them. A person is a townsfolk
+-- key with the town it was drawn in (dungeon/world/townsfolk.py seed_for).
+CREATE TABLE IF NOT EXISTS dating_profile (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  name TEXT NOT NULL DEFAULT '',
+  age INTEGER NOT NULL CHECK (age >= 18),
+  gender TEXT NOT NULL CHECK (gender IN ('woman', 'man', 'nonbinary')),
+  interested_in TEXT NOT NULL,
+  looking_for TEXT NOT NULL CHECK (looking_for IN ('serious', 'casual', 'friends')),
+  age_min INTEGER NOT NULL CHECK (age_min >= 18),
+  age_max INTEGER NOT NULL,
+  bio TEXT NOT NULL DEFAULT '',
+  city_id TEXT NOT NULL,
+  seed TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS dating_swipes (
+  person_key TEXT PRIMARY KEY,
+  city_id TEXT NOT NULL,
+  town TEXT NOT NULL DEFAULT '',
+  liked INTEGER NOT NULL CHECK (liked IN (0, 1)),
+  matched INTEGER NOT NULL CHECK (matched IN (0, 1)),
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS dating_dates (
+  id TEXT PRIMARY KEY,
+  person_key TEXT NOT NULL,
+  town TEXT NOT NULL DEFAULT '',
+  city_id TEXT NOT NULL,
+  place_id TEXT NOT NULL,
+  arrival_id TEXT NOT NULL,
+  started_at TEXT NOT NULL,
+  ended_at TEXT
+);
+
+-- Matchlight's "Show photo" (dungeon/dating_photos.py): one portrait per townsperson, made the first time the
+-- user asks and kept, so they look the same afterwards. The file is in the images folder.
+CREATE TABLE IF NOT EXISTS dating_photos (
+  person_key TEXT PRIMARY KEY,
+  town TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'completed', 'failed')),
+  prompt TEXT NOT NULL,
+  negative TEXT NOT NULL,
+  seed INTEGER NOT NULL,
+  backend_id TEXT,
+  file TEXT,
+  error TEXT,
+  created_at TEXT NOT NULL,
+  finished_at TEXT
+);
+
+-- Dungeon messages waiting for the memory model to read for what they say about the companion
+-- (dungeon/memory/self_suggest.py); queued by self_facts.note while model memory is on.
+CREATE TABLE IF NOT EXISTS self_fact_jobs (
+  message_id TEXT PRIMARY KEY REFERENCES messages(id),
+  status TEXT NOT NULL CHECK (status IN ('queued', 'done', 'skipped', 'failed', 'stale')),
+  queued_at TEXT NOT NULL
+);
+
+-- Replies the user edited, through the sidecar (dungeon/message_edits.py): each edit keeps the text it replaced.
+CREATE TABLE IF NOT EXISTS message_edits (
+  id TEXT PRIMARY KEY,
+  message_id TEXT NOT NULL REFERENCES messages(id),
+  before_text TEXT NOT NULL,
+  after_text TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS message_edits_message ON message_edits(message_id);
+
+-- Group chats (dungeon/groups.py, docs/group-chat.md): the user and several companions in one chat. Groups
+-- belong to the workspace (start_over.WORKSPACE); a companion who starts over or is deleted leaves them.
+CREATE TABLE IF NOT EXISTS group_chats (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL DEFAULT '',
+  reply_cap INTEGER NOT NULL DEFAULT 2 CHECK (reply_cap BETWEEN 1 AND 3),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- Membership over time, one row per stay. `member` is a person key (companion:<id>, or a guest's circle or townsfolk
+-- key, dungeon/group_guests.py), `name` how the chat names them. They see messages from seq `sees_from` (1 when
+-- added with everything so far) until `left_seq`.
+CREATE TABLE IF NOT EXISTS group_members (
+  id TEXT PRIMARY KEY,
+  group_id TEXT NOT NULL REFERENCES group_chats(id),
+  member TEXT NOT NULL,
+  name TEXT NOT NULL,
+  joined_at TEXT NOT NULL,
+  sees_from INTEGER NOT NULL,
+  left_at TEXT,
+  left_seq INTEGER,
+  forgot_at TEXT
+);
+CREATE INDEX IF NOT EXISTS group_members_group ON group_members(group_id);
+CREATE INDEX IF NOT EXISTS group_members_member ON group_members(member);
+
+-- The shared transcript. `author` is 'user', 'app' (join and leave lines) or a member key, `name` as written in
+-- the transcript, and `present` the members in the group when it was written (the witness rule).
+CREATE TABLE IF NOT EXISTS group_messages (
+  id TEXT PRIMARY KEY,
+  group_id TEXT NOT NULL REFERENCES group_chats(id),
+  seq INTEGER NOT NULL,
+  author TEXT NOT NULL,
+  name TEXT NOT NULL DEFAULT '',
+  text TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'complete' CHECK (status IN ('complete', 'streaming', 'failed', 'cancelled')),
+  error TEXT,
+  present TEXT NOT NULL DEFAULT '[]',
+  reply_to TEXT,
+  client_id TEXT UNIQUE,
+  created_at TEXT NOT NULL,
+  completed_at TEXT,
+  UNIQUE (group_id, seq)
+);
+CREATE INDEX IF NOT EXISTS group_messages_reply ON group_messages(reply_to);
+
+-- How far the user has read each chat (dungeon/chats.py): a companion's chat by its timeline id, and any
+-- other kind of chat by its own id. Messages after read_seq are unread.
+CREATE TABLE IF NOT EXISTS chat_reads (
+  thread_id TEXT PRIMARY KEY,
+  read_seq INTEGER NOT NULL,
+  read_at TEXT NOT NULL
+);
+
+-- Messages sent while the user is away, from any companion or chat (dungeon/away.py), counted against one
+-- shared daily allowance (life_settings.away_daily) so a day left running has a bounded cost.
+CREATE TABLE IF NOT EXISTS away_messages (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  thread_id TEXT NOT NULL,
+  message_id TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS away_messages_created ON away_messages(created_at);
+
+-- How two companions know each other, written once by the user when they are first put together (a new group,
+-- adding someone, or becoming a companion): the stage they start at and a line of backstory. Everything else
+-- about closeness between people is worked out from history (dungeon/memory/pairs.py). Person keys are stored
+-- in order, `first` < `second`.
+CREATE TABLE IF NOT EXISTS pair_backstories (
+  first TEXT NOT NULL,
+  second TEXT NOT NULL,
+  start_level INTEGER CHECK (start_level BETWEEN 1 AND 5),
+  how TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (first, second)
+);
+
+-- Group messages the user kept as a shared moment: they bring everyone who was in the group then a little closer.
+CREATE TABLE IF NOT EXISTS group_moments (
+  message_id TEXT PRIMARY KEY REFERENCES group_messages(id),
+  created_at TEXT NOT NULL
+);
+
+-- Secrets (dungeon/secrets.py, docs/group-chat.md): who knows what, and who must not find out. `kind` says where
+-- a secret comes from: the user ('declared', with `statement` and `subjects` as typed), a storyline or a line in a
+-- companion's description (`source_id` points at it, so its words follow the source). `key_words` are the user's
+-- own; empty means they come from the statement. `guard_all` keeps it from everyone who doesn't know.
+CREATE TABLE IF NOT EXISTS knowledge (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL CHECK (kind IN ('declared', 'storyline', 'character', 'memory')),
+  source_id TEXT,
+  statement TEXT,
+  subjects TEXT NOT NULL DEFAULT '[]',
+  key_words TEXT NOT NULL DEFAULT '[]',
+  guard_all INTEGER NOT NULL DEFAULT 0 CHECK (guard_all IN (0, 1)),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'ended', 'dismissed')),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS knowledge_source ON knowledge(kind, source_id);
+
+-- Who knows a secret ('knows') and who must not find out ('guarded'), each a person key (companion:<id>,
+-- circle:<timeline>:<n>, the circle person's seed). `via` says how they learned it; `message_id` is the group message they learned it from.
+CREATE TABLE IF NOT EXISTS knowledge_holders (
+  id TEXT PRIMARY KEY,
+  knowledge_id TEXT NOT NULL REFERENCES knowledge(id),
+  holder TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('knows', 'guarded')),
+  learned_at TEXT NOT NULL,
+  via TEXT NOT NULL CHECK (via IN ('origin', 'witness', 'history', 'reveal', 'slip')),
+  message_id TEXT,
+  ended_at TEXT
+);
+CREATE INDEX IF NOT EXISTS knowledge_holders_knowledge ON knowledge_holders(knowledge_id);
+CREATE INDEX IF NOT EXISTS knowledge_holders_holder ON knowledge_holders(holder);
+
+-- The consequence engine (dungeon/consequences.py): how a choice in the world turned out. `options` holds each
+-- way it could have gone with its odds and the reasons that moved them; `picked` is the option the seeded dice
+-- landed on, or the one the user chose instead (`picked_by`). `subject` names what it is about, such as
+-- `storyline:<id>`.
+CREATE TABLE IF NOT EXISTS consequences (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  choice TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  label TEXT NOT NULL,
+  decided_on TEXT NOT NULL,
+  options TEXT NOT NULL,
+  picked INTEGER NOT NULL,
+  picked_by TEXT NOT NULL DEFAULT 'dice' CHECK (picked_by IN ('dice', 'user')),
+  changed_at TEXT,
+  created_at TEXT NOT NULL,
+  UNIQUE (subject, choice)
+);
+CREATE INDEX IF NOT EXISTS consequences_timeline ON consequences(timeline_id, decided_on);
+
+-- Marks an outcome leaves (dungeon/consequences.py): hidden state that tilts later odds, from `starts_on` up to
+-- `ends_on`. `holder` is whom it is on (`companion:<id>` or a circle person's id); kinds are 'mood', 'money' and
+-- 'avoid' (the holder keeps away from `about`). A ripple is a mark another companion took from one close to them.
+CREATE TABLE IF NOT EXISTS marks (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  consequence_id TEXT NOT NULL,
+  holder TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('mood', 'money', 'avoid')),
+  amount INTEGER NOT NULL DEFAULT 0,
+  about TEXT,
+  note TEXT NOT NULL,
+  ripple INTEGER NOT NULL DEFAULT 0,
+  starts_on TEXT NOT NULL,
+  ends_on TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS marks_holder ON marks(timeline_id, holder, kind, starts_on);
+CREATE INDEX IF NOT EXISTS marks_consequence ON marks(consequence_id);
+
+-- Life chapters (dungeon/life/chapters.py): lasting changes to a companion's life (a new job, a move, a pet, a
+-- hobby, a friend moving away), picked by the consequence engine. `changes` is the overlay on the character for this
+-- timeline (career, location, interest); `undo` is what taking it back reverses (home items, circle people);
+-- `told` goes into the chat context and `share` can open a conversation.
+CREATE TABLE IF NOT EXISTS life_chapters (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  kind TEXT NOT NULL,
+  started_on TEXT NOT NULL,
+  title TEXT NOT NULL,
+  told TEXT NOT NULL,
+  share TEXT NOT NULL,
+  changes TEXT NOT NULL DEFAULT '{}',
+  undo TEXT NOT NULL DEFAULT '{}',
+  consequence_id TEXT,
+  undone_at TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS life_chapters_timeline ON life_chapters(timeline_id, started_on);
+
+-- The last local date each timeline was checked for a new life chapter.
+CREATE TABLE IF NOT EXISTS chapter_days (
+  timeline_id TEXT PRIMARY KEY REFERENCES timelines(id),
+  through TEXT NOT NULL
+);
+-- Voice notes (Settings > Models > Voice notes, dungeon/voice/): whether companions sometimes send one instead of
+-- a text, and which engine reads them aloud. Keys for the hosted engines live in the OS credential vault.
+CREATE TABLE IF NOT EXISTS voice_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  voice_notes INTEGER NOT NULL DEFAULT 1 CHECK (voice_notes IN (0, 1)),
+  engine TEXT NOT NULL DEFAULT 'builtin' CHECK (engine IN ('builtin', 'openai', 'elevenlabs', 'google')),
+  daily_limit INTEGER NOT NULL DEFAULT 3 CHECK (daily_limit BETWEEN 1 AND 20),
+  updated_at TEXT NOT NULL
+);
+
+-- A voice the user picked for a companion on one engine. Without a row the app picks one that suits them.
+CREATE TABLE IF NOT EXISTS companion_voices (
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  engine TEXT NOT NULL,
+  voice TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (companion_id, engine)
+);
+
+-- A companion message sent as a voice note: the audio file in the workspace's voice-notes folder. A forked
+-- timeline's copy of the message shares the file.
+CREATE TABLE IF NOT EXISTS voice_notes (
+  message_id TEXT PRIMARY KEY REFERENCES messages(id),
+  file TEXT NOT NULL,
+  media_type TEXT NOT NULL,
+  duration_ms INTEGER,
+  engine TEXT NOT NULL,
+  voice TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+-- On their mind (dungeon/life/thoughts.py): one thought a day per timeline, worded by rules from what happened that
+-- day; `phrased` is the model's polish when background phrasing is on, `polish_tried` stops a second attempt.
+CREATE TABLE IF NOT EXISTS thoughts (
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  day TEXT NOT NULL,
+  topic TEXT NOT NULL,
+  text TEXT NOT NULL,
+  phrased TEXT,
+  polish_tried INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (timeline_id, day)
+);
+
+-- News travels (dungeon/news.py): something big enough to share from a companion's own life (a storyline beat
+-- that turned out good or bad, a new chapter), spreading one hop a day along who knows whom. `about` is the companion
+-- it happened to; `spread_through` the last day whose evening it has spread on.
+CREATE TABLE IF NOT EXISTS news (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  source TEXT NOT NULL UNIQUE,
+  about TEXT NOT NULL,
+  text TEXT NOT NULL,
+  happened_on TEXT NOT NULL,
+  spread_through TEXT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'ended')),
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS news_timeline ON news(timeline_id, status, happened_on);
+
+-- Who has heard each piece of news, when (their teller's local day), and who told them: `told_by` is a person key,
+-- 'user', or NULL for the companion it happened to (`hop` 0).
+CREATE TABLE IF NOT EXISTS news_holders (
+  news_id TEXT NOT NULL REFERENCES news(id),
+  holder TEXT NOT NULL,
+  told_by TEXT,
+  hop INTEGER NOT NULL,
+  heard_on TEXT NOT NULL,
+  via TEXT NOT NULL CHECK (via IN ('origin', 'word', 'group')),
+  message_id TEXT,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (news_id, holder)
+);
+CREATE INDEX IF NOT EXISTS news_holders_holder ON news_holders(holder, heard_on);
+
+-- Group chat moods (dungeon/moods.py): each member's one current mood, by rules. `day` is their local day
+-- when it last changed (it resets overnight); `furious_replies` counts replies sent while furious, for walking out.
+CREATE TABLE IF NOT EXISTS moods (
+  holder TEXT PRIMARY KEY,
+  feeling TEXT NOT NULL CHECK (feeling IN ('calm', 'happy', 'excited', 'annoyed', 'hurt', 'angry', 'anxious', 'sad')),
+  intensity INTEGER NOT NULL CHECK (intensity BETWEEN 1 AND 3),
+  target TEXT,
+  reason TEXT NOT NULL,
+  day TEXT NOT NULL,
+  furious_replies INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL
+);
+
+-- Local programs the Dungeon starts (dungeon/launcher.py): where each is installed, found or typed by the
+-- user (`chosen`), and KoboldCpp's model file. Whether they all start with the Dungeon is
+-- workspace_settings.auto_launch.
+CREATE TABLE IF NOT EXISTS local_programs (
+  program TEXT PRIMARY KEY CHECK (program IN ('lmstudio', 'ollama', 'kobold', 'comfyui')),
+  path TEXT NOT NULL DEFAULT '',
+  chosen INTEGER NOT NULL DEFAULT 0 CHECK (chosen IN (0, 1)),
+  model_path TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL
+);
+
+-- Who the user is in this world (dungeon/worlds.py): the persona the world belongs to, copied from worlds.json
+-- in the data folder whenever the world opens or the persona changes. The prompt and Matchlight read it here.
+CREATE TABLE IF NOT EXISTS persona (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  persona_id TEXT NOT NULL,
+  name TEXT NOT NULL DEFAULT '',
+  gender TEXT NOT NULL DEFAULT '',
+  age INTEGER,
+  about TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL
+);
+
+-- While you were away (dungeon/recap.py): the catch-up the user has read, by the last message it followed.
+CREATE TABLE IF NOT EXISTS away_recaps (
+  timeline_id TEXT PRIMARY KEY REFERENCES timelines(id),
+  since TEXT NOT NULL,
+  dismissed_at TEXT NOT NULL
+);
+
+-- Lore from imported lorebooks (dungeon/lore.py, dungeon/imports/characters.py): a book belongs to one
+-- companion, or to the whole world when companion_id is NULL. An entry joins the prompt when one of its keywords
+-- is in the conversation, or always when `always` is set; `pattern` marks entries whose search patterns the app
+-- cannot match, which stay off.
+CREATE TABLE IF NOT EXISTS lore_books (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT REFERENCES companions(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  source_format TEXT NOT NULL DEFAULT '',
+  source_file TEXT NOT NULL DEFAULT '',
+  enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS lore_entries (
+  id TEXT PRIMARY KEY,
+  book_id TEXT NOT NULL REFERENCES lore_books(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL,
+  title TEXT NOT NULL DEFAULT '',
+  text TEXT NOT NULL,
+  keywords TEXT NOT NULL DEFAULT '[]',
+  always INTEGER NOT NULL DEFAULT 0 CHECK (always IN (0, 1)),
+  pattern INTEGER NOT NULL DEFAULT 0 CHECK (pattern IN (0, 1)),
+  enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1))
+);
+CREATE INDEX IF NOT EXISTS lore_entries_book ON lore_entries(book_id, position);
+
+-- The Life deck and random tables (dungeon/life/deck.py): the small moment drawn into each day of a companion's
+-- life, once. `card_id` is NULL on a day nothing happened; `friend_id` is the circle member a card names;
+-- `picked_by` is 'user' once the user made it go another way, and `attempts` counts those changes.
+CREATE TABLE IF NOT EXISTS life_moments (
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  day TEXT NOT NULL,
+  card_id TEXT,
+  friend_id TEXT,
+  odds REAL NOT NULL DEFAULT 0,
+  picked_by TEXT NOT NULL DEFAULT 'dice' CHECK (picked_by IN ('dice', 'user')),
+  attempts INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (timeline_id, day)
+);
+
+-- Dreams (dungeon/life/dreams.py): one row per night, named by the day before it, decided once. `text` is NULL on
+-- a night without a dream; `sleep_talk` is the circle member who says they talked in their sleep.
+CREATE TABLE IF NOT EXISTS dreams (
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  night TEXT NOT NULL,
+  template TEXT,
+  text TEXT,
+  told TEXT,
+  share TEXT,
+  sleep_talk TEXT,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (timeline_id, night)
+);
+
+-- Family traditions (dungeon/life/traditions.py): a few holidays the companion's family keeps, seeded once per
+-- timeline from dungeon/world/data/traditions.json and the circle. `text` keeps a {their} token for "their" or
+-- "your"; `host_id` is the circle member it happens with. The user can reword one (edited), drop it (removed) or
+-- add their own (origin 'user').
+CREATE TABLE IF NOT EXISTS family_traditions (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  holiday TEXT NOT NULL,
+  host_id TEXT,
+  text TEXT NOT NULL,
+  origin TEXT NOT NULL CHECK (origin IN ('seeded', 'user')),
+  edited INTEGER NOT NULL DEFAULT 0 CHECK (edited IN (0, 1)),
+  removed INTEGER NOT NULL DEFAULT 0 CHECK (removed IN (0, 1)),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE (timeline_id, holiday)
+);
+
+-- Our year so far (dungeon/life/scrapbook.py): the scrapbooks Today has pointed to and the user opened or put
+-- away, so the card on Today shows once per anniversary or New Year.
+CREATE TABLE IF NOT EXISTS scrapbook_seen (
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  key TEXT NOT NULL,
+  seen_at TEXT NOT NULL,
+  PRIMARY KEY (timeline_id, key)
+);
+
+-- Go somewhere together (dungeon/life/outings.py): an outing with the user the app settled from a message that asked
+-- for it (or a firm plan in a companion reply): when, what and the place the companion picked (`named` when the user
+-- named it). `rolls` counts "somewhere else"; `ended_at` is heading home early; `cost` is the companion's share.
+CREATE TABLE IF NOT EXISTS outings (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  message_id TEXT NOT NULL UNIQUE REFERENCES messages(id),
+  local_date TEXT NOT NULL,
+  at_time TEXT NOT NULL,
+  until_time TEXT NOT NULL,
+  activity TEXT NOT NULL,
+  asked_date TEXT,
+  place TEXT NOT NULL,
+  named INTEGER NOT NULL DEFAULT 0 CHECK (named IN (0, 1)),
+  cost REAL NOT NULL DEFAULT 0,
+  rolls INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'cancelled', 'done')),
+  ended_at TEXT,
+  cancelled_at TEXT,
+  memory_id TEXT,
+  photo_post_id TEXT,
+  photo_tried INTEGER NOT NULL DEFAULT 0 CHECK (photo_tried IN (0, 1)),
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS outings_companion ON outings(companion_id, local_date);
+
+-- Trips and postcards (dungeon/life/trips.py): a weekend away the app decided for a timeline, two to three weeks
+-- ahead. `company` is who they go with or stay with (JSON, or NULL alone); `landmark` is the postcard's.
+CREATE TABLE IF NOT EXISTS trips (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  start_date TEXT NOT NULL,
+  end_date TEXT NOT NULL,
+  city_id TEXT NOT NULL,
+  city_name TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('getaway', 'family')),
+  company TEXT,
+  landmark TEXT,
+  sunny INTEGER NOT NULL DEFAULT 0 CHECK (sunny IN (0, 1)),
+  cost REAL NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'cancelled')),
+  created_at TEXT NOT NULL,
+  UNIQUE (timeline_id, start_date)
+);
+
+-- Character reference sheets (dungeon/images/sheet.py): a three-panel sheet Codex makes before any other picture
+-- of a companion, which later Codex pictures of them follow. `fingerprint` is their looks in words when it was made,
+-- so an edited appearance gets a new sheet. The file is in images/sheets/.
+CREATE TABLE IF NOT EXISTS character_sheets (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  fingerprint TEXT NOT NULL,
+  file TEXT NOT NULL,
+  prompt TEXT NOT NULL,
+  backend_id TEXT,
+  from_picture INTEGER NOT NULL DEFAULT 0 CHECK (from_picture IN (0, 1)),
+  width INTEGER,
+  height INTEGER,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS character_sheets_companion ON character_sheets(companion_id, fingerprint, created_at);
+-- Old chats brought in as older history (dungeon/imports/chats.py). Their messages carry `import_id`,
+-- so they read as history without counting as new conversation: no replies, notifications, moods,
+-- closeness or consequences come from them. `sha256` keeps the same file from coming in twice on one timeline.
+CREATE TABLE IF NOT EXISTS chat_imports (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  filename TEXT NOT NULL,
+  format TEXT NOT NULL CHECK (format IN ('sillytavern', 'messages')),
+  sha256 TEXT NOT NULL,
+  messages INTEGER NOT NULL,
+  skipped INTEGER NOT NULL,
+  memories INTEGER NOT NULL,
+  dated INTEGER NOT NULL CHECK (dated IN (0, 1)),
+  first_at TEXT NOT NULL,
+  last_at TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+-- The town's mix (dungeon/world/mix.py, Settings > Debug): the shares townsfolk rolls use for looks and who people
+-- are drawn to. No row is the built-in mix. Each world keeps its own; a new world starts from the one it was made from.
+CREATE TABLE IF NOT EXISTS townsfolk_mix (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  mix TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- Home upkeep (dungeon/life/upkeep.py): a companion's seeded tidiness habit (or the one the user picked) and the
+-- tidiness the user last set with Set it. The mess on any date is walked from these, never stored day by day.
+CREATE TABLE IF NOT EXISTS upkeep_state (
+  timeline_id TEXT PRIMARY KEY REFERENCES timelines(id),
+  seed TEXT NOT NULL,
+  habit TEXT NOT NULL CHECK (habit IN ('neat', 'average', 'messy')),
+  habit_set TEXT CHECK (habit_set IN ('neat', 'average', 'messy')),
+  started TEXT NOT NULL,
+  era TEXT NOT NULL,
+  set_on TEXT,
+  set_level INTEGER CHECK (set_level BETWEEN 0 AND 4),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+-- One walked day of upkeep before the companion's today, kept so what already happened never changes: the mess in
+-- each area (JSON, 0-100), what got done (JSON list), and the days since the last big clean.
+CREATE TABLE IF NOT EXISTS upkeep_days (
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  local_date TEXT NOT NULL,
+  mess TEXT NOT NULL,
+  done TEXT NOT NULL,
+  away INTEGER NOT NULL DEFAULT 0 CHECK (away IN (0, 1)),
+  busy INTEGER NOT NULL DEFAULT 0 CHECK (busy IN (0, 1)),
+  since_big INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (timeline_id, local_date)
+);
+-- Author's note (dungeon/authors_note.py): one note of the user's per chat, sent with every reply while it is on.
+-- `chat` is `companion:<id>`, `group:<id>` or `story`. Never a message: not in the transcript, memories or exports.
+CREATE TABLE IF NOT EXISTS authors_notes (
+  chat TEXT PRIMARY KEY,
+  text TEXT NOT NULL DEFAULT '',
+  enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  updated_at TEXT NOT NULL
+);
+-- Looks that change (dungeon/life/grooming.py): the companion's grooming habits, drawn once per timeline, and
+-- whether the user keeps their looks as they are. `next_period` is the first two-week period not yet fully drawn.
+CREATE TABLE IF NOT EXISTS grooming_state (
+  timeline_id TEXT PRIMARY KEY REFERENCES timelines(id),
+  seed TEXT NOT NULL,
+  started TEXT NOT NULL,
+  profile TEXT NOT NULL,
+  next_period INTEGER NOT NULL DEFAULT 0,
+  kept INTEGER NOT NULL DEFAULT 0 CHECK (kept IN (0, 1)),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+-- Each looks change on the local date it happens, one per period and track (hair, nails, sun, bold). `change` holds
+-- what it sets (a colour, cut, nail look, tan, glasses or facial hair); `spend` is a paid one's price tier.
+CREATE TABLE IF NOT EXISTS grooming_log (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  period INTEGER NOT NULL,
+  track TEXT NOT NULL CHECK (track IN ('hair', 'nails', 'sun', 'bold')),
+  local_date TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  change TEXT NOT NULL,
+  text TEXT NOT NULL,
+  spend TEXT NOT NULL DEFAULT '',
+  bold INTEGER NOT NULL DEFAULT 0 CHECK (bold IN (0, 1)),
+  created_at TEXT NOT NULL,
+  UNIQUE (timeline_id, period, track)
+);
+CREATE INDEX IF NOT EXISTS grooming_log_day ON grooming_log(timeline_id, local_date);
+-- Pets with lives of their own (dungeon/life/pets.py): what happened to each pet, written once as the days pass
+-- so the past stays put when a Realism setting changes. `pet_key` names the pet: 'home:<home_items id>' for the
+-- companion's, 'circle:<circle_people id>:<n>', 'town:<townsperson key>' or 'persona:<name>'. `until` ends a sick
+-- spell; `spend` is a vet bill's tier, counted for the companion's pets only (money.household).
+CREATE TABLE IF NOT EXISTS pet_log (
+  id TEXT PRIMARY KEY,
+  pet_key TEXT NOT NULL,
+  local_date TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('sick', 'vet', 'checkup', 'died')),
+  until TEXT,
+  text TEXT NOT NULL,
+  serious INTEGER NOT NULL DEFAULT 0 CHECK (serious IN (0, 1)),
+  spend TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS pet_log_pet ON pet_log(pet_key, local_date);
+-- How far each pet's life has been written (pets.evolve).
+CREATE TABLE IF NOT EXISTS pet_state (
+  pet_key TEXT PRIMARY KEY,
+  through TEXT NOT NULL
+);
+-- Kitchen and food (dungeon/life/kitchen.py): the companion's seeded way of eating (diet, things avoided, cooking
+-- skill, baking, favourite dishes) and the user's changes to it. Meals and the pantry are drawn per day, not stored.
+CREATE TABLE IF NOT EXISTS kitchen_state (
+  timeline_id TEXT PRIMARY KEY REFERENCES timelines(id),
+  seed TEXT NOT NULL,
+  profile TEXT NOT NULL,
+  overrides TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- Life admin calendar (dungeon/life/admin.py): appointments, deadlines, errands, paperwork and chores on the
+-- companion's days, from Life admin itself and from Pets, Home upkeep, Kitchen and Looks (`source`). `key` is the
+-- adder's own id for it, so nothing is added twice. An entry moves rather than being cancelled: `moved_from` is the
+-- day it was first meant for and `moved_reason` why ('clash', 'put-off', 'user', 'away'); `revision` changes with each
+-- move so the agenda composes its slot again. `cost` is in the city's currency, or `spend` a price tier.
+CREATE TABLE IF NOT EXISTS life_admin (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  key TEXT NOT NULL,
+  source TEXT NOT NULL CHECK (source IN ('admin', 'pets', 'upkeep', 'kitchen', 'looks', 'work', 'school', 'health')),
+  kind TEXT NOT NULL,
+  title TEXT NOT NULL,
+  done_text TEXT NOT NULL,
+  line TEXT NOT NULL DEFAULT '',
+  local_date TEXT NOT NULL,
+  at_time TEXT NOT NULL,
+  first_date TEXT NOT NULL,
+  deadline TEXT,
+  minutes INTEGER NOT NULL DEFAULT 60,
+  fixed INTEGER NOT NULL DEFAULT 0 CHECK (fixed IN (0, 1)),
+  out_of_home INTEGER NOT NULL DEFAULT 0 CHECK (out_of_home IN (0, 1)),
+  place TEXT,
+  cost REAL NOT NULL DEFAULT 0,
+  spend TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'done', 'removed')),
+  moved_from TEXT,
+  moved_reason TEXT,
+  moves INTEGER NOT NULL DEFAULT 0,
+  revision INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE (timeline_id, key)
+);
+CREATE INDEX IF NOT EXISTS life_admin_day ON life_admin(timeline_id, status, local_date);
+
+-- Work life (dungeon/life/work.py): the companion's job state. `career` is the career it is for (a new career
+-- starts it afresh); `review_on` is the yearly review day ('MM-DD'); `pay` is their pay as a share of the career's
+-- base after raises and promotions; between jobs `status` is 'hunting' until `hunt_until`. `project` is the running
+-- project ({title, index, started, due}) and `used` the recent titles, so one does not come back soon.
+CREATE TABLE IF NOT EXISTS work_life (
+  timeline_id TEXT PRIMARY KEY REFERENCES timelines(id),
+  career TEXT NOT NULL DEFAULT '',
+  kind TEXT NOT NULL DEFAULT 'general',
+  started_on TEXT NOT NULL,
+  review_on TEXT NOT NULL,
+  pay REAL NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'working' CHECK (status IN ('working', 'hunting')),
+  hunt_since TEXT,
+  hunt_until TEXT,
+  hunt_reason TEXT,
+  employer TEXT NOT NULL DEFAULT '',
+  project TEXT NOT NULL,
+  used TEXT NOT NULL DEFAULT '[]',
+  checked_through TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- What changed at work (dungeon/life/work.py): reviews, promotions, projects wrapped up, a lost job and a new one.
+-- `key` keeps each from being recorded twice; `pay` is the pay share after it and `change` the percent change.
+CREATE TABLE IF NOT EXISTS work_events (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  key TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('raise', 'freeze', 'promotion', 'project', 'laid-off', 'quit', 'new-job')),
+  local_date TEXT NOT NULL,
+  text TEXT NOT NULL,
+  pay REAL NOT NULL DEFAULT 1,
+  change REAL NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  UNIQUE (timeline_id, key)
+);
+CREATE INDEX IF NOT EXISTS work_events_day ON work_events(timeline_id, local_date);
+
+-- Personality sliders the user changed on a townsperson's profile (dungeon/world/personality.py), by town (a
+-- companion's own town seed, '' for the city's shared townsfolk) and townsperson key. The rest stays rolled.
+CREATE TABLE IF NOT EXISTS townsfolk_personality (
+  town TEXT NOT NULL,
+  key TEXT NOT NULL,
+  sliders TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (town, key)
+);
+-- Our history at a glance (dungeon/memory/history.py): the user's own words for a line of the "All of it" view,
+-- keyed by its stretch (w2026-10-06, m2026-09, y2025). Empty text leaves the line out; no row keeps the app's line.
+CREATE TABLE IF NOT EXISTS history_corrections (
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  period_key TEXT NOT NULL,
+  text TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (timeline_id, period_key)
+);
+
+-- Reading, watching and listening (dungeon/life/media.py): the companion's seeded taste profile (their bank, how keen
+-- a reader and viewer they are, whether they borrow books) and the chain of books, shows and songs they are on. Each
+-- item's days, how it ends and the verdict are decided when it starts; `held` counts days it waited while they were on
+-- something the user recommended. `source` is 'bank' for the app's pick and 'user' for one set on the Character page.
+CREATE TABLE IF NOT EXISTS media_state (
+  timeline_id TEXT PRIMARY KEY REFERENCES timelines(id),
+  seed TEXT NOT NULL,
+  profile TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS media_items (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  kind TEXT NOT NULL CHECK (kind IN ('book', 'show', 'music')),
+  seq INTEGER NOT NULL DEFAULT 0,
+  title TEXT NOT NULL,
+  creator TEXT NOT NULL DEFAULT '',
+  format TEXT NOT NULL DEFAULT '',
+  tags TEXT NOT NULL DEFAULT '',
+  source TEXT NOT NULL CHECK (source IN ('bank', 'user')),
+  started_on TEXT NOT NULL,
+  ends_on TEXT NOT NULL,
+  outcome TEXT NOT NULL DEFAULT 'finish' CHECK (outcome IN ('finish', 'drop')),
+  verdict TEXT NOT NULL DEFAULT '',
+  held INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'current' CHECK (status IN ('current', 'done', 'replaced')),
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS media_items_chain ON media_items(timeline_id, kind, started_on);
+
+-- Hobbies that progress (dungeon/life/hobbies.py): the companion's tracked pastimes, each with a skill that grows
+-- with practice, and how far their life has been walked. `hobby_log` keeps what happened (sessions, milestones,
+-- stalls, new starts, gear and fees) and a weekly `mark` of every pastime, so the days ahead can be walked again after
+-- a change.
+CREATE TABLE IF NOT EXISTS hobby_state (
+  timeline_id TEXT PRIMARY KEY REFERENCES timelines(id),
+  seed TEXT NOT NULL,
+  through TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS hobbies (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  hobby TEXT NOT NULL,
+  label TEXT NOT NULL,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  source TEXT NOT NULL CHECK (source IN ('interest', 'app', 'user')),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'stalled', 'dropped')),
+  skill REAL NOT NULL DEFAULT 0,
+  best REAL NOT NULL DEFAULT 0,
+  talent REAL NOT NULL DEFAULT 1,
+  per_week INTEGER NOT NULL DEFAULT 1,
+  started_on TEXT NOT NULL,
+  status_since TEXT NOT NULL,
+  last_practice TEXT,
+  sessions INTEGER NOT NULL DEFAULT 0,
+  next_at REAL NOT NULL DEFAULT 0,
+  used TEXT NOT NULL DEFAULT '[]',
+  reason TEXT NOT NULL DEFAULT '',
+  paid_through TEXT NOT NULL DEFAULT '',
+  kept INTEGER NOT NULL DEFAULT 0 CHECK (kept IN (0, 1)),
+  position INTEGER NOT NULL DEFAULT 0,
+  created_on TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS hobbies_timeline ON hobbies(timeline_id, position);
+CREATE TABLE IF NOT EXISTS hobby_log (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  hobby_id TEXT NOT NULL,
+  local_date TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  text TEXT NOT NULL DEFAULT '',
+  post TEXT NOT NULL DEFAULT '',
+  level INTEGER NOT NULL DEFAULT 0,
+  spend TEXT NOT NULL DEFAULT '',
+  details TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS hobby_log_day ON hobby_log(timeline_id, local_date, kind);
+-- Together or apart (dungeon/life/together.py): a visit the user asked for that the companion had to turn down
+-- (at work, asleep, too far away), so the reply to that message says why.
+CREATE TABLE IF NOT EXISTS together_asks (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  message_id TEXT NOT NULL UNIQUE REFERENCES messages(id),
+  kind TEXT NOT NULL,
+  reason TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL
+);
+-- Shifts and gigs (dungeon/life/shifts.py): a rota job's shifts or a freelancer's gigs, one row per week once it is
+-- planned, so a past week stays as it was. `days` are weekday numbers (0 is Monday); `pay` is the week's against an
+-- ordinary one.
+CREATE TABLE IF NOT EXISTS work_weeks (
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  monday TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('rota', 'freelance')),
+  career TEXT NOT NULL DEFAULT '',
+  days TEXT NOT NULL DEFAULT '[]',
+  spell TEXT NOT NULL DEFAULT '',
+  workload TEXT NOT NULL DEFAULT 'normal',
+  pay REAL NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (timeline_id, monday)
+);
+-- On a call (dungeon/life/calls.py): a phone call with the user, started by either side. A ring nobody answers
+-- reads as missed and a call ends on its own when its time is up or the line goes quiet, worked out when read.
+CREATE TABLE IF NOT EXISTS calls (
+  id TEXT PRIMARY KEY,
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  direction TEXT NOT NULL CHECK (direction IN ('you', 'them')),
+  status TEXT NOT NULL CHECK (status IN ('ringing', 'on', 'missed', 'declined', 'ended')),
+  message_id TEXT REFERENCES messages(id),
+  trigger_key TEXT,
+  reason TEXT NOT NULL DEFAULT '{}',
+  started_at TEXT,
+  until_at TEXT,
+  ended_at TEXT,
+  ended_by TEXT REFERENCES messages(id),
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS calls_timeline ON calls(timeline_id, created_at);
+-- Rough patches and making up (dungeon/life/rough_patches.py): something that could start a falling-out with a
+-- companion, rolled once (consequence_id, choice user:rough_patch) or started by them (fault 'companion'), and how it
+-- was mended. Open while not mended, picked to start and not faded by time; worked out when read.
+CREATE TABLE IF NOT EXISTS rough_patches (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  cause TEXT NOT NULL,
+  subject TEXT NOT NULL UNIQUE,
+  about TEXT NOT NULL DEFAULT '',
+  shown TEXT NOT NULL DEFAULT '',
+  fault TEXT NOT NULL CHECK (fault IN ('user', 'companion')),
+  size TEXT NOT NULL CHECK (size IN ('small', 'big')),
+  consequence_id TEXT,
+  outing_id TEXT,
+  needs INTEGER NOT NULL DEFAULT 1,
+  apologised_at TEXT,
+  gesture_at TEXT,
+  started_at TEXT NOT NULL,
+  started_on TEXT NOT NULL,
+  mended_at TEXT,
+  mended_by TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS rough_patches_timeline ON rough_patches(timeline_id, mended_at);
+-- A promise the user made in the chat that the app can check ("I'll call you tonight"): kept by a word from them
+-- after a gap, or a call, by `due_at`; broken ones can start a rough patch.
+CREATE TABLE IF NOT EXISTS rough_patch_promises (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  message_id TEXT NOT NULL UNIQUE REFERENCES messages(id),
+  what TEXT NOT NULL,
+  due_at TEXT NOT NULL,
+  settled_at TEXT,
+  kept INTEGER,
+  created_at TEXT NOT NULL
+);
+-- Next steps (dungeon/life/steps.py): each step a pair has reached on its ladder, with the day. `other` is who the
+-- companion is paired with ('user' for the user); `how` says who moved it there: the app's pick at the start ('start',
+-- or 'history' from how they know each other), the companion bringing it up ('them'), the user ('you'), the Character
+-- page ('set') or a friend's confession ('confession'). A step taken back keeps its row with `undone_at`.
+CREATE TABLE IF NOT EXISTS relationship_steps (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  other TEXT NOT NULL DEFAULT 'user',
+  ladder TEXT NOT NULL CHECK (ladder IN ('romance', 'friendship', 'parenthood')),
+  step TEXT NOT NULL,
+  reached_on TEXT NOT NULL,
+  how TEXT NOT NULL CHECK (how IN ('start', 'history', 'them', 'you', 'set', 'confession')),
+  ask_id TEXT,
+  undone_at TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS relationship_steps_pair ON relationship_steps(timeline_id, other, ladder);
+-- A next step brought up by either side, or a confession: planned for a day (`due_on`), open once said, then answered.
+CREATE TABLE IF NOT EXISTS step_asks (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  other TEXT NOT NULL DEFAULT 'user',
+  ladder TEXT NOT NULL,
+  step TEXT NOT NULL,
+  side TEXT NOT NULL CHECK (side IN ('them', 'you')),
+  status TEXT NOT NULL CHECK (status IN ('planned', 'open', 'yes', 'not_yet', 'no', 'lapsed', 'dropped')),
+  due_on TEXT,
+  message_id TEXT,
+  answer_id TEXT,
+  consequence_id TEXT,
+  round INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  settled_at TEXT
+);
+CREATE INDEX IF NOT EXISTS step_asks_timeline ON step_asks(timeline_id, status);
+-- The per-companion "just friends" lock: a friend who never falls for the user.
+CREATE TABLE IF NOT EXISTS step_settings (
+  companion_id TEXT PRIMARY KEY REFERENCES companions(id),
+  just_friends INTEGER NOT NULL DEFAULT 0 CHECK (just_friends IN (0, 1)),
+  updated_at TEXT NOT NULL
+);
+-- Their own love life (dungeon/life/love_life.py): someone a companion is seeing. Their steps are in
+-- relationship_steps with other 'love:<id>'. `person_id` is their place in the circle (none for a secret, which never
+-- joins the circle the user sees); `ended_how` is split, removed (the user took them out of the circle), faded,
+-- came_out (a secret found out, `out_via` small_world or news, seen by `witness_id` at `place`) or undone.
+CREATE TABLE IF NOT EXISTS love_partners (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  person_id TEXT,
+  name TEXT NOT NULL,
+  details TEXT NOT NULL DEFAULT '{}',
+  secret INTEGER NOT NULL DEFAULT 0 CHECK (secret IN (0, 1)),
+  met_on TEXT NOT NULL,
+  ended_on TEXT,
+  ended_how TEXT CHECK (ended_how IN ('split', 'removed', 'faded', 'came_out', 'undone')),
+  out_via TEXT CHECK (out_via IN ('small_world', 'news')),
+  witness_id TEXT,
+  place TEXT,
+  consequence_id TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS love_partners_timeline ON love_partners(timeline_id, ended_on);
+
+-- Meeting their people (dungeon/life/their_people.py): a family dinner or a night out with the companion's
+-- people the app planned (why: the "meeting their people" step, or a best friend's night out), invited to in a first
+-- text that books its outing; `people` are the circle person ids who came (JSON).
+CREATE TABLE IF NOT EXISTS people_meetups (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  kind TEXT NOT NULL CHECK (kind IN ('family', 'friends')),
+  why TEXT NOT NULL CHECK (why IN ('step', 'friends')),
+  status TEXT NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'booked', 'done', 'dropped')),
+  due_on TEXT NOT NULL,
+  people TEXT NOT NULL DEFAULT '[]',
+  outing_id TEXT,
+  consequence_id TEXT,
+  created_at TEXT NOT NULL,
+  settled_at TEXT
+);
+CREATE INDEX IF NOT EXISTS people_meetups_timeline ON people_meetups(timeline_id, status);
+-- What a circle person thinks of the user, from the first time they met (`met_on`: a day, 'before' for a couple who
+-- go back years, NULL while the meet-up is still to come): the first impression and how warm it is now (-2 to 3),
+-- moved by what happened since (`moves`, JSON), checked once a week.
+CREATE TABLE IF NOT EXISTS people_impressions (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  person_id TEXT NOT NULL REFERENCES circle_people(id),
+  meetup_id TEXT,
+  impression TEXT NOT NULL,
+  warmth INTEGER NOT NULL,
+  met_on TEXT,
+  checked_on TEXT,
+  moves TEXT NOT NULL DEFAULT '[]',
+  consequence_id TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE (timeline_id, person_id)
+);
+-- Moving in together (dungeon/life/moving_in.py): where a couple lives once they reach the moving-in step. `plan` is
+-- whose place in one city ('yours', 'theirs' or 'new'), or who moves across the distance ('them' to the user's city, or
+-- 'you': they asked the user to move to theirs). `status` is 'moving' until `move_on`, 'waiting' until the user moves to
+-- their city, 'moved' (since `moved_on`), then 'moved_out' (`out_on`, and `out_who` left: 'them' or 'you'). `city_id` and
+-- `neighbourhood` are where the shared home is; `out_until` is the user out for the evening (texting, not home together).
+CREATE TABLE IF NOT EXISTS moving_in (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  plan TEXT NOT NULL CHECK (plan IN ('yours', 'theirs', 'new', 'them', 'you')),
+  status TEXT NOT NULL CHECK (status IN ('moving', 'waiting', 'moved', 'moved_out')),
+  city_id TEXT NOT NULL DEFAULT '',
+  neighbourhood TEXT NOT NULL DEFAULT '',
+  decided_on TEXT NOT NULL,
+  move_on TEXT,
+  moved_on TEXT,
+  out_on TEXT,
+  out_who TEXT,
+  chapter_id TEXT,
+  home_item_id TEXT,
+  ended_item_ids TEXT NOT NULL DEFAULT '[]',
+  consequence_id TEXT,
+  message_id TEXT,
+  out_until TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS moving_in_timeline ON moving_in(timeline_id, status);
+-- Breaks and breakups (dungeon/life/breakups.py): a relationship with a companion coming apart, one row from the
+-- first warning on. Each stage is a roll in the consequence engine (`*_id`, read when shown, so changing it on Today
+-- moves it) or the user's own doing (`*_by` 'you'). `ended_by` 'break' means the roll at the end of a break decides
+-- (`ended_id`: try again or end it). `message_id` is the user's message that ended it or asked for a break; `answer_id`
+-- and `answer_said` the user's latest ask to try again and the answer. `steps_back` (JSON) lists the steps taken back
+-- on getting back together, which the scrapbook keeps.
+CREATE TABLE IF NOT EXISTS breakups (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  ladder TEXT NOT NULL CHECK (ladder IN ('romance', 'friendship')),
+  patch_id TEXT,
+  strained_id TEXT,
+  strained_by TEXT,
+  strained_at TEXT,
+  thinking_id TEXT,
+  thinking_at TEXT,
+  break_id TEXT,
+  break_by TEXT CHECK (break_by IN ('them', 'you')),
+  break_at TEXT,
+  ended_id TEXT,
+  ended_by TEXT CHECK (ended_by IN ('them', 'you', 'break')),
+  ended_at TEXT,
+  eased_at TEXT,
+  together_id TEXT,
+  together_by TEXT,
+  together_at TEXT,
+  talked INTEGER NOT NULL DEFAULT 0,
+  message_id TEXT,
+  answer_id TEXT,
+  answer_said TEXT,
+  steps_back TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS breakups_timeline ON breakups(timeline_id, created_at);
+-- An ex reaching out about trying again (dungeon/life/breakups.py): planned by a roll, sent as a first text, then
+-- answered, lapsed or dropped.
+CREATE TABLE IF NOT EXISTS breakup_reaches (
+  id TEXT PRIMARY KEY,
+  breakup_id TEXT NOT NULL REFERENCES breakups(id),
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  status TEXT NOT NULL CHECK (status IN ('planned', 'open', 'yes', 'no', 'lapsed', 'dropped')),
+  due_on TEXT NOT NULL,
+  consequence_id TEXT,
+  message_id TEXT,
+  answer_id TEXT,
+  created_at TEXT NOT NULL,
+  settled_at TEXT
+);
+
+-- Engagement and wedding (dungeon/life/wedding.py): the evening a companion plans to propose, for the "engaged" ask
+-- they planned (step_asks): invited to in a first text that books its outing at one of their favourite places, the
+-- question asked over that evening, and the ring (`ring` in words, `ring_cost` in the city's money, paid that day).
+CREATE TABLE IF NOT EXISTS proposals (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  ask_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'booked', 'asked', 'dropped')),
+  due_on TEXT NOT NULL,
+  outing_id TEXT,
+  ring TEXT NOT NULL DEFAULT '',
+  ring_cost REAL NOT NULL DEFAULT 0,
+  asked_on TEXT,
+  asked_message_id TEXT,
+  created_at TEXT NOT NULL,
+  settled_at TEXT
+);
+CREATE INDEX IF NOT EXISTS proposals_timeline ON proposals(timeline_id, status);
+-- The wedding an engagement plans, decided by the app and changed by the user on the Life admin panel: the size
+-- (wedding:size), the day and hours, the venue (JSON, a city place), the budget and the companion's share of it in the
+-- city's money, the culture its customs follow, the guests (JSON: [{key, name, who, side, invited}]) and how many come
+-- in all. Its outing is booked on the timeline; done, it is the "married" step.
+CREATE TABLE IF NOT EXISTS weddings (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  status TEXT NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'done', 'called_off')),
+  engaged_on TEXT NOT NULL,
+  size TEXT NOT NULL CHECK (size IN ('small', 'proper', 'big')),
+  consequence_id TEXT,
+  local_date TEXT NOT NULL,
+  at_time TEXT NOT NULL,
+  until_time TEXT NOT NULL,
+  venue TEXT,
+  venue_rolls INTEGER NOT NULL DEFAULT 0,
+  culture TEXT NOT NULL,
+  budget REAL NOT NULL DEFAULT 0,
+  share REAL NOT NULL DEFAULT 0,
+  guests TEXT NOT NULL DEFAULT '[]',
+  guest_count INTEGER NOT NULL DEFAULT 0,
+  outing_id TEXT,
+  moved_by_user INTEGER NOT NULL DEFAULT 0 CHECK (moved_by_user IN (0, 1)),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS weddings_timeline ON weddings(timeline_id, status);
+-- Sharing a home (dungeon/life/moving_in.py): when a romance companion's moving-in step is reached while the user
+-- already lives with another (or is about to), each of them says whether they are open to sharing a home, one roll in
+-- the consequence engine each (moving_in:share, `consequence_id`). `moving_in_id` is the newcomer's moving_in row,
+-- `timeline_id` and `companion_id` the one asked, `round` counts the times it was asked again after a not yet, `open`
+-- what the roll said, `told_at` when they texted the user about it.
+CREATE TABLE IF NOT EXISTS moving_in_shares (
+  id TEXT PRIMARY KEY,
+  moving_in_id TEXT NOT NULL,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  companion_id TEXT NOT NULL,
+  newcomer INTEGER NOT NULL DEFAULT 0 CHECK (newcomer IN (0, 1)),
+  round INTEGER NOT NULL DEFAULT 1,
+  consequence_id TEXT,
+  open INTEGER NOT NULL DEFAULT 0 CHECK (open IN (0, 1)),
+  told_at TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS moving_in_shares_row ON moving_in_shares(moving_in_id, round);
+-- Everyone gets older (dungeon/life/ages.py): one birth date per person, worked out once from the age they had
+-- when it was first needed (`from_age`, on `anchored_on`) and their birthday ("MM-DD"), so nobody's age jumps on an
+-- upgrade; from then on their age goes up on each birthday. `kind` is whose: a companion (key: companion id), a circle
+-- member (circle_people id), a love-life partner outside the circle (love_partners id) or the town ('town'; the row
+-- with an empty key holds the day the town's people started getting older, a townsperson's own row their key).
+-- `held_age` is the age a companion who "Keeps their age" is held at: the age they were when it was turned on.
+CREATE TABLE IF NOT EXISTS birth_dates (
+  kind TEXT NOT NULL CHECK (kind IN ('companion', 'circle', 'partner', 'town')),
+  person_key TEXT NOT NULL,
+  born_on TEXT NOT NULL,
+  birthday TEXT NOT NULL,
+  from_age INTEGER NOT NULL,
+  anchored_on TEXT NOT NULL,
+  held_age INTEGER,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (kind, person_key)
+);
+-- Big days in the circle (dungeon/life/big_days.py): a wedding, a milestone birthday, a retirement party or a
+-- graduation in the companion's circle or town, or a friend's own wedding (`kind`), found once by `source` (the
+-- storyline, the person and year, the love-life partner). `details` holds whose day it is (name, role, age ...),
+-- `place` where. `invite` is whether they ask the user along (the engine's bigday:invite, `consequence_id`), going out
+-- as a first text on `invite_on`: 'invited' once it has (`message_id`, booked as `outing_id`, and long distance the
+-- user's stay as `trip_id`), 'declined' when the user can't come, 'done' once held (`with_user` when they went).
+-- The gift is bought on `gift_on` for `gift_cost` in the city's money; `outfit` is what they wear.
+CREATE TABLE IF NOT EXISTS big_days (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  kind TEXT NOT NULL,
+  source TEXT NOT NULL,
+  person_id TEXT,
+  status TEXT NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'invited', 'declined', 'done', 'called_off')),
+  local_date TEXT NOT NULL,
+  at_time TEXT NOT NULL,
+  until_time TEXT NOT NULL,
+  place TEXT NOT NULL,
+  details TEXT NOT NULL DEFAULT '{}',
+  invite INTEGER NOT NULL DEFAULT 0 CHECK (invite IN (0, 1)),
+  invite_on TEXT,
+  consequence_id TEXT,
+  gift TEXT NOT NULL DEFAULT '',
+  gift_cost REAL NOT NULL DEFAULT 0,
+  gift_on TEXT,
+  outfit TEXT NOT NULL DEFAULT '',
+  message_id TEXT,
+  outing_id TEXT,
+  trip_id TEXT,
+  with_user INTEGER NOT NULL DEFAULT 0 CHECK (with_user IN (0, 1)),
+  answered_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE (timeline_id, source)
+);
+CREATE INDEX IF NOT EXISTS big_days_timeline ON big_days(timeline_id, status, local_date);
+
+-- Births and growing families (dungeon/life/families.py): a baby in the companion's circle, from the day their
+-- parent's pregnancy storyline (`storyline_id`, story 'expecting') began. `status` is 'expected' until `born_on`,
+-- then 'born'; 'ended' when the storyline was ended first. `title` is what they are to the companion: 'family' (a
+-- niece or nephew), 'godchild' or 'friend' (someone's baby). Children are kept apart from circle_people on purpose.
+CREATE TABLE IF NOT EXISTS circle_children (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  parent_id TEXT NOT NULL,
+  storyline_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  pronouns TEXT NOT NULL CHECK (pronouns IN ('she/her', 'he/him', 'they/them')),
+  title TEXT NOT NULL CHECK (title IN ('family', 'godchild', 'friend', 'ours')),
+  born_on TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('expected', 'born', 'ended')),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS circle_children_timeline ON circle_children(timeline_id, status, born_on);
+CREATE INDEX IF NOT EXISTS circle_children_parent ON circle_children(parent_id);
+
+-- Loss and grief (dungeon/life/loss.py): someone in a companion's circle (`person_id`) or a townsperson they knew
+-- (`town_key`) who passed away, or will on `died_on` (`happened` 0 until then), as the engine's loss:passes decided
+-- (`consequence_id`). `details` holds their pronouns, where they lived, the cause, how deep the grief goes and the
+-- period it was decided for. Undoing a death deletes its row.
+CREATE TABLE IF NOT EXISTS losses (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  kind TEXT NOT NULL CHECK (kind IN ('circle', 'town')),
+  person_id TEXT,
+  town_key TEXT,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  details TEXT NOT NULL DEFAULT '{}',
+  died_on TEXT NOT NULL,
+  happened INTEGER NOT NULL DEFAULT 0 CHECK (happened IN (0, 1)),
+  consequence_id TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE (timeline_id, person_id),
+  UNIQUE (timeline_id, town_key)
+);
+CREATE INDEX IF NOT EXISTS losses_timeline ON losses(timeline_id, happened, died_on);
+
+-- The town changes hands (dungeon/world/turnover.py): the levels Life's big turns, People can pass away with Loss,
+-- and Growing families held before a change, until the week they stopped holding, so a change only moves the town on
+-- from then. `loss` is 0 when nobody passes away, else the Loss slider plus one.
+CREATE TABLE IF NOT EXISTS town_levels (
+  until_week INTEGER PRIMARY KEY,
+  pace INTEGER NOT NULL,
+  loss INTEGER NOT NULL,
+  families INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+-- Wanting children (dungeon/life/parenthood.py): what the user set for a companion on the Character page, NULL
+-- while the app decides (from their description, else the consequence engine's family:wants and family:route).
+-- `wants` is yes, someday or no; `route` how a child would come for the user and a romance companion.
+CREATE TABLE IF NOT EXISTS family_wishes (
+  companion_id TEXT PRIMARY KEY REFERENCES companions(id),
+  wants TEXT CHECK (wants IN ('yes', 'someday', 'no')),
+  route TEXT CHECK (route IN ('expecting_them', 'expecting_you', 'adoption', 'fostering', 'surrogacy', 'ward',
+                              'foundling', 'relative')),
+  updated_at TEXT NOT NULL
+);
+
+-- Companions' own babies (dungeon/life/own_family.py): an evening the companion asks the user to babysit one of
+-- their own children (`child_id`, circle_children) while they and their partner go out. 'planned' until the ask goes
+-- out as a first text (`message_id`), 'asked' until the user's first reply says 'yes' or 'no'; 'done' once a yes
+-- evening has passed, 'called_off' when an unanswered one did (someone else watched them) or the child is withheld.
+CREATE TABLE IF NOT EXISTS babysitting (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  child_id TEXT NOT NULL,
+  local_date TEXT NOT NULL,
+  at_time TEXT NOT NULL,
+  until_time TEXT NOT NULL,
+  ask_on TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('planned', 'asked', 'yes', 'no', 'done', 'called_off')),
+  message_id TEXT,
+  answered_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE (timeline_id, child_id, local_date)
+);
+CREATE INDEX IF NOT EXISTS babysitting_timeline ON babysitting(timeline_id, status, local_date);
+
+-- Companions who already have kids (dungeon/life/kids.py), per timeline: how their own children came to be known
+-- (`how`: their description, their life as a townsperson, the consequence engine's kids:has, or none), the kids' other
+-- parent in their circle (`other_id`, NULL when widowed), where the kids live (`chosen` by the user, else kids:custody's
+-- pick when `pattern_consequence_id`, else `pattern` as the description or the household fixed it), the Monday alternate weeks count from (`since`)
+-- and the first names of children the user took out of their life (`removed`, JSON), so the description doesn't
+-- bring them back. The children themselves are in circle_children.
+CREATE TABLE IF NOT EXISTS companion_kids (
+  timeline_id TEXT PRIMARY KEY REFERENCES timelines(id),
+  companion_id TEXT NOT NULL REFERENCES companions(id),
+  how TEXT NOT NULL CHECK (how IN ('description', 'town', 'seeded', 'none')),
+  other_id TEXT,
+  pattern TEXT NOT NULL CHECK (pattern IN ('together', 'with_them', 'shared', 'weekends', 'sole')),
+  chosen TEXT CHECK (chosen IN ('together', 'with_them', 'shared', 'weekends', 'sole')),
+  consequence_id TEXT,
+  pattern_consequence_id TEXT,
+  since TEXT NOT NULL,
+  removed TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS companion_kids_consequence ON companion_kids(consequence_id);
+
+-- Expecting or adopting together (dungeon/life/expecting.py): how a child comes for the user and a romance companion
+-- once they decided to start a family, planned the day after by the route picked for them. `stages` holds each stage
+-- with its day ({key, on}), planned again from the engine's picks (`consequences`, by choice) when one is changed;
+-- `details` the child's name and pronouns (the user can rename them), their age when they come home, the due date and
+-- a hard turn. `child_id` is the circle_children row (title 'ours') once born or home.
+CREATE TABLE IF NOT EXISTS family_journeys (
+  id TEXT PRIMARY KEY,
+  timeline_id TEXT NOT NULL REFERENCES timelines(id),
+  companion_id TEXT NOT NULL,
+  route TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('planned', 'running', 'home', 'called_off')),
+  decided_on TEXT NOT NULL,
+  started_on TEXT NOT NULL,
+  due_on TEXT,
+  arrived_on TEXT,
+  child_id TEXT,
+  stages TEXT NOT NULL DEFAULT '[]',
+  details TEXT NOT NULL DEFAULT '{}',
+  consequences TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS family_journeys_timeline ON family_journeys(timeline_id, status);
+
+-- Our child (dungeon/life/our_child.py): who looks after the pair's own children until the youngest is at school,
+-- when the user set it ('both_work', 'part_time', 'them_home' or 'you_home'; NULL leaves it to the engine's family:care).
+CREATE TABLE IF NOT EXISTS our_family (
+  timeline_id TEXT PRIMARY KEY REFERENCES timelines(id),
+  care TEXT CHECK (care IS NULL OR care IN ('both_work', 'part_time', 'them_home', 'you_home')),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);

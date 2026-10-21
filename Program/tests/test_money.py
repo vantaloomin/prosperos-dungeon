@@ -1,0 +1,233 @@
+from datetime import date, timedelta
+
+from dungeon.life import composer, home, money
+from dungeon.life.world import Place, StaticWorld
+
+NURSE = {'name': 'Mara', 'home_city': 'baltimore', 'identity': 'A registered nurse at Hopkins.'}
+
+
+def days(start='2026-10-01', count=120):
+    first = date.fromisoformat(start)
+    return [(first + timedelta(days=offset)).isoformat() for offset in range(count)]
+
+
+def test_budget_comes_from_career_pay_and_city_rent():
+    view = money.snapshot(NURSE, '2026-10-05')
+    assert view['available'] and view['career']['id'] == 'registered-nurse' and view['career']['guessed']
+    budget = view['budget']
+    assert budget['rent'] < budget['income'] * money.RENT_CEILING
+    assert round(budget['income'] - budget['rent'] - budget['essentials'] - budget['fun'] - budget['saving'], 1) == 0
+    assert view['text']['income'].startswith('$')
+    # Same character, same date: the same budget.
+    assert money.snapshot(dict(NURSE), '2026-10-05') == view
+
+
+def test_a_chosen_career_wins_over_the_guess_and_better_pay_means_more_money():
+    engineer = {**NURSE, 'money': {'career': 'software-engineer'}}
+    chosen = money.snapshot(engineer, '2026-10-05')
+    assert chosen['career'] == {'id': 'software-engineer', 'name': 'Software engineer', 'pay': '$$$', 'guessed': False}
+    assert chosen['budget']['income'] > money.snapshot(NURSE, '2026-10-05')['budget']['income']
+
+
+def test_the_home_is_where_the_draft_says_they_live():
+    stephen = {'name': 'Stephen', 'home_city': 'baltimore',
+               'identity': 'Stephen is a marine biologist at the aquarium. He lives alone in a small rowhouse in '
+                           'Canton.', 'background': 'He grew up in Highlandtown.'}
+    view = money.snapshot(stephen, '2026-10-05')
+    assert view['career']['id'] == 'biologist'
+    place = home.place_item('seed', stephen, money.city_for(stephen))
+    assert place['details']['neighborhood'] == 'Canton' and place['variety'] == 'rowhouse'
+    # Working downtown is not living there.
+    commuter = {**stephen, 'identity': 'Stephen works downtown at the aquarium.'}
+    assert money.where_they_live(commuter) == ''
+
+
+def test_the_building_the_draft_names_is_kept_where_the_budget_picks_the_neighbourhood():
+    """A long run's nurse "living alone in a rowhouse in Baltimore" was given a studio in a Victorian, and chat
+    then mixed the two."""
+    mya = {'name': 'Mya Freeman', 'home_city': 'baltimore', 'money': {'career': 'registered-nurse'},
+           'identity': 'Mya is a 31-year-old ER nurse living alone in a rowhouse in Baltimore.'}
+    city = money.city_for(mya)
+    budget = money.profile(mya)
+    hood = next(item for item in city['neighborhoods'] if item['name'] == budget.neighborhood)
+    assert 'rowhouse' not in hood['housing']  # The neighbourhood her pay fits has none in the city data.
+    place = home.place_item('seed', mya, city)
+    assert place['variety'] == 'rowhouse' and place['details']['neighborhood'] == budget.neighborhood
+
+
+def test_expensive_rent_means_sharing_a_place():
+    barista = money.snapshot({'name': 'Jo', 'home_city': 'new-york', 'identity': 'Works as a barista.'}, '2026-10-05')
+    assert barista['housing']['unit'] == 'shared'
+    assert barista['budget']['rent'] <= barista['budget']['income'] * 0.5
+
+
+def test_paydays_are_every_other_friday_and_money_runs_low_before_them():
+    seen = {money.snapshot(NURSE, day)['payday']['next'] for day in days()}
+    assert all(date.fromisoformat(day).weekday() == 4 for day in seen)
+    assert {(date.fromisoformat(b) - date.fromisoformat(a)).days for a, b in zip(sorted(seen), sorted(seen)[1:])} == {14}
+    spender = {**NURSE, 'money': {'style': 'spender'}}
+    tight = [day for day in days() if money.snapshot(spender, day)['tight']]
+    assert tight and len(tight) < 100
+    # Can't-afford moments happen, but only some of the time.
+    blocked = [day for day in days() if not money.affordable(spender, 'dinner', day)]
+    assert 0 < len(blocked) < 120
+    assert all(money.affordable(spender, 'walk', day) for day in days())
+
+
+def test_splurges_and_surprise_bills_are_seeded_and_dated():
+    spender = {**NURSE, 'money': {'style': 'spender'}}
+    views = {day: money.snapshot(spender, day) for day in days(count=365)}
+    assert any(view['splurge'] for view in views.values()) and any(view['surprise'] for view in views.values())
+    for day, view in views.items():
+        for happening in (view['splurge'], view['surprise']):
+            assert happening is None or view['payday']['last'] <= happening['on'] <= day
+
+
+def test_saving_goals_grow_and_a_custom_goal_is_used():
+    auto = [money.snapshot(NURSE, day)['goal'] for day in ('2026-07-03', '2026-12-28')]
+    assert auto[0]['label'] == auto[1]['label'] and not auto[0]['custom']
+    assert auto[1]['saved'] > auto[0]['saved']
+    custom = money.snapshot({**NURSE, 'money': {'saving_for': 'a trip to Lisbon', 'goal': 3000,
+                                               'goal_since': '2026-09-01'}}, '2026-10-05')['goal']
+    assert custom['label'] == 'a trip to Lisbon' and custom['amount'] == 3000 and 0 < custom['share'] < 1
+
+
+def test_historic_cities_use_their_own_currency_and_weekly_pay():
+    view = money.snapshot({'name': 'Ada', 'home_city': 'calderwick'}, '2026-10-05')
+    assert view['period'] == 'week' and view['payday']['cycle_days'] == 7
+    assert date.fromisoformat(view['payday']['next']).weekday() == 5
+    assert view['text']['income'].endswith(view['currency']['symbol'])
+    assert view['housing']['label'] == 'a rented room'
+    ada = {'name': 'Ada', 'home_city': 'camelot'}
+    costs = {'rent': 2, 'rent_period': 'week', 'currency': money.profile(ada).city['currency'], 'owned': True,
+             'pets': [], 'vehicles': []}
+    lines = dict(money.context_lines(ada, '2026-10-05', {'costs': costs, 'purchases': []}))
+    # Never '2 d..'; payments on a place, not a mortgage, in a medieval kingdom (v0.15).
+    assert lines['money:2026-10-05:budget'].endswith('payments on your home are about 2 d.')
+
+
+def test_no_money_or_no_city_leaves_everything_affordable():
+    oz = {'name': 'Dot', 'home_city': 'emerald-city'}
+    assert money.snapshot(oz, '2026-10-05') == {'available': False, 'reason': 'There is no money in The Emerald City.'}
+    assert money.context_lines(oz, '2026-10-05') == []
+    nowhere = {'name': 'Dot'}
+    assert not money.snapshot(nowhere, '2026-10-05')['available']
+    assert all(money.affordable(definition, 'dinner', day) for definition in (oz, nowhere) for day in days(count=30))
+
+
+def test_context_lines_state_the_facts_for_the_model_to_phrase():
+    lines = dict(money.context_lines(NURSE, '2026-10-05'))
+    assert 'take home about $' in lines['money:2026-10-05:budget']
+    assert 'registered nurse' in lines['money:2026-10-05:budget']
+    assert 'payday' in lines['money:2026-10-05:payday'].lower()
+    assert lines['money:2026-10-05:goal'].startswith('- Saving for ')
+
+
+def test_the_composer_skips_outings_they_cannot_afford(monkeypatch):
+    monkeypatch.setattr(composer, 'QUIET_SHARE', 0)
+    world = StaticWorld([Place('r', 'Thames Street Oyster House', 'restaurant', 'baltimore', 'Fells Point'),
+                         Place('b', 'The Owl Bar', 'bar', 'baltimore', 'Mount Vernon'),
+                         Place('v', 'Ottobar', 'venue', 'baltimore', 'Remington')])
+    monkeypatch.setattr(money, 'affordable', lambda definition, key, local_date: key not in ('dinner', 'show'))
+    slot = {'local_date': '2026-10-08', 'block': {'kind': 'social', 'label': 'Evening', 'start': '19:00'}}
+    chosen = {composer.compose(slot, NURSE, world, f'seed-{index}')['activity'] for index in range(40)}
+    assert chosen == {'drinks'}
+    # When nothing is affordable the routine still happens as before.
+    monkeypatch.setattr(money, 'affordable', lambda definition, key, local_date: False)
+    assert composer.compose(slot, NURSE, world, 'seed-1')['activity'] in {'dinner', 'drinks', 'show'}
+
+
+def test_money_endpoint_and_character_setup(client):
+    created = client.post('/api/companion', json={'name': 'Mira', 'timezone': 'America/New_York',
+                                                  'home_city': 'baltimore',
+                                                  'money': {'career': 'teacher', 'style': 'careful',
+                                                            'saving_for': 'a new bike', 'goal': 900}})
+    assert created.status_code == 200, created.text
+    assert created.json()['version']['definition']['money']['career'] == 'teacher'
+    view = client.get('/api/today/money').json()
+    assert view['available'] and view['date'] == '2026-10-05'
+    assert view['career']['name'] == 'Public school teacher' and view['style'] == 'careful'
+    assert view['goal']['label'] == 'a new bike'
+    bad = client.post('/api/companion/versions', json={'definition': {'name': 'Mira', 'money': {'style': 'lavish'}}})
+    assert bad.status_code == 422
+
+
+def test_money_endpoint_without_a_city(client, companion):
+    view = client.get('/api/today/money').json()
+    assert view['available'] is False and 'home city' in view['reason']
+
+
+def home_costs(**overrides):
+    budget = money.profile(NURSE)
+    return {'rent': 1500, 'rent_period': 'month', 'currency': budget.city['currency'], 'estimate': True,
+            'pets': [], 'vehicles': [], **overrides}
+
+
+def test_rent_and_upkeep_come_from_the_home_when_there_is_one():
+    plain = money.snapshot(NURSE, '2026-10-05')
+    housed = money.snapshot(NURSE, '2026-10-05', {'costs': home_costs(pets=['dog'], vehicles=['car']),
+                                                  'purchases': []})
+    assert housed['rent_from'] == 'home' and housed['budget']['rent'] == 1500
+    assert housed['budget']['upkeep'] > 0 and housed['budget']['fun'] < plain['budget']['fun']
+    assert plain['rent_from'] == 'budget' and plain['budget']['upkeep'] == 0
+    lines = dict(money.context_lines(NURSE, '2026-10-05', {'costs': home_costs(pets=['cat']), 'purchases': []}))
+    assert 'for your home' in lines['money:2026-10-05:budget']
+    assert 'pets and getting around' in lines['money:2026-10-05:upkeep']
+    # A home with no rent of its own (or in another currency) keeps the budget's.
+    other = money.snapshot(NURSE, '2026-10-05', {'costs': home_costs(rent=None), 'purchases': []})
+    assert other['rent_from'] == 'budget' and other['budget']['rent'] == plain['budget']['rent']
+
+
+def test_home_purchases_count_as_spending_this_pay_period():
+    bought = [{'date': '2026-10-03', 'kind': 'new-pet', 'text': 'adopted Biscuit, a beagle mix', 'spend': '$$'},
+              {'date': '2026-10-04', 'kind': 'rearrange', 'text': 'rearranged the furniture', 'spend': ''}]
+    before = money.snapshot(NURSE, '2026-10-05', {'costs': home_costs(), 'purchases': []})
+    after = money.snapshot(NURSE, '2026-10-05', {'costs': home_costs(), 'purchases': bought})
+    assert [item['label'] for item in after['bought']] == ['adopted Biscuit, a beagle mix']
+    assert after['left'] == round(before['left'] - after['bought'][0]['cost'], 2)
+    lines = dict(money.context_lines(NURSE, '2026-10-05', {'costs': home_costs(), 'purchases': bought}))
+    assert lines['money:2026-10-05:bought:2026-10-03'].endswith('you adopted Biscuit, a beagle mix.')
+
+
+def test_the_wedding_share_reads_as_theirs_on_screen_and_yours_to_the_model():
+    share = [{'date': '2026-10-03', 'text': 'paid your share of the wedding', 'spend': '', 'cost': 900.0,
+              'for': 'wedding', 'savings': True, 'shown': 'paid their share of the wedding'}]
+    view = money.snapshot(NURSE, '2026-10-05', {'costs': home_costs(), 'purchases': share})
+    assert view['bought'][0]['shown'] == 'paid their share of the wedding'
+    lines = dict(money.context_lines(NURSE, '2026-10-05', {'costs': home_costs(), 'purchases': share}))
+    assert lines['money:2026-10-05:bought:2026-10-03:wedding'].endswith('you paid your share of the wedding.')
+
+
+def test_the_money_endpoint_reads_the_home(client):
+    client.post('/api/companion', json={**NURSE, 'timezone': 'America/New_York'})
+    assert client.get('/api/today/money').json()['rent_from'] == 'budget'
+    costs = client.get('/api/life/home').json()['costs']
+    view = client.get('/api/today/money').json()
+    assert view['rent_from'] == 'home' and view['budget']['rent'] == costs['rent']
+
+
+def test_adult_work_sets_pay_for_an_adult_and_never_for_someone_younger():
+    dancer = {'name': 'Jimena', 'home_city': 'baltimore', 'identity': 'Jimena is 27 and works as an exotic dancer.'}
+    assert money.snapshot(dancer, '2026-10-05')['career']['id'] == 'exotic-dancer'
+    young = {**dancer, 'identity': 'A 17-year-old who wants to be an exotic dancer.', 'money': {'career': 'exotic-dancer'}}
+    assert (money.snapshot(young, '2026-10-05')['career'] or {}).get('id') != 'exotic-dancer'
+
+
+def test_pay_in_a_modern_city_with_a_wage_spreads_like_real_pay():
+    """E2E v0.13: a London pharmacist took home GBP 7,546 a month, 2.8 times a low-paid job's take-home."""
+    london = money.city_for({'home_city': 'London'})
+    low, pharmacist = money.take_home(london, 0), money.take_home(london, money.PAY_TIERS['$$$'])
+    assert 1.4 <= pharmacist / low <= 1.6 and 3500 < pharmacist < 4500
+    # Historic cities keep the wider spread over a labourer's day wage.
+    camelot = money.city_for({'home_city': 'Camelot'})
+    assert money.take_home(camelot, 2) / money.take_home(camelot, 0) == money.WAGE_MULTIPLE[2]
+
+
+def test_a_big_bill_comes_from_savings_then_month_by_month():
+    assert money.paying(1000, 5000, 4000) == {'saved': 1000, 'monthly': 0.0, 'months': 0}
+    found = money.paying(13000, 1000, 4000)
+    assert found['saved'] == 1000 and found['months'] == 25 and round(found['monthly'] * found['months']) == 12000
+    assert money.paying(50000, None, 2000)['months'] == money.OWED_MONTHS  # Paid off within five years.
+    assert money.paying(100, 0, 4000) == {'saved': 0.0, 'monthly': 100.0, 'months': 1}
+    city = money.city_for(NURSE)
+    assert 3500 < money.typical_month(city) < 5000  # A middle wage's month in Baltimore.
