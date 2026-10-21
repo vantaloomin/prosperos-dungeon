@@ -58,9 +58,10 @@ centuries old and free). Where it doesn't, use a plain descriptive title or a ne
 - **In the SRD 5.2 (CC-BY-4.0, usable with the attribution the 5e pack already carries):**
   tiefling, pit fiend, ice devil.
 
-## Please confirm these are yours
+## Vanta's own
 
-These look original, but I couldn't confirm it. If any came from a book, say so and I'll rename it
-too: **Forgrimmorithal**, **Vymnommyth**, **Zaraxas**, **Ghondiir**, **Iseullaryax**,
-**Tatsuyaraga**, **Himo Xiloscient**, **Ohgnu**, and the tribe names **Unguruk**, **Dramogon** and
-**Kadragar**.
+Confirmed original by Vanta (2026-10-21): **Forgrimmorithal**, **Vymnommyth**, **Zaraxas**,
+**Ghondiir**, **Iseullaryax**, **Tatsuyaraga**, **Himo Xiloscient**, **Ohgnu**, and the tribe
+names **Unguruk**, **Dramogon** and **Kadragar**.
+
+New in this draft: **Yllevantharyx** (the ninth Eternal Dragon) and her guise **Old Mother Yllen**.

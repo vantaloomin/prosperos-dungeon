@@ -33,7 +33,7 @@ rewritten in fresh prose; nothing is copied from the source files or from outsid
 
 ## Three eras
 
-Vanta's call: one world, three times to start a campaign in. Pre-Reform (about 2950 AOM), the
+Vanta's call: one world, three times to start a campaign in. Pre-Reform (about 2750 AOM), the
 Brotherhood Years (3001 to 3135 BOM) and Post-Reform (about 300 RFM, the default, where Kingswood
 is set). Entries carry `eras` and `by_era` where facts change. See [canon/eras.md](canon/eras.md).
 

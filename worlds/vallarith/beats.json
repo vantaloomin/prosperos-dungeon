@@ -99,6 +99,36 @@
         "The Brotherhood is founded."
       ],
       "origin": "draft"
+    },
+    {
+      "id": "the-fall-of-adlmyr",
+      "name": "The Fall of Adlmyr",
+      "era": "pre-reform",
+      "tier": "regional",
+      "summary": "The Badlands tribes unite long enough to break Cyrel's border fortress. Sometime before 2984 it falls; a Pre-Reform campaign can be there when it does.",
+      "beats": [
+        "The Kadragar stop selling Castellan Brandt their warnings.",
+        "Unguruk, Dramogon and Kadragar war-chiefs meet at the same fire.",
+        "Cyrel's promised reinforcements go to the Asanian front instead.",
+        "The siege.",
+        "The Druid's Keep is left empty when its garrison flees west."
+      ],
+      "origin": "draft"
+    },
+    {
+      "id": "the-failing-wards",
+      "name": "The Failing Wards",
+      "era": "post-reform",
+      "tier": "realm",
+      "summary": "The ward-stones at the Abandoned Keep are almost gone, and Haggoth's gnolls know it.",
+      "beats": [
+        "Gnoll offerings appear at the portal scar.",
+        "A Kingswood elder pays to have the ward-stones renewed.",
+        "Brynwyr wardens arrive at the keep and refuse to explain why.",
+        "The scar is warm in summer now.",
+        "Something comes through."
+      ],
+      "origin": "draft"
     }
   ]
 }

@@ -2,12 +2,39 @@
 
 ## Decided by Vanta (2026-10-21)
 
-- **Three campaign eras** in one package: Pre-Reform, the Brotherhood Years and Post-Reform (see
-  [canon/eras.md](canon/eras.md)).
-- **Post-Reform is about 300 years after the Reformation** (about 3436, 300 RFM).
+- **Three campaign eras** in one package: Pre-Reform (about 2750 AOM), the Brotherhood Years
+  (3001 to 3135 BOM) and Post-Reform (about 300 RFM). See [canon/eras.md](canon/eras.md).
 - **D&D-coined names are renamed,** and Vanta approved all the replacements in
   [canon/names.md](canon/names.md).
+- **Vanta's own names:** Forgrimmorithal, Vymnommyth, Zaraxas, Ghondiir, Iseullaryax, Tatsuyaraga,
+  Himo Xiloscient, Ohgnu, Unguruk, Dramogon and Kadragar are all original.
 - **Kingswood is Post-Reform,** agreed with the Milestone 1 thread.
+- **The Black Citadel's throne is vacant** after the Reformation.
+- **The dragon of Petrakyra is a ninth Eternal.**
+- **The Gor'gel Deception:** Gor'gel, pretending to be another god, duped the elf druid Himo
+  Xiloscient into opening the first portal for the 251 AOD invasion; Himo then made his stand to
+  stop the gnolls and demons coming through.
+- **Adlmyr fell before the Brotherhood** was founded.
+- **Nicana trained at the Benzaiten Monastery.**
+- **Why the Eternals can't breed** is tied to Ghondiir's death, well before the Brotherhood.
+- **The "pair of women" behind the fey courts** is dropped.
+- **Draft content stays and gets filled in.**
+
+## Extrapolated in this draft, for Vanta to keep or change
+
+Each of these is marked `"origin": "draft"` in its file.
+
+| What | This draft | Where |
+| --- | --- | --- |
+| Why the Eternals can't breed | Every Eternal clutch was kindled from Ghondiir's heart (the brood-fire). Gor'gel ascended on that heart, and when he shared his power with the Primordial Orcs the brood-fire went into humans and orcs. The dragons' fertility lives in mortal blood. | hidden-truths.json `the-stolen-brood` |
+| The ninth Eternal | Yllevantharyx the Silver, guised as Old Mother Yllen, an elder of Petrakyra; the last Eternal ever hatched and the reason the wood elves stay hidden | deities.json, cast.json |
+| Gor'gel's motive | A war god fed by war, who has started more than one | deities.json |
+| The Abandoned Keep | Himo Xiloscient's ward-keep over the 251 AOD door, garrisoned by elves and Cyrel in turns, abandoned when Adlmyr fell, wards failing now | settlements.json, beats.json |
+| The Dire Sea | The Ley branch to Gurdalur runs under it: Ley squalls, crystal reefs, summer-only crossings | regions.json |
+| The Mossrun mines | Mossrun, a company town north-east of Cyrel under the Great Line: one iron vein, one crystal vein, dying moss, a deep shaft nobody else may enter | settlements.json |
+| Trein's government | The Lamplighters' Council: four mage houses, two merchant houses and the Guild of Wardwrights | factions.json |
+| Fjallagracht | Three clans: Skarth (raiders), Hvalborg (whalers), Rimvik (stone-keepers who read the calendar) | factions.json |
+| Older-era cast | Named the unnamed people in the New Gods' stories (the clerk, the patron, the liaison, the war-chief, the devil) and added Pre-Reform seeds | cast.json |
 
 ## Contradictions in the source, and what this draft does
 
@@ -19,29 +46,13 @@
 | The Creator Dragons | Sleeping, will wake at the end (lorebook) | Spent completely, no mind survives (ley doc) | Spent is true; sleeping is what mortals and Eternals believe (hidden truth) |
 | Where Ghondiir died | His lair at "the largest Ley Font" (deity doc) | The Source Font is near Loch Torogh (lorebook) | Two Fonts: Ghondiir's lair is the Badlands convergence, the Source Font is above Loch Torogh. Both match the Ley Line map |
 | Where the Font is now | Near Loch Torogh (lorebook) | Sara is trying to find "where they moved the Ley to" (deity doc) | Tradition says Loch Torogh; nobody can find it Post-Reform; whether it moved is open |
-| Asmodeus | Rules from Nessus and plots (lorebook, deity doc) | Torn into eight pieces and buried (timeline) | Rules in the older eras; buried Post-Reform, with Hell keeping up the fiction |
+| Asmodeus | Rules from Nessus and plots (lorebook, deity doc) | Torn into eight pieces and buried (timeline) | Rules in the older eras; buried Post-Reform, throne vacant, Hell keeping up the fiction |
 | Origin of humans and orcs | Gor'gel split his power among the Primordial Orcs (deity doc) | Grew from Ghondiir's blood and bones (lorebook) | Both told as in-world myths |
 | Age of Magic and Age of Man | Magic runs to 3000 | Man starts at 2984 | Kept as an overlap |
 | Spellings | Eraine, Byrnwyr | Eriane, Brynwyr (map) | Map spellings |
 | Skadi | "God of Nature" | A goddess in myth | Kept as the source wrote it |
 
-## Questions for Vanta
+## Still open
 
-1. **Are these names yours?** Forgrimmorithal, Vymnommyth, Zaraxas, Ghondiir, Iseullaryax,
-   Tatsuyaraga, Himo Xiloscient, Ohgnu, Unguruk, Dramogon, Kadragar. If any came from a book they
-   join the rename list.
-2. **Who sits in the Black Citadel** now that Asmodeus is buried?
-3. **The dragon of Petrakyra**: one of the known Eternals, or a ninth?
-4. **What the "Gor'gel Deception" was** in 251 AOD, and who Himo Xiloscient was.
-5. **When Adlmyr fell:** Brotherhood era or Post-Reform?
-6. **Nicana's monastery:** Benzaiten on Ikto Isle, or somewhere else?
-7. **Why the Eternals can't breed:** the source says "a foregone catastrophe". Is it the
-   Reformation, Ghondiir's death, or something older?
-8. **The Pre-Reform start year:** this draft uses 2950 AOM. Earlier or later?
-9. **What "the same pair of women" behind Titania and Mab means** (the deity doc says both courts
-    are "backed by the same pair of women"). This draft leaves it out.
-10. **The Abandoned Keep** west of Adlmyr and **the Dire Sea**: on the map, with no story yet.
-11. **Where the Mossrun mines are.**
-12. **Draft content to keep or cut:** every entry marked `"origin": "draft"` (the invented NPC
-    seeds, the Trein council, the Fjallagracht clans, the currency denominations, the progression
-    tracks, and the beats).
+1. **Where the Source Font is now,** and whether the New Gods moved it or only hide it.
+2. **What lies under the Heartwood** (the Milestone 1 slice owns this).

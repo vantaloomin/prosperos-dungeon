@@ -60,8 +60,8 @@ through treachery. Devils buy souls with power and want the Material Plane bound
 | Nessus | The deepest layer, the Black Citadel | Asmodeus, King of the Nine Hells (see below) |
 
 **The fiction of the throne.** In every era before the Reformation, Asmodeus rules from the Black
-Citadel. After it, the Hells keep up the story that he still does. Who actually sits there is an
-open question for Vanta.
+Citadel. After it, the Hells keep up the story that he still does. In truth the throne is vacant:
+no archdevil dares be the first seen sitting on it (Vanta, 2026-10-21).
 
 ## The Abyss
 

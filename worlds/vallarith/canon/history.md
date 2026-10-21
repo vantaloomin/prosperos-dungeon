@@ -17,6 +17,8 @@ continent.
 
 ## Age of Dragons (1 to 750 AOD)
 
+- **Before the count.** No Eternal clutch has hatched since Ghondiir died; the dragons do not say
+  why (see `hidden-truths.json`).
 - **1 AOD, the death of Ghondiir.** A Primordial Orc named Gor'gel, called the Perfect Warrior by
   his tribe, climbed the tallest mountain with an axe whose blade was a glowing blue crystal. The
   fight lasted hours and rained blood and magic off the peak. Gor'gel tore out the Dragon King's
@@ -27,9 +29,11 @@ continent.
   the Dragon King's blood and bones. Both stories agree the two peoples are kin.
 - **151 AOD, the Badlands Migration.** Humans leave the Badlands, driven out by orc wars, and settle
   the western lands that become the Kingdoms of Man.
-- **251 AOD, Ohgnu's Invasion,** also called the Gor'gel Deception. An orc, gnoll and goblin army
-  pours out of the Badlands. Himo Xiloscient holds Kingswood against it and breaks the host. The
-  town still tells the story as Xiloscient's stand.
+- **251 AOD, Ohgnu's Invasion,** also called the Gor'gel Deception. Gor'gel, disguised as another
+  god, dupes the elf druid Himo Xiloscient into opening the first portal. Gnolls and demons pour
+  through, with orc and goblin war bands behind them. Himo makes his stand at Kingswood to stop
+  what he let in, breaks the host, and builds a ward-keep over the door west of Adlmyr. Kingswood
+  still tells it as Xiloscient's stand, and leaves out that he was an elf and the door was his.
 - **751 to 1000.** No record.
 
 ## Age of Magic (1001 to 3000 AOM)
@@ -37,6 +41,10 @@ continent.
 Two thousand years the source names but does not describe. By its end the Ley is in wide use,
 Fonts are known, cities have learned to mine crystallized Ley, and the Old Gods are fading into
 their own realms.
+
+- **About 2750 AOM,** the Pre-Reform campaign era opens.
+- **Before 2984, the fall of Adlmyr.** The Badlands tribes break Cyrel's border fortress, and the
+  Unguruk tribe takes the ruin. The Druid's Keep west of it is abandoned.
 
 ## Age of Man (2984 to 3135 BOM)
 

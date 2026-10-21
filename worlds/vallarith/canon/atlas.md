@@ -56,13 +56,16 @@ permanent arms race with them.
   - **Convila**, a busy town on the ruins of an older city, over a spent Ley fountain sealed by the
     old Convila Pact.
   - **Bastion**, the great fortress facing the Badlands.
+  - **Mossrun**, the Ilvar family's company mining town in the wet valleys north-east of Cyrel,
+    under the Great Line: iron and Ley crystal, dying moss, metallic streams.
 
 ## The Badlands
 
 The country Ghondiir's fall made: broken mountains, dry basins and dead trees. Three tribes hold it,
 the Dramogon gnolls in the north, the Unguruk orcs in the middle, and the Kadragar goblins on the
-southern coast. Unguruk holds the ruin of **Adlmyr**, the Cyrel fortress it took. An **abandoned
-keep** west of Adlmyr appears on the map with no story yet. Under all of it, the Badlands
+southern coast. Unguruk holds the ruin of **Adlmyr**, the Cyrel fortress it took before the Brotherhood
+was founded. West of it stands the **Abandoned Keep**, which locals call the Druid's Keep: Himo
+Xiloscient's ward-keep over the door the horde came through in 251 AOD, empty since Adlmyr fell. Under all of it, the Badlands
 convergence: some of the richest Ley on the continent, under the most dangerous ground.
 
 ## The south-west: Brynwyr and Sa'ja'een Bay
@@ -83,9 +86,12 @@ convergence: some of the richest Ley on the continent, under the most dangerous 
 ## The east
 
 - **Petrakyra**, the hidden wood-elf home between sea, forest and mountain. Rumor says an Eternal
-  Dragon lives among them.
+  Dragon lives among them. Rumor is right.
 - **Etryona**, an island across the Kyrana Channel, home of the **Obirykan City States**, where Ley
   crystal is money and power is counted in carats.
-- **The Fjallagracht Lands**, a frozen island of clans off the north-east coast across the Dire Sea,
+- **The Dire Sea**, between the continent and Fjallagracht. The Ley branch to the Gurdalur Stones
+  runs under it and throws up Ley squalls, storms with glowing fog, and crystal reefs grow along
+  the current. Only Fjallagracht longships cross, in the summer weeks the stones allow.
+- **The Fjallagracht Lands**, a frozen island of three clans off the north-east coast across the Dire Sea,
   home of the **Gurdalur Stones**, a ring of ancient standing stones on a Ley branch that set the
   calendar of the people who live there.

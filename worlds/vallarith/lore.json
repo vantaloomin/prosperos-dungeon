@@ -171,6 +171,21 @@
       }
     },
     {
+      "id": "place-mossrun",
+      "title": "Mossrun",
+      "category": "place",
+      "keywords": [
+        "Mossrun"
+      ],
+      "text": "A company town in the wet mountain valleys north-east of Cyrel, where the Mossrun Expedition struck its first two veins: one of iron, one of crystallized Ley. Five generations later it is a maze of shafts and tailings feeding Cyrel, Mendle and Loch Torogh with iron and selling crystal west to Trein and Asania. The streams around it have gone metallic and the moss it was named for is dying.",
+      "refs": {
+        "settlement": "mossrun"
+      },
+      "eras": [
+        "post-reform"
+      ]
+    },
+    {
       "id": "place-unguruk-camp",
       "title": "Unguruk Camp",
       "category": "place",
@@ -189,7 +204,7 @@
       "keywords": [
         "Adlmyr"
       ],
-      "text": "Once Cyrel's pride on the Badlands border. The tribes broke its walls years ago, and the Unguruk tribe holds the skeleton of the fortress as proof of who won.",
+      "text": "Once Cyrel's pride on the Badlands border. The tribes broke its walls late in the Age of Magic, before the Brotherhood was founded, and the Unguruk tribe has held the skeleton of the fortress ever since as proof of who won.",
       "refs": {
         "settlement": "adlmyr"
       }
@@ -199,9 +214,11 @@
       "title": "The Abandoned Keep",
       "category": "place",
       "keywords": [
-        "The Abandoned Keep"
+        "The Abandoned Keep",
+        "the Druid's Keep",
+        "Xiloscient's Keep"
       ],
-      "text": "A keep in the broken hills west of Adlmyr, marked on the map and named by nobody. Its story is open.",
+      "text": "A ward-keep in the broken hills west of Adlmyr, built by Himo Xiloscient after his stand in 251 AOD, over the place where the horde came through. Elves and Cyrel soldiers garrisoned it in turns for centuries. It was left empty when Adlmyr fell, and its wards have been fading ever since. The Kingswood branch of the Ley runs under it.",
       "refs": {
         "settlement": "abandoned-keep"
       }
@@ -489,7 +506,7 @@
       "keywords": [
         "The Dire Sea"
       ],
-      "text": "Named on the map, nothing more in the source. Cold, rough and aptly named.",
+      "text": "The Fjallagracht clans named it for what it takes. Where the Ley branch runs beneath it, the sea throws up Ley squalls: storms with glowing fog that sour compasses and spells alike. Crystal reefs grow on the seabed along the current, and the clans' longships cross only in the summer weeks the Gurdalur calendar marks as safe.",
       "refs": {
         "region": "dire-sea"
       }
@@ -540,6 +557,18 @@
       "text": "Splendid, magical, land-hungry and always ready for war. Allied with Trein's sorcerers, careful around Wrenspire.",
       "refs": {
         "faction": "kingdom-of-asania"
+      }
+    },
+    {
+      "id": "faction-trein-council",
+      "title": "The Lamplighters' Council of Trein",
+      "category": "faction",
+      "keywords": [
+        "The Lamplighters' Council of Trein"
+      ],
+      "text": "Trein is governed by the Lamplighters' Council, named for the old duty of keeping the city's Ley-lamps lit. Seven seats: four great mage houses, two merchant houses, and the Guild of Wardwrights who keep the city's wards running. A Lord-Speaker chosen by the seven chairs it. Every seat depends on crystal, so crystal policy is all the council really argues about.",
+      "refs": {
+        "faction": "trein-council"
       }
     },
     {
@@ -609,7 +638,7 @@
       "keywords": [
         "The Mossrun Expedition"
       ],
-      "text": "A mining concern grown over five generations from two ore strikes into an empire of mines serving several cities. Run by the Ilvar family, whose wives die in childbirth and whose fathers are always dying when the children come home.",
+      "text": "A mining concern grown over five generations from two strikes, one iron and one Ley crystal, into an empire of mines serving several cities. Run by the Ilvar family, whose wives die in childbirth and whose fathers are always dying when the children come home.",
       "refs": {
         "faction": "mossrun-expedition"
       },
@@ -723,7 +752,7 @@
       "keywords": [
         "The Fjallagracht clans"
       ],
-      "text": "The hard people of the frozen island, who honor the Gurdalur Stones and live by their shadow calendar.",
+      "text": "Three clans hold the frozen island and its sea: Clan Skarth, raiders and fighters; Clan Hvalborg, whalers and longship-builders; and Clan Rimvik, the stone-keepers who read the Gurdalur calendar and so decide when anyone may sail, marry, bury or raid. Rimvik is the smallest clan and the one the others obey.",
       "refs": {
         "faction": "fjallagracht-clans"
       }
@@ -875,15 +904,16 @@
       }
     },
     {
-      "id": "power-eternal-of-petrakyra",
-      "title": "The dragon of Petrakyra",
+      "id": "power-yllevantharyx",
+      "title": "Yllevantharyx",
       "category": "power",
       "keywords": [
-        "The dragon of Petrakyra"
+        "Yllevantharyx",
+        "the Silver"
       ],
-      "text": "The dragon of Petrakyra, an Eternal Dragon, is an Eternal Dragon. Rumored to live among the wood elves. The source names no ninth Eternal; who this is, or whether it is one of the known dragons, is open.",
+      "text": "The silver Eternal Dragon. Rumor has long said a dragon lives among the wood elves of Petrakyra; this is the name the old stories give it.",
       "refs": {
-        "power": "eternal-of-petrakyra"
+        "power": "yllevantharyx"
       }
     },
     {
@@ -895,7 +925,7 @@
         "God of War",
         "the Perfect Warrior"
       ],
-      "text": "Gor'gel, God of War, the Perfect Warrior, is one of the missing Old Gods. Domain: war, strength, defiance. A Primordial Orc, viciously clever and brutally strong, who promised to free his people from the dragons and did. The first mortal to ascend.",
+      "text": "Gor'gel, God of War, the Perfect Warrior, is one of the missing Old Gods. Domain: war, strength, defiance. A Primordial Orc, viciously clever and brutally strong, who promised to free his people from the dragons and did. The first mortal to ascend. A war god who is fed by war, and has started more than one.",
       "refs": {
         "power": "gorgel"
       }
@@ -1561,7 +1591,7 @@
         "Himo Xiloscient",
         "Xiloscient's stand"
       ],
-      "text": "In 251 AOD an orc, gnoll and goblin army came out of the Badlands, a rising also called the Gor'gel Deception. Himo Xiloscient held Kingswood against it and broke the host."
+      "text": "In 251 AOD a horde of gnolls and demons, with orc and goblin war bands behind it, came out of the Badlands through a portal. The rising is also called the Gor'gel Deception, after the god who tricked someone into opening the door. Himo Xiloscient held Kingswood against it, broke the host, and walled the door inside a keep."
     },
     {
       "id": "concept-eternal-dragons",
@@ -1574,7 +1604,7 @@
         "dragon",
         "dragons"
       ],
-      "text": "Dragons who received a share of the Creator Dragons' power and outlast ordinary dragons by ages. Most live disguised as mortals; a few prefer freedom. A catastrophe long ago ended their ability to breed, and their line is dwindling. Known names: Ghondiir (dead), Zaraxas, Zeharyth, Saradrosk, Forgrimmorithal, Ryndhallach and Vymnommyth.",
+      "text": "Dragons who received a share of the Creator Dragons' power and outlast ordinary dragons by ages. Most live disguised as mortals; a few prefer freedom. A catastrophe long ago ended their ability to breed, and their line is dwindling. Known names: Ghondiir (dead), Zaraxas, Zeharyth, Saradrosk, Forgrimmorithal, Ryndhallach and Vymnommyth, and a ninth that rumor places among the wood elves.",
       "source_keys": [
         "Dragon, Eternal Dragon"
       ]

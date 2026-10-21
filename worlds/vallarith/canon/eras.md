@@ -9,10 +9,10 @@ Entries elsewhere in this package carry an `eras` list (missing means all three)
 object where a fact changes. The importer can build one world file with an era setting, or one
 file per era.
 
-## Pre-Reform (about 2950 AOM)
+## Pre-Reform (about 2750 AOM)
 
-Late in the Age of Magic. The start year is this draft's choice; "way ago, with cities settled" is
-the brief.
+The Age of Magic, about 230 years before the Brotherhood is founded (Vanta, 2026-10-21: two
+centuries earlier changes little about the cities).
 
 - **The Ley flows free and unlicensed.** Anyone who can touch it can use it. Crystal mining is a
   trade, not a policy, and Trein and Asania are already leaning on it.
@@ -22,7 +22,10 @@ the brief.
   born yet.
 - **The Brotherhood does not exist yet.** Mistress Sara is in Trein, cultivating scholars and
   merchants who resent temples and dragons. The Brotherhood will be founded in 2984.
-- **Adlmyr stands.** Cyrel's border fortress still holds the Badlands line beside Bastion.
+- **Adlmyr stands.** Cyrel's border fortress still holds the Badlands line beside Bastion. It will
+  fall to the tribes before the Brotherhood is founded.
+- **The Druid's Keep is garrisoned.** Elves and Cyrel soldiers take turns holding the ward-keep
+  Himo Xiloscient built over the door of 251 AOD.
 - **Hell is far away.** The Blood War is a story about other planes.
 - **Good for:** classic sword-and-sorcery, Old God cults, dragon intrigue, seeing the world the
   Brotherhood will strangle.
@@ -72,10 +75,9 @@ era. Kingswood, the Milestone 1 slice town, is set here.
 | Reaching the Ley | free | licensed by brooch; thin away from Fonts | free; Trein reintroducing licences |
 | Gods who answer | Old Gods, faintly | Old Gods barely; none new | New Gods; Old Gods silent |
 | Brotherhood of Man | not yet founded | rules openly from Trein | secret revival |
-| Adlmyr | Cyrel fortress | Cyrel fortress (falls late, date open) | Unguruk-held ruin |
-| Asmodeus | rules from Nessus | leads the Invasion (3129) | buried in eight pieces |
+| Adlmyr | Cyrel fortress (falls before 2984) | Unguruk-held ruin | Unguruk-held ruin |
+| The Abandoned Keep | garrisoned ward-keep | abandoned | abandoned, wards failing |
+| Asmodeus | rules from Nessus | leads the Invasion (3129) | buried in eight pieces; throne vacant |
 | New Gods' party | Tidum only, as a mortal archdruid | mortal adventurers | gods |
 | Mossrun and the Ilvars | do not exist | do not exist | fifth Ilvar patriarch |
 | Kingswood's Shrine of Tidum | no | no | yes |
-
-When Adlmyr falls is not in the source; it is listed in [open-questions.md](../open-questions.md).
