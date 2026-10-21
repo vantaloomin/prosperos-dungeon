@@ -11,7 +11,7 @@ It builds on [Prospero's Companion](https://github.com/vantaloomin/prosperos-com
 
 Milestone 0 is done: the code in `Program` started as a clean copy of Prospero's Companion v0.15.0, and the
 companion itself (its chat, phone, daily life, memories and the rest) has been removed. What is left is the
-Story, a narrator telling your story in Haddon Harbor, on the engines the game is built from: odds and rolls,
+Story, a narrator telling your story in Kingswood, the first Vallarith town, on the engines the game is built from: odds and rolls,
 Life Cards, the townsfolk and world generators, the calendar, memory recall, models, image backends and voice.
 No game rules are built yet. See [the requirements](docs/requirements.md) and [the build roadmap](docs/roadmap.md)
 for what comes next.

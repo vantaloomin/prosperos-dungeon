@@ -9,7 +9,19 @@ user's choice in the place picker, not the model's.
 """
 from datetime import datetime
 
-from dungeon import authors_note, in_character, ledger, prompt_library, referee, safety, story_people, timeline, turn
+from dungeon import (
+    authors_note,
+    in_character,
+    ledger,
+    prompt_library,
+    quests,
+    referee,
+    safety,
+    story_clock,
+    story_people,
+    timeline,
+    turn,
+)
 from dungeon.authors_note import NOTE_CLOSE
 from dungeon.clock import zone
 from dungeon.database import identifier, many, one, optional, settings
@@ -25,7 +37,7 @@ from dungeon.text_models import config_for, default_name, key_for
 from dungeon.world import catalog, changes, custom, generators, inside, life_details, townsfolk
 
 JOB = 'story'
-DEFAULT_CITY = 'haddon-harbor'
+DEFAULT_CITY = 'kingswood'
 HISTORY_LIMIT = 200
 CHARS_PER_TOKEN = 4
 # The kinds a story starts at when nothing else is chosen: somewhere people sit and talk.
@@ -76,7 +88,7 @@ def opening_place(data: dict) -> dict:
 
 
 def scene_row(connection) -> dict:
-    """Where the story is; a new story starts in Haddon Harbor, the shipped city, at a cafe. A place or city that
+    """Where the story is; a new story starts in Kingswood, the slice town, at its tavern or another opening place. A place or city that
     has since gone falls back the same way."""
     row = optional(connection, 'SELECT city_id, place_id FROM story_scene WHERE id=1')
     known = row and changes.resolve(row['city_id'], custom.all_cities(connection))
@@ -260,7 +272,7 @@ def with_rolls(connection, rows: list[dict]) -> list[dict]:
 
 def story(database) -> dict:
     with database.connect() as connection:
-        view = scene(connection, database.clock.now())
+        view = scene(connection, story_clock.now(connection, database.clock))
         return {'scene': scene_view(view), 'messages': with_rolls(connection, messages(connection)),
                 'people': people(connection, view), 'ready': config_for(connection, JOB) is not None,
                 'dice_shown': dice_shown(connection), 'branches': timeline.branches(connection)}
@@ -304,7 +316,7 @@ def people(connection, view: dict) -> list[dict]:
 def find(database, key: str) -> dict:
     """Go to where someone the user has met is right now."""
     with database.connect() as connection:
-        view = scene(connection, database.clock.now())
+        view = scene(connection, story_clock.now(connection, database.clock))
         person = next((item for item in people(connection, view) if item['key'] == key), None)
     require(person is not None, "You haven't met them in your story.", 404)
     place = person['place']
@@ -319,13 +331,22 @@ def move(database, city_id: str, place_id: str | None) -> dict:
         data = city_data(connection, city_id)
         place = catalog.find(data, place_id) if place_id else opening_place(data)
         require(place is not None and place in data['places'], 'No such place in this city.', 404)
+        moving_from = scene_row(connection)['city_id']
         if scene_row(connection) != {'city_id': data['id'], 'place_id': place['id']}:
             connection.execute(
                 'INSERT INTO story_scene (id, city_id, place_id, updated_at) VALUES (1, ?, ?, ?) ON CONFLICT(id) DO '
                 'UPDATE SET city_id=excluded.city_id, place_id=excluded.place_id, updated_at=excluded.updated_at',
                 (data['id'], place['id'], database.now()))
+            pass_time(database, connection, story_clock.ACROSS_TOWN_MINUTES if moving_from == data['id'] else
+                      story_clock.ANOTHER_CITY_MINUTES)
             arrive(connection, database.now())
     return story(database)
+
+
+def pass_time(database, connection, minutes: int):
+    """The story clock moves on, and any deadline it passes lands (dungeon/quests.py)."""
+    story_clock.advance(connection, minutes)
+    quests.check(connection, story_clock.now(connection, database.clock), database.now())
 
 
 def arrive(connection, now: str) -> dict:
@@ -342,7 +363,7 @@ def clear(database) -> dict:
     with database.connect(write=True) as connection:
         connection.execute('DELETE FROM story_messages')
         connection.execute('DELETE FROM story_people')
-        for table in ('ledger_entries', 'ledger_corrections', 'story_summary'):
+        for table in ('ledger_entries', 'ledger_corrections', 'story_summary', 'story_clock', 'story_quests'):
             connection.execute(f'DELETE FROM {table}')
         timeline.clear(connection)
     return story(database)
@@ -379,7 +400,8 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
     view = scene(connection, now)
     craft = narration_prompt.craft_for(config.get('context_tokens'), prompt_library.text(connection, 'narrator-craft'))
     who_text, name = persona_text(connection)
-    memory = '\n\n'.join(part for part in (ledger.summary_text(connection), ledger.prompt_text(connection)) if part)
+    memory = '\n\n'.join(part for part in (ledger.summary_text(connection), ledger.prompt_text(connection),
+                                             quests.prompt_text(connection, now)) if part)
     system = narration_prompt.system(prompt_library.text(connection, 'story-narrator'), craft, scene=scene_text(view),
                                      persona=who_text, persona_name=name, memory=memory, narration=NARRATION,
                                      outcomes=outcomes, rolls_shown=dice_shown(connection))
@@ -426,11 +448,13 @@ async def answer(state, user: dict) -> dict:
         rolls, judge = turn.saved(connection, user['id']), referee.own_model(connection)
     if in_story and not rolls:
         actions = await referee.decide(state, user['text'], judge)
+        if hazard := quests.danger_action(user['city_id'], user['place_id'], getattr(state, 'dice', None)):
+            actions = [*actions, hazard]
         with database.connect(write=True) as connection:
             rolls = turn.saved(connection, user['id']) or turn.store(connection, user['id'], actions, database.now(),
                                                                        getattr(state, 'dice', None))
     with database.connect() as connection:
-        packet = prompt(connection, database.clock.now(), config, user, turn.outcomes(rolls) if in_story else None)
+        packet = prompt(connection, story_clock.now(connection, database.clock), config, user, turn.outcomes(rolls) if in_story else None)
     try:
         text, error = await narrate(state, packet, config, in_story)
     except DomainError as failure:
@@ -446,7 +470,12 @@ async def answer(state, user: dict) -> dict:
                                        database.now(), packet['day'])
         reply = add(connection, database.now(), 'narrator', text, user, reply_to=user['id'], status=status, error=error)
     if status == 'complete' and in_story:
-        await ledger.extract(state, user['text'], reply)
+        with database.connect() as connection:
+            ask = quests.ending_ask(connection)
+        answered = await ledger.extract(state, user['text'], reply, ask)
+        with database.connect(write=True) as connection:
+            for item in quests.endings(answered):
+                quests.end(connection, item['id'], item['status'], item['outcome'])
         with database.connect() as connection:
             rows = messages(connection)
         await ledger.fold(state, rows)
@@ -460,6 +489,9 @@ def record(database, text: str, client_id: str) -> tuple[dict, dict | None]:
         if user is None:
             user = add(connection, database.now(), 'user', text, scene_row(connection), client_id=client_id)
             timeline.save(connection, user['id'])
+            # The time the line takes passes as it is sent: the narrator writes the scene after it.
+            if not in_character.out_of_character(text):
+                pass_time(database, connection, story_clock.minutes_for(text, bool(referee.by_keywords(text))))
         reply = optional(connection, "SELECT * FROM story_messages WHERE reply_to=? AND status='complete'",
                          (user['id'],))
         return user, reply

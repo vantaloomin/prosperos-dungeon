@@ -1,4 +1,4 @@
-import type { JournalEntry, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart } from '../../types'
+import type { JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -115,4 +115,12 @@ const KINDS: Record<string, string> = { death: 'Death', item: 'Item', wound: 'Wo
 /** "Wound · you", and whether the character only believes it. */
 export function journalKind(entry: Pick<JournalEntry, 'kind' | 'subject' | 'truth'>): string {
   return `${KINDS[entry.kind] ?? 'Fact'} · ${entry.subject}${entry.truth === 'belief' ? ' (you believe)' : ''}`
+}
+
+const QUEST_ENDS: Record<string, string> = { done: 'Done', failed: 'Failed', missed: 'Too late' }
+
+/** A quest's state in the journal: the story time left while it is open, else how it ended. */
+export function questState(quest: Pick<JournalQuest, 'status' | 'left'>): string {
+  if (quest.status !== 'open') return QUEST_ENDS[quest.status] ?? 'Over'
+  return quest.left ? `Underway · ${quest.left}` : 'Underway'
 }

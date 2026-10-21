@@ -1,8 +1,8 @@
 {
  "schema_version": 1,
  "release": "0.8",
- "title": "Haddon Harbor",
- "note": "The town the app ships with. Add your own cities in Settings.",
- "cities": ["haddon-harbor"],
- "new_cities": []
+ "title": "Kingswood",
+ "note": "Kingswood is the Vallarith town the playable slice is set in; Haddon Harbor is the modern town from before. Add your own cities in Settings.",
+ "cities": ["kingswood", "haddon-harbor"],
+ "new_cities": ["kingswood"]
 }

@@ -282,6 +282,22 @@ CREATE TABLE IF NOT EXISTS story_summary (
   updated_at TEXT NOT NULL
 );
 
+-- The story's quests (dungeon/quests.py): their text is in the town's adventure file; the deadline is story time.
+CREATE TABLE IF NOT EXISTS story_quests (
+  id TEXT PRIMARY KEY,
+  city_id TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('open', 'done', 'failed', 'missed')),
+  known INTEGER NOT NULL DEFAULT 0 CHECK (known IN (0, 1)),
+  due_at TEXT,
+  outcome TEXT NOT NULL DEFAULT ''
+);
+
+-- The story's own time once a campaign starts (dungeon/story_clock.py); without it the story runs on the app clock.
+CREATE TABLE IF NOT EXISTS story_clock (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  at TEXT NOT NULL
+);
+
 -- MARVEL stats per actor (dungeon/sheet.py); 'persona' is the player's character.
 CREATE TABLE IF NOT EXISTS character_stats (
   actor TEXT NOT NULL,
@@ -307,6 +323,7 @@ CREATE TABLE IF NOT EXISTS story_rolls (
   bonus INTEGER NOT NULL,
   shift INTEGER NOT NULL,
   total INTEGER NOT NULL,
+  threat TEXT,
   band TEXT NOT NULL CHECK (band IN ('critical_failure', 'failure', 'failure_upside', 'success_cost', 'success',
                                      'critical_success')),
   created_at TEXT NOT NULL,

@@ -32,7 +32,7 @@ into the new one, rather than writing into it.
 
 ## Defaults
 
-- A new workspace is the first world, in Haddon Harbor, with a blank persona.
+- A new workspace is the first world, in Kingswood, with a blank persona.
 - A new world starts in the current city (or `city_id`, or "Somewhere new", a featured city picked for it) with
   fresh townsfolk.
 - The persona is the user's to say (Vanta, 2026-10-09). "New persona" opens the persona form; the name they type

@@ -12,7 +12,8 @@ import json
 from dungeon.database import identifier, many, one, optional
 from dungeon.errors import require
 
-SAVED = ('story_scene', 'story_people', 'character_stats', 'ledger_entries', 'story_summary')
+SAVED = ('story_scene', 'story_people', 'character_stats', 'ledger_entries', 'story_summary',
+         'story_clock', 'story_quests')
 ROOT = 'first'
 
 

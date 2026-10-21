@@ -233,7 +233,13 @@ def drawn(sheet: dict) -> str:
     return sheet.get('seed', sheet['key'])
 
 
+# A place tagged wild (deep forest, a ruin) has no seeded townsfolk; only a city's notables are found there.
+WILD = 'wild'
+
+
 def count(data: dict, place: dict) -> int:
+    if WILD in place.get('tags', ()):
+        return 0
     seed = seed_for(data, f"town:{data['id']}:{place['id']}")
     return PEOPLE[0] + int(generators.unit(seed, 'count') * (PEOPLE[1] - PEOPLE[0] + 1))
 
@@ -282,7 +288,7 @@ def _build(data: dict, place_id: str, index: int) -> dict:
     notable = None if generation else held
     role = (held['role'], held['role'], held['staff']) if held else _slot_role(data, place, slot)
     title = held['role'] if held else role_title(data, role, place)
-    folk = lifespans.HUMAN if notable else folk_of(data, seed)
+    folk = (notable.get('kind') or lifespans.HUMAN) if notable else folk_of(data, seed)
     age = notable['age'] if notable else seeded_real_age(data, seed, False)
     life = lifespans.life_age(age, lifespans.lifespan_of(folk, data))
     name = _named(notable) if notable else generators.name(data, seed=seed, age=life)

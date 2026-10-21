@@ -11,8 +11,9 @@ and the model only phrases it (PRD W1–W4). A townsperson's day, job, home and 
 deterministic code from these records. The model never has to invent a
 museum, an employer or a neighbourhood, and the same inputs always give the same choice.
 
-The app ships one city: **Haddon Harbor** (`setting: original`), a modern Maine harbour town where everyone
-knows everyone, written for the Dungeon. Every other city is the user's own or comes from a city pack. Cities can
+The app ships two cities, both `setting: original` and written for the Dungeon: **Kingswood**, a Post-Reform
+logging town in Vanta's Vallarith where new stories start (`scripts/world/kingswood.py`), and **Haddon Harbor**, a
+modern Maine harbour town where everyone knows everyone. Every other city is the user's own or comes from a city pack. Cities can
 be `real`, `fictional` or `original`, in any era.
 
 The tests use copies of the cities that used to ship (real cities such as Baltimore and London, other eras such
