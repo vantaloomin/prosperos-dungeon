@@ -46,8 +46,8 @@ is set). Entries carry `eras` and `by_era` where facts change. See [canon/eras.m
   here to fill a gap, for Vanta to approve or cut).
 - **`ip`** marks where a name comes from: `original` (Vanta's own) or `myth` (public-domain myth or
   folklore). Names coined by Wizards of the Coast for D&D are replaced (Vanta, 2026-10-21); entries
-  that changed carry `renamed_from`, and [canon/names.md](canon/names.md) lists every change for
-  approval.
+  that changed carry `renamed_from`, and [canon/names.md](canon/names.md) lists every change
+  (approved by Vanta).
 - **Tiers** use the shared ladder from "Scaling and tiers": `local`, `regional`, `realm`, `world`,
   `mythic`.
 - **MARVEL stats** run 1 to 30 with 10 as an ordinary adult (`Program/dungeon/rules/marvel.py`).

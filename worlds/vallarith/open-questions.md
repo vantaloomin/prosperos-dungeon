@@ -5,8 +5,8 @@
 - **Three campaign eras** in one package: Pre-Reform, the Brotherhood Years and Post-Reform (see
   [canon/eras.md](canon/eras.md)).
 - **Post-Reform is about 300 years after the Reformation** (about 3436, 300 RFM).
-- **D&D-coined names are renamed now.** Proposed replacements are in
-  [canon/names.md](canon/names.md) and need Vanta's approval.
+- **D&D-coined names are renamed,** and Vanta approved all the replacements in
+  [canon/names.md](canon/names.md).
 - **Kingswood is Post-Reform,** agreed with the Milestone 1 thread.
 
 ## Contradictions in the source, and what this draft does
@@ -27,22 +27,21 @@
 
 ## Questions for Vanta
 
-1. **The renames** in canon/names.md: approve, change or reject each one.
-2. **Are these names yours?** Forgrimmorithal, Vymnommyth, Zaraxas, Ghondiir, Iseullaryax,
+1. **Are these names yours?** Forgrimmorithal, Vymnommyth, Zaraxas, Ghondiir, Iseullaryax,
    Tatsuyaraga, Himo Xiloscient, Ohgnu, Unguruk, Dramogon, Kadragar. If any came from a book they
    join the rename list.
-3. **Who sits in the Black Citadel** now that Asmodeus is buried?
-4. **The dragon of Petrakyra**: one of the known Eternals, or a ninth?
-5. **What the "Gor'gel Deception" was** in 251 AOD, and who Himo Xiloscient was.
-6. **When Adlmyr fell:** Brotherhood era or Post-Reform?
-7. **Nicana's monastery:** Benzaiten on Ikto Isle, or somewhere else?
-8. **Why the Eternals can't breed:** the source says "a foregone catastrophe". Is it the
+2. **Who sits in the Black Citadel** now that Asmodeus is buried?
+3. **The dragon of Petrakyra**: one of the known Eternals, or a ninth?
+4. **What the "Gor'gel Deception" was** in 251 AOD, and who Himo Xiloscient was.
+5. **When Adlmyr fell:** Brotherhood era or Post-Reform?
+6. **Nicana's monastery:** Benzaiten on Ikto Isle, or somewhere else?
+7. **Why the Eternals can't breed:** the source says "a foregone catastrophe". Is it the
    Reformation, Ghondiir's death, or something older?
-9. **The Pre-Reform start year:** this draft uses 2950 AOM. Earlier or later?
-10. **What "the same pair of women" behind Titania and Mab means** (the deity doc says both courts
+8. **The Pre-Reform start year:** this draft uses 2950 AOM. Earlier or later?
+9. **What "the same pair of women" behind Titania and Mab means** (the deity doc says both courts
     are "backed by the same pair of women"). This draft leaves it out.
-11. **The Abandoned Keep** west of Adlmyr and **the Dire Sea**: on the map, with no story yet.
-12. **Where the Mossrun mines are.**
-13. **Draft content to keep or cut:** every entry marked `"origin": "draft"` (the invented NPC
+10. **The Abandoned Keep** west of Adlmyr and **the Dire Sea**: on the map, with no story yet.
+11. **Where the Mossrun mines are.**
+12. **Draft content to keep or cut:** every entry marked `"origin": "draft"` (the invented NPC
     seeds, the Trein council, the Fjallagracht clans, the currency denominations, the progression
     tracks, and the beats).

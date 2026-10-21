@@ -1,15 +1,15 @@
 # Name changes for public release
 
 Vanta chose (2026-10-21) to rename names coined by Wizards of the Coast for D&D now, and keep names
-from myth and folklore. These are **proposals for Vanta to approve or change**. The rest of the
-package already uses the new names. Changing one later is a find-and-replace across this folder.
+from myth and folklore. **Vanta approved every rename below on 2026-10-21.** The rest of the
+package uses the new names. Changing one later is a find-and-replace across this folder.
 
 Rule of thumb used here: where demonology or myth has a fitting figure, use it (those names are
 centuries old and free). Where it doesn't, use a plain descriptive title or a new name.
 
 ## Renamed
 
-| Source name | Proposed | Why this one |
+| Source name | New name | Why this one |
 | --- | --- | --- |
 | Yeenoghu, the Gnoll Lord | **Haggoth**, the Gnoll Lord | New name. Short, ugly, easy to growl. |
 | Graz'zt, lord of indulgence | **Belphegor**, Prince of Indulgence | A demon of sloth and luxury in old demonology. |
