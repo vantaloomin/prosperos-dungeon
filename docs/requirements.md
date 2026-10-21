@@ -116,6 +116,15 @@ seeded `price()` picker. Dungeon extends this rather than starting over.
   Havenbrooke uses real 2009 prices.
 - **Realism check.** Base prices are anchored to the world's wages and rents (what a day's work
   buys), and a data test flags items that are out of line.
+- **Services are priced the same way.** Inns and taverns (a night's lodging, meals, drink),
+  stabling, baths, healers, scribes, guides, passage and hirelings come from the same catalog and
+  modifiers. Lodging comes in comfort tiers (a floor by the fire up to a private suite), and the
+  narrator only quotes the tier's real price.
+- **Affordability guard.** Every catalog price is checked against what each class of people earns
+  in that world, so ordinary things stay within ordinary means. Example rule: a common-room night
+  plus a meal costs no more than about a day's wage for an unskilled worker, and a modest room
+  about a skilled worker's day. A night at an inn never costs a year of a peasant's life. The data
+  tests fail on any price that breaks its tier's bounds.
 - **Stock generation.** Seeded and deterministic from shop type × settlement size × wealth tier ×
   rarity. Quantities are finite; what the player buys is gone. Rare items are few or absent in
   small places.
