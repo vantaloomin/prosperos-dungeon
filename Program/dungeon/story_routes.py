@@ -102,6 +102,18 @@ class JournalNote(Input):
     text: str = Field(min_length=1, max_length=500)
 
 
+class Trade(Input):
+    qty: int = Field(1, ge=1, le=99)
+
+
+class Purchase(Trade):
+    item_id: str = Field(min_length=1, max_length=80)
+
+
+class Sale(Trade):
+    inventory_id: str = Field(min_length=1, max_length=80)
+
+
 class JournalChange(Input):
     text: str = Field(min_length=1, max_length=500)
 
@@ -145,3 +157,19 @@ def remove_note(request: Request, entry_id: str):
 @router.delete('')
 def clear(request: Request):
     return story.clear(request.app.state.database)
+
+
+@router.get('/gear')
+def gear(request: Request):
+    """The character's purse and pack, and the shop window where the story is (dungeon/inventory.py)."""
+    return story.gear(request.app.state.database)
+
+
+@router.post('/shop/buy')
+def buy(request: Request, body: Purchase):
+    return story.trade(request.app.state.database, 'buy', body.item_id, body.qty)
+
+
+@router.post('/shop/sell')
+def sell(request: Request, body: Sale):
+    return story.trade(request.app.state.database, 'sell', body.inventory_id, body.qty)

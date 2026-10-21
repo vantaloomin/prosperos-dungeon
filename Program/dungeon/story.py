@@ -13,6 +13,7 @@ from dungeon import (
     authors_note,
     feelings,
     in_character,
+    inventory,
     ledger,
     prompt_library,
     quests,
@@ -244,6 +245,49 @@ def persona_text(connection) -> tuple[str, str | None]:
     return '\n'.join(lines), row['name']
 
 
+# Gear and the shop --------------------------------------------------------------------------------
+
+def shop_view(connection, view: dict) -> dict | None:
+    """The shop where the story is, if it is one: open while one of its staff is at work."""
+    shop = inventory.shop_at(view['city']['id'], view['place']['id'])
+    if shop is None:
+        return None
+    staff = [person['sheet'] for person in view['people'] if person['sheet'].get('staff')
+             and person['sheet']['place']['id'] == view['place']['id']]
+    keeper = f"the {staff[0].get('occupation') or staff[0]['role']}" if staff else ''
+    return inventory.window(connection, view['city']['id'], shop, bool(staff), keeper)
+
+
+def gear(database) -> dict:
+    """The character's purse and pack, and the shop window where the story is."""
+    with database.connect(write=True) as connection:
+        view = scene(connection, story_clock.now(connection, database.clock))
+        city = view['city']['id']
+        rows = inventory.carried(connection, city)
+        return {'coins': inventory.purse(connection), 'currency': view['data']['currency'],
+                'slots': {'used': inventory.used(rows), 'max': inventory.capacity(connection)},
+                'items': [{key: row[key] for key in ('id', 'item_id', 'name', 'category', 'qty', 'slots')}
+                          for row in rows],
+                'shop': shop_view(connection, view)}
+
+
+def trade(database, kind: str, key: str, qty: int) -> dict:
+    """Buy an item from the shop here, or sell it one of the character's; the story gets a line about it."""
+    with database.connect(write=True) as connection:
+        view = scene(connection, story_clock.now(connection, database.clock))
+        city = view['city']['id']
+        shop = inventory.shop_at(city, view['place']['id'])
+        require(shop is not None, 'There is no shop here.', 404)
+        require(shop_view(connection, view)['open'], 'The shop is closed; nobody is behind the counter.', 409)
+        done = (inventory.buy if kind == 'buy' else inventory.sell)(connection, city, shop, key, qty, database.now())
+        what = done['name'] if done['qty'] == 1 else f"{done['qty']} × {done['name']}"
+        verb = 'buy' if kind == 'buy' else 'sell'
+        price = inventory.money_text(done['amount'], view['data']['currency'])
+        add(connection, database.now(), 'scene', f"You {verb} {what} for {price}" + ('' if price.endswith('.') else '.'),
+            scene_row(connection))
+    return gear(database)
+
+
 # History ------------------------------------------------------------------------------------------
 
 def next_seq(connection) -> int:
@@ -377,7 +421,8 @@ def clear(database) -> dict:
     with database.connect(write=True) as connection:
         connection.execute('DELETE FROM story_messages')
         connection.execute('DELETE FROM story_people')
-        for table in ('ledger_entries', 'ledger_corrections', 'story_summary', 'story_clock', 'story_quests'):
+        for table in ('ledger_entries', 'ledger_corrections', 'story_summary', 'story_clock', 'story_quests',
+                      'story_inventory', 'story_purse', 'story_stock', 'story_trades'):
             connection.execute(f'DELETE FROM {table}')
         timeline.clear(connection)
     return story(database)
@@ -414,9 +459,13 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
     view = scene(connection, now)
     craft = narration_prompt.craft_for(config.get('context_tokens'), prompt_library.text(connection, 'narrator-craft'))
     who_text, name = persona_text(connection)
+    if carrying := inventory.prompt_text(connection, view['city']['id'], view['data']['currency']):
+        who_text = f'{who_text}\n{carrying}' if who_text else carrying
+    shop = shop_view(connection, view)
     memory = '\n\n'.join(part for part in (ledger.summary_text(connection), ledger.prompt_text(connection),
                                              quests.prompt_text(connection, now)) if part)
-    system = narration_prompt.system(prompt_library.text(connection, 'story-narrator'), craft, scene=scene_text(view),
+    place_text = scene_text(view) + (f"\n\n{inventory.shop_prompt(shop, view['data']['currency'])}" if shop else '')
+    system = narration_prompt.system(prompt_library.text(connection, 'story-narrator'), craft, scene=place_text,
                                      persona=who_text, persona_name=name, memory=memory, narration=NARRATION,
                                      outcomes=outcomes, rolls_shown=dice_shown(connection))
     if in_character.out_of_character(latest['text']):

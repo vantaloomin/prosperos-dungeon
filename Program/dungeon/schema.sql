@@ -292,6 +292,38 @@ CREATE TABLE IF NOT EXISTS story_quests (
   outcome TEXT NOT NULL DEFAULT ''
 );
 
+-- What the character carries and the shops' stock (dungeon/inventory.py); money in hundredths of the currency.
+CREATE TABLE IF NOT EXISTS story_inventory (
+  id TEXT PRIMARY KEY,
+  city_id TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  qty INTEGER NOT NULL CHECK (qty >= 0),
+  stolen INTEGER NOT NULL DEFAULT 0 CHECK (stolen IN (0, 1))
+);
+
+CREATE TABLE IF NOT EXISTS story_purse (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  coins INTEGER NOT NULL CHECK (coins >= 0)
+);
+
+CREATE TABLE IF NOT EXISTS story_stock (
+  city_id TEXT NOT NULL,
+  place_id TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  qty INTEGER NOT NULL CHECK (qty >= 0),
+  PRIMARY KEY (city_id, place_id, item_id)
+);
+
+CREATE TABLE IF NOT EXISTS story_trades (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL CHECK (kind IN ('buy', 'sell')),
+  city_id TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  qty INTEGER NOT NULL,
+  amount INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+
 -- The story's own time once a campaign starts (dungeon/story_clock.py); without it the story runs on the app clock.
 CREATE TABLE IF NOT EXISTS story_clock (
   id INTEGER PRIMARY KEY CHECK (id = 1),

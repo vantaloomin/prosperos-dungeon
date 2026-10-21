@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { aroundText, branchLine, journalKind, questState, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats } from '../../src/features/story/storyText.ts'
+import { aroundText, branchLine, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -75,4 +75,13 @@ test('a quest shows the time left, or how it ended', () => {
   assert.equal(questState({ status: 'open', left: 'about 7 days left' }), 'Underway · about 7 days left')
   assert.equal(questState({ status: 'open', left: '' }), 'Underway')
   assert.equal(questState({ status: 'missed', left: '' }), 'Too late')
+})
+
+test('money, gear and slots read plainly', () => {
+  assert.equal(moneyText(340, { code: 'crown', symbol: 'cr.' }), '3.40 cr.')
+  assert.equal(moneyText(5, { code: 'crown', name: 'silver crowns' }), '0.05 silver crowns')
+  assert.equal(gearLine({ name: 'Rope, fifty feet', qty: 2 }), 'Rope, fifty feet × 2')
+  assert.equal(gearLine({ name: 'Belt knife', qty: 1 }), 'Belt knife')
+  assert.equal(slotsText({ used: 3.35, max: 13 }), '3.35 of 13 slots')
+  assert.equal(slotsText({ used: 2.5, max: 10 }), '2.5 of 10 slots')
 })
