@@ -105,7 +105,7 @@ def chosen(database) -> str:
 
 
 def busy(state) -> bool:
-    return bool(state.conversation.running or state.groups.rounds)
+    return bool(state.conversation.running)
 
 
 async def run_once(state) -> list[Path]:

@@ -144,10 +144,6 @@ ADDED_COLUMNS = (
     ('life_settings', 'paced_replies', 'INTEGER NOT NULL DEFAULT 1'),
     ('life_settings', 'day_shifts', 'INTEGER NOT NULL DEFAULT 1 CHECK (day_shifts IN (0, 1))'),
     # On their mind (dungeon/life/thoughts.py): one private thought a day, shown folded on Today.
-    # Who passed a secret on (dungeon/secrets.py): a person key or 'user'; NULL for those it started with.
-    ('knowledge_holders', 'told_by', 'TEXT'),
-    # Group chat moods (dungeon/moods.py): whether someone furious may walk out of this group.
-    ('group_chats', 'walk_out', 'INTEGER NOT NULL DEFAULT 0 CHECK (walk_out IN (0, 1))'),
     ('life_settings', 'on_her_mind', 'INTEGER NOT NULL DEFAULT 1 CHECK (on_her_mind IN (0, 1))'),
     ('messages', 'held_until', 'TEXT'),
     ('messages', 'held_line', 'TEXT'),
@@ -196,9 +192,6 @@ ADDED_COLUMNS = (
     ('phone_settings', 'lan_enabled', 'INTEGER NOT NULL DEFAULT 0 CHECK (lan_enabled IN (0, 1))'),
     # One shared allowance for messages sent while the user is away, across every companion (dungeon/away.py).
     ('life_settings', 'away_daily', 'INTEGER NOT NULL DEFAULT 6'),
-    # A group reply a secret check touched (dungeon/secrets.py): 'redrafted', 'revealed' or 'held'.
-    ('group_messages', 'guard', 'TEXT'),
-    ('workspace_settings', 'show_secret_slips', 'INTEGER NOT NULL DEFAULT 1 CHECK (show_secret_slips IN (0, 1))'),
     # Hidden values: moods and who heard the news stay unseen unless the user turns them on.
     ('workspace_settings', 'show_moods', 'INTEGER NOT NULL DEFAULT 0 CHECK (show_moods IN (0, 1))'),
     ('workspace_settings', 'show_news', 'INTEGER NOT NULL DEFAULT 0 CHECK (show_news IN (0, 1))'),
@@ -266,16 +259,9 @@ ADDED_COLUMNS = (
     ('life_settings', 'admin_realism', 'INTEGER NOT NULL DEFAULT 2 CHECK (admin_realism BETWEEN 0 AND 3)'),
     # Work life (dungeon/life/work.py, Settings > Realism > Their days): 0 off, 1 steady, 2 true to life, 3 dramatic.
     ('life_settings', 'work_realism', 'INTEGER NOT NULL DEFAULT 2 CHECK (work_realism BETWEEN 0 AND 3)'),
-    # Group chat guests (dungeon/group_guests.py): the member who knows a guest (their host), who they are to them
-    # ("Sally's sister"), and whether the user kept them so they never slip out. NULL host: a member.
-    ('group_members', 'host', 'TEXT'),
-    ('group_members', 'relation', "TEXT NOT NULL DEFAULT ''"),
-    ('group_members', 'kept', 'INTEGER NOT NULL DEFAULT 0 CHECK (kept IN (0, 1))'),
-    # How often guests drop into group chats (Settings > Realism): 0 never on their own, 1 now and then, 2 true to
-    # life, 3 often.
+    # Guests (Settings > Realism): how often they ask the user along to a big day (dungeon/life/big_days.py), 0 never
+    # on their own, 1 now and then, 2 true to life, 3 often.
     ('life_settings', 'guests_realism', 'INTEGER NOT NULL DEFAULT 2 CHECK (guests_realism BETWEEN 0 AND 3)'),
-    # Who brought a guest in: the member's key, or 'user' when the user added them (only pull-ins count toward the gap).
-    ('group_members', 'brought_by', 'TEXT'),
     # Reading, watching and listening (dungeon/life/media.py, Settings > Realism > Their days): 0 off, 1 light,
     # 2 true to life, 3 dramatic.
     ('life_settings', 'media_realism', 'INTEGER NOT NULL DEFAULT 2 CHECK (media_realism BETWEEN 0 AND 3)'),

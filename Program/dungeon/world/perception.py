@@ -26,7 +26,6 @@ import json
 import re
 from functools import cache, lru_cache
 
-from dungeon.database import decode
 from dungeon.world import catalog, generators, personality, townsfolk, wording
 
 FACETS = ('self_story', 'temperament', 'tell', 'flaw', 'desire')
@@ -324,36 +323,6 @@ def suggestions(definition: dict, seed: str, count: int = 6, city: dict | None =
     return {'automatic': {'seen_as': base['public'], 'sees_self': '\n'.join(base['private'])},
             'seen_as': seen, 'sees_self': selves}
 
-
-# For group chat ------------------------------------------------------------------------------------
-
-def companion_lines(connection, companion_id: str) -> dict:
-    """A companion's public line and private lines, for prompts that hold several people (group chat).
-
-    Give `public` to everyone; give `private` only to this companion's own prompt."""
-    row = connection.execute('SELECT v.definition FROM companions c JOIN character_versions v '
-                             'ON v.id=c.active_version_id WHERE c.id=?', (companion_id,)).fetchone()
-    if row is None:
-        return {'public': '', 'private': []}
-    found = for_companion(companion_id, decode(row['definition']))
-    return {'public': found['public'], 'private': found['private']}
-
-
-def sheet_lines(data: dict, sheet: dict, edited: dict | None = None) -> dict:
-    """A townsperson's public line and private lines, for a guest in a group (same contract as above), and
-    `behaviour`: how their personality sliders show, for their own prompt (`edited`: the user's slider changes on
-    their profile, dungeon/life/townsfolk_personality.py)."""
-    found = for_sheet(data, sheet, edited)
-    sliders = personality.for_sheet(townsfolk.drawn(sheet), sheet, edited)
-    return {'public': found['public'], 'private': found['private'],
-            'behaviour': personality.behaviour(personality.levels_of(sliders))}
-
-
-def seeded_lines(seed: str, modern: bool = True) -> dict:
-    """Someone with no sheet of their own (a person in a companion's circle, as a group guest): every facet and gap
-    drawn from the bank by their person key, so the same person always comes across the same way."""
-    found = build(seed, complete({}, seed), gaps(seed), modern)
-    return {'public': found['public'], 'private': found['private']}
 
 
 def own_text(public: str, private: list[str]) -> str:

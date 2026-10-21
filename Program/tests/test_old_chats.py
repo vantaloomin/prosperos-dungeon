@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime
 import pytest
 from conftest import START, send
 
-from dungeon import group_openers, recap
+from dungeon import recap
 from dungeon.characters import require_current
 from dungeon.clock import parse
 from dungeon.imports import chats
@@ -197,7 +197,6 @@ def test_an_undated_old_chat_just_before_now_leaves_every_sign_of_the_user_untou
     with client.app.state.database.connect() as connection:
         assert usual_hours.starts(connection, START) == []
         assert recap.last_from_user(connection, timeline_id) is None
-        assert group_openers.last_user_at(connection) is None
         assert occasions.first_talk(connection, timeline_id, UTC) is None
         assert reactions.user_messages(connection, timeline_id, START.date(), UTC) == []
         assert openers.held(connection, require_current(connection), life_settings(connection), START) \
@@ -297,28 +296,3 @@ def test_an_old_chat_is_never_answered_again(client, connected, provider):
 def test_header_less_sillytavern_lines_are_read_too(client, companion):
     result = bring(client, tavern(line('Hello', date=datetime(2024, 3, 1, tzinfo=UTC).isoformat()), header=False))
     assert (result['format'], result['messages']) == ('sillytavern', 1)
-
-
-def test_a_group_chat_keeps_only_the_user_and_this_companion(client, companion):
-    raw = tavern(
-        line('Morning, everyone.'),
-        line('Morning, Sam!', user=False),
-        line('Coffee is on me today.', user=False, name='Theo'),
-        line('Thanks Theo. Mira, ready for the hike?'),
-        line('Always. Boots are on.', user=False),
-        line('Count me out, my knee hurts.', user=False, name='Theo'),
-        line('I will hold the fort.', user=False, name='Theo'),
-    )
-    result = bring(client, raw)
-    assert (result['messages'], result['skipped']) == (4, 3)
-    assert [(item['role'], item['text']) for item in history(client)] == [
-        ('user', 'Morning, everyone.'), ('companion', 'Morning, Sam!'),
-        ('user', 'Thanks Theo. Mira, ready for the hike?'), ('companion', 'Always. Boots are on.')]
-
-
-def test_a_group_chat_without_the_companions_name_keeps_who_speaks_most():
-    rows = [line('Hi all.'), line('Hello!', user=False, name='Ada'), line('Hey.', user=False, name='Ada'),
-            line('Yo.', user=False, name='Theo')]
-    _kind, kept, skipped = chats.read(tavern(*rows), 'UTC', ('Mira',))
-    assert [(item.role, item.text) for item in kept] == [('user', 'Hi all.'), ('companion', 'Hello!'),
-                                                         ('companion', 'Hey.')] and skipped == 1

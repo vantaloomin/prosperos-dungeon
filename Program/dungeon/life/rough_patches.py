@@ -45,7 +45,6 @@ from dungeon.clock import parse, stamp, zone
 from dungeon.database import identifier, many, one, optional, settings
 from dungeon.errors import require
 from dungeon.life import reactions
-from dungeon.memory import pairs
 from dungeon.world import catalog
 
 # Off in unrelated tests (tests/conftest.py); tests/test_rough_patches.py turns it on.
@@ -58,7 +57,7 @@ OPENS = 1  # The option in the odds table that starts one.
 # cause: (size, whose fault)
 CAUSES = {
     'words': ('big', 'user'), 'missed_plan': ('big', 'user'), 'forgot_occasion': ('big', 'user'),
-    'secret_told': ('big', 'user'), 'secret_kept': ('big', 'user'), 'promise': ('big', 'user'),
+    'promise': ('big', 'user'),
     'seeing_someone': ('big', 'user'), 'called_off': ('small', 'user'),
     'stood_up': ('big', 'companion'), 'hidden_partner': ('big', 'companion'),
 }
@@ -69,7 +68,7 @@ THEIR_DEED = {'stood_up': ('you called off {about}', 'calling off {about}'),
 # Never on an easy life: finding out about someone else.
 NEVER_EASY = {'seeing_someone'}
 # On drama these need both an apology and a gesture.
-SERIOUS = {'secret_told', 'secret_kept', 'seeing_someone'}
+SERIOUS = {'seeing_someone'}
 # Calm days before it mends by itself, by slider level, for (the user's fault, theirs). Level 1 fades overnight.
 CALM = {2: (timedelta(days=3), timedelta(days=2)), 3: (timedelta(days=14), timedelta(days=4))}
 SMALL_FOR = timedelta(days=1)
@@ -78,8 +77,7 @@ MADE_UP_FOR = timedelta(hours=6)
 # Emotional traits whose names speak to each cause (reactions.MINDS covers the rest).
 MINDS = {'words': r'sensitive|thin[- ]skinned|insecure|proud|need|lonely|sulk',
          'promise': reactions.MINDS['user:missed_plan'], 'missed_plan': reactions.MINDS['user:missed_plan'],
-         'forgot_occasion': reactions.MINDS['user:forgot_occasion'], 'secret_told': reactions.MINDS['user:told_secret'],
-         'secret_kept': r'trust|betray|honest|secret|loyal|guarded|parano',
+         'forgot_occasion': reactions.MINDS['user:forgot_occasion'],
          'seeing_someone': r'jealous|possessive|insecure|loyal|trust|clingy|need',
          'called_off': reactions.MINDS['user:missed_plan']}
 
@@ -257,24 +255,6 @@ def friction(connection, companion: dict, cause: str, subject: str, about: str, 
              shown: str = '') -> dict | None:
     """Small everyday friction another feature noticed (a chore after moving in): gone in a day."""
     return consider(connection, companion, cause, subject, about, now, shown=shown)
-
-
-def found_out(connection, secret: dict, member: str, now: datetime):
-    """A companion found out a secret that was kept from them: when it's about the user, a rough patch can start."""
-    if not any(subject.get('key') == 'user' for subject in secret.get('subjects') or ()):
-        return
-    from dungeon.characters import by_id
-    companion = by_id(connection, pairs.companion_id(member) or '')
-    if companion:
-        consider(connection, companion, 'secret_kept', f"secret-kept:{secret['id']}>{member}",
-                 f"the user kept something from you, and you found out ({secret['statement'].rstrip('.')})", now,
-                 shown='over them finding out you kept something from them')
-
-
-def told_secret(connection, companion: dict, secret: dict, listener: str, now: datetime):
-    consider(connection, companion, 'secret_told', f"secret-told:{secret['id']}:{listener}>{companion['id']}",
-             f"the user told {listener} something you trusted them with ({secret['statement'].rstrip('.')})", now,
-             shown=f'over you telling {listener} something they trusted you with')
 
 
 def called_off(connection, companion: dict, outing: dict, now: datetime):

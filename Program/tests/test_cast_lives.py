@@ -3,9 +3,9 @@ import asyncio
 import time
 from datetime import timedelta
 
+from companions import companion_named
 from conftest import reconcile, set_life
 from life_posts import posts
-from test_groups import companion_named
 
 from dungeon.life import simulation
 

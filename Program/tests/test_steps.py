@@ -480,14 +480,6 @@ def test_an_open_relationship_and_an_easy_life(client, monkeypatch, minds):
     assert 'The user is also seeing Theo; you know, and it does not bother you.' in standing(client)
 
 
-def test_a_group_chat_reads_the_same_line(client, monkeypatch, minds):
-    make(client, monkeypatch)
-    client.put('/api/life/steps', json={'step': 'exclusive'})
-    add_romance(client, 'Theo Park')
-    group = {'older': [], 'query': '', 'lines': [], 'previous': None}
-    assert 'as far as you know the user sees only you' in standing(client, group)
-
-
 # Which message is the answer (Vanta 2026-10-17): only the user's first reply after an ask is read whatever it says; a
 # later one counts only when it plainly answers.
 

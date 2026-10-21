@@ -8,8 +8,7 @@ Every table in the schema is in exactly one group below (tests/test_start_over.p
 
 - WORKSPACE stays through both: settings, model connections, image backends, lookup services,
   cities and the user's changes to them, notification and phone setup, the user's own story (Story mode,
-  apart from every companion), group chats (the companion leaves each one; their old lines stay) and secrets
-  (the companion forgets what they learned).
+  apart from every companion).
   Deletion markers stay too, so a restore still honours them.
 - CHARACTER is who the companion is: the companion, every version of the character, and their
   look (reference pictures, adapters, training and test pictures). Starting over keeps it;
@@ -27,7 +26,7 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-from dungeon import backup, groups, pictures, secrets
+from dungeon import backup, pictures
 from dungeon.characters import require_current
 from dungeon.database import identifier, many
 from dungeon.errors import require
@@ -38,8 +37,8 @@ WORKSPACE = (
     'model_routes', 'life_settings', 'world_cities', 'world_changes', 'world_change_dismissals', 'townsfolk_mix', 'townsfolk_personality', 'town_levels', 'image_settings',
     'image_backends', 'context_settings', 'context_services', 'context_tools', 'lora_settings', 'notification_settings', 'notification_deliveries', 'prompt_overrides', 'phone_settings',
     'phone_devices', 'phone_push', 'deletion_markers', 'debug_time', 'builtin_recall', 'voice_settings', 'story_scene', 'story_messages', 'story_people',
-    'group_moments', 'group_chats', 'group_members', 'group_messages', 'pair_backstories', 'knowledge', 'authors_notes',
-    'knowledge_holders', 'moods', 'local_programs', 'persona', 'lore_entries', 'lore_books',
+    'pair_backstories', 'authors_notes',
+    'moods', 'local_programs', 'persona', 'lore_entries', 'lore_books',
     'sqlite_sequence',
 )
 # Children before parents, so the order also reads as what depends on what.
@@ -222,8 +221,6 @@ def wipe(database, keep_character: bool) -> tuple[list[str], list[str], list[str
         # Checked at commit, so a kept row still pointing at a cleared one fails the whole change.
         connection.execute('PRAGMA defer_foreign_keys=ON')
         companion = require_current(connection)
-        groups.leave_everywhere(connection, companion['id'], database.now())
-        secrets.forget_everywhere(connection, companion['id'], database.now())
         others = others_of(connection, companion['id'])
         if others:
             return wipe_own(database, connection, companion, others, keep_character)

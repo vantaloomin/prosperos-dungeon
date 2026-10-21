@@ -18,11 +18,10 @@ import random
 from datetime import date, datetime, time, timedelta
 from functools import cache
 
-from dungeon import secrets
 from dungeon.clock import stamp, zone
 from dungeon.database import decode, many, optional
 from dungeon.life import circle, deck, money, pronouns, storylines
-from dungeon.memory import closeness, pairs
+from dungeon.memory import closeness
 from dungeon.world import catalog
 
 # Off in tests unless a test turns it on: a seeded dream would add context lines and first messages.
@@ -72,27 +71,9 @@ def fragments(connection, companion, day: date, now) -> dict:
     friend = person_name(connection, {'id': moment['friend_id']}) if moment and moment.get('friend_id') else None
     if friend and friend not in people:
         people.append(friend)
-    hidden = secret_words(connection, companion)
-    return {'people': [name for name in people if not touches(name, hidden)],
-            'places': [name for name in places if not touches(name, hidden)],
+    return {'people': people,
+            'places': places,
             'user': with_user(connection, companion, day, now)}
-
-
-def secret_words(connection, companion) -> set[str]:
-    """The names and key words of every secret the companion knows."""
-    key = pairs.companion_key(companion['id'])
-    found = set()
-    for secret in secrets.active(connection):
-        if key in secret['knowers']:
-            found |= {subject['name'].casefold() for subject in secret['subjects'] if subject.get('name')}
-            found |= {word.casefold() for word in secret['keys']}
-    return found
-
-
-def touches(fragment: str, hidden: set[str]) -> bool:
-    words = set(fragment.casefold().split())
-    return any(item in words or item == fragment.casefold() or (' ' in item and item in fragment.casefold())
-               for item in hidden)
 
 
 def with_user(connection, companion, day: date, now) -> bool:
@@ -163,8 +144,6 @@ def weave(connection, companion, day: date, now) -> dict | None:
     dream = fill(template, found, first, chooser) | {'template': template['id']}
     if tail := mood_line(connection, companion, day, chooser):
         dream['text'] += ' ' + tail.format(first=first)
-    if deck.kept_quiet(connection, companion, dream['told']):
-        return None
     dream['sleep_talk'] = sleep_talker(connection, timeline_id, chooser)
     return dream
 

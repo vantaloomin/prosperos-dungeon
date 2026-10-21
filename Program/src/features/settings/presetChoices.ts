@@ -1,7 +1,7 @@
 import type { LifeSettings, WorkspaceSettings } from '../../types'
 
 type LifePart = Pick<LifeSettings, 'drama' | 'paced_replies' | 'day_shifts' | 'on_her_mind' | 'upkeep_realism' | 'kitchen_realism' | 'looks_realism' | 'pets_realism' | 'pets_can_die' | 'admin_realism' | 'work_realism' | 'guests_realism' | 'media_realism' | 'hobbies_realism' | 'together_realism' | 'rough_patches_realism' | 'steps_pace' | 'friends_fall' | 'breakups' | 'love_life' | 'life_turns' | 'growing_families' | 'family_life' | 'people_pass_away' | 'loss'>
-type ShownPart = Required<Pick<WorkspaceSettings, 'show_moods' | 'show_news' | 'show_odds' | 'show_secret_slips' | 'show_home_meters'>>
+type ShownPart = Required<Pick<WorkspaceSettings, 'show_moods' | 'show_news' | 'show_odds' | 'show_home_meters'>>
 
 export interface RealismPreset {
   id: string
@@ -11,7 +11,7 @@ export interface RealismPreset {
   shown: ShownPart
 }
 
-const HIDDEN: ShownPart = { show_moods: false, show_news: false, show_odds: false, show_secret_slips: true, show_home_meters: false }
+const HIDDEN: ShownPart = { show_moods: false, show_news: false, show_odds: false, show_home_meters: false }
 
 /**
  * One-tap starting points for Settings > Realism, named the way Wolfenstein names its difficulties (Vanta, 2026-10-10).
@@ -33,15 +33,14 @@ export const REALISM_PRESETS: RealismPreset[] = [
   {
     id: 'strings', label: 'I pull the strings', description: 'Everyday drama and plans that sometimes go wrong, as in real life, but replies right away and every hidden value on show: moods, who has heard what, and the odds, with a way to make things go another way.',
     life: { drama: 1, paced_replies: false, day_shifts: true, on_her_mind: true, upkeep_realism: 2, kitchen_realism: 2, looks_realism: 2, pets_realism: 2, pets_can_die: true, admin_realism: 2, work_realism: 2, guests_realism: 2, media_realism: 2, hobbies_realism: 2, together_realism: 2, rough_patches_realism: 2, steps_pace: 2, friends_fall: true, breakups: true, love_life: 2, life_turns: 2, growing_families: 2, family_life: 2, people_pass_away: false, loss: 2 },
-    shown: { show_moods: true, show_news: true, show_odds: true, show_secret_slips: true, show_home_meters: true },
+    shown: { show_moods: true, show_news: true, show_odds: true, show_home_meters: true },
   },
 ]
 
 /** How many of a preset's settings differ from the current ones. */
 function distance(preset: RealismPreset, life: LifeSettings, workspace: WorkspaceSettings): number {
   const shown: ShownPart = {
-    show_moods: !!workspace.show_moods, show_news: !!workspace.show_news, show_odds: !!workspace.show_odds,
-    show_secret_slips: workspace.show_secret_slips !== false, show_home_meters: !!workspace.show_home_meters,
+    show_moods: !!workspace.show_moods, show_news: !!workspace.show_news, show_odds: !!workspace.show_odds, show_home_meters: !!workspace.show_home_meters,
   }
   return (Object.keys(preset.life) as (keyof LifePart)[]).filter((key) => life[key] !== preset.life[key]).length
     + (Object.keys(preset.shown) as (keyof ShownPart)[]).filter((key) => shown[key] !== preset.shown[key]).length

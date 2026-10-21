@@ -7,25 +7,19 @@ or two circle people, are never computed, so the thousands of townsfolk in a cit
 
 Where a pair starts:
 - two companions: "Just met", or higher the more often they have run into each other around town, unless the
-  user wrote how they know each other when they were first put together (a group, or becoming a companion);
+  user wrote how they know each other when one became a companion;
 - a companion and someone in their circle: a default by the circle role, nudged one step up or down by the
   person's seed (some families are tight, some distant; not every close friend is the closest);
 - a companion and a townsperson: higher the more often they have met (#204's rule for the user).
 
-What moves it, all by rules: days both spoke in the same group (one a day, however long the talk), group
-messages the user kept as a shared moment while both were there (never more than the days), good-news storyline
-beats about a circle person, and falling-out beats with them (a step down, won back when they make up). Gentle
-cooling after long silences follows the companion's own cooling switch (#204). A guarded secret someone found
-out (the secrets ledger) lowers how they feel about the people it is about, but only when their character sheet
-says they react that way: there is no built-in jealousy or betrayal. Someone whose "I see myself" lines show a
-mask may keep others a step further than they are kept.
+What moves it, all by rules: good-news storyline beats about a circle person, and falling-out beats with them (a step down, won back when they make up). Gentle
+cooling after long silences follows the companion's own cooling switch (#204). Someone whose "I see myself"
+lines show a mask may keep others a step further than they are kept.
 
 Only the one-time backstory is stored (`pair_backstories`); the user has no other dials between people.
 """
-import json
 import re
 
-from dungeon import secrets
 from dungeon.characters import by_id
 from dungeon.clock import parse, stamp, zone
 from dungeon.database import decode, many, optional, settings
@@ -65,7 +59,6 @@ FALLINGS = {
     'friend_fight': {0: -1, 1: {'good': 1}},
     'drunk_kiss': {1: -1, 2: {'good': 2, 'mixed': 1}},
 }
-MOST_SECRET_STEPS = 2
 # From this stage on, someone has let the other see how they see themselves ("I see myself").
 SELF_VIEW_LEVEL = 4
 MASK_CHANCE = 0.5
@@ -105,14 +98,9 @@ def backstory(connection, a: str, b: str) -> dict | None:
     return optional(connection, 'SELECT * FROM pair_backstories WHERE first=? AND second=?', (first, second))
 
 
-def shared_a_group(connection, a: str, b: str) -> bool:
-    return optional(connection, 'SELECT 1 FROM group_members one JOIN group_members two ON two.group_id=one.group_id '
-                    'WHERE one.member=? AND two.member=? LIMIT 1', (normal(a), normal(b))) is not None
-
-
 def can_tell(connection, a: str, b: str) -> bool:
-    """The backstory is written once: before the two first share a group, and only if nobody wrote it yet."""
-    return backstory(connection, a, b) is None and not shared_a_group(connection, a, b)
+    """The backstory is written once, only if nobody wrote it yet."""
+    return backstory(connection, a, b) is None
 
 
 def tell(connection, a: str, b: str, level: int | None, how: str, timestamp: str) -> bool:
@@ -127,19 +115,6 @@ def tell(connection, a: str, b: str, level: int | None, how: str, timestamp: str
     connection.execute('INSERT INTO pair_backstories (first, second, start_level, how, created_at) VALUES (?, ?, ?, ?, ?)',
                        (first, second, level, how, timestamp))
     return True
-
-
-def tell_all(connection, ties, timestamp: str):
-    """Several backstories from one form: each {a, b, level, how} with companion ids or person keys."""
-    for item in ties or ():
-        item = item if isinstance(item, dict) else item.model_dump()
-        tell(connection, key_of(item['a']), key_of(item['b']), item.get('level'), item.get('how') or '', timestamp)
-
-
-def tell_rest(connection, companion_ids: list[str], now, timestamp: str):
-    """Pairs among these companions that nobody told about get the backstory the app works out for them."""
-    for pair in untold(connection, companion_ids, now):
-        tell(connection, companion_key(pair['a']), companion_key(pair['b']), None, pair['how'], timestamp)
 
 
 def key_of(value: str) -> str:
@@ -160,23 +135,6 @@ def timezone_of(connection):
 
 def local_day(instant: str, timezone) -> str:
     return parse(instant).astimezone(timezone).date().isoformat()
-
-
-def group_days(connection, a: str, b: str, timezone) -> list[str]:
-    """Local days on which both spoke in the same group."""
-    spoke: dict[str, set] = {a: set(), b: set()}
-    for row in many(connection, "SELECT group_id, author, created_at FROM group_messages WHERE status='complete' "
-                    'AND author IN (?, ?)', (a, b)):
-        spoke[row['author']].add((row['group_id'], local_day(row['created_at'], timezone)))
-    return sorted({day for _group, day in spoke[a] & spoke[b]})
-
-
-def group_moments(connection, a: str, b: str, timezone) -> list[str]:
-    """Days of the group messages kept as shared moments while both were in the group."""
-    rows = many(connection, 'SELECT message.present, message.created_at FROM group_moments kept '
-                'JOIN group_messages message ON message.id=kept.message_id')
-    return sorted(local_day(row['created_at'], timezone) for row in rows
-                  if {a, b} <= set(json.loads(row['present'] or '[]')))
 
 
 def town_meetings(connection, companion: dict, other: str, now) -> list[str]:
@@ -231,21 +189,6 @@ def self_view(connection, key: str) -> str:
     if lines.get('glimpse'):
         return f"as {lines['glimpse']}."
     return f'"{lines["private"][0]}"' if lines['private'] else ''
-
-
-def reacts_to_secrets(definition: dict) -> bool:
-    """Whether finding out a secret would sour how they feel: only when their sheet says so."""
-    parts = [str(definition.get(field) or '') for field in SHEET_FIELDS]
-    parts += [str(item) for item in definition.get('flaws') or []]
-    parts += [str(trait.get('name', '')) for trait in definition.get('emotional_traits') or [] if isinstance(trait, dict)]
-    text = ' '.join(parts)
-    return any(not NEGATED.search(text[max(0, match.start() - 30):match.start()]) for match in REACTS.finditer(text))
-
-
-def secrets_found(connection, holder: str, about: str) -> int:
-    """Secrets about `about` that were kept from `holder` and that they found out (it slipped, or the user let them
-    find out). The secrets ledger counts them (dungeon/secrets.py)."""
-    return secrets.found_about(connection, normal(holder), normal(about))
 
 
 def story_moves(connection, companion: dict, person_id: str, today: str) -> dict:
@@ -305,20 +248,18 @@ def owner_of(connection, person: dict) -> dict | None:
 def both_companions(connection, a: str, b: str, first: dict, second: dict, now, timezone) -> dict:
     told = backstory(connection, a, b)
     met = town_meetings(connection, first, b, now)
-    days, moments = group_days(connection, a, b, timezone), group_moments(connection, a, b, timezone)
     start = told['start_level'] if told and told['start_level'] else meeting_stage(len(met))
-    base = level_from(start, len(days) + min(len(moments), len(days)))
-    contact = contact_days(days + met)
+    base = level_from(start, 0)
+    contact = contact_days(met)
 
     def toward(me: dict, them: str) -> dict:
-        level = base - masked(me, them) - min(secrets_found(connection, companion_key(me['id']), them),
-                                              MOST_SECRET_STEPS) * reacts_to_secrets(me['version']['definition'])
+        level = base - masked(me, them)
         level = clamp(level)
         steps = cooled(connection, me, contact, now, timezone)
         return {'level': max(level - steps, min(level, own.COOL_FLOOR)), 'cooled': steps > 0}
 
     return {'start': start, 'how': told['how'] if told else '', 'told': told is not None,
-            'group_days': len(days), 'moments': min(len(moments), len(days)), 'meetings': len(met),
+            'meetings': len(met),
             'ab': toward(first, b), 'ba': toward(second, a)}
 
 
@@ -331,8 +272,7 @@ def with_circle(connection, a: str, b: str, me: dict, person: dict, now) -> dict
     today = now.astimezone(zone(me['version']['timezone'])).date().isoformat()
     moved = story_moves(connection, me, person['id'], today)
     base = clamp(level_from(found['level'], moved['points']) + moved['steps'])
-    mine = clamp(base - masked(me, b) - min(secrets_found(connection, a, b), MOST_SECRET_STEPS)
-                 * reacts_to_secrets(me['version']['definition']))
+    mine = clamp(base - masked(me, b))
     # Their own parents, siblings and grandparents are never someone they have "just met", whatever a mask or a
     # secret does.
     close_family = circle.role_kind(person['role']) in ('parent', 'sibling') or person['role'] in circle.GRANDPARENTS
@@ -345,8 +285,7 @@ def with_circle(connection, a: str, b: str, me: dict, person: dict, now) -> dict
 def with_townsperson(connection, a: str, b: str, me: dict, now) -> dict:
     met = town_meetings(connection, me, b, now)
     base = meeting_stage(len(met))
-    mine = clamp(base - masked(me, b) - min(secrets_found(connection, a, b), MOST_SECRET_STEPS)
-                 * reacts_to_secrets(me['version']['definition']))
+    mine = clamp(base - masked(me, b))
     return {'start': base, 'how': '', 'told': False, 'meetings': len(met),
             'ab': {'level': mine, 'cooled': False}, 'ba': {'level': base, 'cooled': False}}
 
@@ -392,15 +331,14 @@ def between(connection, a: str, b: str, now) -> dict | None:
 # Who knows whom -----------------------------------------------------------------------------------
 
 def known_companions(connection, companion: dict, now) -> list[str]:
-    """Other companions this one has a tie with: a backstory, a group in common, or a meeting in town."""
+    """Other companions this one has a tie with: a backstory, or a meeting in town."""
     key = companion_key(companion['id'])
     others = [row['id'] for row in many(connection, 'SELECT id FROM companions WHERE id!=? AND active_version_id IS NOT NULL',
                                         (companion['id'],))]
     found = []
     for other in others:
         other_key = companion_key(other)
-        if backstory(connection, key, other_key) or shared_a_group(connection, key, other_key) \
-                or town_meetings(connection, companion, other_key, now):
+        if backstory(connection, key, other_key) or town_meetings(connection, companion, other_key, now):
             found.append(other_key)
     return found
 
@@ -415,7 +353,7 @@ def ties(connection, companion: dict, now) -> list[dict]:
         if found and other_companion:
             result.append({'companion_id': other_companion['id'], 'name': other_companion['version']['name'],
                            'feels': found['ab'], 'they_feel': found['ba'], 'how': found['how'],
-                           'group_days': found['group_days'], 'meetings': found['meetings']})
+                           'meetings': found['meetings']})
     return result
 
 
@@ -429,38 +367,6 @@ def defaults_for_new(connection, others: list[dict], key: str, now) -> list[dict
         result.append({'companion_id': other['id'], 'name': other['version']['name'], 'meetings': len(met),
                        'level': meeting_stage(len(met)), 'name_of_level': NAMES[meeting_stage(len(met)) - 1]})
     return result
-
-
-def untold(connection, companion_ids: list[str], now) -> list[dict]:
-    """Pairs among these companions whose backstory can still be written, with the stage they would start at."""
-    keys = [companion_key(item) for item in dict.fromkeys(companion_ids)]
-    result = []
-    for index, a in enumerate(keys):
-        for b in keys[index + 1:]:
-            if not can_tell(connection, a, b):
-                continue
-            first, second = by_id(connection, companion_id(a)), by_id(connection, companion_id(b))
-            if first is None or second is None:
-                continue
-            met = len(town_meetings(connection, first, b, now))
-            result.append({'a': first['id'], 'b': second['id'], 'a_name': first['version']['name'],
-                           'b_name': second['version']['name'], 'level': meeting_stage(met),
-                           'how': suggested_how(connection, first, second, met)})
-    return result
-
-
-def suggested_how(connection, first: dict, second: dict, met: int) -> str:
-    """How two companions know each other, worked out from where they live and whether they have met in town, so
-    the form starts filled in ("the world exists outside of User", Vanta 2026-10-08); the user can change it."""
-    from dungeon.world import changes, custom
-    cities = custom.all_cities(connection)
-    homes = [changes.resolve(item['version']['definition'].get('home_city') or '', cities) if
-             item['version']['definition'].get('home_city') else None for item in (first, second)]
-    shared = homes[0]['name'] if homes[0] and homes[1] and homes[0]['id'] == homes[1]['id'] else ''
-    if met:
-        return f'Have run into each other around {shared}' if shared else 'Have run into each other around town'
-    return f'Both live in {shared}, but only know each other through the user' if shared else \
-        'Only know each other through the user'
 
 
 def shown(found: dict | None) -> dict | None:
@@ -484,6 +390,5 @@ def for_townsperson(connection, companion: dict, person: dict, now) -> dict | No
     if person.get('cast'):
         return shown(between(connection, key, companion_key(person['cast']), now))
     level = meeting_stage(person['times'])
-    mine = clamp(level - masked(companion, person['key']) - min(secrets_found(connection, key, person['key']),
-                 MOST_SECRET_STEPS) * reacts_to_secrets(companion['version']['definition']))
+    mine = clamp(level - masked(companion, person['key']))
     return {'level': mine, 'name': NAMES[mine - 1], 'their_level': level, 'their_name': NAMES[level - 1]}

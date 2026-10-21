@@ -193,13 +193,12 @@ def test_the_quick_start_keeps_the_models_bank_picks(client, provider):
     assert plain['definition']['seen_as'] == '' and plain['definition']['sees_self'] == ''
 
 
-def test_a_companion_prompt_holds_both_lines_and_group_chat_gets_them_split(client):
+def test_a_companion_prompt_holds_both_lines(client):
     companion = make(client, 'Cheerful and bubbly.', flaws=["Can't say no."])
     with client.app.state.database.connect() as connection:
         current = require_current(connection)
         prompt = character_text(current['version'], connection)
-        lines = perception.companion_lines(connection, companion['id'])
-        assert perception.companion_lines(connection, 'nobody') == {'public': '', 'private': []}
+        lines = perception.for_companion(companion['id'], current['version']['definition'])
     assert lines['public'] and len(lines['private']) == 6
     assert f"How others see you (how you come across, whether or not you agree): {lines['public']}" in prompt
     assert all(f'- {line}' in prompt for line in lines['private'])

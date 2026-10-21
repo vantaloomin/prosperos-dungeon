@@ -198,12 +198,6 @@ def test_low_spirits_and_tight_money_tilt_the_day():
     assert disruptions.tilted(rows, {})[-1]['high'] == rows[-1]['high']
 
 
-def test_a_gossip_is_likelier_to_pass_a_secret_on_the_closer_they_feel():
-    names = {'name': 'they', 'a': 'them', 'b': ''}
-    passing = [consequences.odds('secret:pass_on', {'closeness_a': level}, names)[0]['odds'] for level in (2, 3, 4)]
-    assert passing[0] == 0 and 0.1 < passing[1] < 0.3 and passing[2] > 0.8
-
-
 def item_timeline(client):
     return stored(client)[0]['timeline_id']
 

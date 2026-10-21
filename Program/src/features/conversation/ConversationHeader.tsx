@@ -1,6 +1,6 @@
 import { useState, type RefObject } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, Ellipsis, GitBranch, MessageSquareText, MessagesSquare, Phone, Search, UsersRound } from 'lucide-react'
+import { ChevronLeft, Ellipsis, GitBranch, MessageSquareText, MessagesSquare, Phone, Search } from 'lucide-react'
 import { api } from '../../api'
 import type { ChatStyle, Companion } from '../../types'
 import { CHAT_STYLES } from './chatStyles'
@@ -16,9 +16,9 @@ import { ExportLinks } from '../chats/ExportLinks'
 import { useWhere } from './useWhere'
 import { WHERE_KEY, canCall, type WhereState } from './whereText'
 
-type Props = { companion: Companion; listing: boolean; chatsButton: RefObject<HTMLButtonElement | null>; onChats: () => void; searching: boolean; searchButton: RefObject<HTMLButtonElement | null>; onSearch: () => void; timeline: string | null; browsing: boolean; timelinesButton: RefObject<HTMLButtonElement | null>; onTimelines: () => void; onGroups?: () => void; onBack?: () => void }
+type Props = { companion: Companion; listing: boolean; chatsButton: RefObject<HTMLButtonElement | null>; onChats: () => void; searching: boolean; searchButton: RefObject<HTMLButtonElement | null>; onSearch: () => void; timeline: string | null; browsing: boolean; timelinesButton: RefObject<HTMLButtonElement | null>; onTimelines: () => void; onBack?: () => void }
 
-export function ConversationHeader({ companion, listing, chatsButton, onChats, searching, searchButton, onSearch, timeline, browsing, timelinesButton, onTimelines, onGroups, onBack }: Props) {
+export function ConversationHeader({ companion, listing, chatsButton, onChats, searching, searchButton, onSearch, timeline, browsing, timelinesButton, onTimelines, onBack }: Props) {
   const { name, timezone, location } = { ...companion.version.definition, name: companion.version.name }
   const time = useLocalTime(timezone)
   const portrait = usePortrait()
@@ -38,7 +38,6 @@ export function ConversationHeader({ companion, listing, chatsButton, onChats, s
       <ChatStyleSwitch />
       <span className="header-break phone-only" aria-hidden="true" />
       <CallButton name={name} />
-      {onGroups && <button type="button" className="icon-button" aria-label="Group chats: start a new group" title="Group chats" onClick={onGroups}><UsersRound aria-hidden="true" /></button>}
       <button ref={timelinesButton} type="button" className="icon-button" aria-label="Timelines" aria-expanded={browsing} onClick={onTimelines}><GitBranch aria-hidden="true" /></button>
       <button ref={searchButton} type="button" className="icon-button" aria-label="Search messages" aria-expanded={searching} onClick={onSearch}><Search aria-hidden="true" /></button>
       <SidecarButton />

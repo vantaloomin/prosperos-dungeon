@@ -20,9 +20,6 @@ for comparison.
 | Noting the companion's own facts | The memory model reading its replies for their people, team, work | `RULES` in `dungeon/memory/self_suggest.py` |
 | Describing your pictures | The "Seeing pictures" model | `DESCRIBE` in `dungeon/pictures.py` |
 | The Story narrator | Every reply in the Story tab, before the scene ([story.md](story.md)) | `NARRATOR` in `dungeon/story.py` |
-| Group chats | Every group chat reply, before who is in the group and the chat so far ([group-chat.md](group-chat.md)) | `RULES` in `dungeon/groups.py` |
-| Groups starting a conversation | Someone in a group shares something from their day on their own ([group-chat.md](group-chat.md)) | `INSTRUCTION` in `dungeon/group_openers.py` |
-| Guests in group chats | Who a guest is, in their own reply: someone from a member's circle or around town ([group-chat.md](group-chat.md#guests)) | `SHEET` in `dungeon/group_guests.py` |
 | Character drafting (5) | The quick start, "Help me write" and the paste box | `dungeon/prompts/character-*.md` ([character-drafting.md](character-drafting.md)) |
 | Sidecar | The sidecar's replies and proposed changes ([sidecar.md](sidecar.md)) | `dungeon/prompts/sidecar.md` |
 
@@ -32,7 +29,7 @@ the library shows and fills them in the `{{placeholder}}` form the drafting file
 
 ## How a chat reply's prompt is laid out
 
-Every chat reply, first text and group chat reply is built so that most of it is the same as the request
+Every chat reply and first text is built so that most of it is the same as the request
 before it. Local servers (llama.cpp, LM Studio, Ollama, KoboldCpp) and hosted providers can then reuse the work
 they already did on that part (prompt caching), so a reply starts sooner and costs less. It is also easier on
 small local models, which follow facts best when they sit right next to the message they answer.

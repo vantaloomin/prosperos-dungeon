@@ -488,7 +488,7 @@ half the time (`encounters.FELLOW_CHANCE`). Whoever plans that day second sees t
 other's agenda doesn't reach yet finds them nowhere, and only a companion who has never lived a day is still
 placed by the townsfolk rules. The meeting goes in both diaries when the other's slot is still to come and
 holds no meeting of its own (`encounters.mirror`), and a day counts once however many diaries tell it. Their
-closeness with each other follows from these meetings (see Group chat, two-way closeness). The first meeting
+closeness with each other follows from these meetings (`dungeon/memory/pairs.py`). The first meeting
 is news: each of them may text the user about it (`crossed_paths` in First messages), with the usual holds. Start over and delete then touch only the main
 character's rows (`dungeon/start_over.py`); deleting brings back whoever stepped back most recently. They
 still text first and keep their chats (see First messages and Chats and unread messages).
@@ -655,11 +655,9 @@ Changing how it went redoes the marks from that day. The note lists what an outc
 
 #### What the user does
 
-`dungeon/life/reactions.py` puts four things the user does through the engine, only ones the app can tell
-happened without guessing: telling someone a secret in a group chat that was kept from them (each companion who
-held it from the start reacts), an agreed plan with a sure date passing with no message from the user that day,
-chatting on the companion's birthday or a first-talk anniversary without mentioning it, and adding someone to a
-group with "show everything" (members who had spoken there react). Each is a `user:*` choice: whether it stings
+`dungeon/life/reactions.py` puts two things the user does through the engine, only ones the app can tell
+happened without guessing: an agreed plan with a sure date passing with no message from the user that day, and
+chatting on the companion's birthday or a first-talk anniversary without mentioning it. Each is a `user:*` choice: whether it stings
 comes only from an emotional trait the user built into the character whose name speaks to it (`minds`, 0 to 3
 from its intensity; without one the companion lets it go, about 33%, 50% or 60% for mild, moderate or strong).
 A sting leaves a mood mark for a few days whose `told` line goes into the chat context's "How you are taking
@@ -673,13 +671,7 @@ GET /api/life/reactions                   # the last 30 days, newest first, as o
 
 Out of character, "what if?" questions get the engine's odds without rolling anything: an OOC message's
 note lists the turnings still to come in running storylines with their odds as things stand, and the odds for
-the user's own choices the app would notice (telling someone a secret this companion holds, a plan or occasion
-in the next week). The model answers from them in plain words; the companion never sees them in character.
-
-Secrets use the engine too: whether a gossip would pass a secret on to someone in a group chat is the
-choice `secret:pass_on`, from how close they feel (about 86% at Close or closer, 20% a step below, never
-to someone they hardly know), seeded by the secret, the two of them and that closeness. Only a companion
-with the gossip flaw passes anything on, and never to someone it is kept from.
+the user's own choices the app would notice (a plan or occasion in the next week). The model answers from them in plain words; the companion never sees them in character.
 
 #### Life chapters
 
@@ -730,7 +722,7 @@ you know" for 14 days ("Heard on 2026-10-07 (Ana (Kimberly's sister) told you): 
 companion heard today or yesterday can open a conversation ("Did you hear about Kimberly??"), sometimes before
 that companion has told the user. Only life events travel, never anything from the user's chats, and the prompt
 says they don't know whether the user has heard, so no companion seems to have read the user's other chats.
-Group chats: see docs/group-chat.md. Today shows "Word getting around": the companion's recent news and who has
+Today shows "Word getting around": the companion's recent news and who has
 heard it, from whom, once anyone has, only with Settings > Realism > Hidden values > "Show who has heard their news"
 on (workspace `show_news`, off by default; `GET /api/life/news` returns `[]` while it is off). Word travels either
 way.
@@ -813,7 +805,7 @@ are seeing: their own baby is below.
   your sister Ana's daughter.").
 - Town couples' babies (dungeon/world/couples.py `babies`) follow the same setting; a companion who knows a
   townsperson well hears they are expecting ("Family news: they're expecting a baby with Dana around March.").
-- Children are only ever words: never in pictures, the feed or group chats.
+- Children are only ever words: never in pictures.
 
 ### Companions' own babies
 
@@ -890,7 +882,7 @@ With `texts_first` on (the default), every companion can start a conversation
 sends at most one message: the companion in focus is considered first, then the others, whoever texted
 first least recently ahead. Every gate below applies to each companion on their own, and all of them
 share one allowance, `away_daily` messages in any 24 hours (`dungeon/away.py`), so a day with the app
-left running has a bounded model cost; group chats draw from the same allowance. A sent message carries
+left running has a bounded model cost. A sent message carries
 `companion_id` and whether that companion is in `focus`. When nobody writes, `state` is the focus
 companion's. The open app calls this about once a minute, and the server checks on
 its own tick whether or not background activity is on. Fixed triggers decide when, in this order,
@@ -944,8 +936,7 @@ POST /api/chats/read   {thread_id, seq?} → the same list
 ```
 
 Every chat, the most recently active first (`dungeon/chats.py`): one per companion now (`kind`
-`companion`, `id` the companion, `thread_id` their active timeline); group chats add entries of their
-own kind. `unread` counts their visible messages after both the last one the user saw (`chat_reads`) and
+`companion`, `id` the companion, `thread_id` their active timeline). `unread` counts their visible messages after both the last one the user saw (`chat_reads`) and
 the user's own last message there; a held reply counts once its time has come. The open chat marks itself
 read while the window is visible. The chat header's Chats button opens the list (full screen on a
 phone), with the count waiting in the other chats; the Profile tab shows the total. Nothing here says

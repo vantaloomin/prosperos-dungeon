@@ -608,10 +608,9 @@ def decide_invite(connection, companion: dict, row: dict, now: datetime) -> None
         if row['kind'] == 'own_wedding' or found and found['ladder'] == 'friendship' and found['step'] != 'friends':
             connection.execute('UPDATE big_days SET invite=1 WHERE id=?', (row['id'],))
         return
-    from dungeon import group_guests
     from dungeon.memory import closeness
     definition = companion['version']['definition']
-    facts = {'guests': group_guests.level(connection), 'closeness': closeness.state(connection, companion, now)['level'],
+    facts = {'guests': guests_level(connection), 'closeness': closeness.state(connection, companion, now)['level'],
              'family': int(circle.role_kind(row['details'].get('role') or '') in circle.FAMILY),
              'romance': int(steps.ladder_of(definition) == 'romance')}
     names = {'name': first(definition['name']), 'a': title(row), 'b': ''}
@@ -1189,9 +1188,9 @@ def context_lines(connection, companion: dict, now: datetime) -> list[tuple[str,
     return result
 
 
-def offer(packet, connection, companion: dict, now: datetime, group=None) -> None:
-    """Adds the 'big_days' section, in a 1:1 chat."""
-    if not ACTIVE or group is not None or not companion.get('active_timeline_id'):
+def offer(packet, connection, companion: dict, now: datetime) -> None:
+    """Adds the 'big_days' section."""
+    if not ACTIVE or not companion.get('active_timeline_id'):
         return
     for identity, text in context_lines(connection, companion, now):
         packet.offer('big_days', identity, text)
@@ -1294,3 +1293,9 @@ def clock_text(at: str) -> str:
     """'7', '6:30' on a twelve-hour clock, as a text says it."""
     hour, minute = int(at[:2]), at[3:]
     return f"{hour % 12 or 12}{'' if minute == '00' else ':' + minute}"
+
+
+def guests_level(connection) -> int:
+    """The Guests slider (life_settings.guests_realism): 0 never asks the user along, 3 often."""
+    row = optional(connection, 'SELECT guests_realism FROM life_settings WHERE id=1')
+    return row['guests_realism'] if row and row['guests_realism'] in range(4) else 2

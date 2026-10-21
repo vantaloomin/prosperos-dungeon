@@ -182,16 +182,9 @@ def local_bounds(day: date, timezone) -> tuple[datetime, datetime]:
     return start, datetime.combine(day + timedelta(days=1), time(0), timezone)
 
 
-def kept_quiet(connection, companion, text: str) -> bool:
-    """Whether the line could give away a secret the companion keeps."""
-    key = pairs.companion_key(companion['id'])
-    return any(key in secret['knowers'] and secrets.hits(secret, text, key) for secret in secrets.active(connection))
-
-
 def choose(connection, companion, day: date, now, recent: set[str]) -> tuple[str, str]:
     """(topic, text) for the day: the weightiest candidate, fresh topics first, ties by the day's seeded dice."""
-    found = [item for finder in FINDERS for item in finder(connection, companion, day, now)
-             if not kept_quiet(connection, companion, item[2])]
+    found = [item for finder in FINDERS for item in finder(connection, companion, day, now)]
     fresh = [item for item in found if item[1] not in recent] or found
     if not fresh:
         return 'quiet', pick(f"quiet:{companion['id']}:{day}", QUIET).format(first=first_name(companion))

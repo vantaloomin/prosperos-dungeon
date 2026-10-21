@@ -2,9 +2,8 @@
 from datetime import timedelta
 
 import pytest
+from companions import ok
 from conftest import reconcile, send, show
-from test_groups import companion_named, ok, say, start
-from test_secrets import declare
 
 from dungeon import consequences
 from dungeon.characters import by_id, insert_version
@@ -43,17 +42,18 @@ def with_traits(client, companion_id, *traits):
 def test_only_a_trait_that_speaks_to_it_can_make_it_sting():
     plain = {'name': 'Mira'}
     assert reactions.minds(plain, 'user:forgot_occasion') == (0, '')
-    loyal = {'name': 'Mira', 'emotional_traits': [{'name': 'Fiercely loyal', 'intensity': 'strong'},
-                                                   {'name': 'Jealousy', 'intensity': 'mild'}]}
-    assert reactions.minds(loyal, 'user:told_secret') == (3, 'Fiercely loyal')
-    assert reactions.minds(loyal, 'user:missed_plan') == (0, '')
+    let_down = {'name': 'Mira', 'emotional_traits': [{'name': 'Hates being let down', 'intensity': 'strong'},
+                                                      {'name': 'Jealousy', 'intensity': 'mild'}]}
+    assert reactions.minds(let_down, 'user:missed_plan') == (3, 'Hates being let down')
+    assert reactions.minds(let_down, 'user:forgot_occasion') == (0, '')
     companion = {'version': {'definition': plain}}
-    calm = reactions.what_if(companion, 'user:told_secret', {'a': 'Sally'})
+    calm = reactions.what_if(companion, 'user:missed_plan', {'plan': 'dinner', 'plan_shown': 'dinner'})
     assert [item['odds'] for item in calm] == [1, 0]
     assert calm[1]['reasons'] == ["nothing in Mira's character says this would bother them"]
-    hurt = reactions.what_if({'version': {'definition': loyal}}, 'user:told_secret', {'a': 'Sally'})
-    assert hurt[1]['odds'] == 0.6 and hurt[1]['label'] == 'Mira is hurt the secret got out'
-    assert 'Mira\'s character includes "Fiercely loyal"' in hurt[1]['reasons']
+    hurt = reactions.what_if({'version': {'definition': let_down}}, 'user:missed_plan',
+                             {'plan': 'dinner', 'plan_shown': 'dinner'})
+    assert hurt[1]['odds'] == 0.6 and hurt[1]['label'] == 'Mira is let down'
+    assert 'Mira\'s character includes "Hates being let down"' in hurt[1]['reasons']
 
 
 @pytest.fixture
@@ -120,23 +120,6 @@ def test_an_agreed_plan_passing_without_a_word(client, companion, clock, monkeyp
     assert listed[0]['marks'][0]['note'] == 'Mira is let down the plan (movie night) passed without a word'
 
 
-def test_telling_someone_a_secret_in_a_group(client, companion, connected, provider, monkeypatch):
-    from test_groups import by_speaker
-    provider.respond = by_speaker
-    cast = {'Mira': companion['id'], 'Billy': companion_named(client, 'Billy Hart'),
-            'Sally': companion_named(client, 'Sally Moss')}
-    with_traits(client, cast['Billy'], ('Values his privacy', 'strong'))
-    likeliest(monkeypatch)
-    declare(client, cast)
-    group = start(client, [cast['Billy'], cast['Sally']])
-    say(client, group['id'], 'Sally, I have to tell you: Billy and Ottoline are seeing each other.', 'group-0001')
-    with client.app.state.database.connect() as connection:
-        billy = by_id(connection, cast['Billy'])
-        found = consequences.recent(connection, billy['active_timeline_id'], 'user:', '2000-01-01')
-    assert [(item['choice'], item['picked']) for item in found] == [('user:told_secret', 1)]
-    assert found[0]['label'] == 'How Billy takes you telling Sally a secret'
-
-
 def test_out_of_character_what_if_gets_the_odds(client, provider, clock, monkeypatch):
     from test_storylines import WORKDAY
 
@@ -155,21 +138,6 @@ def test_out_of_character_what_if_gets_the_odds(client, provider, clock, monkeyp
     assert 'Whether Mira gets the promotion' in prompt and 'Mira got the promotion (about 50%)' in prompt
     send(client, 'How was work?', 'client-reaction-in')
     assert 'answer honestly from these odds' not in '\n'.join(str(item) for item in provider.requests[-1].values())
-
-
-def test_showing_a_newcomer_everything_said_before(client, companion, connected, provider, monkeypatch):
-    from test_groups import by_speaker
-    provider.respond = by_speaker
-    billy, sally = companion_named(client, 'Billy Hart'), companion_named(client, 'Sally Moss')
-    with_traits(client, billy, ('Guarded', 'strong'))
-    likeliest(monkeypatch)
-    group = start(client, [billy, companion['id']], name='Book club')
-    say(client, group['id'], 'Billy, how was your week?', 'group-0001')
-    ok(client.post(f"/api/groups/{group['id']}/members", json={'companion_id': sally, 'history': 'everything'}))
-    with client.app.state.database.connect() as connection:
-        found = consequences.recent(connection, by_id(connection, billy)['active_timeline_id'], 'user:', '2000-01-01')
-    assert [(item['choice'], item['picked']) for item in found] == [('user:showed_everything', 1)]
-    assert found[0]['marks'][0]['note'] == 'Billy feels exposed that Sally can read everything said in Book club'
 
 
 def test_an_outcome_recorded_before_the_shown_names_still_changes():

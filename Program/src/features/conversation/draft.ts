@@ -22,7 +22,7 @@ export function pictureDraft(draft: Draft, pictures: DraftPicture[], makeId?: ()
   return newDraft(draft.text, makeId, pictures)
 }
 
-/** `key` keeps another chat's draft apart (a group chat's, src/features/groups). */
+/** `key` keeps another chat's draft apart. */
 export function readDraft(storage: Pick<Storage, 'getItem'> | undefined, key = DRAFT_KEY): Draft {
   try {
     const value = JSON.parse(storage?.getItem(key) ?? 'null')

@@ -14,8 +14,7 @@ export function useChats(enabled = true) {
 }
 
 /**
- * Open a chat. A companion's: they come into focus (every view follows them), then the chat shows. A group's
- * opens as its own view.
+ * Open a chat: the companion comes into focus (every view follows them), then the chat shows.
  */
 export function useOpenChat(go: (view: View) => void) {
   const client = useQueryClient()
@@ -24,7 +23,6 @@ export function useOpenChat(go: (view: View) => void) {
   const open = useCallback(async (chat: Pick<Chat, 'kind' | 'id'>, isOpen: boolean) => {
     setError('')
     const companionId = chat.id
-    if (chat.kind === 'group') { go(`group/${encodeURIComponent(chat.id)}`); return true }
     if (isOpen) { go('conversation'); return true }
     setBusy(companionId)
     try {

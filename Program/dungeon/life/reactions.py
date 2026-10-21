@@ -1,9 +1,8 @@
 """How a companion takes what the user did, through the consequence engine (dungeon/consequences.py).
 
-Only four things count, each one the app can tell happened without guessing: the user telling someone a secret in
-a group chat, an agreed plan with a date passing with no message from the user that day, the user chatting on the
-companion's birthday or a first-talk anniversary without mentioning it, and the user adding someone to a group with
-"show everything". Each is a choice in the odds tables (`user:*`): how likely it is to sting comes only from an
+Only two things count, each one the app can tell happened without guessing: an agreed plan with a date passing with
+no message from the user that day, and the user chatting on the companion's birthday or a first-talk anniversary
+without mentioning it. Each is a choice in the odds tables (`user:*`): how likely it is to sting comes only from an
 emotional trait the user built into the character whose name speaks to it (`MINDS`), so without one she lets it go.
 A sting leaves a mood mark for a few days that the chat context tells her as "you", so she can bring it up once in
 her own words; it never cools closeness. Odds show only in "Why it went this way" and out-of-character answers.
@@ -11,8 +10,7 @@ her own words; it never cools closeness. Odds show only in "Why it went this way
 import re
 from datetime import date, timedelta
 
-from dungeon import consequences, secrets
-from dungeon.characters import by_id
+from dungeon import consequences
 from dungeon.clock import parse, stamp, zone
 from dungeon.database import many, settings
 from dungeon.errors import require
@@ -23,10 +21,8 @@ from dungeon.traits import LEVELS
 
 # Words in an emotional trait's name that make it about each choice.
 MINDS = {
-    'user:told_secret': r'trust|betray|priva|secret|loyal|guarded',
     'user:missed_plan': r'let ?down|disappoint|reliab|flak|abandon|neglect|need|clingy|lonely|sulk|sensitive',
     'user:forgot_occasion': r'forg[eo]t|birthday|anniversar|sentimental|sensitive|need|attention|neglect|sulk',
-    'user:showed_everything': r'priva|guarded|secret|trust|shy|parano',
 }
 MENTIONS = re.compile(r"\b(?:birthday|bday|b-day|anniversary)\b", re.IGNORECASE)
 LOOK_BACK = 3  # Days back the daily check looks for a plan or an occasion that passed.
@@ -64,28 +60,6 @@ def what_if(companion: dict, choice: str, names: dict) -> list[dict]:
 
 
 # The four things the user can do ----------------------------------------------------------------------
-
-def told_secret(connection, secret: dict, told: str, now):
-    """The user told someone a secret it was kept from: each companion who held it from the start reacts."""
-    listener = secrets.label(connection, told, {})
-    for holder in held_by(connection, secret['id']):
-        companion = by_id(connection, pairs.companion_id(holder) or '')
-        if companion and companion['active_timeline_id']:
-            react(connection, companion, 'user:told_secret', f"secret:{secret['id']}:{told}>{holder}", {'a': listener},
-                  local_day(companion, now), now)
-            rough_patches().told_secret(connection, companion, secret, listener, now)
-
-
-def showed_everything(connection, group: dict, added: str, now):
-    """The user added someone with everything so far: members who had said something there react."""
-    newcomer = secrets.label(connection, added, {})
-    spoke = {row['author'] for row in many(connection, "SELECT DISTINCT author FROM group_messages WHERE group_id=? "
-                                           "AND status='complete'", (group['id'],))}
-    for member in spoke - {added}:
-        companion = by_id(connection, pairs.companion_id(member) or '')
-        if companion and companion['active_timeline_id']:
-            react(connection, companion, 'user:showed_everything', f"group:{group['id']}:{added}>{member}",
-                  {'a': newcomer, 'group': group['name'] or 'the group'}, local_day(companion, now), now)
 
 
 def daily(connection, companion: dict, now) -> int:
@@ -170,11 +144,6 @@ def lately_lines(connection, companion: dict, now) -> list[tuple[str, str]]:
                                      pairs.companion_key(companion['id']), local_day(companion, now))
 
 
-def held_by(connection, secret_id: str) -> list[str]:
-    return [row['holder'] for row in many(connection, "SELECT holder FROM knowledge_holders WHERE knowledge_id=? "
-                                          "AND via='origin' AND ended_at IS NULL", (secret_id,))]
-
-
 # Today ----------------------------------------------------------------------------------------------------
 
 RECENT_DAYS = 30
@@ -232,13 +201,7 @@ def odds_text(options: list[dict]) -> str:
 
 def user_what_ifs(connection, companion: dict, now) -> list[tuple[str, list[dict]]]:
     """(situation, odds) for the user's own choices the app would notice."""
-    me, found = pairs.companion_key(companion['id']), []
-    for secret in secrets.active(connection):
-        if me in held_by(connection, secret['id']):
-            for member in secret['guarded']:
-                name = secrets.label(connection, member, {})
-                found.append((f"If the user told {name} that {secret['statement'].rstrip('.')}",
-                              what_if(companion, 'user:told_secret', {'a': name})))
+    found = []
     timezone = zone(settings(connection)['user_timezone'])
     today = now.astimezone(timezone).date()
     for day in (today + timedelta(days=offset) for offset in range(AHEAD + 1)):

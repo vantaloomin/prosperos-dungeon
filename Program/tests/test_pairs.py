@@ -3,12 +3,10 @@ import json
 from datetime import timedelta
 
 import pytest
+from companions import by_speaker, companion_named, ok
 from test_cast import met_someone
-from test_groups import by_speaker, companion_named, ok, speaker, start
 
-from dungeon import groups
 from dungeon.characters import by_id, insert_version
-from dungeon.clock import stamp
 from dungeon.database import identifier
 from dungeon.life import body, encounters
 from dungeon.memory import closeness as own
@@ -44,14 +42,6 @@ def key(companion_id: str) -> str:
     return pairs.companion_key(companion_id)
 
 
-def spoke(client, group_id: str, author: str, day: int, text='Hi.'):
-    """A finished group line by `author` (a member key, or 'user'), `day` days after the clock's start."""
-    database = client.app.state.database
-    with database.connect(write=True) as connection:
-        at = stamp(database.clock.now() + timedelta(days=day))
-        groups.add_line(connection, group_id, at, author, 'Name', text)
-
-
 def stage(client, a: str, b: str) -> int | None:
     database = client.app.state.database
     with database.connect() as connection:
@@ -83,113 +73,11 @@ def test_circle_roles_start_where_people_already_are_with_a_stable_nudge():
             [pairs.role_default('mom', f'circle:t:{n}')['level'] for n in range(200)]
 
 
-def test_two_companions_start_as_strangers_unless_their_backstory_is_told_once(client, cast):
-    billy, sally, mira = key(cast['Billy']), key(cast['Sally']), key(cast['Mira'])
-    assert stage(client, billy, sally) == 1
-    untold = ok(client.post('/api/groups/untold', json={'companion_ids': [cast['Billy'], cast['Sally']]}))['pairs']
-    assert [(item['a_name'], item['b_name'], item['level']) for item in untold] == [('Billy Hart', 'Sally Moss', 1)]
-
-    group = ok(client.post('/api/groups', json={'companion_ids': [cast['Billy'], cast['Sally']], 'ties': [
-        {'a': cast['Billy'], 'b': cast['Sally'], 'level': 3, 'how': 'They shared a flat in college.'}]}))
-    assert stage(client, billy, sally) == stage(client, sally, billy) == 3
-    # Told once: after they first share a group, nobody can set it again, through any door.
-    assert ok(client.post('/api/groups/untold', json={'companion_ids': [cast['Billy'], cast['Sally']]}))['pairs'] == []
-    ok(client.post('/api/groups', json={'companion_ids': [cast['Billy'], cast['Sally']], 'ties': [
-        {'a': cast['Billy'], 'b': cast['Sally'], 'level': 5, 'how': 'Twins.'}]}))
-    assert stage(client, billy, sally) == 3
-    # Adding Mira tells her backstory with Billy only.
-    ok(client.post(f"/api/groups/{group['id']}/members", json={'companion_id': cast['Mira'], 'ties': [
-        {'a': cast['Mira'], 'b': cast['Billy'], 'level': 2}, {'a': cast['Billy'], 'b': cast['Sally'], 'level': 1}]}))
-    assert stage(client, mira, billy) == 2 and stage(client, mira, sally) == 1 and stage(client, billy, sally) == 3
-    with client.app.state.database.connect() as connection:
-        rows = connection.execute('SELECT first, second, start_level, how FROM pair_backstories').fetchall()
-    told = {(row['first'], row['second']): (row['start_level'], row['how']) for row in rows}
-    # Mira and Sally, told nothing, get the backstory the app works out.
-    assert sorted(told.values(), key=str) == sorted([(2, ''), (3, 'They shared a flat in college.'),
-                                                     (None, 'Only know each other through the user')], key=str)
-    # Anyone outside a companion is never worked out.
-    assert stage(client, 'town:baltimore:somewhere:0', 'town:baltimore:somewhere:1') is None
-
-
-def test_days_spoken_together_and_kept_moments_bring_them_closer(client, cast):
-    billy, sally = key(cast['Billy']), key(cast['Sally'])
-    group = start(client, [cast['Billy'], cast['Sally']])
-    for day in range(3):
-        spoke(client, group['id'], billy, day, 'Morning!')
-        spoke(client, group['id'], billy, day, 'Again!')  # Many lines on one day count once.
-    assert stage(client, billy, sally) == 1  # Only Billy talked.
-    for day in range(3):
-        spoke(client, group['id'], sally, day)
-    assert stage(client, billy, sally) == stage(client, sally, billy) == 2  # 3 days together.
-
-    line = next(item for item in ok(client.get(f"/api/groups/{group['id']}"))['messages'] if item['text'] == 'Morning!')
-    kept = ok(client.post(f"/api/groups/{group['id']}/messages/{line['id']}/moment", json={'kept': True}))
-    assert next(item for item in kept['messages'] if item['id'] == line['id'])['kept']
-    other = [item for item in kept['messages'] if item['text'] == 'Again!']
-    for item in other:
-        ok(client.post(f"/api/groups/{group['id']}/messages/{item['id']}/moment", json={}))
-    # 3 days + 3 moments (4 kept, capped at the days) reaches stage 2 still; one more day of talk reaches 3.
-    assert stage(client, billy, sally) == 2
-    spoke(client, group['id'], billy, 3)
-    spoke(client, group['id'], sally, 3)
-    spoke(client, group['id'], billy, 4)
-    spoke(client, group['id'], sally, 4)
-    assert stage(client, billy, sally) == 3
-    # The app's own lines and the user's can't be kept.
-    note = next(item for item in kept['messages'] if item['kind'] == 'app')
-    assert client.post(f"/api/groups/{group['id']}/messages/{note['id']}/moment", json={}).status_code == 422
-    ok(client.post(f"/api/groups/{group['id']}/messages/{line['id']}/moment", json={'kept': False}))
-    assert stage(client, billy, sally) == 3
-
-
-def test_the_group_section_names_each_stage_and_close_people_share_how_they_see_themselves(client, cast, provider):
-    group = ok(client.post('/api/groups', json={'companion_ids': [cast['Billy'], cast['Sally']], 'ties': [
-        {'a': cast['Billy'], 'b': cast['Sally'], 'level': 4, 'how': 'Neighbours for ten years.'}]}))
-    ok(client.patch(f"/api/groups/{group['id']}", json={'reply_cap': 2}))
-    provider.requests.clear()
-    ok(client.post(f"/api/groups/{group['id']}/messages", json={'text': 'Hi you two', 'client_id': 'group-pairs-1'}))
-    billy = next(request['prompt'] for request in provider.requests if speaker(request['messages']) == 'Billy')
-    private = billy[billy.index('## This group chat (only you know this part)'):]
-    assert groups.FEELS[3].format(name='Sally') in private
-    assert 'How you know Sally: Neighbours for ten years.' in private
-    with client.app.state.database.connect() as connection:
-        view = pairs.self_view(connection, key(cast['Sally']))
-    assert view and f'Sally has let you see how they see themselves: {view}' in private
-    # Nothing about closeness reaches the part every speaker shares.
-    shared = billy[:billy.index('## The group chat so far')]
-    assert 'Neighbours' not in shared and groups.FEELS[3].format(name='Sally') not in shared
-
-
-def test_strangers_dont_see_how_someone_sees_themselves(client, cast, provider):
-    group = start(client, [cast['Billy'], cast['Sally']])
-    provider.requests.clear()
-    ok(client.post(f"/api/groups/{group['id']}/messages", json={'text': 'Billy?', 'client_id': 'group-pairs-2'}))
-    billy = next(request['prompt'] for request in provider.requests if speaker(request['messages']) == 'Billy')
-    assert groups.FEELS[0].format(name='Sally') in billy and 'how they see themselves' not in billy
-
-
-def test_a_found_out_secret_lowers_it_only_when_their_sheet_says_so(client, cast):
-    billy, sally = key(cast['Billy']), key(cast['Sally'])
-    ok(client.post('/api/groups', json={'companion_ids': [cast['Billy'], cast['Sally']], 'ties': [
-        {'a': cast['Billy'], 'b': cast['Sally'], 'level': 4}]}))
-    # Sally finds out a secret about Billy that was kept from her (dungeon/secrets.py).
-    secret = ok(client.post('/api/secrets', json={'statement': 'Billy is moving to Denver in May', 'about': ['Billy'],
-                                                  'knows': [cast['Billy']], 'kept_from': [cast['Sally']]}))['secrets'][0]
-    ok(client.post(f"/api/secrets/{secret['id']}/reveal", json={'companion_id': cast['Sally']}))
-    before = stage(client, sally, billy)
-    assert before == stage(client, billy, sally)  # Sally takes it in her stride: nothing built in.
-    edit(client, cast['Sally'], personality='Warm, but she holds grudges and hates being lied to.')
-    assert stage(client, sally, billy) == before - 1 and stage(client, billy, sally) == before
-    edit(client, cast['Sally'], personality='Warm and not jealous at all.')
-    assert stage(client, sally, billy) == before
-
-
 def test_gentle_cooling_follows_the_companions_own_switch(client, cast, clock):
     billy, sally = key(cast['Billy']), key(cast['Sally'])
-    ok(client.post('/api/groups', json={'companion_ids': [cast['Billy'], cast['Sally']], 'ties': [
-        {'a': cast['Billy'], 'b': cast['Sally'], 'level': 4}]}))
     database = client.app.state.database
     with database.connect(write=True) as connection:
+        pairs.tell(connection, billy, sally, 4, '', database.now())
         own.save(connection, by_id(connection, cast['Sally'])['active_timeline_id'], database.now(),
                  cooling_since=database.now())
     clock.instant = clock.now() + timedelta(days=30)
@@ -265,17 +153,6 @@ def test_a_new_companion_starts_at_their_meetings_and_the_form_can_tell_it_once(
     assert [(item['name'], item['feels']['level'], item['how']) for item in ties] == \
         [('Mira', 4, 'Regulars at the same bar.')]
     assert stage(client, key(new['id']), key(mira['id'])) == 4
-
-
-def test_an_untold_backstory_is_worked_out_from_where_they_live(client, cast):
-    edit(client, cast['Billy'], home_city='baltimore')
-    edit(client, cast['Sally'], home_city='baltimore')
-    [pair] = ok(client.post('/api/groups/untold', json={'companion_ids': [cast['Billy'], cast['Sally']]}))['pairs']
-    assert pair['how'] == 'Both live in Baltimore, but only know each other through the user'
-    ok(client.post('/api/groups', json={'companion_ids': [cast['Billy'], cast['Sally']]}))
-    with client.app.state.database.connect() as connection:
-        found = pairs.backstory(connection, key(cast['Billy']), key(cast['Sally']))
-    assert (found['start_level'], found['how']) == (None, pair['how'])
 
 
 def test_a_mask_never_leaves_their_own_mom_at_just_met(client, monkeypatch):

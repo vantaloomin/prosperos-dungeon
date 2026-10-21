@@ -1,4 +1,4 @@
-import { Home, Luggage, MapPin, PanelLeftOpen, Phone, UsersRound, X } from 'lucide-react'
+import { Home, Luggage, MapPin, PanelLeftOpen, Phone, X } from 'lucide-react'
 import type { View } from '../../companion'
 import type { Chat } from '../../types'
 import { Stamp } from '../../components/Stamp'
@@ -67,7 +67,6 @@ export function ChatWhere({ chat }: { chat: Chat }) {
 }
 
 export function ChatAvatar({ chat }: { chat: Chat }) {
-  if (chat.kind === 'group') return <span className="portrait" aria-hidden="true"><UsersRound /></span>
   // Every companion shows their own picture; their initial stands in while they have none.
   const portrait = portraitUrl(chat.portrait_reference_id)
   if (portrait) return <img className="portrait" src={portrait} alt="" aria-hidden="true" />

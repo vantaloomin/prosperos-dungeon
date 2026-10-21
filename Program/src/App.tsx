@@ -35,8 +35,6 @@ const Today = lazy(() => import('./features/today/Today').then((m) => ({ default
 const Story = lazy(() => import('./features/story/Story').then((m) => ({ default: m.Story })))
 const Sidecar = lazy(() => import('./features/sidecar/Sidecar').then((m) => ({ default: m.Sidecar })))
 const SidecarWindow = lazy(() => import('./features/sidecar/SidecarWindow').then((m) => ({ default: m.SidecarWindow })))
-const Groups = lazy(() => import('./features/groups/Groups').then((m) => ({ default: m.Groups })))
-const GroupChat = lazy(() => import('./features/groups/GroupChat').then((m) => ({ default: m.GroupChat })))
 const Worlds = lazy(() => import('./features/worlds/Worlds').then((m) => ({ default: m.Worlds })))
 const WhoKnowsWho = lazy(() => import('./features/web/WhoKnowsWho').then((m) => ({ default: m.WhoKnowsWho })))
 const CityMap = lazy(() => import('./features/map/CityMap').then((m) => ({ default: m.CityMap })))
@@ -44,7 +42,7 @@ const ChatsHome = lazy(() => import('./features/chats/ChatsHome').then((m) => ({
 
 // Views outside the side rail: the phone's Chats list, worlds, and the map and Who knows who opened from Today.
 const OTHER_VIEWS = new Set(['chats', 'worlds', 'people', 'map'])
-const LINKED = ['settings/', 'chat/', 'group/', 'map/']
+const LINKED = ['settings/', 'chat/', 'map/']
 
 function viewFromHash(): View {
   const id = window.location.hash.slice(1)
@@ -68,8 +66,8 @@ export default function App() {
   useTexts(!!companion.data)
   useChatLink(view, setView)
   const chats = useChats(!!companion.data).data?.chats ?? []
-  // Unread one-to-one chats count on Profile, group chats on Groups, and both on the phone's Chats.
-  const unread = { companion: unreadOf(chats, 'companion'), group: unreadOf(chats, 'group') }
+  // Unread chats count on Profile and on the phone's Chats.
+  const unread = unreadOf(chats, 'companion')
   useFocusOnViewChange(view)
   // Story mode is opt-in (Settings > Advanced), so its tab shows only once it is on.
   const storyOn = !!useWorkspaceSettings().data?.story_mode
@@ -130,7 +128,7 @@ interface CurrentViewProps { view: View; companion: Companion | null; go: (view:
 
 function CurrentView({ view, companion, go, openTab }: CurrentViewProps) {
   const loraMaker = useWorkspaceSettings().data?.lora_maker
-  // Settings, the story and group chats belong to the workspace, so they open with or without a companion.
+  // Settings and the story belong to the workspace, so they open with or without a companion.
   if (inWorkspace(view)) return <WorkspaceView view={view} companion={companion} go={go} openTab={openTab} />
   // With the LoRA creator switched off (the default), an old #appearance link opens the Character page.
   const shown = view === 'appearance' && !loraMaker ? 'character' : view
@@ -141,15 +139,12 @@ function CurrentView({ view, companion, go, openTab }: CurrentViewProps) {
 
 function inWorkspace(view: View) {
   return view === 'chats' || view === 'worlds' || view === 'settings' || view.startsWith('settings/') || view === 'story'
-    || view === 'groups' || view.startsWith('group/')
 }
 
 function WorkspaceView({ view, companion, go, openTab }: CurrentViewProps) {
   const storyOn = useWorkspaceSettings().data?.story_mode
   if (view === 'chats') return <ChatsHome go={go} />
   if (view === 'worlds') return <Worlds />
-  if (view === 'groups') return <Groups go={go} />
-  if (view.startsWith('group/')) return <GroupChat key={view} id={decodeURIComponent(view.slice(6))} go={go} />
   if (view !== 'story') return <Settings companion={companion} tab={view.split('/')[1]} onTab={openTab} onCreate={() => go('character')} />
   return storyOn ? <Story go={go} />
     : <Notice action={<button type="button" className="text-button" onClick={() => go('settings/advanced')}>Open Settings</button>}>Story mode is off. Turn it on in Settings &gt; Advanced.</Notice>

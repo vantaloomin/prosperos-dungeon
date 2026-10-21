@@ -85,13 +85,6 @@ def test_a_topic_steps_aside_for_anything_fresh(client, mira, clock, monkeypatch
     assert topics == ['big', 'middle', 'small'] * 2
 
 
-def test_a_secret_they_keep_never_shows(client, mira, clock, monkeypatch):  # noqa: F811
-    monkeypatch.setattr(thoughts, 'FINDERS', (lambda *_args: [(9, 'secret', 'Mira is hiding the affair.')],))
-    monkeypatch.setattr(thoughts, 'kept_quiet', lambda _connection, _companion, text: 'affair' in text)
-    evening(clock)
-    assert 'affair' not in mind(client)['thoughts'][0]['text']
-
-
 def test_switched_off_shows_nothing(client, mira, clock):  # noqa: F811
     assert set_life(client, on_her_mind=False)['on_her_mind'] is False
     evening(clock)

@@ -10,9 +10,8 @@ or from a gossip. The dice are seeded by the news, the pair and the day, so a da
 So the sister hears Tuesday night, a coworker Wednesday, and a friend who is a companion too may text the user
 about it Thursday, before the companion has said a word.
 
-Everyone remembers who told them (`news_holders.told_by`). Saying it in a group counts too: everyone there hears
-it (via `group`), from whoever said it. Openers (life/openers.py) and group replies (groups.py) pick from what each
-person has heard. Secrets keep their own rules (dungeon/secrets.py) and never travel this way.
+Everyone remembers who told them (`news_holders.told_by`). Openers (life/openers.py) pick from what each person
+has heard. Storylines that are secrets (dungeon/secrets.py) never travel this way.
 
 Only life events travel, never anything from the user's chats, so no companion can seem to have read the user's
 chats with someone else; prompts also say they don't know whether the user has heard.
@@ -22,8 +21,8 @@ from datetime import date, time, timedelta
 
 from dungeon import consequences, secrets
 from dungeon.characters import by_id
-from dungeon.clock import parse, stamp, zone
-from dungeon.database import decode, identifier, many, settings
+from dungeon.clock import stamp, zone
+from dungeon.database import identifier, many, settings
 from dungeon.life import circle, love_life, storylines
 from dungeon.memory import pairs
 
@@ -217,47 +216,6 @@ def context_lines(connection, companion: dict, now) -> list[tuple[str, str]]:
         source = f'{teller} told you' if item['via'] == 'word' else f'{teller} said it in a group you are in'
         lines.append((f"news:{item['id']}", f"- Heard on {item['heard_on']} ({source}): {item['text']}."))
     return lines
-
-
-def group_lines(connection, speaker: str, present: list[str], labels: dict[str, str], now) -> list[tuple[str, str]]:
-    """The speaker's news in a group: what they have heard that someone here hasn't, and whose news it is."""
-    holders = {}
-    lines = []
-    since = (now.date() - timedelta(days=RECENT_DAYS)).isoformat()
-    for item in heard(connection, speaker, since):
-        if item['id'] not in holders:
-            holders[item['id']] = {row['holder'] for row in many(
-                connection, 'SELECT holder FROM news_holders WHERE news_id=?', (item['id'],))}
-        unaware = [secrets.label(connection, member, labels) for member in present
-                   if member != speaker and member not in holders[item['id']] and member != item['about']]
-        if not unaware:
-            continue
-        text = f"- You heard ({who(connection, item['told_by'], speaker)} told you): {item['text']}."
-        if item['about'] in present:
-            text += f" It is {secrets.label(connection, item['about'], labels)}'s news, so let them tell it."
-        else:
-            text += f" {secrets.names_text(unaware)} {'has' if len(unaware) == 1 else 'have'}n't heard yet."
-        lines.append((f"news:{item['id']}", text))
-    return lines
-
-
-def witness(connection, message: dict) -> int:
-    """A finished group message that tells someone's news: everyone there has heard it now, from whoever said it
-    (the user too). Returns how many heard it this way."""
-    author, present = message['author'], decode(message['present']) or []
-    day = parse(message['created_at']).astimezone(pairs.timezone_of(connection)).date().isoformat()
-    count = 0
-    for item in many(connection, f'SELECT n.* FROM news n {ACTIVE}'):
-        name = subject_name(connection, item)
-        statement = {'keys': secrets.derived_keys(item['text'], [{'name': name}]), 'explicit': False,
-                     'subjects': [{'key': item['about'], 'name': name}]}
-        if not secrets.hits(statement, message['text'], author):
-            continue
-        for member in present:
-            if member != author and hear(connection, item['id'], member, author, 1, day, 'group',
-                                         message['created_at'], message['id']):
-                count += 1
-    return count
 
 
 def listing(connection, companion: dict, now) -> list[dict]:

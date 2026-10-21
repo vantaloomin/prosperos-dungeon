@@ -19,7 +19,7 @@ def attachment(transcript: export.Transcript, kind: str) -> Response:
 
 @router.get('/chat/{thread_id}')
 def export_chat(request: Request, thread_id: str, format: Format = 'html'):
-    """A companion's chat (by the timeline on screen) or a group chat (by its id), as on screen."""
+    """A companion's chat (by the timeline on screen), as on screen."""
     return attachment(export.chat(request.app.state.database, thread_id), format)
 
 

@@ -32,7 +32,6 @@ CREATE TABLE IF NOT EXISTS workspace_settings (
   -- Story mode (dungeon/story.py) is opt-in: off, its tab and API stay hidden.
   story_mode INTEGER NOT NULL DEFAULT 0 CHECK (story_mode IN (0, 1)),
   -- The note under a group message when someone lets a secret slip (dungeon/secrets.py).
-  show_secret_slips INTEGER NOT NULL DEFAULT 1 CHECK (show_secret_slips IN (0, 1)),
   -- Hidden values (Settings > Hidden values): how companions feel and who has heard their news stay unseen
   -- unless the user turns them on, so the default keeps some mystique. They still shape every reply.
   show_moods INTEGER NOT NULL DEFAULT 0 CHECK (show_moods IN (0, 1)),
@@ -1294,53 +1293,6 @@ CREATE TABLE IF NOT EXISTS message_edits (
 );
 CREATE INDEX IF NOT EXISTS message_edits_message ON message_edits(message_id);
 
--- Group chats (dungeon/groups.py, docs/group-chat.md): the user and several companions in one chat. Groups
--- belong to the workspace (start_over.WORKSPACE); a companion who starts over or is deleted leaves them.
-CREATE TABLE IF NOT EXISTS group_chats (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL DEFAULT '',
-  reply_cap INTEGER NOT NULL DEFAULT 2 CHECK (reply_cap BETWEEN 1 AND 3),
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
--- Membership over time, one row per stay. `member` is a person key (companion:<id>, or a guest's circle or townsfolk
--- key, dungeon/group_guests.py), `name` how the chat names them. They see messages from seq `sees_from` (1 when
--- added with everything so far) until `left_seq`.
-CREATE TABLE IF NOT EXISTS group_members (
-  id TEXT PRIMARY KEY,
-  group_id TEXT NOT NULL REFERENCES group_chats(id),
-  member TEXT NOT NULL,
-  name TEXT NOT NULL,
-  joined_at TEXT NOT NULL,
-  sees_from INTEGER NOT NULL,
-  left_at TEXT,
-  left_seq INTEGER,
-  forgot_at TEXT
-);
-CREATE INDEX IF NOT EXISTS group_members_group ON group_members(group_id);
-CREATE INDEX IF NOT EXISTS group_members_member ON group_members(member);
-
--- The shared transcript. `author` is 'user', 'app' (join and leave lines) or a member key, `name` as written in
--- the transcript, and `present` the members in the group when it was written (the witness rule).
-CREATE TABLE IF NOT EXISTS group_messages (
-  id TEXT PRIMARY KEY,
-  group_id TEXT NOT NULL REFERENCES group_chats(id),
-  seq INTEGER NOT NULL,
-  author TEXT NOT NULL,
-  name TEXT NOT NULL DEFAULT '',
-  text TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'complete' CHECK (status IN ('complete', 'streaming', 'failed', 'cancelled')),
-  error TEXT,
-  present TEXT NOT NULL DEFAULT '[]',
-  reply_to TEXT,
-  client_id TEXT UNIQUE,
-  created_at TEXT NOT NULL,
-  completed_at TEXT,
-  UNIQUE (group_id, seq)
-);
-CREATE INDEX IF NOT EXISTS group_messages_reply ON group_messages(reply_to);
-
 -- How far the user has read each chat (dungeon/chats.py): a companion's chat by its timeline id, and any
 -- other kind of chat by its own id. Messages after read_seq are unread.
 CREATE TABLE IF NOT EXISTS chat_reads (
@@ -1372,45 +1324,6 @@ CREATE TABLE IF NOT EXISTS pair_backstories (
   created_at TEXT NOT NULL,
   PRIMARY KEY (first, second)
 );
-
--- Group messages the user kept as a shared moment: they bring everyone who was in the group then a little closer.
-CREATE TABLE IF NOT EXISTS group_moments (
-  message_id TEXT PRIMARY KEY REFERENCES group_messages(id),
-  created_at TEXT NOT NULL
-);
-
--- Secrets (dungeon/secrets.py, docs/group-chat.md): who knows what, and who must not find out. `kind` says where
--- a secret comes from: the user ('declared', with `statement` and `subjects` as typed), a storyline or a line in a
--- companion's description (`source_id` points at it, so its words follow the source). `key_words` are the user's
--- own; empty means they come from the statement. `guard_all` keeps it from everyone who doesn't know.
-CREATE TABLE IF NOT EXISTS knowledge (
-  id TEXT PRIMARY KEY,
-  kind TEXT NOT NULL CHECK (kind IN ('declared', 'storyline', 'character', 'memory')),
-  source_id TEXT,
-  statement TEXT,
-  subjects TEXT NOT NULL DEFAULT '[]',
-  key_words TEXT NOT NULL DEFAULT '[]',
-  guard_all INTEGER NOT NULL DEFAULT 0 CHECK (guard_all IN (0, 1)),
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'ended', 'dismissed')),
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS knowledge_source ON knowledge(kind, source_id);
-
--- Who knows a secret ('knows') and who must not find out ('guarded'), each a person key (companion:<id>,
--- circle:<timeline>:<n>, the circle person's seed). `via` says how they learned it; `message_id` is the group message they learned it from.
-CREATE TABLE IF NOT EXISTS knowledge_holders (
-  id TEXT PRIMARY KEY,
-  knowledge_id TEXT NOT NULL REFERENCES knowledge(id),
-  holder TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('knows', 'guarded')),
-  learned_at TEXT NOT NULL,
-  via TEXT NOT NULL CHECK (via IN ('origin', 'witness', 'history', 'reveal', 'slip')),
-  message_id TEXT,
-  ended_at TEXT
-);
-CREATE INDEX IF NOT EXISTS knowledge_holders_knowledge ON knowledge_holders(knowledge_id);
-CREATE INDEX IF NOT EXISTS knowledge_holders_holder ON knowledge_holders(holder);
 
 -- The consequence engine (dungeon/consequences.py): how a choice in the world turned out. `options` holds each
 -- way it could have gone with its odds and the reasons that moved them; `picked` is the option the seeded dice
@@ -1552,8 +1465,8 @@ CREATE TABLE IF NOT EXISTS news_holders (
 );
 CREATE INDEX IF NOT EXISTS news_holders_holder ON news_holders(holder, heard_on);
 
--- Group chat moods (dungeon/moods.py): each member's one current mood, by rules. `day` is their local day
--- when it last changed (it resets overnight); `furious_replies` counts replies sent while furious, for walking out.
+-- Moods (dungeon/moods.py): each companion's one current mood, by rules. `day` is their local day
+-- when it last changed (it resets overnight). `furious_replies` is left from group chats and stays 0.
 CREATE TABLE IF NOT EXISTS moods (
   holder TEXT PRIMARY KEY,
   feeling TEXT NOT NULL CHECK (feeling IN ('calm', 'happy', 'excited', 'annoyed', 'hurt', 'angry', 'anxious', 'sad')),

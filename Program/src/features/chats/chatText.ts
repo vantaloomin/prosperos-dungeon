@@ -19,7 +19,7 @@ export function badge(count: number): string {
 
 /** For screen readers: "Sally, 2 unread messages". */
 export function chatLabel(chat: Pick<Chat, 'kind' | 'id' | 'name' | 'unread' | 'focus'>, open: OpenChat = null): string {
-  const parts = [chat.kind === 'group' ? `${chat.name} (group)` : chat.name]
+  const parts = [chat.name]
   if (chat.unread) parts.push(`${chat.unread} unread message${chat.unread === 1 ? '' : 's'}`)
   if (isOpen(chat, open)) parts.push('open now')
   return parts.join(', ')
@@ -56,14 +56,14 @@ export function clampWidth(kind: string, width: number): number {
   return Math.round(Math.min(range.max, Math.max(range.min, width)))
 }
 
-/** Which chat is on screen: a group's while it is open, else the companion in focus. */
+/** Which chat is on screen: one named here, else the companion in focus. */
 export type OpenChat = { kind: string; id: string } | null
 
 export function isOpen(chat: Pick<Chat, 'kind' | 'id' | 'focus'>, open: OpenChat): boolean {
   return open ? chat.kind === open.kind && chat.id === open.id : chat.focus
 }
 
-/** Unread messages by kind of chat, for the Profile (companions) and Groups tabs. */
+/** Unread messages by kind of chat, for the Profile tab. */
 export function unreadOf(chats: Pick<Chat, 'kind' | 'unread'>[], kind: string): number {
   return chats.reduce((total, chat) => total + (chat.kind === kind ? chat.unread : 0), 0)
 }

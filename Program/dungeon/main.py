@@ -13,8 +13,6 @@ from dungeon import (
     authors_note_routes,
     auto_backup,
     export_routes,
-    group_routes,
-    groups,
     local_zone,
     logs,
     story_routes,
@@ -146,7 +144,6 @@ async def start_lan(app):
 async def lifespan(app):
     recover(app.state.database)
     status.lyrics_template(app.state.database.root)
-    groups.recover(app.state.database)
     image_jobs.recover(app.state.database)
     lora_training.recover(app.state.database)
     lora_evaluation.recover(app.state.database)
@@ -229,8 +226,6 @@ def create_app(database_path: str | Path | None = None, *, clock=None, vault=Non
         app.state.images.wake()
 
     app.state.conversation.after_turn = after_turn
-    app.state.groups = groups.GroupChats(app.state)
-    app.state.life.groups = app.state.groups
     app.state.training = lora_training.TrainingRunner(app.state.database, trainer_spawn)
     app.state.evaluations = lora_evaluation.EvaluationRunner(app.state.database, app.state.vault, app.state.images)
     app.state.generations = lora_generation.GenerationRunner(app.state.database, app.state.vault, app.state.images)
@@ -277,8 +272,6 @@ def create_app(database_path: str | Path | None = None, *, clock=None, vault=Non
     app.include_router(context_routes.router)
     app.include_router(story_routes.router)
     app.include_router(authors_note_routes.router)
-    app.include_router(group_routes.router)
-    app.include_router(group_routes.secrets_router)
     app.include_router(export_routes.router)
     app.include_router(lora_routes.router)
     if app.state.lora_maker:

@@ -1,7 +1,7 @@
 """AI notices and crisis help (docs/safety.md): the first-run notice, the crisis note and the standing prompt rule."""
 import pytest
+from companions import ok
 from conftest import send
-from test_groups import cast, companion_named, ok, say, start  # noqa: F401 - fixtures and helpers
 
 from dungeon import safety
 
@@ -32,15 +32,6 @@ def test_the_note_marks_only_the_users_message_and_never_stops_the_reply(client,
     assert later['message']['crisis_help'] is False
     history = ok(client.get('/api/conversation'))['messages']
     assert [message['crisis_help'] for message in history if message['role'] == 'user'] == [True, False]
-
-
-def test_group_chats_show_the_note_under_the_users_message(client, cast):  # noqa: F811
-    group = start(client, [cast['Billy'], cast['Sally']])
-    say(client, group['id'], 'I keep thinking about killing myself', 'client-group-crisis')
-    lines = ok(client.get(f"/api/groups/{group['id']}"))['messages']
-    assert [line['crisis_help'] for line in lines if line['kind'] == 'user'] == [True]
-    assert not any(line['crisis_help'] for line in lines if line['kind'] != 'user')
-    assert any(line['kind'] == 'companion' and line['status'] == 'complete' for line in lines)
 
 
 def test_characters_are_told_never_to_encourage_self_harm(client, connected, provider):

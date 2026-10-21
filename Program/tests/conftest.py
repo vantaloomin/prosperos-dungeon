@@ -70,8 +70,6 @@ def no_storylines(monkeypatch):
     monkeypatch.setattr('dungeon.life.occasions.SEEDED', False)
     # And replies held while the companion is busy (dungeon/life/pacing.py), on by default in the app.
     monkeypatch.setattr('dungeon.life.pacing.ACTIVE', False)
-    # Likewise group replies shown at a person's pace (dungeon/groups.py).
-    monkeypatch.setattr('dungeon.groups.PACED', False)
     # And days going off plan (dungeon/life/disruptions.py), which would move seeded schedules by chance.
     monkeypatch.setattr('dungeon.life.disruptions.ACTIVE', False)
     # And friends' gatherings and run-ins (dungeon/life/network.py), which add people met by chance.

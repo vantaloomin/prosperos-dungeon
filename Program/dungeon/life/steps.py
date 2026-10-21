@@ -1050,7 +1050,7 @@ REASON_WORDS = {'sooner': 'it feels too soon', 'close enough': "you don't feel c
                 'skips': "it's a big jump from where you are"}
 
 
-def context_lines(connection, companion: dict, now, turn: set[str], group: bool = False) -> list[tuple[str, str]]:
+def context_lines(connection, companion: dict, now, turn: set[str]) -> list[tuple[str, str]]:
     """(identity, line) for the 'steps' section: where things stand, something they brought up that waits for an
     answer, and an answer just given."""
     found = state(connection, companion, now, write=False)
@@ -1065,15 +1065,14 @@ def context_lines(connection, companion: dict, now, turn: set[str], group: bool 
     return result + fresh_lines(connection, companion, now, turn)
 
 
-def offer(packet, connection, companion: dict, now, recent: list[dict], group=None) -> None:
-    """Adds the 'steps' section. In a group chat only where things stand."""
+def offer(packet, connection, companion: dict, now, recent: list[dict]) -> None:
+    """Adds the 'steps' section."""
     turn = set()
-    if group is None:
-        for message in reversed(recent):
-            if message['role'] != 'user':
-                break
-            turn.add(message['id'])
-    for identity, text in context_lines(connection, companion, now, turn, group is not None):
+    for message in reversed(recent):
+        if message['role'] != 'user':
+            break
+        turn.add(message['id'])
+    for identity, text in context_lines(connection, companion, now, turn):
         packet.offer('steps', identity, text)
 
 

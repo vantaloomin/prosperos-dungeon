@@ -4,7 +4,7 @@ Each reply's context carries either the family lines (children in the circle, th
 side's lines (dungeon/world/intimacy.py), never both. A reply whose conversation, author's note (its plain words)
 or picture reads intimate keeps the adult side and drops every line about a child, as v0.14 did for every reply; any
 other reply drops the adult side's lines and keeps the family. Rules only, never a model, and it fails closed: anything unsure, or that
-cannot be read, counts as intimate. A group chat reply always counts as intimate.
+cannot be read, counts as intimate.
 """
 import re
 from functools import cache
@@ -104,11 +104,11 @@ def own_words(companion: dict) -> list[str]:
     return [str(definition.get(key) or '') for key in OWN]
 
 
-def family_reply(connection, companion: dict, recent: list[dict], group: dict | None, photo: dict | None) -> bool:
+def family_reply(connection, companion: dict, recent: list[dict], photo: dict | None) -> bool:
     """Whether this reply carries the family lines instead of the adult side's. With the adult side off there is
     nothing to choose, and children are in every reply (False here, families.withheld False too); with no child in
     their life or on the way, the adult side stays as it always has."""
-    if not intimacy.turned_on(connection) or group is not None or not children(connection, companion):
+    if not intimacy.turned_on(connection) or not children(connection, companion):
         return False
     try:
         note = authors_note.prompt_text(connection, f"companion:{companion['id']}")
@@ -118,11 +118,10 @@ def family_reply(connection, companion: dict, recent: list[dict], group: dict | 
         return False
 
 
-def adult_lines(connection, companion: dict, recent: list[dict], group: dict | None, photo: dict | None,
-                family: bool) -> bool:
+def adult_lines(connection, companion: dict, recent: list[dict], photo: dict | None, family: bool) -> bool:
     """Whether this reply carries the adult side's lines (dungeon/world/intimacy.py says whether it is on at all):
-    never in a family reply, and not while what goes with the reply anyway (the conversation, a group's shared part,
-    the character's own words, the author's note) names a child or says one, so it carries neither side. Fails
+    never in a family reply, and not while what goes with the reply anyway (the conversation, the character's own
+    words, the author's note) names a child or says one, so it carries neither side. Fails
     closed: anything that cannot be read carries neither."""
     if family:
         return False
@@ -133,8 +132,7 @@ def adult_lines(connection, companion: dict, recent: list[dict], group: dict | N
         if not found:
             return True
         note = authors_note.prompt_text(connection, f"companion:{companion['id']}")
-        texts = [message['text'] for message in recent] + [note, (photo or {}).get('text') or '', *own_words(companion),
-                                                            (group or {}).get('shared') or '']
+        texts = [message['text'] for message in recent] + [note, (photo or {}).get('text') or '', *own_words(companion)]
         return not names_child(texts, found)
     except Exception:  # noqa: BLE001 - fails closed.
         return False

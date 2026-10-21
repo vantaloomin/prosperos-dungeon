@@ -4,7 +4,6 @@ import json
 
 import pytest
 from conftest import send
-from test_groups import cast, say, start  # noqa: F401 - the cast fixture
 from test_sidecar import answers, ask
 
 from dungeon import authors_note
@@ -87,19 +86,6 @@ def test_later_notes_still_come_before_the_authors_note():
     packet = context.add_note(packet, 'A reminder')
     content = packet['messages'][-1]['content']
     assert content.index('Right now') < content.index('A reminder') < content.index('STEER') < content.index('Hello')
-
-
-def test_a_group_chat_has_its_own_note(client, cast, provider):  # noqa: F811
-    group = start(client, [cast['Mira'], cast['Billy']])
-    put(client, f"group:{group['id']}", 'Keep the banter going.')
-    put(client, f"companion:{cast['Mira']}", NOTE)
-    say(client, group['id'], 'What are we doing Friday?', 'group-note-01')
-    replies = [request for request in provider.requests if "'s next message" in request['messages'][-1]['content']]
-    assert replies
-    for request in replies:
-        content = request['messages'][-1]['content']
-        assert 'Keep the banter going.' in content and NOTE not in content
-        assert content.index('Keep the banter going.') < content.index("'s next message")
 
 
 @pytest.mark.parametrize('enabled', [True, False])

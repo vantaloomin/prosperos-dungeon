@@ -21,7 +21,7 @@ import logging
 import random
 from datetime import date, timedelta
 
-from dungeon import events, groups, logs, news, notifications, troubleshoot
+from dungeon import events, logs, news, notifications, troubleshoot
 from dungeon.characters import by_id, current, for_timeline
 from dungeon.clock import parse, stamp
 from dungeon.database import decode, encode, identifier, many, one, optional, settings
@@ -435,11 +435,9 @@ class LifeEngine:
         # Where the next round of companions out of focus starts, and the round running after a return.
         self.cast_offset = 0
         self.casting = None
-        # Current-context lookups (dungeon/mcp), first messages (dungeon/life/openers.py) and group chats
-        # starting conversations (dungeon/groups.py); set by the app.
+        # Current-context lookups (dungeon/mcp) and first messages (dungeon/life/openers.py); set by the app.
         self.lookups = None
         self.openers = None
-        self.groups = None
         # When news last travelled (dungeon/news.py).
         self.news_at = None
 
@@ -830,19 +828,12 @@ class LifeEngine:
             pass
 
     async def quietly_text(self):
-        """A first message from one companion, or else a group starting a conversation: one a tick."""
-        sent = False
+        """A first message from one companion: one a tick."""
         if self.openers is not None:
             try:
-                sent = (await self.openers.check())['state'] == 'sent'
+                await self.openers.check()
             except Exception:  # noqa: BLE001 - a first message can wait for the next tick.
                 pass
-        if self.groups is None or sent:
-            return
-        try:
-            await self.groups.first_words()
-        except Exception:  # noqa: BLE001 - the group can start talking on a later tick.
-            LOG.exception('A group chat could not start a conversation.')
 
     async def quietly_prepare(self):
         try:
@@ -870,8 +861,6 @@ class LifeEngine:
                 ages.sync(connection, self.now())  # Birthdays move everyone's age on (dungeon/life/ages.py).
                 deck.sync(connection, self.now())
                 dreams.sync(connection, self.now())
-        if self.groups is not None and not paused:
-            groups.drift(self.database)  # Guests slip out of chats that have gone quiet (dungeon/group_guests.py).
 
     async def quietly_think(self):
         """Polish one thought on someone's mind (dungeon/life/thoughts.py) in the model's words, when model

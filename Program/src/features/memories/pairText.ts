@@ -26,7 +26,6 @@ export function howText(how: string): string {
 /** What their stage comes from, so it reads as history rather than a setting. */
 export function tieWhy(tie: PairTie): string {
   const parts = []
-  if (tie.group_days) parts.push(`talked in a group on ${tie.group_days} ${tie.group_days === 1 ? 'day' : 'days'}`)
   if (tie.meetings) parts.push(`ran into each other ${tie.meetings === 1 ? 'once' : `${tie.meetings} times`}`)
   return parts.length ? parts.join(', ') : ''
 }

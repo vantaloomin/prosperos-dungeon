@@ -2,10 +2,10 @@
 from datetime import timedelta
 
 import pytest
+from companions import by_speaker, companion_named, ok
 from conftest import reconcile, show
-from test_groups import by_speaker, companion_named, ok, say, start
 
-from dungeon import consequences, news, secrets
+from dungeon import consequences, news
 from dungeon.characters import by_id
 from dungeon.life import circle, openers
 from dungeon.memory import pairs
@@ -111,37 +111,6 @@ def test_who_heard_shows_on_today_and_in_their_chats(client, cast, clock, monkey
         assert news.context_lines(connection, by_id(connection, cast['Mira']), clock.now()) == []
         trigger = openers.heard_news(connection, by_id(connection, cast['Billy']), clock.now())[0]
     assert trigger.template == f'Did you hear about Mira?? {TEXT}!' and "don't say how" in trigger.reason
-
-
-def test_a_group_tells_who_has_not_heard_and_hearing_it_there_counts(client, cast, clock, provider, monkeypatch):
-    monkeypatch.setattr(news, 'passes', lambda _connection, _ties, _item, _teller, listener, _day:
-                        listener == key(cast['Billy']))
-    evening(clock)
-    sync(client)
-    group = start(client, [cast['Billy'], cast['Sally']])
-    say(client, group['id'], 'How was everyone\'s day?', 'news-group-01')
-    billy = next(request['prompt'] for request in provider.requests if 'Write Billy' in request['messages'][-1]['content'])
-    assert f"- You heard (Mira told you): {TEXT}. Sally hasn't heard yet." in billy
-
-    say(client, group['id'], 'Guess what, Mira took up pottery for real!', 'news-group-02')
-    sally = holders(client)[key(cast['Sally'])]
-    assert (sally['told_by'], sally['via']) == ('user', 'group')
-
-
-def test_a_secret_remembers_who_told_them(client, cast, provider):
-    statement = 'Billy is moving to Denver in May'
-    ok(client.post('/api/secrets', json={'statement': statement, 'about': ['Billy'], 'knows': [cast['Billy']],
-                                         'kept_from': []}))
-    group = start(client, [cast['Billy'], cast['Sally']])
-    say(client, group['id'], 'Sally, Billy is moving to Denver in May!', 'news-secret-01')
-    listed = ok(client.get('/api/secrets'))['secrets'][0]
-    sally = next(person for person in listed['knows'] if person['name'] == 'Sally Moss')
-    assert sally['told_by'] == 'the user' and sally['how'] == 'heard it from you in a group'
-    database = client.app.state.database
-    with database.connect(write=True) as connection:
-        connection.execute('UPDATE workspace_settings SET automatic_memory=1')
-        lines = secrets.context_lines(connection, by_id(connection, cast['Sally']))
-    assert '(the user told you, since ' in lines[0][1]
 
 
 def test_a_new_chapter_is_news_until_it_is_undone(client, clock, monkeypatch):

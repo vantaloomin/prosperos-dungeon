@@ -34,12 +34,12 @@ const ADMIN_LEVELS = [
   { label: 'Dramatic', hint: 'Errands and paperwork every week, and surprises like a parking ticket or a bank mix-up to sort out. Anything due that day holds too.' },
 ]
 
-/** Group chat guests (dungeon/group_guests.py PULL_CHANCE): how often someone named in a group chat is brought in. */
+/** Guests (dungeon/life/big_days.py guests_level): how often they ask you along to a big day in their circle. */
 const GUEST_LEVELS = [
-  { label: 'Only when you add them', hint: 'Nobody joins a group chat on their own. You can still add anyone the group knows from People in this group.' },
-  { label: 'Now and then', hint: 'Once in a while, when a friend, relative or familiar face comes up in a group chat, whoever knows them brings them in for a bit. Every few days at most.' },
-  { label: 'True to life', hint: 'When someone comes up in a group chat, whoever knows them sometimes brings them in for a while. Guests slip out once the chat goes quiet; one who keeps coming back stays.' },
-  { label: 'Often', hint: 'Friends, family and familiar faces get pulled into group chats often, a few times a day at most.' },
+  { label: 'Never', hint: 'They go to weddings, birthdays and other big days on their own and tell you about them after.' },
+  { label: 'Now and then', hint: 'Once in a while they ask you along to a big day in their circle.' },
+  { label: 'True to life', hint: 'They ask you along to the big days you would likely be asked to, as a partner or a close friend would.' },
+  { label: 'Often', hint: 'They ask you along to most of the big days in their circle.' },
 ]
 
 /** The top of Settings > Realism: Iris's opening line and one-tap presets for the world-wide settings below. */
@@ -111,7 +111,7 @@ export function PaceSettings() {
         {(id, describedBy) => <StepSlider id={id} describedBy={describedBy} value={data.family_life} label={familyLife.label}
           onChange={(family_life) => void save({ family_life })} />}
       </Field>
-      <Field label={`Guests in group chats: ${guests.label}`} hint={guests.hint}>
+      <Field label={`Asked along: ${guests.label}`} hint={guests.hint}>
         {(id, describedBy) => <StepSlider id={id} describedBy={describedBy} value={data.guests_realism} label={guests.label}
           onChange={(guests_realism) => void save({ guests_realism })} />}
       </Field>

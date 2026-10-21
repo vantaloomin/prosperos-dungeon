@@ -1,15 +1,15 @@
 import { profileTab } from '../profile/profileText.ts'
 
 /** Every view with a side rail button (AppNav.tsx). */
-export const RAIL_IDS = new Set(['conversation', 'groups', 'story', 'today', 'memories', 'settings'])
+export const RAIL_IDS = new Set(['conversation', 'story', 'today', 'memories', 'settings'])
 
 /**
  * The phone's tab bar (Iris's spec, companion-design/phone-tab-bar.md): Chats, Today, Story and Settings,
- * within the five Apple and Google put in a bottom bar at most. Chats holds what were the Profile, Groups, Memories
+ * within the five Apple and Google put in a bottom bar at most. Chats holds what were the Profile, Memories
  * and Worlds tabs, so every view below belongs under it.
  */
 export function inChats(view: string): boolean {
-  return view === 'chats' || view === 'groups' || view.startsWith('group/') || view === 'worlds' || profileTab(view) !== null
+  return view === 'chats' || view === 'worlds' || profileTab(view) !== null
 }
 
 /**
@@ -30,6 +30,5 @@ export function railCurrent(id: string, view: string): boolean {
   if (id === 'conversation') return view === 'chats' || (profileTab(view) !== null && view !== 'memories')
   if (id === 'today') return view === 'today' || fromToday(view)
   if (id === 'settings') return view === 'settings' || view.startsWith('settings/')
-  if (id === 'groups') return view === 'groups' || view.startsWith('group/')
   return view === id
 }

@@ -3,10 +3,9 @@ import base64
 from datetime import timedelta
 
 import pytest
-from test_groups import companion_named
 from test_pictures import png
 
-from dungeon import export, groups, pictures, story
+from dungeon import export, pictures, story
 from dungeon.clock import stamp
 from dungeon.database import identifier
 from dungeon.images import storage
@@ -177,28 +176,6 @@ def test_voice_notes_are_exported_as_their_transcript(client, chat):
     page = exported(client, f"chat/{chat['timeline']}").text
     assert '<span class="tag">· voice note</span></p><p>Just wanted to hear your voice.</p>' in page
     assert '**Mira** · 8:00 AM · voice note' in exported(client, f"chat/{chat['timeline']}", 'md').text
-
-
-def test_a_group_chat_names_each_speaker(client, companion, chat):
-    billy = companion_named(client, 'Billy Hart')
-    group_id = ok(client.post('/api/groups', json={'companion_ids': [companion['id'], billy],
-                                                   'name': 'Pier <crew>'})).json()['id']
-    database = client.app.state.database
-    with database.connect(write=True) as connection:
-        groups.add_line(connection, group_id, database.now(), 'user', '', 'Hi both')
-        groups.add_line(connection, group_id, database.now(), groups.member_key(billy), 'Billy', 'Hey <you>')
-        groups.add_line(connection, group_id, database.now(), groups.member_key(billy), 'Billy', 'Half-written',
-                        status='failed')
-    response = exported(client, f'chat/{group_id}')
-    page = response.text
-    assert 'filename="Pier crew - group chat - 2026-10-05.html"' in response.headers['content-disposition']
-    assert '<h1>Pier &lt;crew&gt;</h1>' in page and 'Group chat · October 5, 2026' in page
-    assert '<p class="note">You started a group with Mira and Billy. <time>8:00 AM</time></p>' in page
-    assert '<strong>You</strong>' in page and '<p>Hi both</p>' in page
-    assert '<strong>Billy</strong>' in page and 'Hey &lt;you&gt;' in page
-    assert 'Half-written' not in page
-    text = exported(client, f'chat/{group_id}', 'md').text
-    assert '**Billy** · 8:00 AM  \n\nHey &lt;you>' in text
 
 
 def test_the_story_exports_with_its_narrator_and_places(client, chat):

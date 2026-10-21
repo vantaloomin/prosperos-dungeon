@@ -5,7 +5,6 @@ import { SETTINGS_KEY, useWorkspaceSettings } from '../../companion'
 import type { LifeSettings, WorkspaceSettings } from '../../types'
 import { Notice } from '../../components/Feedback'
 import { SectionPending } from '../../components/SectionPending'
-import { GROUPS_KEY } from '../groups/groupState'
 import { REALISM_PRESETS, matchPreset, nearestPreset, type RealismPreset } from './presetChoices'
 import { LIFE_KEY, type SaveResult } from './useLifeSettings'
 
@@ -24,7 +23,7 @@ export function RealismPresets({ heading, title, intro }: { heading: string; tit
     try {
       client.setQueryData(LIFE_KEY, await api<LifeSettings>('/life/settings', preset.life, 'PUT'))
       client.setQueryData(SETTINGS_KEY, await api<WorkspaceSettings>('/settings', preset.shown, 'PUT'))
-      for (const queryKey of [['today'], ['news'], ['reactions'], ['upkeep'], GROUPS_KEY, ['group']]) void client.invalidateQueries({ queryKey })
+      for (const queryKey of [['today'], ['news'], ['reactions'], ['upkeep']]) void client.invalidateQueries({ queryKey })
       setResult({ tone: 'info', text: `${preset.label}: saved. Fine-tune it any time in Settings > Realism.` })
     } catch (error) {
       setResult({ tone: 'error', text: error instanceof Error ? error.message : 'Not saved.' })

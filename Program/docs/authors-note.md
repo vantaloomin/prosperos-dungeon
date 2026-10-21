@@ -7,7 +7,7 @@ conversation.
 ## Behaviour
 
 - **One note per chat:** each companion's chat (`companion:<id>`; every branch of the chat shares it, so branching
-  keeps the note as it is now), each group chat (`group:<id>`) and Story mode (`story`). Nothing to set up first:
+  keeps the note as it is now) and Story mode (`story`). Nothing to set up first:
   a chat starts with an empty note that is switched on.
 - **Every reply while on.** No "every N replies" or depth settings. Up to 1,000 characters; the box counts them
   once past 800.

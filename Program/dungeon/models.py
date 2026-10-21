@@ -342,7 +342,6 @@ class SettingsUpdate(Input):
     theme: Literal['system', 'scheme', 'paper'] | None = None
     ask_about_people: bool | None = None
     story_mode: bool | None = None
-    show_secret_slips: bool | None = None
     show_moods: bool | None = None
     show_news: bool | None = None
     show_odds: bool | None = None
@@ -463,7 +462,7 @@ class LifeSettingsUpdate(Input):
     admin_realism: int | None = Field(default=None, ge=0, le=3)
     # Work life (dungeon/life/work.py): 0 off, 1 steady, 2 true to life, 3 dramatic.
     work_realism: int | None = Field(default=None, ge=0, le=3)
-    # Group chat guests (dungeon/group_guests.py): how often someone named in a group is pulled in, 0 never to 3.
+    # Guests (dungeon/life/big_days.py): how often they ask the user along to a big day, 0 never to 3.
     guests_realism: int | None = Field(default=None, ge=0, le=3)
     # Hobbies that progress (dungeon/life/hobbies.py): 0 off, 1 light, 2 true to life, 3 dramatic.
     hobbies_realism: int | None = Field(default=None, ge=0, le=3)

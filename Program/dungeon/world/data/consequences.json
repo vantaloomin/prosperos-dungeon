@@ -396,32 +396,6 @@
         }
       ]
     },
-    "secret:pass_on": {
-      "label": "Whether {name} passes the secret on to {a}",
-      "options": [
-        {
-          "weight": 1,
-          "rules": [
-            {
-              "reader": "closeness_a",
-              "at_least": 4,
-              "times": 24,
-              "why": "they feel close to {a}"
-            },
-            {
-              "reader": "closeness_a",
-              "at_most": 2,
-              "times": 0,
-              "why": "they hardly know {a}"
-            }
-          ]
-        },
-        {
-          "weight": 4,
-          "rules": []
-        }
-      ]
-    },
     "news:pass_on": {
       "label": "Whether {name} passes the news on to {a}",
       "options": [
@@ -469,57 +443,6 @@
         {
           "weight": 3,
           "rules": []
-        }
-      ]
-    },
-    "user:told_secret": {
-      "label": "How {name} takes you telling {a} a secret",
-      "options": [
-        {
-          "label": "{name} lets it go",
-          "weight": 2,
-          "rules": []
-        },
-        {
-          "label": "{name} is hurt the secret got out",
-          "weight": 1,
-          "rules": [
-            {
-              "reader": "minds",
-              "at_most": 0,
-              "times": 0,
-              "why": "nothing in {name}'s character says this would bother them"
-            },
-            {
-              "reader": "minds",
-              "at_least": 1,
-              "times": 1,
-              "why": "{name}'s character includes \"{trait}\""
-            },
-            {
-              "reader": "minds",
-              "at_least": 2,
-              "at_most": 2,
-              "times": 2,
-              "why": "\"{trait}\" is strong in {name}"
-            },
-            {
-              "reader": "minds",
-              "at_least": 3,
-              "times": 3,
-              "why": "\"{trait}\" is very strong in {name}"
-            }
-          ],
-          "marks": [
-            {
-              "kind": "mood",
-              "on": "me",
-              "amount": -1,
-              "days": 7,
-              "note": "{name} is hurt you told {a} a secret {name} was keeping",
-              "told": "You're still a little hurt that the user told {a} something you were keeping secret."
-            }
-          ]
         }
       ]
     },
@@ -625,57 +548,6 @@
         }
       ]
     },
-    "user:showed_everything": {
-      "label": "How {name} takes {a} seeing everything said in {group}",
-      "options": [
-        {
-          "label": "{name} doesn't mind",
-          "weight": 2,
-          "rules": []
-        },
-        {
-          "label": "{name} feels exposed",
-          "weight": 1,
-          "rules": [
-            {
-              "reader": "minds",
-              "at_most": 0,
-              "times": 0,
-              "why": "nothing in {name}'s character says this would bother them"
-            },
-            {
-              "reader": "minds",
-              "at_least": 1,
-              "times": 1,
-              "why": "{name}'s character includes \"{trait}\""
-            },
-            {
-              "reader": "minds",
-              "at_least": 2,
-              "at_most": 2,
-              "times": 2,
-              "why": "\"{trait}\" is strong in {name}"
-            },
-            {
-              "reader": "minds",
-              "at_least": 3,
-              "times": 3,
-              "why": "\"{trait}\" is very strong in {name}"
-            }
-          ],
-          "marks": [
-            {
-              "kind": "mood",
-              "on": "me",
-              "amount": -1,
-              "days": 5,
-              "note": "{name} feels exposed that {a} can read everything said in {group}",
-              "told": "You feel a little exposed that the user let {a} read everything said in {group} before they joined."
-            }
-          ]
-        }
-      ]
-    },
     "user:rough_patch": {
       "label": "Whether a rough patch starts with {name} over {about}",
       "options": [
@@ -724,18 +596,6 @@
               "is": "forgot_occasion",
               "times": 1.5,
               "why": "the day mattered to {name}"
-            },
-            {
-              "reader": "cause",
-              "is": "secret_told",
-              "times": 2.8,
-              "why": "{name} trusted you with it"
-            },
-            {
-              "reader": "cause",
-              "is": "secret_kept",
-              "times": 2.8,
-              "why": "you kept it from {name}"
             },
             {
               "reader": "cause",

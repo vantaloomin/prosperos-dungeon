@@ -271,7 +271,7 @@ def view(database: Database) -> dict:
 
 def busy(state) -> str | None:
     """Why the app cannot leave its world right now, if it cannot."""
-    if state.conversation.running or state.groups.rounds:
+    if state.conversation.running:
         return 'A reply is still being written. Switch when it has finished.'
     if getattr(state.training, 'active', False):
         return 'A LoRA is training in this world. Switch when it has finished.'
@@ -307,10 +307,9 @@ def carry_settings(target: Path, source: Path, timestamp: str):
 
 def recover(state):
     """Work the world left half done when it was last open, as a start does (dungeon/main.py lifespan)."""
-    from dungeon import conversation, groups
+    from dungeon import conversation
     from dungeon.images import jobs as image_jobs
     conversation.recover(state.database)
-    groups.recover(state.database)
     image_jobs.recover(state.database)
     state.memory.kick()
     state.images.wake()

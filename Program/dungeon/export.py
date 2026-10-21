@@ -71,18 +71,13 @@ def user_zone(connection) -> str:
 
 
 def chat(database, thread_id: str) -> Transcript:
-    """A companion's chat (its timeline's id, the one on screen) or a group chat (the group's id)."""
+    """A companion's chat (its timeline's id, the one on screen)."""
     now = database.clock.now()
     with database.connect() as connection:
         companion = for_timeline(connection, thread_id)
-        if companion is not None:
-            entries = companion_entries(database, connection, thread_id, companion['version']['name'], now)
-            return Transcript(companion['version']['name'], 'chat', user_zone(connection), now, entries)
-        group = optional(connection, 'SELECT * FROM group_chats WHERE id=?', (thread_id,))
-        require(group is not None, 'This chat could not be found.', 404)
-        from dungeon import groups
-        return Transcript(groups.title(connection, group), 'group chat', user_zone(connection), now,
-                          group_entries(connection, thread_id))
+        require(companion is not None, 'This chat could not be found.', 404)
+        entries = companion_entries(database, connection, thread_id, companion['version']['name'], now)
+        return Transcript(companion['version']['name'], 'chat', user_zone(connection), now, entries)
 
 
 def companion_entries(database, connection, timeline_id: str, name: str, now) -> list[Entry]:
@@ -124,13 +119,6 @@ def chat_photo(database, connection, photo: dict) -> Picture | None:
         return None
     meme = ' / '.join(part for part in (photo['top_text'], photo['bottom_text']) if part)
     return Picture(meme or photo['summary'], path, storage.TYPES.get(path.suffix.lstrip('.'), ''))
-
-
-def group_entries(connection, group_id: str) -> list[Entry]:
-    rows = many(connection, "SELECT * FROM group_messages WHERE group_id=? AND status='complete' ORDER BY seq",
-                (group_id,))
-    return [Entry('' if row['author'] == 'app' else YOU if row['author'] == 'user' else row['name'], row['text'],
-                  parse(row['created_at']), row['author'] == 'user') for row in rows]
 
 
 def story(database) -> Transcript:

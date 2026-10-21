@@ -169,26 +169,6 @@ def test_real_life_mends_after_calm_days(client, patches, provider, clock):
     assert not patch(client)['open']
 
 
-def test_on_drama_a_secret_needs_an_apology_and_a_gesture(client, patches, provider):
-    set_life(client, rough_patches_realism=3)
-    with client.app.state.database.connect(write=True) as connection:
-        companion = current(connection)
-        now = client.app.state.database.clock.now()
-        rough_patches.found_out(connection, {'id': 'k1', 'statement': 'You lost your job.',
-                                             'subjects': [{'key': 'user', 'name': 'you'}]},
-                                f"companion:{companion['id']}", now)
-    says(provider)
-    send(client, "I'm sorry I kept it from you", 'client-patch-9')
-    assert patch(client)['open']
-    says(provider)
-    send(client, 'hey', 'client-patch-10')
-    assert 'It helps, but you are not over it yet' in notes(provider)
-    says(provider)
-    send(client, 'I got you something, I hope you like it', 'client-patch-11')
-    assert not patch(client)['open']
-    assert 'They just made it up to you' in notes(provider)
-
-
 def test_a_broken_promise_starts_one_when_the_user_comes_back(client, patches, provider, clock):
     says(provider)
     send(client, "gotta run, I'll call you tonight!", 'client-patch-12')

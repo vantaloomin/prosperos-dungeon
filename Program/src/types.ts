@@ -296,9 +296,7 @@ export interface WorkspaceSettings {
   ooc_markers?: { open: string; close: string }[] | null
   /** Story mode (src/features/story) is opt-in, in Settings > Advanced. */
   story_mode?: boolean
-  /** The note under a group message when someone lets a secret slip; on unless turned off. */
-  show_secret_slips?: boolean
-  /** Hidden values: how companions feel (Today, group members); off unless turned on. */
+  /** Hidden values: how companions feel (Today); off unless turned on. */
   show_moods?: boolean
   /** Hidden values: who has heard a companion's news (Today); off unless turned on. */
   show_news?: boolean
@@ -475,7 +473,7 @@ export interface LifeSettings {
   admin_realism: number
   /** Work life (dungeon/life/work.py): 0 off, 1 steady, 2 true to life, 3 dramatic. */
   work_realism: number
-  /** Group chat guests (dungeon/group_guests.py): how often someone named in a group is pulled in, 0 never to 3. */
+  /** Guests (dungeon/life/big_days.py): how often they ask the user along to a big day, 0 never to 3. */
   guests_realism: number
   /** Reading, watching and listening (dungeon/life/media.py): 0 off, 1 light, 2 true to life, 3 dramatic. */
   media_realism: number
@@ -599,7 +597,7 @@ export interface Today {
   clock_behind: boolean
   mood: AbsenceMood | null
   /** How they feel right now (dungeon/moods.py); only with Hidden values > Show how they're feeling on. */
-  feeling?: GroupMood | null
+  feeling?: Mood | null
   last_seen_at: string | null
   day: { date: string; body: BodyState | null }
   /** Birthdays and talking milestones today or within a week (dungeon/life/occasions.py). */
@@ -1073,7 +1071,7 @@ export interface DesktopNotification { id: string; kind: 'post' | 'digest' | 'me
 
 export interface TextCheck { state: string; kind?: string; message: Message | null; companion_id?: string; focus?: boolean }
 
-/** One chat in the chat list (dungeon/chats.py): a companion's, and later group chats. Never says who is online; a
+/** One chat in the chat list (dungeon/chats.py): a companion's. Never says who is online; a
  * companion's status may carry an away message, as a hint only. */
 export interface Chat {
   kind: string
@@ -1085,9 +1083,9 @@ export interface Chat {
   unread: number
   last: { role: 'user' | 'companion'; text: string; at: string } | null
   active_at: string
-  /** A companion's status line (dungeon/life/status.py); absent for group chats. */
+  /** A companion's status line (dungeon/life/status.py). */
   status?: CompanionStatus | null
-  /** A companion's profile picture (lora_references), or null while they have none; absent for group chats. */
+  /** A companion's profile picture (lora_references), or null while they have none. */
   portrait_reference_id?: string | null
 }
 export interface ChatList { chats: Chat[]; unread: number }
@@ -1558,6 +1556,15 @@ export interface Townsperson {
   stage?: PairStage | null
 }
 
+/** How a companion feels right now (dungeon/moods.py), by rules. */
+export interface Mood {
+  feeling: 'calm' | 'happy' | 'excited' | 'annoyed' | 'hurt' | 'angry' | 'anxious' | 'sad'
+  intensity: number
+  /** "Seems hurt". */
+  text: string
+  reason: string | null
+}
+
 /** Closeness between two people (dungeon/memory/pairs.py): how the companion feels, and how the other feels. */
 export interface PairStage { level: number; name: string; their_level: number; their_name: string }
 /** Another companion this one knows, for the profile: worked out from what happened between them. */
@@ -1567,13 +1574,8 @@ export interface PairTie {
   feels: { level: number; name: string; cooled: boolean }
   they_feel: { level: number; name: string; cooled: boolean }
   how: string
-  group_days: number
   meetings: number
 }
-/** Two companions about to share a group for the first time: their backstory can be told, once. */
-export interface UntoldPair { a: string; b: string; a_name: string; b_name: string; level: number; how: string }
-/** What the user tells about two companions: a starting stage and a line, both optional. */
-export interface Backstory { a: string; b: string; level: number | null; how: string }
 /** A companion already here, as a new one would start with them (by their meetings around town). */
 export interface NewTie { companion_id: string; name: string; meetings: number; level: number; name_of_level: string }
 /** A companion in the workspace: the main character, or one who stepped back. */
@@ -1631,148 +1633,8 @@ export interface StoryPerson {
 }
 export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; can_switch: boolean }
 
-/** Group chats (dungeon/groups.py, docs/group-chat.md). */
-export interface GroupMember {
-  companion_id: string | null
-  /** Their person key: `companion:<id>`, or a guest's circle or townsfolk key. */
-  key: string
-  /** Their full name now; `label` is how the chat names them (a first name unless two share it). */
-  name: string
-  label: string
-  main: boolean
-  joined_at: string
-  /** The first message they can see: 1 when added with everything so far. */
-  sees_from: number
-  /** How they seem right now (dungeon/moods.py), read-only; only in a chat's own view. */
-  mood?: GroupMood | null
-  /** Someone from a member's life who joined for a while (dungeon/group_guests.py); null for companions. */
-  guest?: GroupGuest | null
-}
-
-export interface GroupGuest {
-  /** The companion who knows them. */
-  host_id: string | null
-  /** "Mira's close friend". */
-  relation: string
-  /** The user kept them: they stay however quiet the chat gets. */
-  kept: boolean
-  /** They came back often enough to stay on their own. */
-  regular: boolean
-  visits: number
-  regular_after: number
-  replies_left: number
-  replies_each: number
-}
-
-/** Someone a companion in the group knows who could join it (GET /api/groups/{id}/guests). */
-export interface GuestOption {
-  key: string
-  name: string
-  relation: string
-  kind: 'circle' | 'town'
-  host_id: string | null
-}
-
 /** Record model calls (dungeon/model_calls.py), Settings > Debug. */
 export interface ModelCallLog { recording: boolean; folder: string; keep_days: number; files: number; bytes: number }
-
-export interface GroupMood {
-  feeling: 'calm' | 'happy' | 'excited' | 'annoyed' | 'hurt' | 'angry' | 'anxious' | 'sad'
-  intensity: number
-  /** "Seems angry at Sally". */
-  text: string
-  reason: string | null
-  /** Who they aren't speaking to right now, by the chat's name for them. */
-  ignoring: string | null
-}
-
-export interface GroupMessage {
-  id: string
-  seq: number
-  /** The user, a companion, a guest, or the app's own line about who joined or left. */
-  kind: 'user' | 'companion' | 'guest' | 'app'
-  companion_id: string | null
-  name: string
-  text: string
-  status: 'complete' | 'streaming' | 'failed' | 'cancelled'
-  error: string | null
-  reply_to: string | null
-  /** What the secret check did to this reply (dungeon/secrets.py): rewritten once, let a secret slip, or held back. */
-  guard?: 'redrafted' | 'revealed' | 'held' | null
-  created_at: string
-  /** Kept as a shared moment: it brings everyone who was there a little closer. */
-  kept?: boolean
-  /** Your message sounds like self-harm: the app's note with places to get help shows under it. */
-  crisis_help?: boolean
-}
-
-export interface Group {
-  id: string
-  name: string
-  /** The name, or who is in it when it has none. */
-  title: string
-  reply_cap: number
-  /** Someone furious may walk out (off by default). */
-  walk_out?: boolean
-  created_at: string
-  updated_at: string
-  members: GroupMember[]
-  latest?: GroupMessage | null
-}
-
-export type GroupPhase = 'preparing' | 'waiting' | 'writing'
-
-export interface GroupChat {
-  group: Group
-  messages: GroupMessage[]
-  ready: boolean
-  /** Replies are being written; `phase` says what the app is doing, never who is about to answer. */
-  busy: boolean
-  phase: GroupPhase | null
-  /** Text written so far, by message id. */
-  live: Record<string, string>
-}
-
-/** Secrets in group chats (dungeon/secrets.py): who knows what, and who must not find out. */
-export type SecretVia = 'origin' | 'witness' | 'slip' | 'history' | 'reveal'
-
-export interface SecretHolder {
-  key: string
-  companion_id: string | null
-  name: string
-  via: SecretVia
-  /** How they came to know it, in words ("heard it from Billy in a group"). */
-  how: string
-  /** Who told them, as they'd say it ("Billy", "the user"), or null. */
-  told_by?: string | null
-  learned_at: string
-  /** The group they learned it in, when they did. */
-  group: { id: string; name: string } | null
-}
-
-export interface Secret {
-  id: string
-  /** The user's own, or registered from a companion's storyline or description. */
-  kind: 'declared' | 'storyline' | 'character' | 'memory'
-  statement: string
-  /** "You added this", "From Billy's storyline". */
-  source: string
-  about: string[]
-  /** The words the reply check looks for; `own_key_words` are the ones the user set. */
-  key_words: string[]
-  own_key_words: string[]
-  keep_from_everyone: boolean
-  knows: SecretHolder[]
-  kept_from: { key: string; companion_id: string | null; name: string }[]
-  created_at: string
-}
-
-export interface SecretsData {
-  secrets: Secret[]
-  companions: { id: string; name: string }[]
-  /** Drama is at soap opera: a slip that gets past the rewrite stays. */
-  slips: boolean
-}
 
 /** The town paper for the companion's city (dungeon/world/paper.py): one Sunday's issue, written from what
  * happened in the world. `next` is null on this week's issue. */

@@ -731,10 +731,8 @@ def saw_lines(connection, companion: dict, today: date) -> list[tuple[str, str]]
     return result
 
 
-def offer(packet, connection, companion: dict, now, group=None) -> None:
-    """Adds the 'love' section, in one-to-one chats only (a secret is never handed to a group)."""
-    if group is not None:
-        return
+def offer(packet, connection, companion: dict, now) -> None:
+    """Adds the 'love' section."""
     for identity, text in context_lines(connection, companion, now):
         packet.offer('love', identity, text)
 

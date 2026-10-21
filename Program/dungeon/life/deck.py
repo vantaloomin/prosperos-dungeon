@@ -22,12 +22,10 @@ import json
 from datetime import date, timedelta
 from functools import cache
 
-from dungeon import secrets
 from dungeon.clock import stamp
 from dungeon.database import many, optional
 from dungeon.errors import require
 from dungeon.life import chance, circle, love_life, pronouns, storylines
-from dungeon.memory import pairs
 from dungeon.world import catalog
 
 # Off in tests unless a test turns it on: a seeded moment would add context lines and first messages.
@@ -134,12 +132,6 @@ def recent_cards(connection, timeline_id: str, day: date) -> set[str]:
                                            'AND day<? AND card_id IS NOT NULL', (timeline_id, since, day.isoformat()))}
 
 
-def kept_quiet(connection, companion, text: str) -> bool:
-    """Whether the moment could give away a secret the companion keeps."""
-    key = pairs.companion_key(companion['id'])
-    return any(key in secret['knowers'] and secrets.hits(secret, text, key) for secret in secrets.active(connection))
-
-
 def decide(connection, companion, day: date, attempt: int = 0, avoid: frozenset = frozenset()) -> dict:
     """The day's moment: {card_id, friend_id, odds}. `attempt` above 0 is the user asking for another card."""
     timeline_id = companion['active_timeline_id']
@@ -147,17 +139,12 @@ def decide(connection, companion, day: date, attempt: int = 0, avoid: frozenset 
         return {'card_id': None, 'friend_id': None, 'odds': 1.0}
     level, has = storylines.drama(connection), needs_met(connection, companion)
     recent = recent_cards(connection, timeline_id, day) | set(avoid)
-    for tried in range(TRIES):
-        seed = f'{timeline_id}:{day.isoformat()}:{attempt}:{tried}'
-        found, odds = draw(seed, level, has, recent, forced=attempt > 0)
-        if found is None:
-            return {'card_id': None, 'friend_id': None, 'odds': odds}
-        friend_id = friend_for(connection, timeline_id, seed) if 'friend' in found['needs'] else None
-        moment = {'card_id': found['id'], 'friend_id': friend_id, 'odds': odds}
-        if not kept_quiet(connection, companion, worded(connection, moment, companion, 'told')):
-            return moment
-        recent.add(found['id'])
-    return {'card_id': None, 'friend_id': None, 'odds': 1.0}
+    seed = f'{timeline_id}:{day.isoformat()}:{attempt}:0'
+    found, odds = draw(seed, level, has, recent, forced=attempt > 0)
+    if found is None:
+        return {'card_id': None, 'friend_id': None, 'odds': odds}
+    friend_id = friend_for(connection, timeline_id, seed) if 'friend' in found['needs'] else None
+    return {'card_id': found['id'], 'friend_id': friend_id, 'odds': odds}
 
 
 def save(connection, timeline_id: str, day: date, moment: dict, picked_by: str, timestamp: str):

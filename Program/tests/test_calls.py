@@ -212,7 +212,7 @@ def test_coming_over_during_a_call_ends_it(client, nearby, provider, clock):
 
 
 def test_one_call_at_a_time_across_companions(client, nearby, clock, monkeypatch):
-    from test_groups import companion_named
+    from companions import companion_named
 
     from dungeon.characters import by_id
     clock.advance(timedelta(hours=7))

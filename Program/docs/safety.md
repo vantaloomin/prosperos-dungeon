@@ -13,7 +13,7 @@ nothing is sent anywhere.
   they say is written by an AI model and can be wrong, and that the app is for adults. It can't be dismissed without
   ticking **I'm 18 or older**. Confirming is recorded once in your workspace.
 - **Under every message box** a small line says *Characters are AI and can make mistakes.* It shows in one-on-one
-  chats, group chats and Story mode, in every chat style and on a phone, the whole time you are chatting.
+  chats and Story mode, in every chat style and on a phone, the whole time you are chatting.
 - **The notices come from the app, never from a character.** A character still never says it is an AI (see
   "They stay in character" in the README); a message starting with `OOC:` or wrapped in ((double parentheses)) goes to the
   sidecar (which is not a character) by default, and with that turned off the character gives a plain,
@@ -21,7 +21,7 @@ nothing is sent anywhere.
 
 ## Crisis help
 
-- **What is checked.** Only your own messages, in one-on-one chats, group chats and Story mode. Each one is checked
+- **What is checked.** Only your own messages, in one-on-one chats and Story mode. Each one is checked
   against a list of phrases about suicide and self-harm (`Program/dungeon/safety.py`). Characters' messages are not
   checked, and no model is asked.
 - **What happens.** A message that matches gets a note from the app right under it, styled so it is clearly not the

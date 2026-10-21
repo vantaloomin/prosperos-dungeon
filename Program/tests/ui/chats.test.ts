@@ -10,21 +10,20 @@ test('a chat shows their latest message, or yours with "You:"', () => {
 
 test('the Chats button counts only what waits in the other chats', () => {
   const chats = [{ kind: 'companion', id: 'm', focus: true, unread: 3 }, { kind: 'companion', id: 's', focus: false, unread: 2 },
-    { kind: 'group', id: 'g', focus: false, unread: 4 }]
+    { kind: 'companion', id: 'b', focus: false, unread: 4 }]
   assert.equal(othersUnread(chats), 6)
-  // In a group chat, the group is the open one and the companion in focus counts again.
-  assert.equal(othersUnread(chats, { kind: 'group', id: 'g' }), 5)
-  assert.equal(isOpen(chats[0], { kind: 'group', id: 'g' }), false)
-  assert.equal(unreadOf(chats, 'companion'), 5)
-  assert.equal(unreadOf(chats, 'group'), 4)
+  // With another chat named as the open one, the companion in focus counts again.
+  assert.equal(othersUnread(chats, { kind: 'companion', id: 'b' }), 5)
+  assert.equal(isOpen(chats[0], { kind: 'companion', id: 'b' }), false)
+  assert.equal(unreadOf(chats, 'companion'), 9)
   assert.equal(chatsButtonLabel(2), 'Chats, 2 unread')
   assert.equal(chatsButtonLabel(0), 'Chats')
   assert.equal(badge(7), '7')
   assert.equal(badge(140), '99+')
   assert.equal(chatLabel({ kind: 'companion', id: 's', name: 'Sally', unread: 1, focus: false }), 'Sally, 1 unread message')
   assert.equal(chatLabel({ kind: 'companion', id: 'm', name: 'Mira', unread: 0, focus: true }), 'Mira, open now')
-  assert.equal(chatLabel({ kind: 'group', id: 'g', name: 'Book club', unread: 2, focus: false }, { kind: 'group', id: 'g' }),
-    'Book club (group), 2 unread messages, open now')
+  assert.equal(chatLabel({ kind: 'companion', id: 'b', name: 'Billy', unread: 2, focus: false }, { kind: 'companion', id: 'b' }),
+    'Billy, 2 unread messages, open now')
 })
 
 test('a chat is read up to their newest message on screen, not a held one', () => {

@@ -498,9 +498,9 @@ def context_lines(connection, companion: dict, now) -> list[tuple[str, str]]:
     return result
 
 
-def offer(packet, connection, companion: dict, now: datetime, group=None) -> None:
-    """Adds the 'loss' section, in a 1:1 chat."""
-    if not ACTIVE or group is not None or not companion.get('active_timeline_id'):
+def offer(packet, connection, companion: dict, now: datetime) -> None:
+    """Adds the 'loss' section."""
+    if not ACTIVE or not companion.get('active_timeline_id'):
         return
     for identity, text in context_lines(connection, companion, now):
         packet.offer('loss', identity, text)

@@ -183,8 +183,6 @@ def test_townsfolk_sliders_can_be_edited_and_carry_over_when_they_take_over(clie
     definition = cast.profile(data, sheet, {'focus': None, 'meetings': [], 'in_story': None},
                               __import__('datetime').date(2026, 3, 1), kept)
     assert definition['personality_sliders']['warmth'] == changed['warmth']
-    lines = perception.sheet_lines(data, sheet, kept)
-    assert lines['behaviour'] == personality.behaviour(personality.levels_of(after['sliders']))
 
 
 def test_unknown_townsfolk_cannot_be_edited(client):
