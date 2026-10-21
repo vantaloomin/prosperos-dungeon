@@ -361,6 +361,24 @@ Round 2, decided 2026-10-21:
   a death, a debt) stay. Memories tied to strong feelings (fear, hatred, love) stay sharp
   regardless of age. A roll can recall a faded detail.
 
+## Campaign management
+
+Decided 2026-10-21.
+
+- **Every turn is a save, plus bookmarks.** Each turn is saved automatically as a point in the
+  branch tree, and going back from any point gives new dice. The player can bookmark and name
+  moments to find them fast. A per-campaign **Ironman** mode, chosen at campaign start, turns off
+  going back, so death is final.
+- **Branches have two views, as widgets.** A chapter list reads the current branch like a table of
+  contents, with a switcher between branches. A tree view maps every chapter and branch; clicking
+  a node reads it or plays on from there, and dead ends are marked by how they ended.
+- **Campaigns are separate, with a legacy option.** Each campaign starts from a fresh copy of its
+  world. At campaign start the player may import a finished campaign's outcome as world history,
+  so an old character can be a legend, a villain or a corpse.
+- **Export as a backup or as a book.** A full campaign file (ledger, branches, saves, settings)
+  for backup or moving machines, importable again. The story of one branch also exports as a
+  readable book in Markdown, EPUB or PDF.
+
 ## World packages (proposed)
 
 The three bases arrive in three shapes: Mabry (canon / hidden / continuity markdown plus dice
