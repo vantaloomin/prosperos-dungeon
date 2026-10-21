@@ -217,10 +217,9 @@ def test_cooling_never_goes_below_the_floor_or_starts_before_it_was_turned_on():
 
 def test_townsfolk_start_as_close_as_their_meetings_make_them():
     from dungeon.cast import starting_closeness
-    meet = lambda count: {'match': None, 'meetings': [{}] * count, 'in_story': None}  # noqa: E731
+    meet = lambda count: {'meetings': [{}] * count, 'in_story': None}  # noqa: E731
     assert [starting_closeness(meet(count)) for count in (0, 2, 3, 5, 6, 20)] == [1, 1, 2, 2, 3, 3]
-    assert starting_closeness({'match': {'noun': 'match'}, 'meetings': [{}] * 9, 'in_story': None}) == 1
-    assert starting_closeness({'match': None, 'meetings': [{}] * 2, 'in_story': {'meetings': 4}}) == 3
+    assert starting_closeness({'meetings': [{}] * 2, 'in_story': {'meetings': 4}}) == 3
 
 
 def test_settings_can_change_a_companion_who_is_not_open(client, companion):

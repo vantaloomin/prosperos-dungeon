@@ -49,7 +49,7 @@ Left empty, the app fills them in this order:
    (for example "can't say no" maps to the `pleaser` flaw).
 3. The companion's seed.
 
-The sidecar can rewrite either field when asked. A townsperson or Matchlight match who becomes a companion
+The sidecar can rewrite either field when asked. A townsperson who becomes a companion
 keeps the lines they had in town, and a companion who steps back keeps theirs while living in town.
 
 ### For group chat

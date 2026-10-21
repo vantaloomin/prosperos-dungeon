@@ -309,7 +309,7 @@ class Price(Record):
 class Notable(Record):
     """A named person a city places in town, such as a character from the setting a pack draws on. They join the
     townsfolk at their place and live by the same rules (shifts or visits, goals, meetings), but with the name,
-    role and description given here instead of drawn ones. Notables are never on the dating app."""
+    role and description given here instead of drawn ones."""
     id: Id
     name: Text
     # What people call them; the first word of `name` when left out.

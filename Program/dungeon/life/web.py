@@ -4,14 +4,12 @@ Nothing here is stored or asked of a model. The web is read from what the app al
 and their ties to each other (dungeon/memory/pairs.py), each companion's circle and how its members know
 each other (dungeon/life/circle.py), people met through them (dungeon/life/network.py), townsfolk met
 around town (dungeon/life/encounters.py), the people the user has told a companion about
-(dungeon/memory/people.py), Matchlight matches (dungeon/dating.py) and people the user met in Story mode
-(dungeon/story_people.py). Secrets, closeness and moods are left out, so the web shows only who knows who.
+(dungeon/memory/people.py) and people the user met in Story mode (dungeon/story_people.py). Secrets, closeness and moods are left out, so the web shows only who knows who.
 
 A node is {id, name, kind, detail, hood, companion_id?, main?}; a link is {source, target, label, kind}.
 Townsfolk and network people keep their keys as ids, so someone two companions met is one node.
 """
 from dungeon.database import many
-from dungeon.errors import DomainError
 from dungeon.life import circle, encounters, network
 from dungeon.memory import pairs
 from dungeon.world import turnover
@@ -127,7 +125,7 @@ def add_townsfolk(web: Web, key: str, people: list[dict]):
 
 
 def add_yours(connection, web: Web, cast: list[dict], story_on: bool):
-    """The user's own people: those told to a companion, matches, and people met in Story mode."""
+    """The user's own people: those told to a companion and people met in Story mode."""
     seen = {}
     for companion in cast:
         for person in many(connection, 'SELECT * FROM user_people WHERE companion_id=? ORDER BY created_at, id',
@@ -136,22 +134,8 @@ def add_yours(connection, web: Web, cast: list[dict], story_on: bool):
             node_id = seen.setdefault((label.lower(), (person['relation'] or '').lower()), f"yours:{person['id']}")
             web.add(node_id, label, 'yours', person['relation'] or '')
             web.link(YOU, node_id, person['relation'] or 'someone you know')
-    from dungeon import dating
-    for row in many(connection, 'SELECT person_key, town FROM dating_swipes WHERE matched=1'):
-        if companion_for(connection, row['person_key']):
-            continue  # The match became a companion, who is already in the web.
-        try:
-            sheet, _data = dating.person(connection, row['person_key'], row['town'])
-        except DomainError:
-            continue  # Their city or place has gone.
-        web.add(row['person_key'], sheet['full'], 'match', sheet.get('occupation') or sheet['role'])
-        web.link(YOU, row['person_key'], 'match', 'partner')
     if story_on:
         for person in many(connection, 'SELECT key, name, meetings FROM story_people'):
             web.add(person['key'], person['name'], 'townsperson', 'Met in your story')
             web.link(YOU, person['key'], 'met in your story', 'met')
 
-
-def companion_for(connection, key: str) -> str | None:
-    row = connection.execute('SELECT id FROM companions WHERE townsfolk_key=?', (key,)).fetchone()
-    return row and row['id']

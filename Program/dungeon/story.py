@@ -72,6 +72,13 @@ def city_data(connection, city_id: str) -> dict:
     return data | {'kin': [], 'town': town, 'you': network.you(connection, town), 'kept': network.kept(connection, town)}
 
 
+def city_for(connection, city_id: str, town: str) -> dict:
+    """The city as the story has it, with the town the person was met in: a different main character's town
+    would make a different person of the same key."""
+    data = city_data(connection, city_id)
+    return data if data.get('town', '') == town else         data | {'town': town, 'you': network.you(connection, town), 'kept': network.kept(connection, town)}
+
+
 def opening_place(data: dict) -> dict:
     for kind in OPENING_KINDS:
         if found := catalog.places(data, kind=kind):
@@ -112,8 +119,7 @@ def present(connection, data: dict, place_id: str, moment: datetime) -> list[dic
             # How old they are now (dungeon/life/ages.py), as Around town says.
             people.append({'sheet': {**sheet, 'age': ages.town_age(connection, sheet, moment.date())},
                            **townsfolk.whereabouts(sheet, data, moment)})
-    from dungeon import dating  # The user's date, while one is going on here (docs/dating.md).
-    return dating.with_date(connection, data, place_id, moment, people)
+    return people
 
 
 def scene(connection, now: datetime) -> dict:
@@ -182,8 +188,6 @@ def scene_view(view: dict) -> dict:
 
 def seen(person: dict, view: dict) -> str:
     """'the barista', or 'Dana, the barista' once the user has met her."""
-    if person.get('shown'):  # The user's date (dungeon/dating.py).
-        return person['shown']
     sheet = person['sheet']
     who = encounters.who(sheet, {'id': view['place']['id']}, view['data'], None, person['doing']).removesuffix(' there')
     return f"{sheet['name']}, {who}" if sheet['key'] in view['known'] else who

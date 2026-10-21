@@ -446,7 +446,7 @@ GET /api/life/map    # {city: {id, name, lat, lon, real}, hoods: [{id, name, lat
 Today > Who knows who draws everyone the user has met or heard about as a web (`dungeon/life/web.py`):
 the companions and their ties to each other, each companion's circle and how its members know each other,
 people met through them, townsfolk met around town (staff at the same place are coworkers), the people the
-user told a companion about, Matchlight matches and, with Story mode on, people met in the story. It is read
+user told a companion about and, with Story mode on, people met in the story. It is read
 from what the app already keeps, with no model and nothing stored; secrets, closeness and moods stay out.
 Dragged bubbles keep their place in this browser.
 

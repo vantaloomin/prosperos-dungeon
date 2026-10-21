@@ -122,7 +122,7 @@ def test_period_towns_and_new_main_characters_get_their_life_too():
     assert found['origin'] and found['stories']
     modern = catalog.city('baltimore')
     sheet = townsfolk.at_place(modern, modern['places'][0]['id'])[0]
-    definition = cast.profile(modern, sheet, {'meetings': [], 'in_story': None, 'match': None,
+    definition = cast.profile(modern, sheet, {'meetings': [], 'in_story': None,
                                               'focus': {'version': {'name': 'Mira'}}}, date(2026, 3, 2))
     assert life_details.for_sheet(modern, sheet)['origin'] in definition['background']
     assert life_details.for_sheet(modern, {**sheet, 'cast': 'someone'}) == {}
@@ -150,7 +150,7 @@ def test_goals_are_a_big_bank_the_town_can_use():
 def test_a_new_main_characters_profile_reads_as_sentences_with_real_interests():
     data = catalog.city('baltimore')
     kinds = set(townsfolk.ROLES) | {place['kind'] for place in data['places']}
-    found = {'meetings': [], 'in_story': None, 'match': None, 'focus': {'version': {'name': 'Mira'}}}
+    found = {'meetings': [], 'in_story': None, 'focus': {'version': {'name': 'Mira'}}}
     for place in data['places']:
         for sheet in townsfolk.at_place(data, place['id']):
             definition = cast.profile(data, sheet, found, date(2026, 3, 2))

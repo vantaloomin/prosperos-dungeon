@@ -1,14 +1,11 @@
 """The town changes hands, seen from the app (dungeon/world/turnover.py): someone who has left is nowhere in town,
-can't take over or be become, a match who left can't be met on a date, a newcomer is their age from the day they
+can't take over or be become, a newcomer is their age from the day they
 arrived, and the paper and a companion's losses read the companion's own town."""
 from datetime import UTC, date, datetime, time, timedelta
 
 import pytest
 from test_cast import chatty, met_someone, ok, steady  # noqa: F401 (fixtures)
-from test_dating import PROFILE
-from test_drafting import connect
 
-from dungeon import dating as matchlight
 from dungeon.characters import require_current
 from dungeon.life import ages, citymap, encounters, network, web
 from dungeon.world import paper, townsfolk, turnover
@@ -59,32 +56,6 @@ def test_the_map_and_who_knows_who_leave_out_where_someone_used_to_be(monkeypatc
     monkeypatch.setattr(encounters, 'known', lambda *_args: [regular, regular | {'key': 'town:x:bar:3', 'name': 'Lee',
                                                                                   'left': left}])
     assert citymap.regulars(None, {}, None) == {'bar': ['Dana']}
-
-
-def test_a_match_who_left_town_cant_be_met_on_a_date(client, clock):
-    connect(client)
-    ok(client.put('/api/debug-matches', json={'on': True}))
-    ok(client.put('/api/settings', json={'story_mode': True}))
-    state = ok(client.put('/api/dating/profile', json=PROFILE))
-    leaving = None
-    while state['deck'] and leaving is None:
-        key = state['deck'][0]['key']
-        state = ok(client.post('/api/dating/swipes', json={'key': key, 'like': True}))
-        with client.app.state.database.connect() as connection:
-            sheet, data = matchlight.person(connection, key, '')
-        found = townsfolk.gone(sheet, data, clock.now().date() + timedelta(days=36500))
-        leaving = (key, found) if found else None
-    assert leaving
-    key, found = leaving
-    match = next(item for item in ok(client.get('/api/dating'))['matches'] if item['key'] == key)
-    assert match['left'] is None
-    after(clock, found)
-    match = next(item for item in ok(client.get('/api/dating'))['matches'] if item['key'] == key)
-    assert match['left']['day'] == found['day']
-    refused = client.post('/api/dating/dates', json={'key': key, 'place_id': match['places'][0]['id']})
-    assert refused.status_code == 409 and refused.json()['code'] == 'left_town'
-    assert refused.json()['detail'].endswith("so you can't meet them on a date.")
-    assert client.get('/api/companion/cast/draft', params={'key': key}).status_code == 409
 
 
 def test_the_paper_reads_the_companions_own_town(client, clock, chatty, monkeypatch):  # noqa: F811

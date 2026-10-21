@@ -208,8 +208,6 @@ ADDED_COLUMNS = (
     ('workspace_settings', 'show_adult_side', 'INTEGER NOT NULL DEFAULT 0 CHECK (show_adult_side IN (0, 1))'),
     # Record model calls (dungeon/model_calls.py): off unless the user turns it on in Settings > Debug.
     ('workspace_settings', 'record_model_calls', 'INTEGER NOT NULL DEFAULT 0 CHECK (record_model_calls IN (0, 1))'),
-    # 100% Matchlight matches (Settings > Debug): every like is liked back. Off unless the user turns it on.
-    ('workspace_settings', 'debug_all_matches', 'INTEGER NOT NULL DEFAULT 0 CHECK (debug_all_matches IN (0, 1))'),
     # Everyday events became automatic ("the world exists outside of User", Vanta 2026-10-08); a workspace
     # from before that is switched on once (see initialize), and turning it off afterwards sticks.
     ('life_settings', 'events_on_by_default', 'INTEGER NOT NULL DEFAULT 0'),
@@ -284,8 +282,6 @@ ADDED_COLUMNS = (
     # Hobbies that progress (dungeon/life/hobbies.py, Settings > Realism > Their days): 0 off, 1 light, 2 true to
     # life, 3 dramatic.
     ('life_settings', 'hobbies_realism', 'INTEGER NOT NULL DEFAULT 2 CHECK (hobbies_realism BETWEEN 0 AND 3)'),
-    # Matchlight's Undo (dungeon/dating.py): the person just answered, until it is undone or anything else changes.
-    ('dating_profile', 'last_answer', "TEXT NOT NULL DEFAULT ''"),
     # Where you live in this world (dungeon/life/where.py): a city id and a neighbourhood id in it.
     ('persona', 'home_city_id', "TEXT NOT NULL DEFAULT ''"),
     ('persona', 'home_neighbourhood', "TEXT NOT NULL DEFAULT ''"),

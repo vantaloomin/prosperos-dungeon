@@ -15,8 +15,8 @@ townsfolk (`companions.town_seed`), so the same streets hold different people.
 - Shared by every world, in the data folder: downloaded models (`voice/`, `embeddings/`), logs, city packs and
   `worlds.json`.
 - Each world's `persona` table holds the persona it belongs to, copied from `worlds.json` whenever the world opens
-  or the persona changes. The prompt's "Who the user is" section (`dungeon/memory/context.py`) and Matchlight's
-  profile prefill read it there. The birthday is kept in `life_settings.user_birthday`, where chat already saves it,
+  or the persona changes. The prompt's "Who the user is" section (`dungeon/memory/context.py`) reads it
+  there. The birthday is kept in `life_settings.user_birthday`, where chat already saves it,
   and read back into the persona when the user leaves the world.
 
 ## Switching
@@ -37,8 +37,8 @@ reloads into the new one, rather than writing into it.
 
 ## Defaults ("the world exists outside of User")
 
-- Upgrading: the existing workspace becomes the first world, named after its city, with a persona made from the
-  Matchlight profile and the birthday the user mentioned. Nothing to set up.
+- Upgrading: the existing workspace becomes the first world, named after its city, with a persona holding the
+  birthday the user mentioned. Nothing to set up.
 - A new world starts in the current city (or `city_id`) with fresh townsfolk and a starter companion: a grown-up
   townsperson picked by the world's seed, written from their town sheet with no model call (`cast.profile`), a friend
   at closeness stage 2.
@@ -62,9 +62,8 @@ user picks the person; the app never puts them in someone else's shoes.
 - Their circle is there: the starter companion is someone from their own usual place (a coworker, or a regular
   there), at closeness stage 3, whose background says how they know the user.
 - In that world the townsperson is the user, so they are left out of the town's people: every list of townsfolk
-  (people at places, residents, the Matchlight pool, the town paper, Around town) goes through one filter,
-  `townsfolk.not_you`, with the user's key from `network.you`. Nobody runs into them, and Matchlight never offers
-  them. `townsfolk.find` still names them, for their own persona. Townsfolk are always 18 or older.
+  (people at places, residents, the town paper, Around town) goes through one filter,
+  `townsfolk.not_you`, with the user's key from `network.you`. Nobody runs into them. `townsfolk.find` still names them, for their own persona. Townsfolk are always 18 or older.
 - The page reloads into the new world's chat with a one-time line ("You're Maya now. Ines is your first companion. You can change anything about yourself in Worlds.").
 
 ## Deleting

@@ -216,7 +216,7 @@ def at_place(data: dict, place_id: str, day: date | None = None) -> list[dict]:
 
 def not_you(data: dict, sheets: list[dict]) -> list[dict]:
     """Everyone but the townsperson the user became in this world (`data['you']`, dungeon/worlds.py). Every list
-    of townsfolk goes through here (places, residents, the Matchlight pool), so the user never meets themselves;
+    of townsfolk goes through here (places, residents), so the user never meets themselves;
     `find` still names them, for their own persona."""
     you = data.get('you')
     return [sheet for sheet in sheets if sheet['key'] != you] if you else sheets
@@ -257,8 +257,7 @@ def find(data: dict, key: str) -> dict | None:
     if parts[2].startswith('~'):
         hood_id = parts[2][1:]
         if not any(hood['id'] == hood_id for hood in data['neighborhoods']) or \
-                slot >= resident_count(data, hood_id) + APP_MEMBERS or \
-                generation and (slot >= resident_count(data, hood_id) or not arrival(data, parts[2], slot, generation)):
+                slot >= resident_count(data, hood_id) or generation and not arrival(data, parts[2], slot, generation):
             return None
         return resident(data, hood_id, index)
     place = catalog.find(data, parts[2])
@@ -438,9 +437,6 @@ def gone(sheet: dict, data: dict, day: date) -> dict | None:
     """How and when this townsperson left town or their place, if they had by `day`: {why, day, text}."""
     if not sheet['key'].startswith('town:') or sheet['key'] == data.get('you'):
         return None
-    if sheet.get('kind') == 'resident' and slot_of(int(sheet['key'].rsplit(':', 1)[1]))[0] >= \
-            resident_count(data, sheet['home']):
-        return None  # Only on the dating app: they never lived on a street the town runs.
     generation = slot_of(int(sheet['key'].rsplit(':', 1)[1]))[1]
     found = terms_of(data, sheet, week_of(day))
     term = found[generation] if len(found) > generation else None
@@ -738,10 +734,6 @@ def routine_text(sheet: dict) -> str:
 # so finding who is at a place looks at the residents of the neighborhoods around it, not the whole city.
 
 RESIDENTS = (40, 80)
-# People living in each neighborhood beyond the residents the town simulates, who only turn up on the dating
-# app (dungeon/world/dating.py): a city has far more singles than the few dozen neighbors anyone runs into.
-# They take the indexes after the residents', so they are rebuilt from a key like any resident.
-APP_MEMBERS = 500
 HAUNT_KINDS = ('cafe', 'bar', 'tavern', 'restaurant', 'park', 'library', 'fitness', 'market', 'garden', 'square')
 # When people leave for work (earliest, latest) and how long they are out, by the career's schedule.
 COMMUTES = {'early': ((4 * 60 + 30, 6 * 60), 8 * 60 + 30), 'evening': ((15 * 60, 16 * 60 + 30), 9 * 60),

@@ -81,14 +81,6 @@ def test_the_companion_knows_where_the_user_lives(client, connected, provider):
     assert f"- Lives in: {hood['name']}, Baltimore" in provider.requests[-1]['prompt']
 
 
-def test_matchlight_looks_where_the_user_lives(client, companion):
-    world = listing(client)['world']
-    ok(client.put(f"/api/worlds/{world['id']}/home", json={'city_id': 'chicago'}))
-    ok(client.put('/api/dating/profile', json={'name': 'Sam', 'age': 31, 'gender': 'man', 'interested_in': ['woman'],
-                                              'looking_for': 'serious', 'age_min': 25, 'age_max': 40, 'bio': ''}))
-    assert ok(client.get('/api/dating'))['city']['id'] == 'chicago'
-
-
 def test_a_new_world_has_its_own_home(client, companion, app):
     made = ok(client.post('/api/worlds', json={'city_id': 'osaka'}))
     assert made['home']['city_id'] == 'osaka' and made['home']['set_by'] == 'app'
@@ -118,19 +110,6 @@ def test_same_city_or_long_distance(client, companion, app):
 def test_the_registry_keeps_the_home(client, companion, app):
     registry = json.loads((app.state.database.root / worlds.REGISTRY).read_text(encoding='utf-8'))
     assert registry['worlds'][0]['home']['city_id'] == 'baltimore'
-
-
-def test_matchlight_moves_along_when_the_user_moves(client, companion):
-    world = listing(client)['world']
-    ok(client.put('/api/dating/profile', json={'name': 'Sam', 'age': 31, 'gender': 'man', 'interested_in': ['woman'],
-                                              'looking_for': 'serious', 'age_min': 25, 'age_max': 40, 'bio': ''}))
-    assert ok(client.get('/api/dating'))['city']['id'] == 'baltimore'
-    ok(client.put(f"/api/worlds/{world['id']}/home", json={'city_id': 'chicago'}))
-    assert ok(client.get('/api/dating'))['city']['id'] == 'chicago'
-    # Looking somewhere else on purpose stays, whatever the move.
-    ok(client.put('/api/dating/city', json={'city_id': 'miami'}))
-    ok(client.put(f"/api/worlds/{world['id']}/home", json={'city_id': 'new-york'}))
-    assert ok(client.get('/api/dating'))['city']['id'] == 'miami'
 
 
 def test_a_home_the_world_can_no_longer_reach_goes_back_to_its_city():

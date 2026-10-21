@@ -5,7 +5,7 @@ from datetime import date
 from dungeon import cast
 from dungeon.world import catalog, life_details, looks, profile_bank, townsfolk
 
-FOUND = {'meetings': [], 'in_story': None, 'match': None, 'focus': None}
+FOUND = {'meetings': [], 'in_story': None, 'focus': None}
 
 
 def test_the_bank_has_lines_for_every_career_and_title_and_a_hundred_of_each_kind():

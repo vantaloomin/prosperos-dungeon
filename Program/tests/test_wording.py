@@ -1,8 +1,7 @@
 """American wording for the shared banks in American settings (dungeon/world/wording.py)."""
 import json
-from datetime import date
 
-from dungeon.world import catalog, dating, life_details, perception, townsfolk, wording
+from dungeon.world import catalog, life_details, perception, townsfolk, wording
 
 BRITISH = ('neighbour', 'favourite', 'colour', 'realis', 'prize marrow', 'parish vestry', 'parish rolls', 'queue')
 
@@ -24,7 +23,7 @@ def test_townsfolk_in_american_towns_read_american():
             for sheet in townsfolk.at_place(data, place['id']):
                 goals = [townsfolk.goal(sheet, data, number) for number in range(len(sheet['goals']))]
                 text = ' '.join([sheet['quirk'], townsfolk.quirk_bio(data, sheet['quirk']),
-                                 dating.bio(sheet, data, '', date(2026, 3, 2)), str(perception.for_sheet(data, sheet)),
+                                 str(perception.for_sheet(data, sheet)),
                                  str(life_details.for_sheet(data, sheet)),
                                  *(goal[field] for goal in goals for field in ('text', 'bio', 'progress', 'done'))])
                 text = text.lower().replace(place['name'].lower(), '')  # A real First Parish Vestry stays.

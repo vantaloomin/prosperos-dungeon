@@ -10,7 +10,7 @@ from test_social_circle import make
 from dungeon.characters import require_current
 from dungeon.database import decode
 from dungeon.life import body, encounters, network
-from dungeon.world import catalog, dating, generators, naming, townsfolk
+from dungeon.world import catalog, generators, naming, townsfolk
 
 
 @pytest.fixture(autouse=True)
@@ -308,7 +308,6 @@ def test_a_citys_notables_join_the_townsfolk_at_their_place():
     assert ned['about'] == 'Knows every ship that ever docked here.' and ned['notable'] == 'old-ned'
     for sheet in named:
         assert townsfolk.find(data, sheet['key']) == sheet
-        assert not dating.on_app(sheet, data)
         assert townsfolk.whereabouts(sheet, data, datetime(2026, 3, 4, 20, 0))
     assert tess['flaw'] != ned['flaw'] or tess['quirk'] != ned['quirk']
 

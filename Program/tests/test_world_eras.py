@@ -5,7 +5,6 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
-from dungeon import dating as dating_app
 from dungeon.life import home, money, wardrobe
 from dungeon.world import catalog, changes, dating, generators, naming, townsfolk
 from dungeon.world.schema import Era, Holiday
@@ -62,7 +61,6 @@ def test_jazz_age_townsfolk_have_period_jobs_and_looks():
     occupations = {sheet['occupation'] for sheet in people if not sheet['staff']}
     jazz = {career['name'].lower() for career in catalog.careers_for(data).values()} | {'retired'}
     assert occupations <= jazz
-    assert dating_app.surface(data) == 'column'
     styles = {dating.looks(sheet, data)['style'] for sheet in people}
     assert styles <= set(dating.STYLES['jazz-age'])
     goal = townsfolk.goal(people[0] | {'goals': ['band']}, data, 0)

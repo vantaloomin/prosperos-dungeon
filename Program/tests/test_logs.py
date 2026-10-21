@@ -39,8 +39,8 @@ def test_unexpected_failures_say_what_failed_and_why_in_plain_words():
     import sqlite3
 
     from dungeon import troubleshoot
-    said = troubleshoot.for_request('GET', '/api/dating', ValueError('jpl names careers this city does not offer'), '/x/companion.log')
-    assert said.startswith("Couldn't load Matchlight. This looks like a bug")
+    said = troubleshoot.for_request('GET', '/api/world', ValueError('jpl names careers this city does not offer'), '/x/companion.log')
+    assert said.startswith("Couldn't load the cities. This looks like a bug")
     assert said.endswith('Details: ValueError: jpl names careers this city does not offer')
     assert '/x/companion.log' in said and 'Traceback' not in said
     assert troubleshoot.area('/api/life/home/rooms') == 'their home' and troubleshoot.area('/api/lifeline') == 'the Companion'

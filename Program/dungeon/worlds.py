@@ -25,7 +25,7 @@ import sqlite3
 from datetime import date
 from pathlib import Path
 
-from dungeon import backup, cast, characters, dating, lore, restore, story
+from dungeon import backup, cast, characters, lore, restore, story
 from dungeon.clock import AppClock, zone
 from dungeon.database import Database, identifier, optional
 from dungeon.errors import require
@@ -104,12 +104,10 @@ def registry(database: Database) -> dict:
 # The first world ----------------------------------------------------------------------------------------
 
 def persona_from(connection, timestamp: str) -> dict:
-    """The user as the workspace already knows them: their Matchlight profile and the birthday they mentioned."""
-    profile = dating.profile(connection) or {}
+    """The user as the workspace already knows them: the birthday they mentioned."""
     life = optional(connection, 'SELECT user_birthday FROM life_settings WHERE id=1') or {}
-    return {'id': identifier(), 'name': profile.get('name', ''), 'gender': profile.get('gender', ''),
-            'age': profile.get('age'), 'about': profile.get('bio', ''), 'birthday': life.get('user_birthday', ''),
-            'created_at': timestamp}
+    return {'id': identifier(), 'name': '', 'gender': '', 'age': None, 'about': '',
+            'birthday': life.get('user_birthday', ''), 'created_at': timestamp}
 
 
 def city_of(connection) -> dict:
@@ -181,10 +179,8 @@ def start(database: Database):
 
 def write_persona(connection, persona: dict, timestamp: str, home: dict | None = None):
     """Who the user is in this world, and where they live in it (`home`, the world's), for the prompt
-    (dungeon/memory/context.py), Matchlight and Where you are (dungeon/life/where.py)."""
+    (dungeon/memory/context.py) and Where you are (dungeon/life/where.py)."""
     home = home or {}
-    before = optional(connection, 'SELECT home_city_id FROM persona WHERE id=1')
-    dating.follow_home(connection, before['home_city_id'] if before else '', home.get('city_id', ''))
     connection.execute('INSERT OR REPLACE INTO persona (id, persona_id, name, gender, age, about, updated_at, '
                        'townsfolk_key, town_seed, pets, home_city_id, home_neighbourhood, kind, lifespan) '
                        'VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -369,12 +365,12 @@ def starter_sheet(data: dict, seed: str) -> dict | None:
 def starter(connection, data: dict, seed: str, timestamp: str, today: date, persona: dict | None = None):
     """Their profile from their town sheet, no model involved (dungeon/cast.py): a friend the user knows from
     around town, or, when the user became a townsperson, someone from that person's own circle. The user can change
-    them, find someone on Matchlight or make their own afterwards."""
+    them or make their own afterwards."""
     you = (persona or {}).get('townsfolk_key')
     sheet = circle_sheet(data, you, seed) if you else starter_sheet(data, seed)
     if sheet is None:
         return
-    met = {'match': None, 'meetings': [], 'focus': None, 'in_story': None}
+    met = {'meetings': [], 'focus': None, 'in_story': None}
     definition = cast.profile(data, sheet, met, today) | {'starting_closeness': 2}
     if you:
         definition |= {'starting_closeness': 3,
@@ -400,7 +396,7 @@ def build(database: Database, path: Path, persona: dict, city_id: str, seed: str
         if town_mix != mix.DEFAULTS:
             mix.write(connection, town_mix, made.now())
         write_persona(connection, persona, made.now(), home)
-        data = dating.city_for(connection, city_id, seed[:16] if town is None else town)
+        data = story.city_for(connection, city_id, seed[:16] if town is None else town)
         if town is not None:
             today = made.clock.now().astimezone(zone(data['timezone'])).date()
             starter(connection, data, seed, made.now(), today, persona)
@@ -496,7 +492,7 @@ def sheet_text(definition: dict) -> str:
 
 
 def persona_for(data: dict, sheet: dict, today: date, timestamp: str) -> dict:
-    met = {'match': None, 'meetings': [], 'focus': None, 'in_story': None}
+    met = {'meetings': [], 'focus': None, 'in_story': None}
     definition = cast.profile(data, sheet, met, today)
     return {'id': identifier(), 'name': sheet['full'], 'gender': gender_of(sheet),
             'age': sheet['age'], 'about': sheet_text(definition)[:2000], 'birthday': '', 'created_at': timestamp,

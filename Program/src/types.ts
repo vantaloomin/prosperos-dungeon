@@ -1761,9 +1761,8 @@ export interface CastMember { id: string; name: string; main: boolean; from_town
 export interface CastDraft {
   definition: CharacterDefinition
   person: { key: string; name: string; full: string; age: number; role: string; kind: string; place: string; neighborhood: string }
-  /** Who steps back; null when there is no main character yet (a dating match as the first companion). */
+  /** Who steps back; null when there is no main character yet. */
   stepping_back: string | null
-  matched?: boolean
   /** The companions already here, at the stage the new one would start with each. */
   ties?: NewTie[]
 }
@@ -1810,56 +1809,6 @@ export interface StoryPerson {
   doing: string; place: { id: string; name: string; city_id: string } | null
 }
 export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; can_switch: boolean }
-
-/** The dating app (dungeon/dating.py): the user's profile, the deck, matches and any Story mode date. */
-export type DatingGender = 'woman' | 'man' | 'nonbinary'
-export type DatingAim = 'serious' | 'casual' | 'friends'
-export interface DatingProfile {
-  name: string; age: number; gender: DatingGender; interested_in: DatingGender[]; looking_for: DatingAim
-  age_min: number; age_max: number; bio: string
-}
-export interface DatingCard {
-  key: string; name: string; age: number; gender: DatingGender; pronouns: string; orientation: string
-  /** A long-lived kind's age in human terms (matching reads it); null when it is their age. */
-  life_age?: number | null
-  looking: DatingAim; looking_text: string; looks: string; job: string; neighborhood: string; bio: string
-  /** An older era's personal-column notice, with initials only; '' on a dating app. */
-  notice: string
-}
-export interface DatingPlace { id: string; name: string; kind: string; neighborhood: string; theirs: boolean }
-export interface DatingMatch extends DatingCard {
-  city: { id: string; name: string }
-  /** Set once the match became a companion. */
-  companion_id: string | null
-  places: DatingPlace[]
-  /** They have since moved away or passed away (dungeon/world/turnover.py). */
-  left?: TownLeft | null
-}
-/** A townsperson's one portrait (dungeon/dating_photos.py). */
-export interface DatingPhoto { status: 'none' | 'queued' | 'running' | 'completed' | 'failed'; error?: string | null; url?: string | null }
-export interface DatingWords { title: string; noun: string; like: string; pass: string; matched: string; empty: string; tagline: string; get: string; getting: string }
-export interface Dating {
-  surface: 'app' | 'column' | 'matchmaker'
-  words: DatingWords
-  city: { id: string; name: string }
-  profile: DatingProfile | null
-  /** Settings > Debug > 100% Matchlight matches is on. */
-  all_matches?: boolean
-  /** Who the user is in this world, so a new profile starts filled in. */
-  persona?: { name: string; gender: string; age: number | null; about: string } | null
-  /** Whether Story mode is on, so a match can be met there. */
-  story: boolean
-  /** Whether an image backend is set up, so "Show photo" can make one. */
-  photos: boolean
-  deck: DatingCard[]
-  remaining: number
-  matches: DatingMatch[]
-  date: { key: string; name: string; place_id: string } | null
-  /** The person the user just answered, whose answer Undo can take back; null once undone or anything else changed. */
-  undo?: string | null
-  /** After a like: the person, when they liked the user back. */
-  matched?: DatingCard | null
-}
 
 /** Group chats (dungeon/groups.py, docs/group-chat.md). */
 export interface GroupMember {

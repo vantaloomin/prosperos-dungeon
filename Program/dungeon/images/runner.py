@@ -61,7 +61,7 @@ class ImageRunner:
         self.sharing: list = []
         # Set by the app: maybe text the user a photo of the companion's moment (images/photos.py).
         self.share = lambda: None
-        # Other image queues started on the same tick (dating_photos.py).
+        # Other image queues started on the same tick (an outing's photo, a trip's postcard).
         self.others: list = []
 
     def wake(self):

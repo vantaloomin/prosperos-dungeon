@@ -21,7 +21,7 @@ dungeon/life/money.py), a naming day at home where a best
 friend is asked to be the godparent (dungeon/life/big_days.py `naming`), and now and then an evening out with their
 partner while the user babysits (`babysitting`, asked in a first text, a plain yes or no in the user's first reply).
 
-Children are words only, as in v0.14: never in pictures, never in Matchlight, and with the adult side of life on
+Children are words only, as in v0.14: never in pictures, and with the adult side of life on
 nothing about them reaches a chat prompt, the godparent day is called off and nobody is asked to babysit.
 """
 import re

@@ -18,7 +18,7 @@ model:
   companion goes part-time, stays home, or the user does. The user can change it on the Character page.
 - Their people become grandparents, aunts and uncles, with lines of their own; holidays and traditions grow the
   child's part as they grow.
-- At 18 the child is an adult person in their circle (`grow_up`), never a romance, never in Matchlight, and never in
+- At 18 the child is an adult person in their circle (`grow_up`), never a romance, and never in
   a chat with the adult side's lines.
 
 Children keep v0.14's limits everywhere: words only (the child's name is in families.names, so no picture is made of
@@ -699,7 +699,7 @@ def grown_as(person: dict, child: dict) -> bool:
 
 
 def grown_child(person: dict) -> bool:
-    """A circle person who is the pair's grown child: never a romance, never in Matchlight, never with the adult
+    """A circle person who is the pair's grown child: never a romance, never with the adult
     side."""
     return bool((decode(person['details']) or {}).get('our_child'))
 

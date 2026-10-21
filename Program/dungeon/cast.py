@@ -7,13 +7,10 @@ plays them. The companion who steps back keeps every chat, memory and timeline, 
 the same city by the townsfolk's rules (dungeon/life/encounters.py), where the new main character can
 run into them. They still text first and keep their chat (dungeon/chats.py), so switching is like opening
 another chat: it puts them in slot 1 again, history intact.
-
-A match on the dating app (dungeon/dating.py) becomes a companion the same way, with or without a main
-character to step back, and starts as a romance unless the match was for friendship.
 """
 from datetime import date
 
-from dungeon import dating, drafting, story
+from dungeon import drafting, story
 from dungeon.characters import by_id, current, insert_version, require_current
 from dungeon.clock import zone
 from dungeon.database import identifier, many, optional
@@ -94,21 +91,12 @@ def townsperson(connection, companion: dict, key: str, now) -> tuple[dict, dict,
 
 
 def candidate(connection, key: str, now) -> dict:
-    """Someone who may become the main character: a dating match who is not a companion yet, else a
-    townsperson the main character has met."""
+    """Someone who may become the main character: a townsperson the main character has met."""
     require(not key.startswith('cast:'), ALREADY, 409)
-    matched = dating.match(connection, key)
-    if matched:
-        require(optional(connection, 'SELECT id FROM companions WHERE townsfolk_key=?', (key,)) is None,
-                ALREADY, 409)
-        in_story = optional(connection, 'SELECT * FROM story_people WHERE key=?', (key,))
-        still_here(matched['data'], matched['sheet'], now)
-        return {'data': matched['data'], 'sheet': matched['sheet'], 'meetings': [], 'focus': current(connection),
-                'match': matched, 'in_story': in_story}
     focus = require_current(connection)
     data, sheet, meetings, in_story = townsperson(connection, focus, key, now)
     still_here(data, sheet, now)
-    return {'data': data, 'sheet': sheet, 'meetings': meetings, 'focus': focus, 'match': None, 'in_story': in_story}
+    return {'data': data, 'sheet': sheet, 'meetings': meetings, 'focus': focus, 'in_story': in_story}
 
 
 def still_here(data: dict, sheet: dict, now, then: str = "you can't take over as them") -> None:
@@ -188,25 +176,20 @@ def shared_text(focus_name: str, meetings: list[dict], in_story: dict | None = N
 
 
 def met_text(found: dict) -> str:
-    """How they know the user: through the dating app, or through the companion they ran into."""
-    if found['focus'] is None and not found['match']:
+    """How they know the user: through the companion they ran into."""
+    if found['focus'] is None:
         return f'{SHARED[1]} around town; the two of them are friends.'  # A new world's first companion.
-    if found['match']:
-        met = shared_text('', [], found['in_story'])
-        return f"{found['match']['met']}. {met}".strip()
     return shared_text(found['focus']['version']['name'], found['meetings'], found['in_story'])
 
 
 def relationship(found: dict) -> str:
-    """A match starts as a romance unless they matched for friendship; a townsperson met in town as a friend."""
-    return 'romance' if found['match'] and found['match']['details']['looking'] != 'friends' else 'friendship'
+    """A townsperson met in town starts as a friend."""
+    return 'friendship'
 
 
 def starting_closeness(found: dict) -> int:
-    """A match is a stranger. A townsperson starts as close as the times they have crossed paths make them:
+    """A townsperson starts as close as the times they have crossed paths make them:
     with the companion around town, or with the user in their own story."""
-    if found['match']:
-        return 1
     met = len(found['meetings']) + (found['in_story']['meetings'] if found['in_story'] else 0)
     return next(stage for stage, least in ((3, 6), (2, 3), (1, 0)) if met >= least)
 
@@ -278,12 +261,12 @@ def draft(database, key: str) -> dict:
         found = candidate(connection, key, now)
         data, sheet, focus = found['data'], found['sheet'], found['focus']
         today = now.astimezone(zone(data['timezone'])).date()
-        town = found['match']['town'] if found['match'] else town_personality.town_of(focus)
+        town = town_personality.town_of(focus)
         changed = town_personality.edited(connection, town, key)
         age = ages.town_age(connection, sheet, today)
         return {'definition': profile(data, sheet, found, today, changed, age),
                 'person': person_view(data, {**sheet, 'age': age}),
-                'stepping_back': focus['version']['name'] if focus else None, 'matched': found['match'] is not None,
+                'stepping_back': focus['version']['name'],
                 'ties': pairs.defaults_for_new(connection, others(connection), key, now)}
 
 
@@ -337,12 +320,11 @@ def switch(database, key: str, definition, ties=()) -> dict:
         found = candidate(connection, key, database.clock.now())
         focus = found['focus']
         companion_id, timeline_id = identifier(), identifier()
-        # They live in the same town, among the same people, as the companion who met them (or the town the
-        # dating app found them in).
-        town = found['match']['town'] if found['match'] else focus.get('town_seed') or ''
+        # They live in the same town, among the same people, as the companion who met them.
+        town = focus.get('town_seed') or ''
         connection.execute('INSERT INTO companions (id, slot, townsfolk_key, town_seed, created_at) '
                            'VALUES (?, NULL, ?, ?, ?)', (companion_id, key, town, timestamp))
-        note = 'Matched on the dating app.' if found['match'] else f"Met {focus['version']['name']} in town."
+        note = f"Met {focus['version']['name']} in town."
         version_id = insert_version(connection, companion_id, 1, definition, note, timestamp)
         connection.execute("INSERT INTO timelines (id, companion_id, status, created_at) VALUES (?, ?, 'active', ?)",
                            (timeline_id, companion_id, timestamp))

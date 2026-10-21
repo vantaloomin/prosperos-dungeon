@@ -114,14 +114,11 @@ def test_relatives_share_the_companions_kind_and_their_ages_follow_it():
     assert relatives and all(person['details']['folk'] == 'elf' for person in relatives)
 
 
-def test_dating_and_town_couples_go_by_age_in_human_terms():
+def test_partner_details_and_town_couples_go_by_age_in_human_terms():
     data = catalog.city('grandport')
     sheet = {**townsfolk.resident(data, 'gran-porte', 3), 'age': 300, 'folk': 'elf'}
     found = dating.details(sheet, data)
     assert found['life'] == 48 and found['age_range'][1] <= 60
-    profile = {'age': 47, 'age_min': 40, 'age_max': 55, 'interested_in': [found['gender']],
-               'looking_for': found['looking'], 'gender': (found['drawn_to'] or ['woman'])[0], 'seed': 'me'}
-    assert dating.suits(sheet, found, profile) == (found['looking'] != 'no')
     partner = couples.partner(sheet, data, 0, found)
     assert 38 <= lifespans.life_age(partner['age'], lifespans.lifespan_of(partner.get('folk'), data)) <= 58
 
@@ -295,18 +292,10 @@ def test_an_elven_townsperson_who_takes_over_stays_an_elf_of_their_age():
     data = catalog.city('grandport')
     sheet = next(found for hood in data['neighborhoods'] for index in range(400)
                  if (found := townsfolk.resident(data, hood['id'], index)).get('folk') == 'elf' and found['age'] > 120)
-    definition = cast.profile(data, sheet, {'meetings': [], 'in_story': None, 'focus': None, 'match': None},
+    definition = cast.profile(data, sheet, {'meetings': [], 'in_story': None, 'focus': None},
                               date(2026, 10, 19))
     assert definition['kind'] == 'elf' and lifespans.sheet_kind(definition, data) == 'elf'
     assert looks.age_of(definition, 's') == sheet['age']
-
-
-def test_an_elf_on_the_dating_app_is_drawn_the_age_they_look():
-    from dungeon import dating_photos
-    data = catalog.city('grandport')
-    sheet = {**townsfolk.resident(data, 'gran-porte', 3), 'age': 300, 'folk': 'elf'}
-    prompt = dating_photos.inputs(sheet, data)['prompt']
-    assert '48 years old' in prompt and '300' not in prompt
 
 
 def test_a_citys_own_kind_shows_on_a_persons_page_and_can_be_picked(client):
@@ -385,8 +374,6 @@ def test_a_persona_can_be_an_elf_of_300_once_the_kind_is_picked_or_read_from_the
         row = connection.execute('SELECT * FROM persona WHERE id=1').fetchone()
         assert (row['kind'], row['age']) == ('elf', 300) and ages.persona_life_age(connection, dict(row)) == 48
         assert parenthood.persona(connection)['kind'] == 'elf'
-        from dungeon import dating as matchlight
-        assert matchlight.persona(connection)['age'] == 48  # Matchlight's profile starts in human terms.
     # "Doesn't age" is long-lived too; back to the app's pick with an age past 120 is refused.
     assert client.patch(url, json={'kind': '', 'lifespan': 0}).status_code == 200
     assert client.patch(url, json={'lifespan': None}).status_code == 422
@@ -428,18 +415,17 @@ def test_an_elven_townsperson_past_200_still_has_a_life_story_to_tell():
     found = life_details.for_sheet(data, sheet)
     assert found['origin'] and found['family'] and len(found['stories']) == life_details.STORIES
     assert life_details.revealed(data, sheet, 20)['stories']
-    definition = cast.profile(data, sheet, {'meetings': [], 'in_story': None, 'focus': None, 'match': None},
+    definition = cast.profile(data, sheet, {'meetings': [], 'in_story': None, 'focus': None},
                               date(2026, 10, 19))
     assert sheet['name'] in definition['background'] and definition['kind'] == 'elf'
 
 
-def test_a_matchlight_card_for_an_elf_gives_their_age_in_human_terms():
+def test_an_elfs_partner_details_give_their_age_in_human_terms():
     data = catalog.city('grandport')
     elf = {**townsfolk.resident(data, 'gran-porte', 3), 'age': 225, 'folk': 'elf'}
-    card = dating.card(elf, data, date(2026, 10, 19))
-    assert card['age'] == 225 and card['life_age'] == dating.life_of(elf, data) == 40
+    assert dating.details(elf, data)['life'] == dating.life_of(elf, data) == 40
     human = {**townsfolk.resident(data, 'gran-porte', 3), 'age': 34, 'folk': 'human'}
-    assert dating.card(human, data, date(2026, 10, 19))['life_age'] is None
+    assert dating.details(human, data)['life'] == 34
 
 
 def test_the_prompt_gives_an_elf_personas_age_in_human_terms(client):

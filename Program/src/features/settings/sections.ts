@@ -93,12 +93,11 @@ export const SETTINGS_TABS: SettingsTabInfo[] = [
       { heading: 'debug-heading', title: 'Debug time', keywords: 'debug test testing time travel jump skip ahead days fast forward speed accelerate spoof date clock' },
       { heading: 'model-calls-heading', title: 'Record model calls', keywords: 'log logs logging record recording full conversation conversations chats requests responses raw sent strange reply support troubleshoot' },
       { heading: 'townsfolk-mix-heading', title: 'Townsfolk mix', keywords: 'townsfolk mix ratio ratios shares population generation generate new world reseed gender women men nonbinary height build weight beard facial hair orientation sexuality gay lesbian bisexual straight adult side adventurous drive sliders' },
-      { heading: 'debug-matches-heading', title: 'Matchlight', keywords: 'matchlight dating app match matches 100% always like back every swipe test' },
     ],
   },
   {
     id: 'advanced', label: 'Advanced', withoutCompanion: true, advanced: true, sections: [
-      { heading: 'story-mode-heading', title: 'Story mode', keywords: 'story mode narrator roleplay role play travel townsfolk meet people dating experimental' },
+      { heading: 'story-mode-heading', title: 'Story mode', keywords: 'story mode narrator roleplay role play travel townsfolk meet people experimental' },
       { heading: 'prompts-heading', title: 'Prompts', keywords: 'advanced prompt prompts system instructions wording chat character in character first texts check-ins life phrasing memory suggestions pictures describe drafting help me write quick start power user' },
     ],
   },

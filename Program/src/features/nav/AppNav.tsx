@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef } from 'react'
-import { BookHeart, BookOpen, CalendarDays, Download, Heart, MessageCircle, MessageSquareText, Settings as SettingsIcon, UserRound, UsersRound } from 'lucide-react'
+import { BookHeart, BookOpen, CalendarDays, MessageCircle, MessageSquareText, Settings as SettingsIcon, UserRound, UsersRound } from 'lucide-react'
 import type { View } from '../../companion'
 import { badge } from '../chats/chatText'
 import { WorldButton } from '../worlds/WorldButton'
@@ -9,13 +9,12 @@ import { isActive, navLabel, percent, type ReadyView } from '../ready/readyText'
 import { useReady, useReadyActions } from '../ready/useReady'
 
 /**
- * The views. The desktop side rail shows all of them; the phone's tab bar (`rail-only` hidden) keeps Today, Story,
- * Matchlight and Settings, with Chats in place of Profile, Groups and Memories (navText.ts).
+ * The views. The desktop side rail shows all of them; the phone's tab bar (`rail-only` hidden) keeps Today, Story
+ * and Settings, with Chats in place of Profile, Groups and Memories (navText.ts).
  */
 const VIEWS: { id: View; label: string; icon: typeof UserRound; railOnly?: boolean }[] = [
   { id: 'conversation', label: 'Profile', icon: UserRound, railOnly: true },
   { id: 'groups', label: 'Groups', icon: UsersRound, railOnly: true },
-  { id: 'dating', label: 'Matchlight', icon: Heart },
   { id: 'story', label: 'Story', icon: BookOpen },
   { id: 'today', label: 'Today', icon: CalendarDays },
   { id: 'memories', label: 'Memories', icon: BookHeart, railOnly: true },
@@ -26,13 +25,12 @@ interface Props {
   view: View
   go: (view: View) => void
   storyOn: boolean
-  datingInstalled: boolean
   unread: { companion: number; group: number }
   sidecarOpen: boolean
   sidecarWaiting: boolean
 }
 
-export function AppNav({ view, go, storyOn, datingInstalled, unread, sidecarOpen, sidecarWaiting }: Props) {
+export function AppNav({ view, go, storyOn, unread, sidecarOpen, sidecarWaiting }: Props) {
   const counts: Partial<Record<string, number>> = { conversation: unread.companion, groups: unread.group }
   const ready = useSettingsMark(view)
   return (
@@ -47,7 +45,7 @@ export function AppNav({ view, go, storyOn, datingInstalled, unread, sidecarOpen
           </button>}
           <button type="button" className={`nav-${id}${railOnly ? ' rail-only' : ''}`} aria-current={railCurrent(id, view) ? 'page' : undefined} onClick={() => go(id)}
             aria-label={id === 'settings' ? navLabel(ready) : undefined}>
-            <Icon aria-hidden="true" />{id === 'dating' && !datingInstalled && <Download className="nav-badge" aria-label="not installed" />}
+            <Icon aria-hidden="true" />
             {id === 'settings' && <SettingsMark view={ready} />}
             <Count count={counts[id]} /><span>{label}</span>
           </button>

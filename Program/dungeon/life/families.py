@@ -15,7 +15,7 @@ hears how they are getting on (bank lines in world/data/families.json by age, st
 `first_birthdays`).
 
 Children are words only. They are never circle_people, so nothing that reads the circle (the agenda, pictures, group
-chats, Matchlight, love lives, the web of who knows whom) ever sees them; they are listed under their parent. With the
+chats, love lives, the web of who knows whom) ever sees them; they are listed under their parent. With the
 adult side of life on, nothing about them goes in a chat prompt (`withheld`), and no picture is made of words that
 name one or their first birthday (`pictured`).
 

@@ -13,7 +13,7 @@ import { refocus } from './refocus'
 
 interface Props { townKey: string; go: (view: View) => void }
 
-/** A townsperson the companion has met, or a dating match, becomes the main character, from a profile the user
+/** A townsperson the companion has met becomes the main character, from a profile the user
  * reviews first. */
 export function SwitchTo({ townKey, go }: Props) {
   const client = useQueryClient()
@@ -31,7 +31,7 @@ export function SwitchTo({ townKey, go }: Props) {
       </section>
     )
   }
-  const { person, stepping_back: old, matched } = draft.data
+  const { person, stepping_back: old } = draft.data
   const name = givenName(person.full)
   const current = start ?? { definition: draft.data.definition, drafted: false, attempt: 0 }
   const save = async (definition: CharacterDefinition) => {
@@ -47,7 +47,7 @@ export function SwitchTo({ townKey, go }: Props) {
         save, label: old ? `Make ${name} the main character` : `Start talking to ${name}`,
         heading: <header className="page-header"><div>
           <h1>{person.full}</h1>
-          <p className="subtle">{person.role.charAt(0).toUpperCase()}{person.role.slice(1)}, {person.neighborhood}. {matched ? `You matched with ${name}.` : `${old} has run into ${name} around town.`} Read their profile through and change anything you like before {old ? 'they take over' : 'you start talking'}.</p>
+          <p className="subtle">{person.role.charAt(0).toUpperCase()}{person.role.slice(1)}, {person.neighborhood}. {old} has run into {name} around town. Read their profile through and change anything you like before {old ? 'they take over' : 'you start talking'}.</p>
         </div></header>,
         notice: <>
           <Written old={old} name={name} townKey={townKey} written={current.drafted} onWritten={(definition) => setStart({ definition, drafted: true, attempt: current.attempt + 1 })} onReset={() => setStart(null)} />

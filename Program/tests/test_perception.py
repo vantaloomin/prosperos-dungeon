@@ -222,7 +222,7 @@ def test_a_townsperson_who_becomes_a_companion_keeps_their_lines():
     from dungeon import cast
     data = catalog.city('baltimore')
     sheet = townsfolk.at_place(data, data['places'][0]['id'])[0]
-    definition = cast.profile(data, sheet, {'meetings': [], 'in_story': None, 'match': None, 'focus': {'version': {'name': 'Mira'}}}, date(2026, 3, 2))
+    definition = cast.profile(data, sheet, {'meetings': [], 'in_story': None, 'focus': {'version': {'name': 'Mira'}}}, date(2026, 3, 2))
     lines = perception.for_sheet(data, sheet)
     assert definition['seen_as'] == lines['public'] and definition['sees_self'] == '\n'.join(lines['private'])
 

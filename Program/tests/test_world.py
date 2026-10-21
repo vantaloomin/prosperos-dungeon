@@ -263,7 +263,7 @@ def test_a_saved_city_that_crashes_while_loading_leaves_the_others_listed(app, c
 
 def test_a_city_dropped_among_the_built_in_ones_loads_like_a_pack(client, tmp_path, monkeypatch):
     """A Mac tester put a Los Angeles file among the built-in cities. Loaded strictly, its one job the app lacked
-    failed every city list, so Real-world lookups went blank and Matchlight and Life & cities showed errors.
+    failed every city list, so Real-world lookups went blank and Life & cities showed errors.
     Such a file now loads like a pack, mended, and one that still cannot load is left out and named."""
     folder = tmp_path / 'cities'
     folder.mkdir()
@@ -282,7 +282,6 @@ def test_a_city_dropped_among_the_built_in_ones_loads_like_a_pack(client, tmp_pa
         listed = client.get('/api/world/cities')
         assert listed.status_code == 200 and {'baltimore', 'harbor-town'} <= {city['id'] for city in listed.json()}
         assert client.get('/api/context').status_code == 200
-        assert client.get('/api/dating').status_code == 200
     finally:
         monkeypatch.undo()
         catalog.reload()
@@ -368,7 +367,7 @@ APPLE_DOUBLE = b'\x00\x05\x16\x07\x00\x02\x00\x00Mac OS X        '
 
 def test_macos_finder_files_beside_the_cities_are_skipped(client, tmp_path, monkeypatch):
     """A Mac tester running the app from an external drive had a `._` file beside every built-in city; reading
-    one as a city broke the city list, and with it Matchlight, Today's context and the city pickers."""
+    one as a city broke the city list, and with it Today's context and the city pickers."""
     (tmp_path / 'baltimore.json').write_text('{}', encoding='utf-8')
     (tmp_path / '._baltimore.json').write_bytes(APPLE_DOUBLE)
     assert catalog.city_files(tmp_path) == [tmp_path / 'baltimore.json']
@@ -380,7 +379,7 @@ def test_macos_finder_files_beside_the_cities_are_skipped(client, tmp_path, monk
     try:
         report = client.post('/api/world/packs/reload').json()
         assert report['loaded'] == [] and report['errors'] == []
-        assert client.get('/api/dating').status_code == 200
+        assert client.get('/api/world/cities').status_code == 200
     finally:
         monkeypatch.delenv(catalog.PACKS_ENV)
         catalog.reload()

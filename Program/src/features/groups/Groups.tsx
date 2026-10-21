@@ -21,7 +21,7 @@ export function Groups({ go }: { go: (view: View) => void }) {
   const companions = cast.data?.members ?? []
   return (
     <section className="groups" aria-labelledby="groups-heading">
-      <GroupsHeader companions={cast.isSuccess ? companions.length : null} go={go} onNew={() => setCreating(true)} />
+      <GroupsHeader companions={cast.isSuccess ? companions.length : null} onNew={() => setCreating(true)} />
       <div className="groups-list">
         {groups.isPending && <Loading label="Loading your groups" />}
         {groups.isError && <ErrorNotice error={groups.error} />}
@@ -47,7 +47,7 @@ export function Groups({ go }: { go: (view: View) => void }) {
   )
 }
 
-function GroupsHeader({ companions, go, onNew }: { companions: number | null; go: (view: View) => void; onNew: () => void }) {
+function GroupsHeader({ companions, onNew }: { companions: number | null; onNew: () => void }) {
   return (
     <header className="groups-header">
       <h1 id="groups-heading">Groups</h1>
@@ -55,8 +55,8 @@ function GroupsHeader({ companions, go, onNew }: { companions: number | null; go
       <div className="form-actions">
         <button type="button" className="button primary" disabled={(companions ?? 0) < 2} onClick={onNew}><Plus aria-hidden="true" />New group</button>
       </div>
-      {companions !== null && companions < 2 && <Notice action={<button type="button" className="text-button" onClick={() => go('dating')}>Open Matchlight</button>}>
-        A group needs at least two companions. Find another on Matchlight, or make someone you&apos;ve met around town a companion.</Notice>}
+      {companions !== null && companions < 2 && <Notice>
+        A group needs at least two companions. Make someone you&apos;ve met around town a companion, or make your own.</Notice>}
     </header>
   )
 }

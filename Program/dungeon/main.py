@@ -12,7 +12,6 @@ from fastapi.staticfiles import StaticFiles
 from dungeon import (
     authors_note_routes,
     auto_backup,
-    dating_routes,
     export_routes,
     group_routes,
     groups,
@@ -26,8 +25,7 @@ from dungeon import (
 )
 from dungeon.conversation import Conversation, recover
 from dungeon.database import Database
-from dungeon.dating_photos import DatingPhotos
-from dungeon.debug_routes import calls_router, matches_router, mix_router
+from dungeon.debug_routes import calls_router, mix_router
 from dungeon.debug_routes import router as debug_router
 from dungeon.debug_time import DebugTime
 from dungeon.errors import DomainError
@@ -153,7 +151,6 @@ async def lifespan(app):
     lora_training.recover(app.state.database)
     lora_evaluation.recover(app.state.database)
     lora_generation.recover(app.state.database)
-    app.state.dating_photos.recover()
     tasks = [asyncio.create_task(app.state.life.run_forever()),
              asyncio.create_task(app.state.images.run_forever()),
              asyncio.create_task(app.state.push.run_forever()),
@@ -222,7 +219,6 @@ def create_app(database_path: str | Path | None = None, *, clock=None, vault=Non
     app.state.conversation.photos = ChatPhotos(app.state.database, app.state.images, app.state.life,
                                                app.state.openers)
     app.state.images.share = app.state.conversation.photos.share
-    app.state.dating_photos = DatingPhotos(app.state.database, app.state.vault, app.state.images)
     # The photo of a finished outing with the user and the picture on a postcard from a trip.
     app.state.images.others += [lambda: outings.photograph(app.state.database),
                                 lambda: trips.picture_postcards(app.state.database)]
@@ -284,7 +280,6 @@ def create_app(database_path: str | Path | None = None, *, clock=None, vault=Non
     app.include_router(authors_note_routes.router)
     app.include_router(group_routes.router)
     app.include_router(group_routes.secrets_router)
-    app.include_router(dating_routes.router)
     app.include_router(export_routes.router)
     app.include_router(lora_routes.router)
     if app.state.lora_maker:
@@ -298,7 +293,6 @@ def create_app(database_path: str | Path | None = None, *, clock=None, vault=Non
     app.include_router(worlds_routes.router)
     app.include_router(calls_router)
     app.include_router(mix_router)
-    app.include_router(matches_router)
     if FRONTEND.exists():
         app.mount('/', StaticFiles(directory=FRONTEND, html=True), name='frontend')
     return app

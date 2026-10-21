@@ -6,7 +6,7 @@ import sqlite3
 # The part of the app each request belongs to, longest prefix first so /api/life/home wins over /api/life.
 AREAS = (
     ('/api/life/home', 'their home'), ('/api/life/wardrobe', 'their wardrobe'), ('/api/life/kitchen', 'their kitchen'), ('/api/life/media', 'what they are reading and watching'), ('/api/life/hobbies', 'their pastimes'), ('/api/life', 'their life'),
-    ('/api/world', 'the cities'), ('/api/context', 'real-world lookups'), ('/api/dating', 'Matchlight'),
+    ('/api/world', 'the cities'), ('/api/context', 'real-world lookups'),
     ('/api/conversation', 'the chat'), ('/api/messages', 'the chat'), ('/api/feed', 'Posts'),
     ('/api/images', 'pictures'), ('/api/photos', 'pictures'), ('/api/pictures', 'pictures'),
     ('/api/memories', 'memories'), ('/api/memory', 'memory'), ('/api/self-facts', 'memories'),
@@ -15,7 +15,7 @@ AREAS = (
     ('/api/builtin-recall', 'built-in recall'), ('/api/hardware', 'the hardware check'),
     ('/api/backups', 'backups'), ('/api/phone', 'phone access'), ('/api/notifications', 'notifications'),
     ('/api/debug-time', 'Debug time'), ('/api/model-calls', 'Record model calls'),
-    ('/api/townsfolk-mix', 'Townsfolk mix'), ('/api/debug-matches', '100% Matchlight matches'), ('/api/lora', 'the LoRA maker'), ('/api/import', 'the import'),
+    ('/api/townsfolk-mix', 'Townsfolk mix'), ('/api/lora', 'the LoRA maker'), ('/api/import', 'the import'),
     ('/api/companion', 'the character'), ('/api/profile', 'the profile'), ('/api/prompts', 'prompts'),
     ('/api/sidecar', 'the sidecar'),
 )

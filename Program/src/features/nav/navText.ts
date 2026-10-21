@@ -1,11 +1,11 @@
 import { profileTab } from '../profile/profileText.ts'
 
 /** Every view with a side rail button (AppNav.tsx). */
-export const RAIL_IDS = new Set(['conversation', 'groups', 'dating', 'story', 'today', 'memories', 'settings'])
+export const RAIL_IDS = new Set(['conversation', 'groups', 'story', 'today', 'memories', 'settings'])
 
 /**
- * The phone's tab bar (Iris's spec, companion-design/phone-tab-bar.md): Chats, Today, Story, Matchlight and
- * Settings, the most Apple and Google put in a bottom bar. Chats holds what were the Profile, Groups, Memories
+ * The phone's tab bar (Iris's spec, companion-design/phone-tab-bar.md): Chats, Today, Story and Settings,
+ * within the five Apple and Google put in a bottom bar at most. Chats holds what were the Profile, Groups, Memories
  * and Worlds tabs, so every view below belongs under it.
  */
 export function inChats(view: string): boolean {

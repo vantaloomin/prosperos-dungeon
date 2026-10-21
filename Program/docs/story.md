@@ -11,7 +11,6 @@ Story mode is opt-in and off by default. It sits beside the companion rather tha
 app. Turn it on under Settings > Advanced (shown with "Show advanced settings") > Story mode > "Show the
 Story tab". That is the `story_mode` workspace setting (`PUT /api/settings {"story_mode": true}`). While it
 is off, the Story tab is hidden and every `/api/story` request answers 404 with code `story_off`.
-The dating app is its own feature and does not depend on this setting.
 
 ## Who decides what
 
@@ -68,12 +67,8 @@ are at home, at work elsewhere or on their street). "Make … the main character
 (`dungeon/cast.py`). `cast.townsperson` accepts anyone met in the story, in any city, and their
 profile says "Has met the user in person …".
 
-Other features that put the user with someone (a date, say) record the meeting with
+Other features that put the user with someone record the meeting with
 `story_people.meet(connection, sheet, city_id, now, local_day, notes)`.
 
 Starting a new story clears the people met too.
 
-## Planned
-
-- Narrator-played dates with a dating-app match, when Story mode is on. The dating app itself is a
-  standalone feature for finding new companions.

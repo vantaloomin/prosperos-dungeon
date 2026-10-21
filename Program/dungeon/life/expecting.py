@@ -21,7 +21,7 @@ day it begins, from seeds and the consequence engine (odds under Hidden values),
 The chat context hears it in the 'steps' section through parenthood.context_lines: what stage it is at, the latest
 moment and what comes next; first texts tell the news (`news_due`). Children keep v0.14's limits: words only (the
 child's name is in families.names, so no picture is made of words naming them, and the shower has no photo), never
-in Matchlight or the circle (`circle_children`, not circle_people), and with the adult side of life on nothing of it
+in the circle (`circle_children`, not circle_people), and with the adult side of life on nothing of it
 goes in a chat prompt, a first text, the news or the calendar (`quiet`); it stays on the screens.
 """
 import json

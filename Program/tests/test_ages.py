@@ -321,12 +321,10 @@ def test_someone_who_keeps_their_age_is_not_a_year_older_on_their_birthday(clien
     assert own['template'] == "Guess who's a year older today."
 
 
-def test_a_townsperson_is_their_age_now_on_matchlight_and_when_they_become_a_companion(client, clock, monkeypatch):
+def test_a_townsperson_is_their_age_now_when_they_become_a_companion(client, clock, monkeypatch):
     from test_cast import met_someone
 
-    from dungeon import dating as app
     from dungeon.life import encounters
-    from dungeon.world import townsfolk
     monkeypatch.setattr(encounters, 'ACTIVE', True)
     monkeypatch.setattr(encounters, 'CHANCE', 1)
     monkeypatch.setattr(encounters, 'FAMILIAR_CHANCE', 1)
@@ -339,12 +337,3 @@ def test_a_townsperson_is_their_age_now_on_matchlight_and_when_they_become_a_com
     drafted = client.get('/api/companion/cast/draft', params={'key': person['key']}).json()
     assert drafted['person']['age'] == seeded + 3 and drafted['definition']['identity'].startswith(str(seeded + 3))
     assert drafted['definition']['looks']['age'] == seeded + 3
-    client.put('/api/dating/profile', json={'name': 'Sam', 'age': 30, 'gender': 'man', 'interested_in': ['woman', 'man'],
-                                            'looking_for': 'serious', 'age_min': 18, 'age_max': 90, 'bio': ''})
-    deck = client.get('/api/dating').json()['deck']
-    with connect(client, False) as connection:
-        data = app.looking_in(connection, app.profile(connection))
-        for card in deck:
-            sheet = townsfolk.find(data, card['key'])
-            assert card['age'] == ages.town_age(connection, sheet, clock.now().date()) > sheet['age'] - 1
-    assert any(card['age'] > townsfolk.find(data, card['key'])['age'] for card in deck)

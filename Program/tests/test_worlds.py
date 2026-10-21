@@ -24,17 +24,6 @@ def test_an_existing_workspace_quietly_becomes_the_first_world(client, companion
     assert (app.state.database.root / worlds.REGISTRY).is_file()
 
 
-def test_the_persona_starts_from_what_matchlight_knows(client, companion, app):
-    ok(client.put('/api/dating/profile', json={'name': 'Sam', 'age': 31, 'gender': 'man', 'interested_in': ['woman'],
-                                              'looking_for': 'serious', 'age_min': 25, 'age_max': 40, 'bio': ''}))
-    database = app.state.database
-    (database.root / worlds.REGISTRY).unlink()  # As before this version: no worlds yet.
-    worlds.start(database)
-    persona = listing(client)['persona']
-    assert (persona['name'], persona['age'], persona['gender']) == ('Sam', 31, 'man')
-    assert ok(client.get('/api/dating'))['persona']['name'] == 'Sam'
-
-
 def test_the_companion_knows_who_the_user_is(client, connected, provider):
     persona = listing(client)['persona']
     ok(client.patch(f"/api/worlds/personas/{persona['id']}", json={'name': 'Sam', 'age': 31,

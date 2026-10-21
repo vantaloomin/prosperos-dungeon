@@ -15,7 +15,7 @@ and creator's notes set up someone else's story, so they are not used: the compa
 import hashlib
 import re
 
-from dungeon import cast, characters, dating, worlds
+from dungeon import cast, characters, story, worlds
 from dungeon.clock import zone
 from dungeon.database import decode, encode, identifier
 from dungeon.errors import DomainError
@@ -59,12 +59,12 @@ def life(connection, database, character: dict, focus: dict | None) -> dict:
     """Their job, home, routine and city, from the town; empty when the city has no one to borrow from."""
     data = worlds.city_of(connection)
     if focus and focus.get('town_seed'):
-        data = dating.city_for(connection, data['id'], focus['town_seed'])
+        data = story.city_for(connection, data['id'], focus['town_seed'])
     sheet = template(data, character)
     if sheet is None:
         return {'home_city': data['id'], 'timezone': data['timezone']}
     today = database.clock.now().astimezone(zone(data['timezone'])).date()
-    met = {'match': None, 'meetings': [], 'focus': None, 'in_story': None}
+    met = {'meetings': [], 'focus': None, 'in_story': None}
     made = cast.profile(data, sheet, met, today)
     keep = ('skills', 'interests', 'routine', 'location', 'home_city', 'timezone', 'schedule', 'life_themes', 'money')
     # "34. Works as a nurse. Lives in Fells Point." without the townsperson's age.

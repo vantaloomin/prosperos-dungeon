@@ -36,7 +36,7 @@ FOLDERS = {
                        'WHERE crop_file IS NOT NULL',
 }
 # Files named by tables a workspace from an older schema may not have yet (pre-upgrade backups keep their schema).
-NEWER = (('images', "SELECT file FROM dating_photos WHERE status='completed' AND file IS NOT NULL"),)
+NEWER: tuple[tuple[str, str], ...] = ()
 DATASET_FOLDERS = ('lora/references',)
 # Profile pictures are reference pictures too, but always kept: without them a restored companion has no face.
 PROFILE_PICTURES = ('SELECT r.file FROM lora_references r JOIN companions c ON c.portrait_reference_id=r.id '

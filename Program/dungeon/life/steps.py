@@ -408,7 +408,7 @@ def start(connection, companion: dict, ladder: str, now) -> list[tuple[str, str]
     if known and len(found) > len(known):  # Still from way back: no date of their own.
         return [(key, 'history') for key in found]
     # They knew each other long before the first talk ("close since school"): the day they got together is not the
-    # first talk, so it gets no date of its own ("Best friends", not "Friends for 1 day"). "Matched on Matchlight" is not.
+    # first talk, so it gets no date of its own ("Best friends", not "Friends for 1 day").
     return known or [(key, 'history' if LONG_BEFORE.search(text) else 'start') for key in found]
 
 

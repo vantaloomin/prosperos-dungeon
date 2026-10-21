@@ -220,7 +220,7 @@ than guess).
 optional `temperament` and `source`. They join that place's townsfolk after the seeded ones, keyed the
 same way, and live by the same rules: days, goals, quirks and flaws are drawn from their key, while the
 name, age, role and temperament are the city's. The companion meets them like anyone else, and what it
-knows of them always includes `about`. Notables are never on the dating app. A pack's notable placed
+knows of them always includes `about`. A pack's notable placed
 somewhere the city lacks is left out with a note. Notables stay in town for good unless `can_leave` is true, when
 they can move away or retire like anyone else and a newcomer takes over their role.
 

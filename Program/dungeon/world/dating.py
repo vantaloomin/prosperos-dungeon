@@ -1,16 +1,14 @@
-"""What a townsperson is like to date, by rule (docs/dating.md).
+"""What a townsperson is like as a partner, by rule: their looks, who they are drawn to and whether they are free.
 
-Every townsperson's dating details are drawn from their sheet's seed like the rest of them, so they are the
-same every time and nothing is stored: how they look, who they are attracted to, whether they are single,
-what they are looking for, how picky they are, and a short bio built from what the sheet already says about
-them (job, quirk, goal, usual spot). No model is involved.
+Every townsperson's details are drawn from their sheet's seed like the rest of them, so they are the same every
+time and nothing is stored: how they look, who they are attracted to, whether they are single, what they are
+looking for and how picky they are. Town couples (couples.py), the adult side (intimacy.py), looks (looks.py)
+and the townsfolk mix read them. No model is involved.
 
 The rates are rough real-world ones: most adults are straight, younger people are more often bisexual (US
 surveys put adults under 30 near one in five identifying as LGBT, mostly bisexual, and adults over 60 near
 one in fifty), and the chance of having a partner rises with age until widowhood takes some away.
 """
-from datetime import date
-
 from dungeon.world import generators, lifespans, mix, townsfolk
 
 GENDERS = ('woman', 'man', 'nonbinary')
@@ -20,9 +18,6 @@ LOOKING = ('serious', 'casual', 'friends')
 ORIENTATION_RATES = ((29, 0.04, 0.15, 0.06), (44, 0.03, 0.07, 0.03), (59, 0.025, 0.02, 0.02), (200, 0.02, 0.01, 0.01))
 # The chance of having a partner by age band, and how many of those are married.
 PARTNERED = ((24, 0.30, 0.20), (29, 0.50, 0.45), (34, 0.60, 0.60), (64, 0.65, 0.80), (200, 0.55, 0.90))
-LIKE_BASE = 0.6
-TEMPER_LIKES = {'warm': 0.05, 'cheerful': 0.05, 'chatty': 0.05, 'easygoing': 0.05, 'shy': -0.05, 'anxious': -0.05,
-                'gruff': -0.05, 'driven': -0.05}
 
 # Looks --------------------------------------------------------------------------------------------------
 
@@ -93,15 +88,6 @@ DETAILS = ('freckles', 'dimples', 'a gap-toothed smile', 'glasses', 'laugh lines
 MODERN_DETAILS = ('a nose ring', 'a tattoo sleeve', 'a small tattoo on the wrist', 'several ear piercings')
 BEARDS = ('a full beard', 'stubble', 'a neat moustache', 'a trimmed beard')
 
-# The bio -----------------------------------------------------------------------------------------------
-
-LOOKING_TEXT = {'serious': 'a relationship', 'casual': 'something casual', 'friends': 'new friends'}
-PART_TEXT = {'morning': 'mornings', 'afternoon': 'afternoons', 'evening': 'evenings', 'late': 'late evenings'}
-# A personal-column notice, in older eras: what they seek, by what they are looking for.
-SEEKS = {'serious': 'with a view to matrimony', 'casual': 'for amusement and good company',
-         'friends': 'for friendship and correspondence'}
-COLUMN_HEIGHT = ((155, 'small'), (165, 'of middling height'), (180, 'tall'), (999, 'very tall'))
-
 
 def region(sheet: dict) -> str | None:
     heritage = (sheet.get('heritage') or '').lower()
@@ -157,7 +143,7 @@ def status(seed: str, age: int, desire: str, modern: bool) -> str:
 
 
 def looking(seed: str, age: int, desire: str, single: bool, modern: bool, real: int | None = None) -> str:
-    """What they are after: 'serious', 'casual', 'friends', or 'no' (not looking, so not on the app). `age` is their
+    """What they are after: 'serious', 'casual', 'friends', or 'no' (not looking). `age` is their
     life age; `real` their real one, which `orientation` reads, when it differs."""
     if not single:
         return 'no'
@@ -254,129 +240,13 @@ def looks(sheet: dict, data: dict) -> dict:
     return found
 
 
-def on_app(sheet: dict, data: dict) -> bool:
-    """Whether they are looking at all, from what the sheet has before it is named (names are the slow part)."""
-    if sheet.get('notable'):
-        return False  # A city's named characters are never on the app.
-    seed, is_modern, life = townsfolk.drawn(sheet), townsfolk.modern(data), life_of(sheet, data)
-    single = status(seed, life, sheet['desire'], is_modern) in ('single', 'widowed')
-    return looking(seed, life, sheet['desire'], single, is_modern, sheet['age']) != 'no'
-
-
 def details(sheet: dict, data: dict) -> dict:
-    """Everything about them that dating needs, the same every time for the same person."""
+    """Everything about them as a partner, the same every time for the same person."""
     seed, who, is_modern = townsfolk.drawn(sheet), gender(sheet), townsfolk.modern(data)
     label, drawn_to = orientation(seed, sheet['age'], who)
     life = life_of(sheet, data)
     state = status(seed, life, sheet['desire'], is_modern)
     after = looking(seed, life, sheet['desire'], state in ('single', 'widowed'), is_modern, sheet['age'])
-    low, high = age_range(life, after)  # In human terms, like `suits` reads it.
+    low, high = age_range(life, after)  # In human terms.
     return {'gender': who, 'orientation': label, 'drawn_to': drawn_to, 'status': state, 'looking': after,
             'age_range': [low, high], 'life': life, 'picky': round(generators.unit(seed, 'picky'), 3), 'looks': looks(sheet, data)}
-
-
-# How they come across ------------------------------------------------------------------------------------
-
-def height_text(cm: int, data: dict) -> str:
-    if (data.get('country') or '').lower() in ('us', 'united states', 'usa', 'united kingdom', 'uk', 'england',
-                                                'britain') or (data.get('country') or '').startswith('United Kingdom'):
-        inches = round(cm / 2.54)
-        return f"{inches // 12}'{inches % 12}\""
-    return f'{cm} cm'
-
-
-def looks_text(found: dict, data: dict) -> str:
-    """'5'9", athletic, short dark brown hair, hazel eyes, freckles; style: streetwear'."""
-    parts = [height_text(found['height_cm'], data), found['build'], found['hair'], found['eyes'],
-             *([found['beard']] if found.get('beard') else []), found['detail']]
-    return f"{', '.join(parts)}; style: {found['style']}"
-
-
-def job_text(sheet: dict) -> str:
-    occupation = sheet.get('occupation') or ''
-    if occupation == 'retired':
-        return 'Retired'
-    if sheet.get('staff'):
-        return f"{occupation[0].upper()}{occupation[1:]} at {sheet['place']['name']}"
-    return f'{occupation[0].upper()}{occupation[1:]}' if occupation else ''
-
-
-def haunt_text(sheet: dict) -> str:
-    visits = sheet.get('visits')
-    if not visits or sheet['place'].get('kind') == 'street':
-        return ''
-    return f"Find me at {sheet['place']['name']} most {PART_TEXT[visits['part']]}."
-
-
-def bio(sheet: dict, data: dict, after: str, day: date) -> str:
-    """Up to three short lines from what the sheet says about them."""
-    seed = townsfolk.drawn(sheet)
-    lines = [townsfolk.story(sheet, data, day)['goal']['bio'], townsfolk.quirk_bio(data, sheet['quirk']),
-             haunt_text(sheet)]
-    if sheet.get('occupation') == 'retired':
-        lines.insert(0, 'Retired, and busier than ever.')
-    lines = sorted((line for line in lines if line), key=lambda line: generators.unit(seed, 'bio', line))[:3]
-    return ' '.join(lines)
-
-
-def notice(sheet: dict, found: dict, data: dict) -> str:
-    """Their notice in a personal column, for older eras: no name, just initials to write to."""
-    seed, who, looks_ = townsfolk.drawn(sheet), found['gender'], found['looks']
-    word = {'woman': 'LADY', 'man': 'GENTLEMAN', 'nonbinary': 'PERSON'}[who]
-    if found['status'] == 'widowed':
-        word = {'woman': 'WIDOW', 'man': 'WIDOWER'}.get(who, word)
-    tall = next(text for limit, text in COLUMN_HEIGHT if looks_['height_cm'] < limit + (10 if who == 'man' else 0))
-    sought = ' or '.join({'woman': 'a lady', 'man': 'a gentleman', 'nonbinary': 'a kindred spirit'}[g]
-                         for g in found['drawn_to'][:2])
-    trade = f", {sheet['occupation']} by trade" if sheet.get('occupation') not in ('', 'retired', None) else ''
-    hood = townsfolk.neighborhood_name(data, sheet['home'])
-    quirk = sheet['quirk'].replace('their', 'one\'s').replace('they ', 'one ')
-    box = 10 + int(generators.unit(seed, 'box') * 90)
-    initials = f"{sheet['name'][:1]}.{(sheet['full'].split()[-1] or ' ')[:1]}."
-    return (f"{word}, {sheet['age']}, {tall}, {looks_['hair'].split(',')[0]}{trade}, of {hood}; {quirk}; seeks "
-            f"{sought} {SEEKS.get(found['looking'], 'for company')}. Write to ‘{initials}’, Box {box}.")
-
-
-def card(sheet: dict, data: dict, day: date, found: dict | None = None) -> dict:
-    """What the dating screen shows about someone: first name, age, looks, job and bio. Never their family name."""
-    found = found or details(sheet, data)
-    return {'key': sheet['key'], 'name': sheet['name'], 'age': sheet['age'],
-            # A long-lived kind's age in human terms, as matching reads it (`life_of`): an elf of 225 is about 40.
-            'life_age': found['life'] if found['life'] != sheet['age'] else None, 'gender': found['gender'],
-            'pronouns': sheet.get('pronouns', ''), 'orientation': found['orientation'],
-            'looking': found['looking'], 'looking_text': LOOKING_TEXT.get(found['looking'], ''),
-            'looks': looks_text(found['looks'], data), 'job': job_text(sheet),
-            'neighborhood': townsfolk.neighborhood_name(data, sheet['home']),
-            'bio': bio(sheet, data, found['looking'], day),
-            'notice': '' if townsfolk.modern(data) else notice(sheet, found, data)}
-
-
-def likes(sheet: dict, found: dict, profile: dict) -> float:
-    """The chance they say yes to the user: pickier people less, a big age gap or a different aim much less."""
-    chance = LIKE_BASE - 0.35 * found['picky'] + TEMPER_LIKES.get(sheet['temperament'], 0.0)
-    if found['looking'] == 'casual':
-        chance += 0.1
-    if found['looking'] != profile['looking_for']:
-        chance -= 0.2
-    chance -= max(0, abs(found.get('life', sheet['age']) - profile['age']) - 5) * 0.02
-    return min(max(chance, 0.05), 0.9)
-
-
-def says_yes(sheet: dict, found: dict, profile: dict) -> bool:
-    """Whether they like the user back: their rules and a roll fixed for this person and this user's profile."""
-    return generators.unit(townsfolk.drawn(sheet), 'likes-you', profile['seed']) < likes(sheet, found, profile)
-
-
-def suits(sheet: dict, found: dict, profile: dict) -> bool:
-    """Whether they belong in the user's deck: single, looking, adults on both sides and drawn to each other.
-    Someone looking for friends meets anyone also looking for friends."""
-    if found['looking'] == 'no' or sheet['age'] < 18 or profile['age'] < 18:
-        return False
-    if not profile['age_min'] <= found.get('life', sheet['age']) <= profile['age_max']:
-        return False
-    if found['gender'] not in profile['interested_in']:
-        return False
-    if profile['looking_for'] == 'friends' or found['looking'] == 'friends':
-        return found['looking'] == profile['looking_for']
-    low, high = found['age_range']
-    return profile['gender'] in found['drawn_to'] and low <= profile['age'] <= high

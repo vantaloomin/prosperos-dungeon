@@ -74,7 +74,6 @@ def test_the_persona_text_is_theirs_to_change(client, met):
 
 def test_nobody_anywhere_in_town_is_them(client, met):
     """Townsfolk are worked out from the seed, never stored, so every list of them must leave the user out."""
-    from dungeon import dating
     from dungeon.world import paper
     _mira, person, _town = met
     ok(client.post('/api/worlds/become', json={'key': person['key']}))
@@ -84,7 +83,7 @@ def test_nobody_anywhere_in_town_is_them(client, met):
     everyone = [sheet for place in data['places'] for sheet in townsfolk.at_place(data, place['id'])]
     everyone += [sheet for hood in hoods for sheet in townsfolk.residents(data, hood)]
     everyone += [sheet for place in data['places'] for sheet in townsfolk.reaching(data, place['id'])]
-    everyone += [sheet for sheet, _details in dating.pool(data)] + paper.sample(data)
+    everyone += paper.sample(data)
     assert everyone and person['key'] not in {sheet['key'] for sheet in everyone}
     shown = ok(client.get(f"/api/world/cities/{data['id']}/places/{person['place']['id']}/people"))
     assert person['key'] not in {sheet['key'] for sheet in shown}

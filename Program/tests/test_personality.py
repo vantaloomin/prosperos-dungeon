@@ -180,7 +180,7 @@ def test_townsfolk_sliders_can_be_edited_and_carry_over_when_they_take_over(clie
     assert after['sliders']['warmth'] == changed['warmth']
     assert {key: value for key, value in after['sliders'].items() if key != 'warmth'} == \
            {key: value for key, value in before['sliders'].items() if key != 'warmth'}
-    definition = cast.profile(data, sheet, {'focus': None, 'match': None, 'meetings': [], 'in_story': None},
+    definition = cast.profile(data, sheet, {'focus': None, 'meetings': [], 'in_story': None},
                               __import__('datetime').date(2026, 3, 1), kept)
     assert definition['personality_sliders']['warmth'] == changed['warmth']
     lines = perception.sheet_lines(data, sheet, kept)

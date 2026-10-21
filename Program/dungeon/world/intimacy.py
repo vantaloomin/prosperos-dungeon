@@ -3,8 +3,8 @@ how adventurous they are, their drive and a few things they're into, rolled from
 their sheet. Only ever for adults, and the bank (world/data/intimacy.json) only holds things between
 consenting adults.
 
-- Townsfolk: nothing is stored. Their orientation is Matchlight's own roll (world/dating.py), so their
-  dating card and their adult side always agree. Companions who meet them learn their orientation once they
+- Townsfolk: nothing is stored. Their orientation is the roll their partner details use (world/dating.py), so
+  the two always agree. Companions who meet them learn their orientation once they
   know their heart (dungeon/life/encounters.py); the rest stays theirs.
 - Companions: the same roll by companion id (or by their townsperson's seed when they came from town), with
   anything the user set on the form (`definition['intimacy']`) winning field by field. A romance companion

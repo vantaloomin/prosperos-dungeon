@@ -71,7 +71,7 @@ def test_every_townsperson_is_an_adult_and_rolls_the_same_every_time():
     for sheet in sheets:
         found = intimacy.for_sheet(sheet)
         assert found == intimacy.for_sheet(sheet)
-        # The same orientation their Matchlight card has.
+        # The same orientation their partner details have.
         assert found['orientation'] == dating.details(sheet, data)['orientation']
 
 

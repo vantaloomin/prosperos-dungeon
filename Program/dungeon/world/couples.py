@@ -10,8 +10,7 @@ Now and then a couple has a baby (`babies`), a week seeded the same way, from wh
 (dungeon/world/turnover.py); the baby is only ever words in the paper.
 
 The town paper reports engagements, weddings and babies (dungeon/world/paper.py), and a companion who knows a townsperson
-well enough knows where their love life stands (dungeon/life/encounters.py). The dating app keeps reading the
-seeded status (who is single and looking stays the same pool).
+well enough knows where their love life stands (dungeon/life/encounters.py).
 """
 from datetime import date, timedelta
 from functools import lru_cache

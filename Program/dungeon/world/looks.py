@@ -2,8 +2,8 @@
 
 A sheet holds their apparent age, height, weight, build, skin, face shape, jaw and chin, nose, eye colour and
 shape, hair, facial hair and one feature people notice. Height, build, hair, eye colour, facial hair and the
-feature come from the townsperson's Matchlight looks (dungeon/world/dating.py), so a dating card, its photo
-and every later picture agree; the rest is drawn here from the same seed. Colouring follows the heritage their
+feature come from the townsperson's seeded looks (dungeon/world/dating.py), so every picture of them
+agrees; the rest is drawn here from the same seed. Colouring follows the heritage their
 name or description comes from, and weight is worked out from height and build inside a plausible range
 (`bmi_limits` in world/data/looks.json), so a roll never pairs 4'10" with 350 lb.
 
@@ -194,8 +194,8 @@ def agreed(sheet: dict, own: dict, seed: str, pronouns: str) -> dict:
 
 
 def build_for(kg: int, cm: int, pronouns: str) -> str:
-    """The build whose usual body-mass index is nearest this weight and height, among the builds Matchlight uses for
-    them (leaving out the ones that name a height)."""
+    """The build whose usual body-mass index is nearest this weight and height, among the builds townsfolk are drawn with
+    for them (leaving out the ones that name a height)."""
     bmi = kg / (cm / 100) ** 2
     builds = [build for build in dating.BUILDS[dating.GENDER_OF.get(pronouns, 'nonbinary')]
               if build not in ('tall and lean', 'petite')]

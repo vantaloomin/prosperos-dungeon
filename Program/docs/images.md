@@ -206,8 +206,8 @@ weight worked out from height and build inside a plausible body-mass range (`bmi
 never pairs 4'10" with 350 lb. A drawn field is left out where the appearance text already speaks of
 it, so a picture never gets two hair colours. Weight stays out of the picture (the build word carries
 it) but is in their own prompt as "Looks:", so they answer "how tall are you?" the way their pictures
-show them. Townsfolk draw height, build, hair, eye colour and their feature from their Matchlight looks
-(`dungeon/world/dating.py`), so a dating card, its photo and a townsperson who becomes the main
+show them. Townsfolk draw height, build, hair, eye colour and their feature from their seeded looks
+(`dungeon/world/dating.py`), so every picture of them and a townsperson who becomes the main
 character all show one person; becoming the main character copies the whole sheet onto the form.
 
 **Style per backend.** Each backend can have its own **Style** (stored as `style` in its config), since
@@ -347,8 +347,8 @@ hair, skin tone and build and to take the outfit, pose and setting from its own 
   it fails for a reason other than sign-in, the picture is made from the description alone. A
   sign-in error fails the picture and stops the Codex queue as usual.
 - The sheet and the picture run one after the other inside the single Codex slot, so Codex calls
-  stay serial. Views (pictures of what they see), memes of something else, other backends and
-  Matchlight photos make no sheet.
+  stay serial. Views (pictures of what they see), memes of something else, and other backends
+  make no sheet.
 - Pictures that follow the sheet record "text description and their character sheet" as how they
   drew the character. Sheets go with the character (kept by Start over, removed with the companion)
   and are carried in backups.

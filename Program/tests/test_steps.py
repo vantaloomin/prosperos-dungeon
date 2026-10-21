@@ -152,8 +152,8 @@ def test_a_friend_close_from_the_start_is_a_best_friend(client, monkeypatch):
     assert [item['how'] for item in found['steps']] == ['history', 'history']
 
 
-def test_a_match_from_the_dating_app_counts_from_the_first_talk(client, monkeypatch):
-    make(client, monkeypatch, starting_closeness=3, history_together='Matched on Matchlight.')
+def test_someone_met_lately_counts_from_the_first_talk(client, monkeypatch):
+    make(client, monkeypatch, starting_closeness=3, history_together='Met at a party on the harbor.')
     found = view(client)
     # A new romance at "Comfortable" is still dating, not "Together 1 day, exclusive" (E2E v0.13 N4).
     assert found['text'] == 'Dating for 1 day' and found['steps'][0]['how'] == 'start'
