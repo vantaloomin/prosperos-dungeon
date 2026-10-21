@@ -9,7 +9,7 @@ user's choice in the place picker, not the model's.
 """
 from datetime import datetime
 
-from dungeon import authors_note, in_character, prompt_library, referee, safety, story_people, timeline, turn
+from dungeon import authors_note, in_character, ledger, prompt_library, referee, safety, story_people, timeline, turn
 from dungeon.authors_note import NOTE_CLOSE
 from dungeon.clock import zone
 from dungeon.database import identifier, many, one, optional, settings
@@ -338,10 +338,12 @@ def arrive(connection, now: str) -> dict:
 
 
 def clear(database) -> dict:
-    """A new story: the history and the people met go, the scene stays where it is."""
+    """A new story: the history, the people met and the ledger go, the scene stays where it is."""
     with database.connect(write=True) as connection:
         connection.execute('DELETE FROM story_messages')
         connection.execute('DELETE FROM story_people')
+        for table in ('ledger_entries', 'ledger_corrections', 'story_summary'):
+            connection.execute(f'DELETE FROM {table}')
         timeline.clear(connection)
     return story(database)
 
@@ -377,13 +379,16 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
     view = scene(connection, now)
     craft = narration_prompt.craft_for(config.get('context_tokens'), prompt_library.text(connection, 'narrator-craft'))
     who_text, name = persona_text(connection)
+    memory = '\n\n'.join(part for part in (ledger.summary_text(connection), ledger.prompt_text(connection)) if part)
     system = narration_prompt.system(prompt_library.text(connection, 'story-narrator'), craft, scene=scene_text(view),
-                                     persona=who_text, persona_name=name, narration=NARRATION, outcomes=outcomes,
-                                     rolls_shown=dice_shown(connection))
+                                     persona=who_text, persona_name=name, memory=memory, narration=NARRATION,
+                                     outcomes=outcomes, rolls_shown=dice_shown(connection))
     if in_character.out_of_character(latest['text']):
         system += '\n\n' + in_character.OUT_OF_CHARACTER_NOTE.format(name='the narrator', model=default_name(config))
     budget = (config['context_tokens'] - config['max_output_tokens']) * CHARS_PER_TOKEN - len(system)
-    rows = [row for row in messages(connection) if row['seq'] <= latest['seq']]
+    # Older messages are in the summary; the narrator reads the rest word for word.
+    after = ledger.summary(connection)['through_seq']
+    rows = [row for row in messages(connection) if after < row['seq'] <= latest['seq']]
     chat = model_messages(rows, max(budget, 2000))
     if not in_character.out_of_character(latest['text']):
         chat = steered(chat, authors_note.prompt_text(connection, 'story'))
@@ -439,7 +444,13 @@ async def answer(state, user: dict) -> dict:
         if status == 'complete' and not in_character.out_of_character(user['text']):
             story_people.note_exchange(connection, packet['people'], packet['city_id'], user['text'], text,
                                        database.now(), packet['day'])
-        return add(connection, database.now(), 'narrator', text, user, reply_to=user['id'], status=status, error=error)
+        reply = add(connection, database.now(), 'narrator', text, user, reply_to=user['id'], status=status, error=error)
+    if status == 'complete' and in_story:
+        await ledger.extract(state, user['text'], reply)
+        with database.connect() as connection:
+            rows = messages(connection)
+        await ledger.fold(state, rows)
+    return reply
 
 
 def record(database, text: str, client_id: str) -> tuple[dict, dict | None]:
@@ -468,5 +479,8 @@ async def retry(state) -> dict:
         # A line from before going back is shared with the branch it came from; its reply stays as it was told.
         require(user is not None and user['branch_id'] == timeline.active(connection),
                 'There is nothing to retell yet.', 409)
+        # The facts the old reply brought in go with it.
+        connection.execute('DELETE FROM ledger_entries WHERE message_id IN (SELECT id FROM story_messages WHERE '
+                           'reply_to=?)', (user['id'],))
         connection.execute('DELETE FROM story_messages WHERE reply_to=?', (user['id'],))
     return {'message': user, 'reply': await answer(state, user)}

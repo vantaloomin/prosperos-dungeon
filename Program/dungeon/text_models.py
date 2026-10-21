@@ -38,6 +38,9 @@ JOBS = [
     {'key': 'referee', 'name': 'Referee', 'detail': 'Splits what you do into actions and picks the stat and '
      'difficulty of each roll. Off unless you choose a profile here: without one, keyword rules decide, and the '
      'narrator\'s model is never asked. A small, fast model is plenty.'},
+    {'key': 'continuity', 'name': 'Continuity', 'detail': 'After each turn, lists the new facts the narrator brought '
+     'in for the ledger, and now and then folds older turns into the story so far. Facts are only kept when you choose '
+     'a profile here; the story so far uses the Default without one. A small, fast model is plenty.'},
     {'key': 'recall', 'name': 'Semantic recall', 'detail': 'Embeddings that find related parts of the story, from a '
      'recall profile (Settings > Models > Recall) or built-in recall when it is on. Without either, recall matches '
      'keywords only.'},

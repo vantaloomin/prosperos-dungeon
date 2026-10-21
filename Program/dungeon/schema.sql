@@ -250,6 +250,38 @@ CREATE TABLE IF NOT EXISTS story_saves (
   state TEXT NOT NULL
 );
 
+-- The canon ledger (dungeon/ledger.py): facts the game holds true, each world truth, the character's belief, or
+-- both. Branched with the story (dungeon/timeline.py SAVED), so `message_id` is not a foreign key.
+CREATE TABLE IF NOT EXISTS ledger_entries (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL CHECK (kind IN ('death', 'item', 'wound', 'promise', 'location', 'secret', 'relationship',
+                                     'fact')),
+  subject TEXT NOT NULL,
+  text TEXT NOT NULL,
+  truth TEXT NOT NULL DEFAULT 'both' CHECK (truth IN ('world', 'belief', 'both')),
+  source TEXT NOT NULL CHECK (source IN ('code', 'narrator', 'player')),
+  message_id TEXT,
+  removed INTEGER NOT NULL DEFAULT 0 CHECK (removed IN (0, 1)),
+  created_at TEXT NOT NULL
+);
+
+-- Every change the player made to their journal; `after` is NULL for a fact removed.
+CREATE TABLE IF NOT EXISTS ledger_corrections (
+  id TEXT PRIMARY KEY,
+  entry_id TEXT NOT NULL,
+  before TEXT NOT NULL,
+  after TEXT,
+  created_at TEXT NOT NULL
+);
+
+-- The story so far, before the messages the narrator reads word for word (dungeon/ledger.py fold).
+CREATE TABLE IF NOT EXISTS story_summary (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  text TEXT NOT NULL,
+  through_seq INTEGER NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 -- MARVEL stats per actor (dungeon/sheet.py); 'persona' is the player's character.
 CREATE TABLE IF NOT EXISTS character_stats (
   actor TEXT NOT NULL,

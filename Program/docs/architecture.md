@@ -36,6 +36,7 @@ top of it, milestone by milestone, as set out in [the roadmap](../../docs/roadma
 | `story_scene`, `story_messages`, `story_people` | Where the story is, the story so far, and the people the user has met |
 | `story_branches`, `story_timeline`, `story_saves` | The story's branches, which one is played, and the game state at each of the player's lines |
 | `character_stats`, `story_rolls` | MARVEL stats, and the rolls of each turn |
+| `ledger_entries`, `ledger_corrections`, `story_summary` | The canon ledger, the player's corrections to it, and the story so far |
 | `authors_notes` | The user's note that rides along with every narrator turn |
 | `townsfolk_mix`, `townsfolk_personality`, `birth_dates`, `town_levels` | How the town is generated and how it ages |
 

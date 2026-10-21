@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **The ledger and the story so far.** The game keeps a record of what is true (deaths, items, wounds, promises,
+  places, secrets) and gives it to the narrator every turn. A new Continuity model job lists the facts each narration
+  brings in and folds older turns into a rolling summary. "What you know" on the Story screen shows your
+  character's facts, to correct, remove or add to.
 - **Every turn is a save point.** "Go back here" under any of your lines starts a new branch from just before it,
   with the scene, the people you'd met and your sheet as they were, and the line back in the box to send again with
   new dice. The branch you left is kept under "Other branches" to play on later.
