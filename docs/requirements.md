@@ -21,6 +21,12 @@ decisions; the language model narrates them.
 - **Start from a clean copy of Companion's code** (no git history carried over), then grow from there.
 - **Rule systems are selectable** (Vanta, 2026-10-21): the player can pick from several built-in
   TTRPG rulesets, including MARVEL and open-licensed systems. See "Rulesets" below.
+  - Each world names a default ruleset. The player can change it when starting a campaign; after
+    that it is locked, so sheets never need converting.
+  - Each ruleset ships with its full open content from the start (classes, spells, monsters, items,
+    oracles), not resolution only.
+  - First three: **MARVEL**, **D&D 5e via SRD 5.2** (2024 rules), **Ironsworn/Starforged**.
+    Basic Roleplaying is next.
 - **MARVEL dice (the house ruleset):** d100 plus a stat-based bonus, with a difficulty shift, landing in six bands:
   Critical failure, Fail, Fail with an upside, Success at a cost, Success, Critical success.
 - **MARVEL stats:** Mind, Allure, Resolve, Vitality, Essence, Luck.
@@ -50,7 +56,7 @@ decisions; the language model narrates them.
 - **Death:** always possible. Recovery is Study's infinite branching: go back to any earlier point
   and take another path; the dead branch is kept.
 
-## Rulesets (proposed)
+## Rulesets
 
 Code still decides and the model still narrates, whatever ruleset is active. A ruleset is a
 pluggable module that supplies:
@@ -65,7 +71,9 @@ pluggable module that supplies:
   5e: ability, skill and DC; Ironsworn: which move; PbtA: which move and stat).
 - **Progression:** which tracks it uses (levels and XP, ranks, milestones, momentum).
 - **Content packs (data, not code):** classes, spells, monsters, items, oracles, where the license
-  allows.
+  allows. Shipped in full with the ruleset.
+- **Attribution:** each pack carries its license notice, shown in the app (SRD 5.2 needs one
+  attribution sentence; WotC trademarks such as "Dungeons & Dragons" are not used).
 
 ### Candidate systems and licenses
 
@@ -125,8 +133,7 @@ Dungeon would normalize them into one package per world:
 
 ## Open questions
 
-- Rulesets: per world or per campaign; how deep each goes (resolution and sheets, or full
-  classes, spells and monsters); which ship first; SRD 5.1, 5.2 or both.
+- Exact licenses for Fate, Blades in the Dark and Dungeon World before they are added.
 
 - Off-page characters and their cadence (Mabry uses rolled beats every third turn).
 - Which proposed progression tracks to keep.
