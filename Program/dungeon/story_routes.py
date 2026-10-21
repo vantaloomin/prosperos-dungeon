@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Request
 from pydantic import Field
 
-from dungeon import story
+from dungeon import sheet, story
 from dungeon.models import Input
 
 router = APIRouter(prefix='/api/story')
@@ -45,6 +45,24 @@ async def send(request: Request, body: StoryMessage):
 @router.post('/retry')
 async def retry(request: Request):
     return await story.retry(request.app.state)
+
+
+class SheetChange(Input):
+    stats: dict[str, int]
+
+
+@router.get('/sheet')
+def read_sheet(request: Request):
+    with request.app.state.database.connect() as connection:
+        return sheet.view(connection)
+
+
+@router.put('/sheet')
+def change_sheet(request: Request, body: SheetChange):
+    database = request.app.state.database
+    with database.connect(write=True) as connection:
+        sheet.set_stats(connection, body.stats, database.now())
+        return sheet.view(connection)
 
 
 @router.delete('')

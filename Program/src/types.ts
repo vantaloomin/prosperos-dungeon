@@ -195,13 +195,23 @@ export interface StoryMessage {
   id: string; seq: number; role: 'user' | 'narrator' | 'scene'; text: string; reply_to: string | null
   status: 'complete' | 'failed'; error: string | null; city_id: string; place_id: string; created_at: string
   crisis_help?: boolean
+  /** The turn's rolls (dungeon/turn.py), only while the dice are shown. */
+  rolls?: StoryRoll[]
 }
+export type Band = 'critical_failure' | 'failure' | 'failure_upside' | 'success_cost' | 'success' | 'critical_success'
+/** One MARVEL roll (dungeon/rules/marvel.py): d100 plus the stat die, less the difficulty shift. */
+export interface StoryRoll {
+  action: string; stat: string; difficulty: string; die: number | null; natural: number; bonus: number; shift: number
+  total: number; band: Band; label: string
+}
+/** The persona's MARVEL stats (dungeon/sheet.py) and the die each one rolls. */
+export interface Sheet { stats: Record<string, number>; stat_names: string[]; range: [number, number]; dice: Record<string, number | null> }
 /** Someone the user has met in their story (dungeon/story_people.py), with where their rules put them now. */
 export interface StoryPerson {
   key: string; name: string; role: string; city: string; meetings: number; last_met_at: string; notes: string[]
   doing: string; place: { id: string; name: string; city_id: string } | null
 }
-export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean }
+export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean }
 
 /** Record model calls (dungeon/model_calls.py), Settings > Debug. */
 export interface ModelCallLog { recording: boolean; folder: string; keep_days: number; files: number; bytes: number }

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **The turn loop (Milestone 1).** Each story turn is refereed and rolled in code before the narrator writes: the
+  six MARVEL stats (Mind, Allure, Resolve, Vitality, Essence, Luck) under "Your character", a d100 roll plus the
+  stat's die on the six-band ladder from critical failure to critical success, and the Referee, a model job that
+  splits the turn into actions, with keyword rules when no model is chosen. "Show the dice" shows each roll under
+  the line; hidden by default. Rolls are kept with the line, so a retold reply keeps the same dice.
 - **Milestone 0, the companion removed.** The app opens on the Story. The focal companion and everything built
   around it are gone: the chat and its styles, the phone and pairing, Today, memories and memory extraction, the
   profile and feed, the sidecar, relationship arcs, the companion's daily life and chores, the Study importer, the

@@ -28,15 +28,38 @@ that person gives it. The screen lists them only as the user would see them ("th
 The narrator stays in the story. Sentences saying it is an AI are dropped (`in_character.Guard`), and OOC: or
 ((…)) gets a plain answer. Its model is the **Story narrator** job in Settings > Models.
 
+## The turn loop
+
+Each line the user sends is one turn (`dungeon/turn.py`). Code settles what happens before the narrator writes:
+
+1. **The Referee** (`dungeon/referee.py`) splits the line into the things the character tries, at most four, and
+   decides for each whether the outcome is uncertain, which MARVEL stat it tests and how hard it is. A text model
+   does this only when one is chosen for the **Referee** job in Settings > Models; it answers in JSON and
+   anything malformed is dropped. Without one, or when its answer cannot be read, keyword rules decide (each
+   sentence naming something risky, at normal difficulty). Talking, looking around and OOC lines roll nothing.
+2. **The roll** (`dungeon/rules/marvel.py`): d100 plus the stat's die, minus the difficulty shift (easy −10,
+   normal 0, hard +10, very hard +20, extreme +30). The stat die is d4 below 8, d6 from 8, d8 from 10, d10 from
+   12 and d12 from 14. A natural 10 or less is a critical failure; otherwise the total lands on the ladder
+   (`dungeon/rules/ladder.py`): 30 or less fails, 31 to 50 fails with an upside, 51 to 70 succeeds at a cost,
+   71 to 89 succeeds, 90 or more is a critical success.
+3. **The narrator** gets each outcome as a fact to honour, never the numbers, and writes the turn.
+
+Rolls are saved with the user's line (table `story_rolls`), so sending it again or "Tell it again" keeps the same
+dice. The character's six stats (table `character_stats`, 1 to 30, 10 to start) are set under "Your character" on
+the Story screen. "Show the dice" in Settings > World shows each roll under the user's line; off, rolls stay
+hidden and the story reads the same.
+
 ## API
 
 | Request | Does |
 | --- | --- |
-| `GET /api/story` | `{scene, messages, people, ready}`. `people` are those met, newest first, with `meetings`, `notes`, `doing` and `place` now. `scene` has the city, place, `local_time` (city clock, no offset), `weather`, the city's `places` and `around` (who is there, named only once met). `ready` is false without a model. |
+| `GET /api/story` | `{scene, messages, people, ready, dice_shown}`. User messages carry their `rolls` while the dice are shown. `people` are those met, newest first, with `meetings`, `notes`, `doing` and `place` now. `scene` has the city, place, `local_time` (city clock, no offset), `weather`, the city's `places` and `around` (who is there, named only once met). `ready` is false without a model. |
 | `PUT /api/story/scene` `{city_id, place_id?}` | Moves there; a city alone means its opening place. 404 for an unknown city or place. |
 | `POST /api/story/messages` `{text, client_id}` | Saves the user's line once per `client_id` and returns `{message, reply}`. A failed reply is saved with `status: failed` and its `error`. Sending the same `client_id` again returns the saved reply, or tries again if it failed. 409 `no_connection` without a model; the line stays saved. |
 | `POST /api/story/find` `{key}` | Moves the story to where someone the user has met is now. 404 if not met, 409 if they are nowhere the story can go. |
 | `POST /api/story/retry` | Tells the reply to the latest user line again, replacing the one there. |
+| `GET /api/story/sheet` | `{stats, stat_names, range, dice}`: the character's MARVEL stats and the die each one adds. |
+| `PUT /api/story/sheet` `{stats}` | Changes some or all stats; 422 for an unknown stat or a value outside 1 to 30. |
 | `DELETE /api/story` | Starts a new story: the history and the people met go, the scene stays. |
 
 ## People you've met

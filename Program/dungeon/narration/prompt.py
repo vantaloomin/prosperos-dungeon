@@ -165,8 +165,12 @@ class Intensity:
 
 
 def outcome_line(outcome: dict) -> str:
-    """One code-decided outcome: who tried what, how it went, and anything the code applied."""
-    line = f"- {outcome['actor']} tries to {outcome['action']}: {BANDS[outcome['band']]}."
+    """One code-decided outcome: who tried what, how it went, and anything the code applied. An action in the
+    player's own words (`said`) is quoted rather than rephrased."""
+    if outcome.get('said'):
+        line = f"- {outcome['actor']}, on \"{outcome['action']}\": {BANDS[outcome['band']]}."
+    else:
+        line = f"- {outcome['actor']} tries to {outcome['action']}: {BANDS[outcome['band']]}."
     return line + (f" {outcome['detail']}" if outcome.get('detail') else '')
 
 

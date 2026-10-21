@@ -9,10 +9,10 @@ user's choice in the place picker, not the model's.
 """
 from datetime import datetime
 
-from dungeon import authors_note, in_character, prompt_library, safety, story_people
+from dungeon import authors_note, in_character, prompt_library, referee, safety, story_people, turn
 from dungeon.authors_note import NOTE_CLOSE
 from dungeon.clock import zone
-from dungeon.database import identifier, many, one, optional
+from dungeon.database import identifier, many, one, optional, settings
 from dungeon.errors import DomainError, require
 from dungeon.life import ages
 from dungeon.narration import prompt as narration_prompt
@@ -216,11 +216,25 @@ def messages(connection, limit: int = HISTORY_LIMIT) -> list[dict]:
     return [{**row, 'crisis_help': row['role'] == 'user' and safety.crisis(row['text'])} for row in reversed(rows)]
 
 
+def dice_shown(connection) -> bool:
+    """Roll visibility (Settings > World > Hidden values): hidden unless the player shows them."""
+    return bool(settings(connection)['show_odds'])
+
+
+def with_rolls(connection, rows: list[dict]) -> list[dict]:
+    """The rolls under each of the player's lines, only while the dice are shown; hidden dice never leave the app."""
+    if not dice_shown(connection):
+        return rows
+    return [{**row, 'rolls': [turn.shown(roll) for roll in turn.saved(connection, row['id'])]}
+            if row['role'] == 'user' else row for row in rows]
+
+
 def story(database) -> dict:
     with database.connect() as connection:
         view = scene(connection, database.clock.now())
-        return {'scene': scene_view(view), 'messages': messages(connection), 'people': people(connection, view),
-                'ready': config_for(connection, JOB) is not None}
+        return {'scene': scene_view(view), 'messages': with_rolls(connection, messages(connection)),
+                'people': people(connection, view), 'ready': config_for(connection, JOB) is not None,
+                'dice_shown': dice_shown(connection)}
 
 
 def people(connection, view: dict) -> list[dict]:
@@ -309,11 +323,11 @@ def steered(chat: list[dict], steer: str) -> list[dict]:
     return [*chat[:-1], {'role': 'user', 'content': f"{steer}\n{NOTE_CLOSE}\n{chat[-1]['content']}"}]
 
 
-def prompt(connection, now: datetime, config: dict, latest: dict) -> dict:
+def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list[dict] | None = None) -> dict:
     view = scene(connection, now)
     craft = narration_prompt.craft_for(config.get('context_tokens'), prompt_library.text(connection, 'narrator-craft'))
     system = narration_prompt.system(prompt_library.text(connection, 'story-narrator'), craft, scene=scene_text(view),
-                                     narration=NARRATION)
+                                     narration=NARRATION, outcomes=outcomes, rolls_shown=dice_shown(connection))
     if in_character.out_of_character(latest['text']):
         system += '\n\n' + in_character.OUT_OF_CHARACTER_NOTE.format(name='the narrator', model=default_name(config))
     budget = (config['context_tokens'] - config['max_output_tokens']) * CHARS_PER_TOKEN - len(system)
@@ -347,12 +361,19 @@ async def complete(state, config: dict, system: str, messages: list[dict]) -> st
 async def answer(state, user: dict) -> dict:
     """The narrator's reply to the user's message, saved complete or failed with the reason."""
     database = state.database
+    in_story = not in_character.out_of_character(user['text'])
     with database.connect() as connection:
         config = config_for(connection, JOB)
         if config is None:
             raise no_model()
-        packet = prompt(connection, database.clock.now(), config, user)
-    in_story = not in_character.out_of_character(user['text'])
+        rolls, judge = turn.saved(connection, user['id']), referee.own_model(connection)
+    if in_story and not rolls:
+        actions = await referee.decide(state, user['text'], judge)
+        with database.connect(write=True) as connection:
+            rolls = turn.saved(connection, user['id']) or turn.store(connection, user['id'], actions, database.now(),
+                                                                       getattr(state, 'dice', None))
+    with database.connect() as connection:
+        packet = prompt(connection, database.clock.now(), config, user, turn.outcomes(rolls) if in_story else None)
     try:
         text, error = await narrate(state, packet, config, in_story)
     except DomainError as failure:

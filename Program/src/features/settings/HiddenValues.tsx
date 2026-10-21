@@ -14,7 +14,11 @@ function useFlags() {
   const [error, setError] = useState('')
   const save = async (change: Partial<Record<Flag, boolean>>) => {
     setError('')
-    try { client.setQueryData(SETTINGS_KEY, await api<WorkspaceSettings>('/settings', change, 'PUT')) }
+    try {
+      client.setQueryData(SETTINGS_KEY, await api<WorkspaceSettings>('/settings', change, 'PUT'))
+      // The story carries its rolls only while the dice are shown.
+      if ('show_odds' in change) await client.invalidateQueries({ queryKey: ['story'] })
+    }
     catch (failure) { setError(failure instanceof Error ? failure.message : 'That setting was not saved.') }
   }
   return { settings: settings.data, save, error }
@@ -45,8 +49,8 @@ export function HiddenValues() {
         <h2 id="hidden-values-heading">Hidden values</h2>
         <p className="subtle">Some things stay behind the curtain: you notice them from how the story goes, not from a label.</p>
       </div>
-      <Toggle label="Show the odds behind what happens" checked={settings?.show_odds === true} disabled={!settings} onChange={(checked) => void save({ show_odds: checked })}
-        hint="The odds for each way a turning could have gone." />
+      <Toggle label="Show the dice" checked={settings?.show_odds === true} disabled={!settings} onChange={(checked) => void save({ show_odds: checked })}
+        hint="Each roll under your line: the stat, the die, the difficulty and how it landed. Off, you feel the dice only through the story." />
       {settings?.adult_side && (
         <Toggle label="Show townsfolk's adult side" checked={settings.show_adult_side === true} onChange={(checked) => void save({ show_adult_side: checked })}
           hint="Who each person is drawn to, how adventurous they are and what they're into." />
