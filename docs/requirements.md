@@ -262,8 +262,9 @@ Decided 2026-10-21. Code owns every item; the narrator can't add, remove or inve
     deliberate tearing damage clothes; tailors repair them.
   - **State of dress:** per clothing layer (outer, under, accessories): worn, loosened, partly
     off, removed, and where a removed item ended up.
-  - All of it is visible gear, so NPCs react to it. Companion's grooming data
-    (`world/data/grooming.json`) is the starting point for modern worlds. A world can switch the
+  - All of it is visible gear, so NPCs react to it. Companion's grooming data (hair, nails and
+    facial hair changing over time,
+    `world/data/grooming.json`) rounds out looks for modern worlds. A world can switch the
     detail level down (Vallarith might only track cleanliness and condition).
 
 ## World packages (proposed)
