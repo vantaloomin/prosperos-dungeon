@@ -7,4 +7,4 @@ model narrates them.
 It builds on [Prospero's Companion](https://github.com/vantaloomin/prosperos-companion) and
 [Prospero's Study](https://github.com/vantaloomin/prosperos-study).
 
-Nothing is built yet. See [the requirements](docs/requirements.md).
+Nothing is built yet. See [the requirements](docs/requirements.md) and [the build roadmap](docs/roadmap.md).
