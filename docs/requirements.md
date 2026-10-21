@@ -295,6 +295,30 @@ Decided 2026-10-21.
   player's schedule, the same way Companion's careers do, so skipping class is a real choice with
   consequences.
 
+## NPC minds
+
+Decided 2026-10-21. "Autonomous but influenceable" rests on this model. Code holds each NPC's
+state; the Referee and narrator read it and never contradict it.
+
+- **Memory is tiered.** Key NPCs keep full, typed memories of the player, like Companion's
+  companions. Minor NPCs keep a few short impressions ("stiffed me on the bill", "was kind to my
+  daughter"). Crowds keep none. An NPC is promoted to a higher tier when they start to matter, and
+  keeps what they had.
+- **Feelings run on several axes.** Separate tracks for trust, affection, respect, fear and
+  desire, each moved by events and rolls. An NPC can fear and want the player while trusting them
+  not at all. The axes feed persuasion difficulty, what NPCs will do for the player, and when they
+  turn on them.
+- **Word gets around.** Code spreads news along NPC relationships and factions over time, as
+  Companion already does. Accuracy degrades with each retelling, some NPCs keep what they know to
+  themselves, and the player's reputation can arrive before they do.
+- **NPCs keep secrets and lie, and detection is rolled.** Each NPC has hidden goals and secrets
+  stored apart from what they say, like the player's own hidden truths. They may lie when it
+  serves them. An insight roll against their deception decides whether the player notices, and a
+  lie believed goes into the player's journal as belief, not truth.
+- **NPCs have their own lives.** Key NPCs pursue their goals and follow life-sim schedules when
+  they are off-scene (Companion's townsfolk and life engine), so they are somewhere, doing
+  something, when the player looks for them.
+
 ## World packages (proposed)
 
 The three bases arrive in three shapes: Mabry (canon / hidden / continuity markdown plus dice
