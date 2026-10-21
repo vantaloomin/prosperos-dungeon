@@ -1,6 +1,6 @@
 /** Settings is split into tabs; this lists them, what each holds, and the words a search finds them by. */
 
-export type SettingsTab = 'general' | 'models' | 'life' | 'realism' | 'memory' | 'images' | 'phone' | 'data' | 'debug' | 'advanced'
+export type SettingsTab = 'general' | 'models' | 'world' | 'images' | 'data' | 'debug' | 'advanced'
 
 export interface SettingsSection {
   /** The id of the section's heading, used to land on it from a search result. */
@@ -12,10 +12,6 @@ export interface SettingsSection {
 export interface SettingsTabInfo {
   id: SettingsTab
   label: string
-  /** Shown before a companion exists. Everything else needs a workspace to change. */
-  withoutCompanion?: boolean
-  /** Hidden on a paired phone: the Dungeon only allows it from the PC (dungeon/phone/access.py). */
-  pcOnly?: boolean
   /** Listed only while "Show advanced settings" is on. */
   advanced?: boolean
   sections: SettingsSection[]
@@ -24,43 +20,24 @@ export interface SettingsTabInfo {
 export const SETTINGS_TABS: SettingsTabInfo[] = [
   {
     id: 'general', label: 'General', sections: [
-      { heading: 'time-heading', title: 'Your time', keywords: 'timezone time zone clock date quiet hours pc' },
-      { heading: 'appearance-heading', title: 'Appearance', keywords: 'appearance chat style look feed bubbles texting community avatars retro im messenger visual novel portrait sounds' },
-      { heading: 'activity-heading', title: 'Pause', keywords: 'pause resume stop freeze' },
-      { heading: 'background-heading', title: 'Background activity', keywords: 'background running open simulation' },
+      { heading: 'time-heading', title: 'Your time', keywords: 'timezone time zone clock date pc' },
+      { heading: 'appearance-heading', title: 'Appearance', keywords: 'appearance look colors colours theme dark light paper ink palette text size font motion' },
     ],
   },
   {
-    id: 'models', label: 'Models', withoutCompanion: true, sections: [
+    id: 'models', label: 'Models', sections: [
       { heading: 'hardware-heading', title: 'This computer', keywords: 'hardware graphics card gpu vram memory ram nvidia fit warning slow local' },
-      { heading: 'models-heading', title: 'Models', keywords: 'model connection provider api key openai anthropic openrouter google local kobold codex profile chat life memory drafting recall temperature' },
+      { heading: 'models-heading', title: 'Models', keywords: 'model connection provider api key openai anthropic openrouter google local kobold codex claude profile story narrator recall temperature' },
       { heading: 'recall-profiles-heading', title: 'Recall', keywords: 'recall embedding embeddings semantic memory search ollama lm studio openai nomic qwen gemma profile' },
       { heading: 'local-programs-heading', title: 'Local programs', keywords: 'launch start open run lm studio ollama kobold koboldcpp comfyui local program auto start boot' },
       { heading: 'recall-heading', title: 'Built-in recall', keywords: 'recall embedding embeddings semantic llama.cpp llama-server gguf gemma embeddinggemma qwen local memory search' },
-      { heading: 'voice-heading', title: 'Voice notes', keywords: 'voice voices voice notes audio speech tts text to speech kokoro sherpa openai elevenlabs google accent preview' },
     ],
   },
   {
-    id: 'life', label: 'Life & cities', sections: [
-      { heading: 'life-heading', title: 'Life', keywords: 'life events pace themes days routine' },
+    id: 'world', label: 'World', sections: [
       { heading: 'cities-heading', title: 'Cities', keywords: 'city cities places home world pack' },
-    ],
-  },
-  {
-    // Every setting that dials real life down or off, in one place (Vanta, 2026-10-10).
-    id: 'realism', label: 'Realism', sections: [
-      { heading: 'presets-heading', title: 'Start from', keywords: 'realism realistic preset presets template templates difficulty easy life real life drama pull the strings control everything mode' },
-      { heading: 'pace-heading', title: 'Their days', keywords: 'realism realistic pace paced replies reply right away instant busy later asleep wait off plan day shifts late plans fall through surprise drama storylines soap opera quiet looks change hair haircut trim colour color dye nails manicure tan glasses beard shave appearance style makeover guests guest asked along invite plus-ones reading watching listening books book shows tv series songs music on repeat pastimes hobbies hobby practice skill milestones lessons classes club give up dry spell big turns life chapters back to school course degree graduate career change retrain buy a place house mortgage retire retirement pension business shop start a business health condition diagnosis check-up caring care for a parent' },
-      { heading: 'love-heading', title: 'Love and friendship', keywords: 'realism realistic relationship pace steps exclusive i love you meet their people best friends friends fall for you crush rough patches rough patch falling out fall out tense apology apologise make up breaks breakups break up split ex exes' },
-      { heading: 'home-life-heading', title: 'Around the home', keywords: 'realism realistic home life upkeep housework chores laundry dishes clutter mess messy tidy tidiness clean cleaning big clean spotless pets pet dog cat vet sick ill old age die death lifespan kitchen food cooking dinner meals groceries pantry run out staples takeout life admin errands paperwork dentist taxes lease appointments bills inspection' },
-      { heading: 'closeness-settings-heading', title: 'Closeness', keywords: 'realism realistic closeness close stage level relationship friends set it to step closer back keep it at hold max maximum min minimum limit ceiling never closer than slow burn cooling silence' },
-      { heading: 'adult-side-heading', title: 'Adult side of life', keywords: 'realism realistic adult adults nsfw 18 sex sexual sexuality orientation gay straight bisexual kink kinks fetish deviancy adventurous drive intimacy intimate bedroom' },
-      { heading: 'hidden-values-heading', title: 'Hidden values', keywords: 'realism realistic hidden values show reveal mood moods feeling feelings news word gets around odds dice why it went secret secrets slip on their mind thoughts home numbers meters housework' },
-    ],
-  },
-  {
-    id: 'memory', label: 'Memory', sections: [
-      { heading: 'memory-heading', title: 'Memory', keywords: 'memory remember automatic sensitive suggestions timelines privacy' },
+      { heading: 'adult-side-heading', title: 'Adult side of life', keywords: 'adult adults nsfw 18 sex sexual sexuality orientation gay straight bisexual kink adventurous drive intimacy' },
+      { heading: 'hidden-values-heading', title: 'Hidden values', keywords: 'hidden values show reveal odds dice why it went adult side' },
     ],
   },
   {
@@ -69,37 +46,31 @@ export const SETTINGS_TABS: SettingsTabInfo[] = [
     ],
   },
   {
-    id: 'phone', label: 'Phone access', sections: [
-      { heading: 'phone-heading', title: 'Phone access', keywords: 'phone mobile tailscale network remote away pair qr code device home screen install wifi wi-fi lan local network' },
+    id: 'data', label: 'Backups', sections: [
+      { heading: 'backup-heading', title: 'Backups', keywords: 'backup restore data export archive folder' },
     ],
   },
   {
-    id: 'data', label: 'Backups', pcOnly: true, sections: [
-      { heading: 'backup-heading', title: 'Backups', keywords: 'backup restore data export archive' },
-    ],
-  },
-  {
-    id: 'debug', label: 'Debug', pcOnly: true, sections: [
+    id: 'debug', label: 'Debug', sections: [
       { heading: 'debug-heading', title: 'Debug time', keywords: 'debug test testing time travel jump skip ahead days fast forward speed accelerate spoof date clock' },
-      { heading: 'model-calls-heading', title: 'Record model calls', keywords: 'log logs logging record recording full conversation conversations chats requests responses raw sent strange reply support troubleshoot' },
+      { heading: 'model-calls-heading', title: 'Record model calls', keywords: 'log logs logging record recording requests responses raw sent strange reply support troubleshoot' },
       { heading: 'townsfolk-mix-heading', title: 'Townsfolk mix', keywords: 'townsfolk mix ratio ratios shares population generation generate new world reseed gender women men nonbinary height build weight beard facial hair orientation sexuality gay lesbian bisexual straight adult side adventurous drive sliders' },
     ],
   },
   {
-    id: 'advanced', label: 'Advanced', withoutCompanion: true, advanced: true, sections: [
-      { heading: 'story-mode-heading', title: 'Story mode', keywords: 'story mode narrator roleplay role play travel townsfolk meet people experimental' },
-      { heading: 'prompts-heading', title: 'Prompts', keywords: 'advanced prompt prompts system instructions wording chat character in character life phrasing memory suggestions pictures describe drafting help me write quick start power user' },
+    id: 'advanced', label: 'Advanced', advanced: true, sections: [
+      { heading: 'prompts-heading', title: 'Prompts', keywords: 'advanced prompt prompts system instructions wording narrator story craft writing rules authors note power user' },
     ],
   },
 ]
 
-export function availableTabs(hasCompanion: boolean, onPhone = false, advanced = false): SettingsTabInfo[] {
-  return SETTINGS_TABS.filter((tab) => (hasCompanion || tab.withoutCompanion) && !(onPhone && tab.pcOnly) && (advanced || !tab.advanced))
+export function availableTabs(advanced = false): SettingsTabInfo[] {
+  return SETTINGS_TABS.filter((tab) => advanced || !tab.advanced)
 }
 
 /** The tab to show for a deep link: the one asked for when it is available, else the first one. */
-export function pickTab(requested: string | undefined, hasCompanion: boolean, onPhone = false, advanced = false): SettingsTab {
-  const tabs = availableTabs(hasCompanion, onPhone, advanced)
+export function pickTab(requested: string | undefined, advanced = false): SettingsTab {
+  const tabs = availableTabs(advanced)
   return (tabs.find((tab) => tab.id === requested) ?? tabs[0]).id
 }
 
@@ -109,10 +80,10 @@ export interface SettingsMatch { tab: SettingsTabInfo; section: SettingsSection 
  * Sections whose title, tab or keywords contain every word of the query. Advanced sections are found
  * even while hidden; picking one turns "Show advanced settings" on.
  */
-export function searchSettings(query: string, hasCompanion: boolean, onPhone = false): SettingsMatch[] {
+export function searchSettings(query: string): SettingsMatch[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean)
   if (!words.length) return []
-  return availableTabs(hasCompanion, onPhone, true).flatMap((tab) => tab.sections
+  return availableTabs(true).flatMap((tab) => tab.sections
     .filter((section) => {
       const text = `${section.title} ${tab.label} ${section.keywords}`.toLowerCase()
       return words.every((word) => text.includes(word))

@@ -14,7 +14,7 @@ export function CrisisNote() {
     <aside className="crisis-note" role="note" aria-label="A note from Prospero's Dungeon">
       <LifeBuoy aria-hidden="true" />
       <div>
-        <p className="crisis-from">From Prospero&apos;s Companion, not the character</p>
+        <p className="crisis-from">From Prospero&apos;s Dungeon, not the narrator</p>
         <p>If you&apos;re thinking about hurting yourself, you don&apos;t have to go through it alone. In the US, call or text <strong>988</strong> (Suicide &amp; Crisis Lifeline), or text <strong>HOME</strong> to <strong>741741</strong> (Crisis Text Line), any time, for free. Elsewhere, <a href="https://findahelpline.com" target="_blank" rel="noreferrer">findahelpline.com</a> lists free lines near you. If you&apos;re in danger right now, call your local emergency number.</p>
       </div>
     </aside>

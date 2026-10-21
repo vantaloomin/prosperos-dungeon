@@ -20,7 +20,7 @@ export function groupPrompts(prompts: EditablePrompt[]): [string, EditablePrompt
   return [...groups]
 }
 
-/** "Must keep: {{name}} (the companion's name), {{reason}}." */
+/** "Must keep: {{name}} (a character's name), {{reason}}." */
 export function placeholderHint(prompt: Pick<EditablePrompt, 'placeholders' | 'placeholder_help'>): string {
   if (!prompt.placeholders.length) return ''
   return 'Must keep: ' + prompt.placeholders.map((key) => {

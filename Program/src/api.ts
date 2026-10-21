@@ -1,4 +1,4 @@
-// Request helper adapted from prosperos-study src/api.ts at bbcbde4: Companion header and error codes.
+// Request helper adapted from prosperos-study src/api.ts at bbcbde4: the Dungeon's client header and error codes.
 export class ApiError extends Error {
   constructor(message: string, public status: number, public code?: string) { super(message) }
 }
@@ -35,28 +35,11 @@ export async function api<T>(path: string, body?: unknown, method?: string): Pro
   return data as T
 }
 
-/** A phone whose pairing was removed on the PC goes back to the pairing screen (src/features/phone). */
+/** A workspace switched in another tab reloads this one on the story. */
 function failure(status: number, data: { detail?: unknown; code?: string }): ApiError {
-  if (data.code === 'phone_unpaired') window.dispatchEvent(new Event('companion:unpaired'))
-  if (data.code === 'world_changed') { window.location.hash = '#conversation'; window.location.reload() }
+  if (data.code === 'world_changed') { window.location.hash = '#story'; window.location.reload() }
   return new ApiError(errorMessage(status, data), status, data.code)
 }
 
 export { newId } from './ids.ts'
 
-/** Send a file as the request body, with its details in the query string. */
-export async function upload<T>(path: string, file: Blob, params: Record<string, string>): Promise<T> {
-  let response: Response
-  try {
-    response = await fetch(`/api${path}?${new URLSearchParams(params)}`, {
-      method: 'POST',
-      headers: headers('application/octet-stream'),
-      body: file,
-    })
-  } catch {
-    throw new ApiError('Cannot reach the Dungeon. Check that it is still running.', 0, 'offline')
-  }
-  const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw failure(response.status, data)
-  return data as T
-}

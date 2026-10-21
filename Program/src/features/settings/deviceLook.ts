@@ -8,7 +8,7 @@ export interface DeviceLook { textScale: number; font: ReadingFont; fontEverywhe
 
 export const TEXT_SCALE = { min: 85, max: 200, step: 5 } as const
 export const DEFAULT_LOOK: DeviceLook = { textScale: 100, font: 'default', fontEverywhere: false, motion: 'system' }
-const KEY = 'companion-device-look'
+const KEY = 'dungeon-device-look'
 const FONTS: ReadingFont[] = ['default', 'atkinson', 'opendyslexic']
 const MOTIONS: Motion[] = ['system', 'reduce', 'full']
 const listeners = new Set<() => void>()

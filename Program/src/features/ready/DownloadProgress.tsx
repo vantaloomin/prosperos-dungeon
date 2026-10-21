@@ -2,9 +2,8 @@ import { useState } from 'react'
 import { cardLine, heading, milestone, modelOf, percent, progressLine, type ReadyView } from './readyText'
 import { useReadyActions } from './useReady'
 
-/** One progress row for the welcome step, the Models card and anywhere else the download shows. A phone can pause
- * and resume but not cancel: deleting a 10 GB download from a phone is too easy to do by mistake (Iris). */
-export function DownloadProgress({ view, phone = false, titled = true }: { view: ReadyView; phone?: boolean; titled?: boolean }) {
+/** One progress row for the Models card and anywhere else the download shows. */
+export function DownloadProgress({ view, titled = true }: { view: ReadyView; titled?: boolean }) {
   const actions = useReadyActions()
   const [error, setError] = useState('')
   const value = percent(view)
@@ -31,7 +30,7 @@ export function DownloadProgress({ view, phone = false, titled = true }: { view:
         <span style={{ width: `${value}%` }} />
       </div>}
       <p className="visually-hidden" aria-live="polite">{announced ? `${model.name} ${announced}% downloaded.` : ''}</p>
-      {view.status !== 'checking' && <Controls view={view} phone={phone} act={act} />}
+      {view.status !== 'checking' && <Controls view={view} act={act} />}
       {error && <p className="download-short" role="alert">{error}</p>}
     </div>
   )
@@ -41,14 +40,14 @@ const lineClass = (view: ReadyView) => `subtle download-line${view.status === 'f
 
 type Act = (work: () => Promise<unknown>) => () => Promise<void>
 
-function Controls({ view, phone, act }: { view: ReadyView; phone: boolean; act: Act }) {
+function Controls({ view, act }: { view: ReadyView; act: Act }) {
   const actions = useReadyActions()
   const key = modelOf(view).key
   return <div className="form-actions">
     {view.status === 'paused' || view.status === 'failed'
       ? <button type="button" className="text-button" onClick={act(() => actions.start(key))}>{view.status === 'failed' ? 'Try again' : 'Resume'}</button>
       : <button type="button" className="text-button" onClick={act(actions.pause)}>Pause</button>}
-    {!phone && <button type="button" className="text-button" onClick={act(actions.cancel)}>Cancel</button>}
+    <button type="button" className="text-button" onClick={act(actions.cancel)}>Cancel</button>
   </div>
 }
 

@@ -17,13 +17,11 @@ export function personaRef(persona: Pick<Persona, 'name'>): string {
   return personaName(persona) || 'this persona'
 }
 
-/** "Mira and Sally", "Mira, Sally and 2 more", or that nobody lives there yet. */
-export function companionsLine(world: Pick<World, 'companions'>): string {
-  const names = world.companions
-  if (!names.length) return 'No companions yet'
-  if (names.length === 1) return names[0]
-  if (names.length <= 3) return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
-  return `${names.slice(0, 2).join(', ')} and ${names.length - 2} more`
+/** Where the persona lives in a world: "Ridge Road, Haddon Harbor", or the city alone. */
+export function homeLine(world: Pick<World, 'home'>): string {
+  const home = world.home
+  if (!home) return 'No home yet'
+  return home.neighbourhood_name ? `${home.neighbourhood_name}, ${home.city}` : home.city
 }
 
 /** The label under the nav button: who the user is and where. */

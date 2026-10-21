@@ -1,6 +1,6 @@
 import { Clock } from 'lucide-react'
 import { useDebugTime } from '../../appClock'
-import { useWorkspaceSettings } from '../../companion'
+import { useWorkspaceSettings } from '../../workspace'
 import { bannerText } from './debugText'
 
 /** Shown above every view while debug time is on, so a moved clock is never mistaken for the real one. */

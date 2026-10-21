@@ -1,4 +1,4 @@
-// Words and numbers for "Set it up for me" (dungeon/ready.py; Iris, companion-design/v09-appearance-first-launch.md).
+// Words and numbers for "Set it up for me" (dungeon/ready.py; Iris, v09-appearance-first-launch.md).
 
 export type ReadyStatus = 'idle' | 'downloading' | 'checking' | 'paused' | 'cancelled' | 'failed' | 'ready'
 export interface ReadyModel { key: string; name: string; quant: string; bits: string; bytes: number; file: string; licence: string; page: string; fits: boolean }
@@ -8,7 +8,6 @@ export interface ReadyView {
   status: ReadyStatus; model: string | null; received: number; total: number; message: string; waiting: boolean
   seconds_left: number | null; free_bytes: number | null; drive: string; in_use: boolean; profile_id: string | null
   announced: boolean; settings_seen: boolean
-  queued: { name: string; status: 'waiting' | 'writing' | 'done' | 'failed'; message: string } | null
 }
 
 /** Under way or waiting on the user: the progress row shows instead of the offer. */
@@ -74,10 +73,6 @@ export function heading(view: ReadyView): string {
 /** The download needs the model, the runtime if this computer lacks it, and a little room to spare. */
 export const needed = (view: ReadyView, model: ReadyModel = view.pick) => model.bytes + view.runtime_bytes
 export const roomy = (view: ReadyView, model: ReadyModel = view.pick) => view.free_bytes === null || view.free_bytes >= needed(view, model) + 2e9
-
-/** Step 1 on the welcome screen offers it only on the PC, with no model yet, when the pick fits the card. */
-export const offered = (view: ReadyView | undefined, connected: boolean, remote: boolean) =>
-  !!view && !connected && !remote && view.pick.fits && (view.status === 'idle' || isActive(view))
 
 export function navLabel(view: ReadyView | undefined): string | undefined {
   if (view && isActive(view) && view.status !== 'cancelled') return `Settings, model downloading, ${percent(view)}%`

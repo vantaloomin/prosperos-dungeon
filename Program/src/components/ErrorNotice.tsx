@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { FolderOpen } from 'lucide-react'
 import { ApiError, api } from '../api'
-import { usePhoneStatus } from '../features/phone/phoneAccess'
 import { Notice } from './Feedback'
 
 /**
@@ -24,9 +23,7 @@ function splitDetails(text: string): { message: string; details: string } {
 }
 
 function LogFolderButton() {
-  const phone = usePhoneStatus()
   const [failed, setFailed] = useState(false)
-  if (phone.data?.remote) return null  // The folder is on the PC.
   const open = () => api('/logs/open-folder', {}).then(() => setFailed(false), () => setFailed(true))
   return (
     <button type="button" className="text-button" onClick={() => void open()}>

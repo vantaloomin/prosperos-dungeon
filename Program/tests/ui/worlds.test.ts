@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { companionsLine, initial, personaName, personaRef, personaTitle, whereLine } from '../../src/features/worlds/worldsText.ts'
+import { homeLine, initial, personaName, personaRef, personaTitle, whereLine } from '../../src/features/worlds/worldsText.ts'
 
 test('a persona without a name is never called You', () => {
   assert.equal(personaName({ name: '  ' }), '')
@@ -13,8 +13,9 @@ test('a persona without a name is never called You', () => {
   assert.equal(whereLine({ name: '' }, { name: 'Baltimore' }), 'Baltimore')
 })
 
-test('a world lists its companions briefly', () => {
-  assert.equal(companionsLine({ companions: [] }), 'No companions yet')
-  assert.equal(companionsLine({ companions: ['Mira', 'Sally'] }), 'Mira and Sally')
-  assert.equal(companionsLine({ companions: ['A', 'B', 'C', 'D', 'E'] }), 'A, B and 3 more')
+test('a world says where the persona lives', () => {
+  const home = { city_id: 'haddon-harbor', city: 'Haddon Harbor', region: 'Maine', neighbourhood: 'ridge-road', neighbourhood_name: 'Ridge Road', set_by: 'app' as const }
+  assert.equal(homeLine({ home: null }), 'No home yet')
+  assert.equal(homeLine({ home }), 'Ridge Road, Haddon Harbor')
+  assert.equal(homeLine({ home: { ...home, neighbourhood_name: '' } }), 'Haddon Harbor')
 })

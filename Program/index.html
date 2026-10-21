@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="theme-color" content="#191816" />
     <meta name="application-name" content="Prospero Dungeon" />
-    <meta name="description" content="A private companion with a life of its own, running on your computer." />
+    <meta name="description" content="A tabletop story game with an AI narrator, running on your computer." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -22,8 +22,8 @@
     <!-- The last colors and this device's look, before the first paint (settings/useAppColors.ts, deviceLook.ts). -->
     <script>
       try {
-        var root = document.documentElement, colors = JSON.parse(localStorage.getItem('companion-colors') || 'null')
-        var look = JSON.parse(localStorage.getItem('companion-device-look') || 'null')
+        var root = document.documentElement, colors = JSON.parse(localStorage.getItem('dungeon-colors') || 'null')
+        var look = JSON.parse(localStorage.getItem('dungeon-device-look') || 'null')
         if (!colors) colors = { scheme: matchMedia('(prefers-color-scheme: light)').matches ? 'paper' : 'ink', styles: {} }
         if (colors.system) colors = matchMedia('(prefers-color-scheme: light)').matches ? { scheme: 'paper', styles: {} } : { scheme: 'ink', styles: {} }
         root.dataset.theme = colors.scheme

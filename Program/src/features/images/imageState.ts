@@ -1,7 +1,5 @@
 import type { BackendKind, HostedProvider, ImageJob, ImageStatus, PostImage } from '../../types'
 
-export const imageFile = (jobId: string) => `/api/images/jobs/${encodeURIComponent(jobId)}/file`
-
 export const isActive = (status: ImageStatus) => status === 'queued' || status === 'running'
 
 type Line = (image: PostImage, waitingFor?: string | null) => string
@@ -80,7 +78,7 @@ function destinationFor(kind: BackendKind, provider: HostedProvider): string {
 /** What a new backend will receive, matching the server's disclosure; null when nothing leaves this computer. */
 export function disclosureFor(kind: BackendKind, provider: HostedProvider, baseUrl: string, controlled: boolean, nsfw = false): string | null {
   if (kind === 'comfyui' && (isLoopback(baseUrl) || controlled)) return null
-  const text = `Each image request sends its prompt (built from the event and the character's appearance description) to ${destinationFor(kind, provider)}. Their retention rules apply. Conversation and memories are not sent. Reference pictures are sent only when you make profile pictures: the first one goes along with the other two.${kind === 'codex' ? ' With Codex, each picture of your companion also sends their character sheet, and their first picture takes two requests: one to draw the sheet (from their profile picture, if they have one), then the picture.' : ''}`
+  const text = `Each image request sends its prompt to ${destinationFor(kind, provider)}. Their retention rules apply. The story itself is not sent.`
   return kind === 'hosted' && nsfw && NSFW_PROVIDERS.includes(provider)
     ? `${text} NSFW requests go there too, so their terms decide what they will make and keep. Prohibited requests are still never sent.`
     : text

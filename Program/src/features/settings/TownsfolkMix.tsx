@@ -8,7 +8,6 @@ import { ErrorNotice } from '../../components/ErrorNotice'
 import { Loading, Notice } from '../../components/Feedback'
 import { Field } from '../../components/Fields'
 import { enter } from '../worlds/useWorlds'
-import { heightLabel } from '../character/looksText'
 import {
   bandLine, bandRates, BOLDER_LABELS, type BuildKey, changesLine, DRIVE_LABELS, genderShares, LEVEL_NAMES, pct,
   rebalanceBuilds, sameMix, sharesLine, valueText,
@@ -81,7 +80,7 @@ function Confirm({ city, changes, busy, make, close }: { city: string; changes: 
   </>}>
     <p>{changes ? <>Changes from the built-in mix: {changes}.</> : <>This is the built-in mix.</>}</p>
     <p>A new world in {city} for the persona you are now, with new townsfolk drawn from this mix. You'll go there now.</p>
-    <p>This world, your companions here and your chats stay as they are. Come back any time from Worlds.</p>
+    <p>This world and your story stay as they are. Come back any time from Worlds.</p>
   </ConfirmDialog>
 }
 
@@ -179,4 +178,10 @@ function MixSlider({ data, name, value, label, change, hint, shown, steps }: Mix
       </>}
     </div>
   )}</Field>
+}
+
+/** 5'7" (170 cm): both units, since the app is used on both sides of the Atlantic. */
+function heightLabel(cm: number): string {
+  const inches = Math.round(cm / 2.54)
+  return `${Math.floor(inches / 12)}'${inches % 12}" (${cm} cm)`
 }

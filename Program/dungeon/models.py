@@ -108,15 +108,6 @@ LIFESPANS = (80, 150, 300, 600, 1000)
 PERSONA_AGES = (120, 5000)
 
 
-class PersonaPet(Input):
-    """One of the user's own pets (dungeon/life/pets.py gives it a life): their words, never invented."""
-    name: str = Field(min_length=1, max_length=40, pattern=r'\S')
-    kind: str = Field(default='cat', min_length=1, max_length=20)
-    looks: str = Field(default='', max_length=160)
-    # Years old, when the user says; otherwise the pet keeps the birth date it was given.
-    age: int | None = Field(default=None, ge=0, le=90)
-
-
 class PersonaInput(Input):
     """Who the user is in a persona's worlds (dungeon/worlds.py). Only the user says this; blanks stay blank."""
     name: str | None = Field(None, max_length=80)
@@ -125,7 +116,6 @@ class PersonaInput(Input):
     age: int | None = Field(None, ge=18, le=PERSONA_AGES[1])
     about: str | None = Field(None, max_length=2000)
     birthday: Birthday | None = None
-    pets: list[PersonaPet] | None = Field(None, max_length=8)
     # Kind and How long they live (dungeon/world/lifespans.py), as on the Character page: '' and None leave both to
     # their words, 0 years is "Doesn't age".
     kind: str | None = Field(None, max_length=40, pattern=r'^[a-z0-9-]*$')

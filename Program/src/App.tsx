@@ -1,55 +1,26 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import type { Companion } from './types'
-import { useQueryClient } from '@tanstack/react-query'
-import { useCompanion, useFollowPcTimezone, useWorkspaceSettings, type View } from './companion'
-import { Conversation } from './features/conversation/Conversation'
+import { useFollowPcTimezone, type View } from './workspace'
 import type { SettingsTab } from './features/settings/sections'
-import { useReconcile } from './features/today/useReconcile'
-import { Loading, Notice } from './components/Feedback'
-import { ErrorNotice } from './components/ErrorNotice'
+import { Loading } from './components/Feedback'
 import { DebugBanner } from './features/settings/DebugBanner'
 import { ReadyNotice } from './features/ready/ReadyNotice'
-import { Profile } from './features/profile/Profile'
-import { profileTab } from './features/profile/profileText'
-import { Welcome } from './features/character/Welcome'
-import { AiNotice } from './features/character/AiNotice'
-import { useSidecarMode, useSidecarOpen, useSidecarWaiting } from './features/sidecar/store'
-import { reach, useChats } from './features/chats/useChats'
-import { unreadOf } from './features/chats/chatText'
+import { AiNotice } from './features/notice/AiNotice'
 import { AppNav } from './features/nav/AppNav'
-import { RAIL_IDS, fromToday } from './features/nav/navText'
+import { isView } from './features/nav/navText'
 import { useAppColors } from './features/settings/useAppColors'
+import { Story } from './features/story/Story'
 
-// Chat opens first, so it ships in the main bundle; every other view loads the first time it is opened.
-const Character = lazy(() => import('./features/character/Character').then((m) => ({ default: m.Character })))
-const SwitchTo = lazy(() => import('./features/character/SwitchTo').then((m) => ({ default: m.SwitchTo })))
-const Appearance = lazy(() => import('./features/appearance/Appearance').then((m) => ({ default: m.Appearance })))
-const Portraits = lazy(() => import('./features/appearance/Portraits').then((m) => ({ default: m.Portraits })))
-const Memories = lazy(() => import('./features/memories/Memories').then((m) => ({ default: m.Memories })))
-const OurYear = lazy(() => import('./features/year/OurYear').then((m) => ({ default: m.OurYear })))
+// The story opens first, so it ships in the main bundle; the other views load the first time they are opened.
 const Settings = lazy(() => import('./features/settings/Settings').then((m) => ({ default: m.Settings })))
-const Today = lazy(() => import('./features/today/Today').then((m) => ({ default: m.Today })))
-const Story = lazy(() => import('./features/story/Story').then((m) => ({ default: m.Story })))
-const Sidecar = lazy(() => import('./features/sidecar/Sidecar').then((m) => ({ default: m.Sidecar })))
-const SidecarWindow = lazy(() => import('./features/sidecar/SidecarWindow').then((m) => ({ default: m.SidecarWindow })))
 const Worlds = lazy(() => import('./features/worlds/Worlds').then((m) => ({ default: m.Worlds })))
-const WhoKnowsWho = lazy(() => import('./features/web/WhoKnowsWho').then((m) => ({ default: m.WhoKnowsWho })))
-const CityMap = lazy(() => import('./features/map/CityMap').then((m) => ({ default: m.CityMap })))
-const ChatsHome = lazy(() => import('./features/chats/ChatsHome').then((m) => ({ default: m.ChatsHome })))
-
-// Views outside the side rail: the phone's Chats list, worlds, and the map and Who knows who opened from Today.
-const OTHER_VIEWS = new Set(['chats', 'worlds', 'people', 'map'])
-const LINKED = ['settings/', 'chat/', 'map/']
 
 function viewFromHash(): View {
   const id = window.location.hash.slice(1)
-  return OTHER_VIEWS.has(id) || RAIL_IDS.has(id) || profileTab(id) || LINKED.some((prefix) => id.startsWith(prefix)) ? id as View : 'conversation'
+  return isView(id) ? id as View : 'story'
 }
 
 export default function App() {
   const [view, setView] = useState<View>(viewFromHash)
-  const companion = useCompanion()
-  useReconcile(!!companion.data)
   useFollowPcTimezone()
   useEffect(() => {
     const sync = () => setView(viewFromHash())
@@ -59,52 +30,20 @@ export default function App() {
   const go = useCallback((next: View) => { window.history.pushState(null, '', `#${next}`); setView(next) }, [])
   // Switching Settings tabs keeps the address deep-linkable without filling the back button with tabs.
   const openTab = useCallback((tab: SettingsTab) => { window.history.replaceState(null, '', `#settings/${tab}`); setView(`settings/${tab}`) }, [])
-  useChatLink(view, setView)
-  const chats = useChats(!!companion.data).data?.chats ?? []
-  // Unread chats count on Profile and on the phone's Chats.
-  const unread = unreadOf(chats, 'companion')
   useFocusOnViewChange(view)
-  // Story mode is opt-in (Settings > Advanced), so its tab shows only once it is on.
-  const storyOn = !!useWorkspaceSettings().data?.story_mode
   useAppColors()
-  const sidecarOpen = useSidecarOpen()
-  const sidecarWaiting = useSidecarWaiting()
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main">Skip to content</a>
-      <AppNav view={view} go={go} storyOn={storyOn} unread={unread} sidecarOpen={sidecarOpen} sidecarWaiting={sidecarWaiting} />
+      <AppNav view={view} go={go} />
       <main id="main" className="app-main" tabIndex={-1}>
         <DebugBanner onOpen={() => go('settings/debug')} />
         <ReadyNotice openModels={() => go('settings/models')} />
-        {companion.isPending ? <Loading label="Opening your companion" />
-          : companion.isError ? <ErrorNotice error={companion.error} />
-            : <Suspense fallback={<Loading label="Opening" />}><CurrentView view={view} companion={companion.data ?? null} go={go} openTab={openTab} /></Suspense>}
+        <Suspense fallback={<Loading label="Opening" />}><CurrentView view={view} go={go} openTab={openTab} /></Suspense>
       </main>
-      {sidecarOpen && <SidecarHost view={view} go={go} />}
       <AiNotice />
     </div>
   )
-}
-
-/** The sidecar docked beside the app, or in its own window (src/features/sidecar/popout.ts). */
-function SidecarHost({ view, go }: { view: View; go: (view: View) => void }) {
-  const mode = useSidecarMode()
-  return (
-    <Suspense fallback={null}>
-      {mode === 'window' ? <SidecarWindow><Sidecar view={view} go={go} windowed /></SidecarWindow> : <Sidecar view={view} go={go} />}
-    </Suspense>
-  )
-}
-
-/** #chat/<id> (Who knows who's "Open chat"): open that companion's chat. */
-function useChatLink(view: View, setView: (view: View) => void) {
-  const client = useQueryClient()
-  useEffect(() => {
-    if (!view.startsWith('chat/')) return
-    // The chat takes this address's place, so Back does not open it again.
-    const open = (next: View) => { window.history.replaceState(null, '', `#${next}`); setView(next) }
-    void reach(client, open, decodeURIComponent(view.slice(5)))
-  }, [view, client, setView])
 }
 
 /**
@@ -119,43 +58,10 @@ function useFocusOnViewChange(view: View) {
   }, [view])
 }
 
-interface CurrentViewProps { view: View; companion: Companion | null; go: (view: View) => void; openTab: (tab: SettingsTab) => void }
+interface CurrentViewProps { view: View; go: (view: View) => void; openTab: (tab: SettingsTab) => void }
 
-function CurrentView({ view, companion, go, openTab }: CurrentViewProps) {
-  const loraMaker = useWorkspaceSettings().data?.lora_maker
-  // Settings and the story belong to the workspace, so they open with or without a companion.
-  if (inWorkspace(view)) return <WorkspaceView view={view} companion={companion} go={go} openTab={openTab} />
-  // With the LoRA creator switched off (the default), an old #appearance link opens the Character page.
-  const shown = view === 'appearance' && !loraMaker ? 'character' : view
-  if (!companion) return shown === 'character' ? <Character companion={null} go={go} /> : <Welcome go={go} />
-  const page = shown === 'character' ? <Character companion={companion} go={go} /> : <CompanionView view={shown} companion={companion} go={go} />
-  return profileTab(shown) ? <Profile companion={companion} view={shown} go={go}>{page}</Profile> : page
-}
-
-function inWorkspace(view: View) {
-  return view === 'chats' || view === 'worlds' || view === 'settings' || view.startsWith('settings/') || view === 'story'
-}
-
-function WorkspaceView({ view, companion, go, openTab }: CurrentViewProps) {
-  const storyOn = useWorkspaceSettings().data?.story_mode
-  if (view === 'chats') return <ChatsHome go={go} />
+function CurrentView({ view, go, openTab }: CurrentViewProps) {
   if (view === 'worlds') return <Worlds />
-  if (view !== 'story') return <Settings companion={companion} tab={view.split('/')[1]} onTab={openTab} onCreate={() => go('character')} />
-  return storyOn ? <Story go={go} />
-    : <Notice action={<button type="button" className="text-button" onClick={() => go('settings/advanced')}>Open Settings</button>}>Story mode is off. Turn it on in Settings &gt; Advanced.</Notice>
-}
-
-/** Memories, and Our year so far opened from it. */
-function MemoriesView({ view, companion, go }: { view: View; companion: Companion; go: (view: View) => void }) {
-  return view === 'year' ? <OurYear companion={companion} go={go} /> : <Memories companion={companion} go={go} />
-}
-
-function CompanionView({ view, companion, go }: { view: View; companion: Companion; go: (view: View) => void }) {
-  if (view.startsWith('cast/')) return <SwitchTo townKey={decodeURIComponent(view.slice(5))} go={go} />
-  if (view === 'appearance') return <Appearance companion={companion} go={go} />
-  if (view === 'portraits') return <Portraits companion={companion} go={go} />
-  if (view === 'today') return <Today companion={companion} go={go} />
-  if (fromToday(view)) return view === 'people' ? <WhoKnowsWho go={go} /> : <CityMap companion={companion} place={view.startsWith('map/') ? decodeURIComponent(view.slice(4)) : null} go={go} />
-  if (profileTab(view) === 'memories') return <MemoriesView view={view} companion={companion} go={go} />
-  return <Conversation companion={companion} go={go} />
+  if (view === 'settings' || view.startsWith('settings/')) return <Settings tab={view.split('/')[1]} onTab={openTab} />
+  return <Story go={go} />
 }

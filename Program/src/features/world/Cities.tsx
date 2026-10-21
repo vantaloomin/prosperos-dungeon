@@ -114,7 +114,7 @@ export function Cities() {
     <section className="settings-section form-stack" aria-labelledby="cities-heading">
       <div>
         <h2 id="cities-heading">Cities</h2>
-        <p className="subtle">A companion's days are built from their home city: its neighborhoods, places, work and weather. Start a city of your own, copy one to change it, or open a city file someone shared. A Marinara world map opens as a city straight away, with its places' notes as world lore.</p>
+        <p className="subtle">A story's town is built from its city: its neighborhoods, places, work and weather. Start a city of your own, copy one to change it, or open a city file someone shared. A Marinara world map opens as a city straight away, with its places' notes as world lore.</p>
       </div>
       <div className="form-actions">
         <button type="button" className="button" onClick={() => void startNew()}><FilePlus2 aria-hidden="true" />New city</button>
@@ -148,7 +148,7 @@ export function Cities() {
           <button type="button" className="button" onClick={() => setDeleting(null)}>Cancel</button>
           <button type="button" className="button danger" onClick={() => void remove(deleting)}>Delete</button>
         </>}>
-          <p>The city is removed from this workspace. Events that already happened there keep their wording, and backups made before keep the city. A companion who lives there has to move first.</p>
+          <p>The city is removed from this workspace. Events that already happened there keep their wording, and backups made before keep the city. If you live there, move first.</p>
         </ConfirmDialog>
       )}
     </section>

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { usePhoneStatus } from '../phone/phoneAccess'
 import { ConfirmDownload } from './ConfirmDownload'
 import { DownloadProgress } from './DownloadProgress'
 import { isActive, modelOf, size, type ReadyView } from './readyText'
@@ -8,14 +7,13 @@ import { useReady, useReadyActions } from './useReady'
 /** Top of Settings > Models: the built-in model while it downloads (titled as the profile it becomes), and, with
  * nothing set up yet, the same "Set it up for me" as the welcome. Once it is ready its own profile card takes over. */
 export function ReadyCard({ hasProfiles }: { hasProfiles: boolean }) {
-  const remote = !!usePhoneStatus().data?.remote
   const view = useReady().data
   if (!view) return null
   if (isActive(view)) {
     return <div className="model-profile ready-card"><div><span className="eyebrow">Local / Built-in</span><h3>Built-in · {modelOf(view).name}</h3>
-      <DownloadProgress view={view} phone={remote} titled={false} /></div></div>
+      <DownloadProgress view={view} titled={false} /></div></div>
   }
-  if (view.status === 'idle' && !remote && !hasProfiles && view.pick.fits) return <Offer view={view} />
+  if (view.status === 'idle' && !hasProfiles && view.pick.fits) return <Offer view={view} />
   return null
 }
 

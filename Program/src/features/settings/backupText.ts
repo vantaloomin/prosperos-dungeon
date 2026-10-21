@@ -7,7 +7,7 @@ export function backupSize(bytes: number): string {
 }
 
 const KINDS: Record<BackupEntry['kind'], string> = {
-  backup: 'Backup', 'pre-upgrade': 'Before an upgrade', 'before-reset': 'Before starting over', 'before-delete': 'Before deleting the companion', 'before-debug': 'Before debug time', auto: 'Automatic',
+  backup: 'Backup', 'pre-upgrade': 'Before an upgrade', 'before-reset': 'Before starting over', 'before-delete': 'Before deleting', 'before-debug': 'Before debug time', auto: 'Automatic',
 }
 
 /** One line describing a backup in the list; names the ones the app made on its own. */
@@ -15,7 +15,5 @@ export function backupLabel(entry: BackupEntry, formatDate: (iso: string) => str
   if (!entry.readable) return `${entry.name} (cannot be read)`
   const when = entry.created_at ? formatDate(entry.created_at) : entry.name
   const kind = KINDS[entry.kind]
-  const extras = [backupSize(entry.bytes)]
-  if (entry.kind === 'backup') extras.push(entry.datasets_included ? 'with reference pictures' : 'without reference pictures')
-  return `${kind}, ${when} (${extras.join(', ')})`
+  return `${kind}, ${when} (${backupSize(entry.bytes)})`
 }

@@ -1,13 +1,11 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { milestone, navLabel, offered, progressLine, quality, roomy, size, timeLeft, type ReadyView } from '../../src/features/ready/readyText.ts'
-import { welcomeLede, welcomeSteps } from '../../src/features/character/welcomeSteps.ts'
-
+import { milestone, navLabel, progressLine, quality, roomy, size, timeLeft, type ReadyView } from '../../src/features/ready/readyText.ts'
 const pick = { key: 'qwen3.5-9b', name: 'Qwen3.5 9B', quant: 'Q4_K_M', bits: '4-bit', bytes: 5_680_522_464, file: 'x.gguf', licence: 'Apache 2.0', page: '', fits: true }
 const view = (change: Partial<ReadyView> = {}): ReadyView => ({
   pick, reason: '', models: [pick], runtime: { installed: false }, runtime_bytes: 33_377_746, card: { name: 'RTX 4070', memory_gb: 12 },
   status: 'idle', model: null, received: 0, total: 0, message: '', waiting: false, seconds_left: null, free_bytes: 300e9, drive: 'Z:',
-  in_use: false, profile_id: null, announced: false, settings_seen: false, queued: null, ...change,
+  in_use: false, profile_id: null, announced: false, settings_seen: false, ...change,
 })
 
 test('sizes and time left are rounded so they never flicker', () => {
@@ -38,27 +36,4 @@ test('the progress line says how far, how long, or why it is waiting', () => {
 test('there must be room for the model and the runtime', () => {
   assert.ok(roomy(view()))
   assert.equal(roomy(view({ free_bytes: 6e9 })), false)
-})
-
-test('the welcome offers it only on the PC, with no model, when the pick fits', () => {
-  assert.ok(offered(view(), false, false))
-  assert.equal(offered(view(), true, false), false)
-  assert.equal(offered(view(), false, true), false)
-  assert.equal(offered(view({ pick: { ...pick, fits: false } }), false, false), false)
-  const [model, character] = welcomeSteps(null, 'offer')
-  assert.equal(model.label, '1. Get a text model')
-  assert.equal(model.action, '')
-  assert.equal(character.action, 'Create without a model for now')
-  const [, downloading] = welcomeSteps(null, 'active')
-  assert.ok(downloading.primary && downloading.action === 'Create your companion')
-  assert.match(welcomeLede('offer'), /get the model/)
-})
-
-test('after a cancel step 2 goes back to its usual words, and a ready built-in model is named in step 1', () => {
-  const [, character] = welcomeSteps(null, 'cancelled')
-  assert.equal(character.action, 'Create without a model for now')
-  const connection = { model: 'Qwen3.8-27B-UD-Q4_K_XL', provider_name: 'Local / LM Studio', base_url: '' } as never
-  const [model] = welcomeSteps(connection, null, 'Qwen3.8 27B')
-  assert.ok(model.done)
-  assert.equal(model.detail, 'Using Qwen3.8 27B on this computer.')
 })

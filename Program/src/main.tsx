@@ -8,12 +8,11 @@ import '@fontsource/atkinson-hyperlegible/latin-400.css'
 import '@fontsource/atkinson-hyperlegible/latin-700.css'
 import './styles.css'
 import App from './App'
-import { PhoneGate } from './features/phone/PhoneGate'
 
 const client = new QueryClient({ defaultOptions: { queries: { staleTime: 10_000, retry: 1, refetchOnWindowFocus: false } } })
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode><QueryClientProvider client={client}><PhoneGate><App /></PhoneGate></QueryClientProvider></React.StrictMode>,
+  <React.StrictMode><QueryClientProvider client={client}><App /></QueryClientProvider></React.StrictMode>,
 )
 
-// Lets a phone install the app (public/sw.js). It caches nothing.
+// Lets the browser install the app (public/sw.js). It caches nothing.
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => undefined)
