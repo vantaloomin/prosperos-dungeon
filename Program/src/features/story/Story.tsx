@@ -14,6 +14,7 @@ import { StoryPeople } from './StoryPeople'
 import { CityOptions } from '../world/CityOptions'
 import { AuthorsNote } from './AuthorsNote'
 import { StorySheet } from './StorySheet'
+import { StoryStart } from './StoryStart'
 
 const STORY_KEY = ['story']
 const OUT_OF_STORY = 'To step out of the story, start a message with OOC: or wrap it in ((double parentheses)).'
@@ -40,15 +41,17 @@ export function Story({ go }: { go: (view: View) => void }) {
         <h1 id="story-heading">Story</h1>
         <p className="subtle">Your own story around town, told by a narrator.</p>
         <SceneBar scene={story.data.scene} onMove={(body) => run(null, () => api<StoryData>('/story/scene', body, 'PUT').then(update))} />
-        <StorySheet />
+        {!!story.data.messages.length && <StorySheet />}
         <StoryPeople people={story.data.people}
           onFind={(key) => void run(null, () => api<StoryData>('/story/find', { key }).then(update))} />
       </header>
       {!story.data.ready && <div className="story-notice"><Notice action={<button type="button" className="text-button" onClick={() => go('settings/models')}>Open Models</button>}>
         Add a text model in Settings &gt; Models to tell the story.</Notice></div>}
-      <StoryLog messages={story.data.messages} pending={pending} onRetry={() => void run(null, () => api('/story/retry', {}))} />
-      {error && <div className="story-notice"><Notice tone="error">{error}</Notice></div>}
-      <StoryComposer busy={pending !== null} onSend={(text) => void send(text)} />
+      {!story.data.messages.length && pending === null ? <StoryStart onStarted={update} /> : <>
+        <StoryLog messages={story.data.messages} pending={pending} onRetry={() => void run(null, () => api('/story/retry', {}))} />
+        {error && <div className="story-notice"><Notice tone="error">{error}</Notice></div>}
+        <StoryComposer busy={pending !== null} onSend={(text) => void send(text)} />
+      </>}
       <NewStory empty={!story.data.messages.length} onClear={() => run(null, () => api<StoryData>('/story', undefined, 'DELETE').then(update))} />
     </section>
   )
@@ -102,7 +105,6 @@ function StoryLog({ messages, pending, onRetry }: { messages: StoryMessage[]; pe
   const last = messages[messages.length - 1]
   return (
     <div className="story-log" aria-live="polite">
-      {!messages.length && !pending && <p className="subtle story-empty">Say what you do first: look around, order something, talk to someone.</p>}
       {messages.map((message) => <StoryLine key={message.id} message={message} />)}
       {pending && <><p className="story-user">{pending}</p><p className="subtle">The narrator is writing…</p></>}
       {last?.status === 'failed' && !pending && <button type="button" className="text-button" onClick={onRetry}><RotateCcw aria-hidden="true" />Try again</button>}

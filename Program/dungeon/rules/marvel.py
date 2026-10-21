@@ -10,6 +10,13 @@ Read from Mabry Curve's roll log (rng/roll.py itself was not in the archive):
 import random
 
 STATS = ('Mind', 'Allure', 'Resolve', 'Vitality', 'Essence', 'Luck')
+# What each stat covers, for the Referee, the narrator and the sheet.
+MEANINGS = {'Mind': 'reason, perception, knowledge, skill with the hands',
+            'Allure': 'charm, persuasion, deception, performance',
+            'Resolve': 'will, nerve, intimidation, resisting pain or influence',
+            'Vitality': 'strength, speed, fighting, endurance',
+            'Essence': 'magic, faith, the uncanny',
+            'Luck': 'chance, stealth, timing'}
 STAT_RANGE = (1, 30)
 DEFAULT_STAT = 10
 # The shift is taken off the total, so a harder task needs a higher roll.

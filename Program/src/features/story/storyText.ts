@@ -1,4 +1,4 @@
-import type { StoryPerson, StoryPlace, StoryRoll, StoryScene } from '../../types'
+import type { Premade, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -77,4 +77,27 @@ export function rollText(roll: StoryRoll): string {
   const sum = roll.die ? `${roll.natural} + ${roll.bonus}` : `${roll.natural}`
   const shift = roll.shift ? `, ${roll.difficulty.replace('_', ' ')} (${roll.shift > 0 ? '-' : '+'}${Math.abs(roll.shift)})` : ''
   return `${roll.stat}${die}: ${sum}${shift} = ${roll.total}, ${roll.label}`
+}
+
+/** "a woman, 41" under a premade's name. */
+export function premadeLine(premade: Pick<Premade, 'gender' | 'age'>): string {
+  const gender = premade.gender === 'nonbinary' ? 'nonbinary' : premade.gender ? `a ${premade.gender}` : ''
+  return [gender, premade.age ? String(premade.age) : ''].filter(Boolean).join(', ')
+}
+
+/** A made character starts with every stat as even as the points allow. */
+export function startingStats(start: Pick<StoryStart, 'stat_names' | 'points' | 'range'>): Record<string, number> {
+  const even = Math.min(start.range[1], Math.max(start.range[0], Math.floor(start.points / start.stat_names.length)))
+  return Object.fromEntries(start.stat_names.map((stat) => [stat, even]))
+}
+
+/** "3 points left of 60", or how far over the pool the stats are. */
+export function pointsText(left: number, points: number): string {
+  const count = Math.abs(left)
+  return `${count} ${count === 1 ? 'point' : 'points'} ${left < 0 ? 'over' : 'left'} of ${points}`
+}
+
+/** The points still to spend; below zero when the stats cost more than the pool. */
+export function pointsLeft(stats: Record<string, number>, points: number): number {
+  return points - Object.values(stats).reduce((sum, value) => sum + value, 0)
 }

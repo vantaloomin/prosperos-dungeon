@@ -19,6 +19,8 @@ from dungeon.narration import prompt as narration_prompt
 from dungeon.narration import prose
 from dungeon.providers.chat import INCOMPLETE
 from dungeon.providers.scheduling import CONVERSATION
+from dungeon.rules import marvel
+from dungeon.sheet import stats as sheet_stats
 from dungeon.text_models import config_for, default_name, key_for
 from dungeon.world import catalog, changes, custom, generators, inside, life_details, townsfolk
 
@@ -193,6 +195,31 @@ def seen(person: dict, view: dict) -> str:
     return f"{sheet['name']}, {said}" if sheet['key'] in view['known'] else said
 
 
+# The player's character ---------------------------------------------------------------------------
+
+STRONG, WEAK = 14, 7
+
+
+def persona_text(connection) -> tuple[str, str | None]:
+    """Who the player is, for the narrator: what they wrote about themselves and, in words, what their stats make
+    them good and bad at. Never the numbers. ('', None) when they have not said who they are."""
+    row = optional(connection, 'SELECT name, gender, age, about FROM persona WHERE id=1')
+    if not row or not row['name']:
+        return '', None
+    details = ', '.join(str(item) for item in (row['gender'], row['age']) if item)
+    lines = [f"{row['name']}" + (f' ({details})' if details else '') + '.']
+    if row['about']:
+        lines.append(row['about'].strip())
+    stats = sheet_stats(connection)
+    if strong := [marvel.MEANINGS[stat] for stat, value in stats.items() if value >= STRONG]:
+        lines.append(f"Good at: {'; '.join(strong)}.")
+    if weak := [marvel.MEANINGS[stat] for stat, value in stats.items() if value <= WEAK]:
+        lines.append(f"Poor at: {'; '.join(weak)}.")
+    lines.append('Write their actions and words in their own voice, from what is here; invent nothing about their '
+                 'past.')
+    return '\n'.join(lines), row['name']
+
+
 # History ------------------------------------------------------------------------------------------
 
 def next_seq(connection) -> int:
@@ -282,10 +309,17 @@ def move(database, city_id: str, place_id: str | None) -> dict:
                 'INSERT INTO story_scene (id, city_id, place_id, updated_at) VALUES (1, ?, ?, ?) ON CONFLICT(id) DO '
                 'UPDATE SET city_id=excluded.city_id, place_id=excluded.place_id, updated_at=excluded.updated_at',
                 (data['id'], place['id'], database.now()))
-            where = {'city_id': data['id'], 'place_id': place['id']}
-            hood = townsfolk.neighborhood_name(data, place['neighborhood'])
-            add(connection, database.now(), 'scene', f"You arrive at {place['name']}, {hood}, {data['name']}.", where)
+            arrive(connection, database.now())
     return story(database)
+
+
+def arrive(connection, now: str) -> dict:
+    """The line that opens a scene: "You arrive at …", where the scene is now."""
+    row = scene_row(connection)
+    data = city_data(connection, row['city_id'])
+    place = catalog.find(data, row['place_id'])
+    hood = townsfolk.neighborhood_name(data, place['neighborhood'])
+    return add(connection, now, 'scene', f"You arrive at {place['name']}, {hood}, {data['name']}.", row)
 
 
 def clear(database) -> dict:
@@ -326,8 +360,10 @@ def steered(chat: list[dict], steer: str) -> list[dict]:
 def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list[dict] | None = None) -> dict:
     view = scene(connection, now)
     craft = narration_prompt.craft_for(config.get('context_tokens'), prompt_library.text(connection, 'narrator-craft'))
+    who_text, name = persona_text(connection)
     system = narration_prompt.system(prompt_library.text(connection, 'story-narrator'), craft, scene=scene_text(view),
-                                     narration=NARRATION, outcomes=outcomes, rolls_shown=dice_shown(connection))
+                                     persona=who_text, persona_name=name, narration=NARRATION, outcomes=outcomes,
+                                     rolls_shown=dice_shown(connection))
     if in_character.out_of_character(latest['text']):
         system += '\n\n' + in_character.OUT_OF_CHARACTER_NOTE.format(name='the narrator', model=default_name(config))
     budget = (config['context_tokens'] - config['max_output_tokens']) * CHARS_PER_TOKEN - len(system)

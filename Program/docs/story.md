@@ -28,6 +28,17 @@ that person gives it. The screen lists them only as the user would see them ("th
 The narrator stays in the story. Sentences saying it is an AI are dropped (`in_character.Guard`), and OOC: or
 ((…)) gets a plain answer. Its model is the **Story narrator** job in Settings > Models.
 
+## Campaign start
+
+A new story opens on "Who are you?" (`dungeon/campaign.py`). The player picks one of the town's premade characters
+(`dungeon/world/data/premades/<city>.json`; Haddon Harbor ships three) or makes their own: a name, gender, age, a
+few lines about them, and MARVEL stats bought from 60 points, each from 4 to 18. Either way the world's persona takes
+on that name and those lines, the stats go on the sheet, and the story opens with "You arrive at …".
+
+The narrator gets the persona in its own layer, "The player's character": their name, what the player wrote, and
+what their stats make them good and poor at (14 and up, 7 and down), in words, never numbers. It is told to voice
+them from what is there and invent nothing about their past.
+
 ## The turn loop
 
 Each line the user sends is one turn (`dungeon/turn.py`). Code settles what happens before the narrator writes:
@@ -58,6 +69,8 @@ hidden and the story reads the same.
 | `POST /api/story/messages` `{text, client_id}` | Saves the user's line once per `client_id` and returns `{message, reply}`. A failed reply is saved with `status: failed` and its `error`. Sending the same `client_id` again returns the saved reply, or tries again if it failed. 409 `no_connection` without a model; the line stays saved. |
 | `POST /api/story/find` `{key}` | Moves the story to where someone the user has met is now. 404 if not met, 409 if they are nowhere the story can go. |
 | `POST /api/story/retry` | Tells the reply to the latest user line again, replacing the one there. |
+| `GET /api/story/start` | `{premades, points, range, stat_names, meanings}` for "Who are you?" in the scene's city. |
+| `POST /api/story/start` `{premade_id}` or `{persona, stats}` | Starts the story as a premade or a made character; 409 once the story has begun, 404 for a premade not in this town, 422 for a missing name or stats outside the point-buy. |
 | `GET /api/story/sheet` | `{stats, stat_names, range, dice}`: the character's MARVEL stats and the die each one adds. |
 | `PUT /api/story/sheet` `{stats}` | Changes some or all stats; 422 for an unknown stat or a value outside 1 to 30. |
 | `DELETE /api/story` | Starts a new story: the history and the people met go, the scene stays. |
