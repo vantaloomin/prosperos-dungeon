@@ -35,7 +35,7 @@ test('places are grouped by neighborhood', () => {
 
 test('a person met says how often and where they are now', () => {
   const person = { key: 'k', name: 'Dana Kim', role: 'barista', city: 'Baltimore', meetings: 3, last_met_at: '', notes: [],
-    doing: 'working as the barista', place: { id: 'p', name: 'The Daily Grind', city_id: 'baltimore' } }
+    doing: 'working as the barista', place: { id: 'p', name: 'The Daily Grind', city_id: 'baltimore' }, feelings: '' }
   assert.equal(personLine(person), 'Met 3 times · now working as the barista at The Daily Grind')
   assert.equal(personLine({ ...person, meetings: 1, doing: 'at home', place: null }), 'Met once · now at home')
   assert.equal(personLine({ ...person, doing: 'at their usual spot at The Daily Grind' }), 'Met 3 times · now at their usual spot at The Daily Grind')

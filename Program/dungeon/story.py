@@ -11,6 +11,7 @@ from datetime import datetime
 
 from dungeon import (
     authors_note,
+    feelings,
     in_character,
     ledger,
     prompt_library,
@@ -151,7 +152,17 @@ def scene(connection, now: datetime) -> dict:
             'known': story_people.known(connection)}
 
 
-def person_line(person: dict, place: dict, data: dict, known: dict | None = None) -> str:
+def initiative(sheet: dict, data: dict, moment: datetime | None) -> str:
+    """A named person's own business: who they are and what they are after, for them to act on unprompted."""
+    if not sheet.get('notable'):
+        return ''
+    wants = sheet.get('wants') or (townsfolk.story(sheet, data, moment.date())['goal']['text'] if moment else '')
+    return (f" {sheet['about']}" + (f' Right now they are after this: {wants}.' if wants else '') +
+            ' They pursue their own ends in the scene without waiting to be asked.')
+
+
+def person_line(person: dict, place: dict, data: dict, known: dict | None = None,
+                moment: datetime | None = None) -> str:
     sheet = person['sheet']
     seen = who(sheet, place, data, person['doing'])
     pronouns = f", {sheet['pronouns']}" if sheet.get('pronouns') else ''
@@ -160,7 +171,8 @@ def person_line(person: dict, place: dict, data: dict, known: dict | None = None
     job = '' if f' {job}' in f" {person['doing']}" else f', {job}'
     return (f"- {seen[0].upper()}{seen[1:]}: {sheet['full']}{pronouns}, {sheet['age']}, {person['doing']}{job}. "
             f"{townsfolk.first_impression(sheet).capitalize()}; "
-            f"{sheet['quirk']}.{life_text(data, sheet)} Mood: {person['mood']}.{story_people.remembered(known)}"
+            f"{sheet['quirk']}.{life_text(data, sheet)}{initiative(sheet, data, moment)} Mood: {person['mood']}."
+            f"{story_people.remembered(known)}"
             f"{person.get('note', '')}")
 
 
@@ -185,7 +197,7 @@ def scene_text(view: dict) -> str:
     if view['weather']:
         lines.append(f"Weather: {view['weather']}")
     lines.append('Who is here (their names are for you; the user knows only the names of people they have met):')
-    lines += [person_line(person, {'id': place['id']}, data, view['known'].get(person['sheet']['key']))
+    lines += [person_line(person, {'id': place['id']}, data, view['known'].get(person['sheet']['key']), moment)
               for person in view['people']] or \
         ['- Nobody the story knows; only passers-by.']
     return '## Scene\n' + '\n'.join(lines)
@@ -292,8 +304,9 @@ def switch_branch(database, branch_id: str) -> dict:
 
 
 def people(connection, view: dict) -> list[dict]:
-    """Everyone the user has met in the story, most recent first, with where their rules put them now."""
-    result, cities = [], {}
+    """Everyone the user has met in the story, most recent first, with where their rules put them now; with the
+    dice shown, how they feel about the character too."""
+    result, cities, shown = [], {}, dice_shown(connection)
     for row in view['known'].values():
         if row['city_id'] not in cities:
             try:
@@ -308,6 +321,7 @@ def people(connection, view: dict) -> list[dict]:
         result.append({'key': row['key'], 'name': row['name'], 'role': sheet.get('occupation') or sheet['role'],
                        'city': data['name'], 'meetings': row['meetings'], 'last_met_at': row['last_met_at'],
                        'notes': row['notes'], 'doing': now['doing'],
+                       'feelings': feelings.shown(row) if shown else '',
                        'place': now['place'] and {'id': now['place']['id'], 'name': now['place']['name'],
                                                   'city_id': data['id']}})
     return result
@@ -451,6 +465,7 @@ async def answer(state, user: dict) -> dict:
         if hazard := quests.danger_action(user['city_id'], user['place_id'], getattr(state, 'dice', None)):
             actions = [*actions, hazard]
         with database.connect(write=True) as connection:
+            actions = feelings.adjust(connection, actions)
             rolls = turn.saved(connection, user['id']) or turn.store(connection, user['id'], actions, database.now(),
                                                                        getattr(state, 'dice', None))
     with database.connect() as connection:
@@ -468,14 +483,18 @@ async def answer(state, user: dict) -> dict:
         if status == 'complete' and not in_character.out_of_character(user['text']):
             story_people.note_exchange(connection, packet['people'], packet['city_id'], user['text'], text,
                                        database.now(), packet['day'])
+            feelings.from_rolls(connection, rolls)
         reply = add(connection, database.now(), 'narrator', text, user, reply_to=user['id'], status=status, error=error)
     if status == 'complete' and in_story:
         with database.connect() as connection:
-            ask = quests.ending_ask(connection)
+            there = [{'key': row['key'], 'name': row['name']} for row in feelings.met(connection)
+                     if row['key'] in {person['sheet']['key'] for person in packet['people']}]
+            ask = quests.ending_ask(connection) + feelings.feelings_ask(there)
         answered = await ledger.extract(state, user['text'], reply, ask)
         with database.connect(write=True) as connection:
             for item in quests.endings(answered):
                 quests.end(connection, item['id'], item['status'], item['outcome'])
+            feelings.from_answer(connection, answered, {person['key'] for person in there})
         with database.connect() as connection:
             rows = messages(connection)
         await ledger.fold(state, rows)
@@ -515,4 +534,6 @@ async def retry(state) -> dict:
         connection.execute('DELETE FROM ledger_entries WHERE message_id IN (SELECT id FROM story_messages WHERE '
                            'reply_to=?)', (user['id'],))
         connection.execute('DELETE FROM story_messages WHERE reply_to=?', (user['id'],))
+        # So are the meetings and feelings it moved; the kept rolls move them again.
+        timeline.restore_at(connection, user['id'], ('story_people',))
     return {'message': user, 'reply': await answer(state, user)}

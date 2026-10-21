@@ -23,14 +23,21 @@ def state(connection) -> str:
     return json.dumps({table: many(connection, f'SELECT * FROM {table}') for table in SAVED})
 
 
-def restore(connection, saved: str):
+def restore(connection, saved: str, tables: tuple[str, ...] = SAVED):
     rows = json.loads(saved)
-    for table in SAVED:
+    for table in tables:
         connection.execute(f'DELETE FROM {table}')
         for row in rows.get(table, []):
             columns = ', '.join(row)
             connection.execute(f"INSERT INTO {table} ({columns}) VALUES ({', '.join('?' * len(row))})",
                                tuple(row.values()))
+
+
+def restore_at(connection, message_id: str, tables: tuple[str, ...]):
+    """Some tables put back to how they were as one of the player's lines arrived."""
+    row = optional(connection, 'SELECT state FROM story_saves WHERE message_id=?', (message_id,))
+    if row:
+        restore(connection, row['state'], tables)
 
 
 def save(connection, message_id: str):

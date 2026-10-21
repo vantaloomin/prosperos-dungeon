@@ -339,7 +339,14 @@ CREATE TABLE IF NOT EXISTS story_people (
   last_met_at TEXT NOT NULL,
   last_day TEXT NOT NULL,
   meetings INTEGER NOT NULL DEFAULT 1,
-  notes TEXT NOT NULL DEFAULT '[]'
+  notes TEXT NOT NULL DEFAULT '[]',
+  -- Their feelings toward the player's character and their impressions of them (dungeon/feelings.py).
+  trust INTEGER NOT NULL DEFAULT 0,
+  affection INTEGER NOT NULL DEFAULT 0,
+  respect INTEGER NOT NULL DEFAULT 0,
+  fear INTEGER NOT NULL DEFAULT 0,
+  desire INTEGER NOT NULL DEFAULT 0,
+  impressions TEXT NOT NULL DEFAULT '[]'
 );
 
 -- Author's note (dungeon/authors_note.py): the user's note for the story, sent with every turn while it is on.

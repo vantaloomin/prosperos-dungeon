@@ -314,6 +314,8 @@ def _build(data: dict, place_id: str, index: int) -> dict:
         sheet['arrived'] = arrival(data, place['id'], slot, generation)
     if notable:
         sheet |= {'notable': notable['id'], 'about': notable['about'], 'occupation': notable['role']}
+        if notable.get('wants'):
+            sheet['wants'] = notable['wants']
         if notable.get('temperament') in TEMPERAMENTS:
             sheet['temperament'] = notable['temperament']
     parts = place.get('day_parts') or ['afternoon']

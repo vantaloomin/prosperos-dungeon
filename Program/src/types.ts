@@ -210,6 +210,8 @@ export interface Sheet { stats: Record<string, number>; stat_names: string[]; ra
 export interface StoryPerson {
   key: string; name: string; role: string; city: string; meetings: number; last_met_at: string; notes: string[]
   doing: string; place: { id: string; name: string; city_id: string } | null
+  /** How they feel about your character, while the dice are shown (dungeon/feelings.py). */
+  feelings: string
 }
 /** A character a town ships to play as (dungeon/campaign.py). */
 export interface Premade { id: string; name: string; gender: PersonaGender; age: number | null; about: string; stats: Record<string, number> }

@@ -23,7 +23,7 @@
       "known": false,
       "days": null,
       "hook": "Someone in Kingswood tells the wardens who signs on with the crews.",
-      "truth": "Sereth of the Ford passes the names of everyone who signs the Heartwood contract to the wardens, in herb bundles left at the border stones. Bram Tolley half suspects her and has no proof.",
+      "truth": "Sereth of the Ford passes the names of everyone who signs the Heartwood contract to the wardens, in herb bundles left at the border stones. Bram Tolley half suspects them and has no proof.",
       "missed": "",
       "places": [
         "crossroads-market",

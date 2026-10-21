@@ -144,3 +144,25 @@ the barista").
 Under "People you've met" each person shows how often the user has met them and what their rules have them doing
 now. "Go to …" moves the story to where they are (refused while they are at home, at work elsewhere or on their
 street). Starting a new story clears the people met too.
+
+### How they feel about you
+
+Each person met has five feelings toward the player's character (`dungeon/feelings.py`): trust, affection and
+respect from -5 to 5, fear and desire from 0 to 5. Code moves them:
+
+- A roll whose action names them moves them by its stat and how it landed. Allure that works raises affection and
+  trust and one that fails costs trust; Resolve that lands raises fear and respect; a fight raises fear and costs
+  affection. A critical result moves them twice as far.
+- With a Continuity model chosen, its question after each turn lists the people there by key, and it may answer
+  that the turn moved someone (each change -2 to 2), with a short reason kept as one of their impressions of the
+  character (the last four).
+- Each change is at most 2 a turn and stays in range. "Tell it again" puts them back as they were when the line
+  was sent; the kept rolls move them again.
+
+The narrator reads them in words ("Toward the player's character: is wary of them, is uneasy around them"), with
+the impressions. An Allure roll aimed at someone whose trust and affection add up to 4 or more is a step easier,
+and -4 or less a step harder. With the dice shown, "People you've met" shows the feelings too ("Trusts you a
+little, likes you").
+
+Named people (a city's notables) also bring their own business to every scene: who they are and what they are
+after right now (their `wants`, else their drawn goal), and the narrator is told they pursue it unprompted.
