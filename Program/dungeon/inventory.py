@@ -11,19 +11,32 @@ starting stock, and the kit each premade starts with.
   Vitality.
 - A shop is open while one of its staff is at work (the townsfolk rules). Its stock is finite: what the player
   buys is gone. It buys what it deals in at its sell rate (half the base price).
-- Buying and selling happen on the shop window; each trade is logged and adds a line to the story.
+- Buying and selling happen on the shop window or in the story ("I buy two loaves"); each trade is logged and
+  adds a line to the story.
+- Haggling is a roll: an Allure action aimed at a better price, in an open shop, moves the shop's prices for the
+  rest of the story day by how it landed (a critical a quarter off, a success 15%, a success at a cost 10% and the
+  keeper remembers, a critical failure 20% on). One haggle a shop a day.
 
 All of it is game state, branched with the story (dungeon/timeline.py SAVED).
 """
 import json
+import re
 from pathlib import Path
 
 from dungeon.database import identifier, many, optional
-from dungeon.errors import require
+from dungeon.errors import DomainError, require
 from dungeon.sheet import stats as sheet_stats
 
 ITEMS = Path(__file__).parent / 'world' / 'data' / 'items'
 BASE_SLOTS = 5
+HAGGLE = re.compile(r'\b(haggl\w*|barter\w*|bargain\w*|discount|cheaper|better (price|deal)|lower (the )?price|'
+                    r'knock\w* (it |that |something |a bit )?(down|off))', re.I)
+BUY = re.compile(r"\b(buy|buys|buying|purchase|pay for|i'?ll take|i'?ll have)\b", re.I)
+# How a haggle moves the shop's prices for the day, in percent, by how the Allure roll landed.
+HAGGLED = {'critical_success': -25, 'success': -15, 'success_cost': -10, 'failure_upside': -5, 'failure': 0,
+           'critical_failure': 20}
+NUMBERS = {'a': 1, 'an': 1, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8,
+           'nine': 9, 'ten': 10, 'a couple of': 2, 'a pair of': 2}
 
 
 def catalog(city_id: str) -> dict:
@@ -130,15 +143,88 @@ def offer(shop: dict, entry: dict) -> int | None:
     return max(1, cents(entry['price'] * shop['sell_rate']))
 
 
-def window(connection, city_id: str, shop: dict, open_now: bool, keeper: str) -> dict:
+# Haggling ---------------------------------------------------------------------------------------
+
+def haggled(connection, city_id: str, shop: dict, day: str) -> int:
+    """The shop's prices today, in percent off (negative) or on, after a haggle; 0 when there was none today."""
+    row = optional(connection, 'SELECT percent FROM story_haggles WHERE city_id=? AND place_id=? AND day=?',
+                   (city_id, shop['place'], day))
+    return row['percent'] if row else 0
+
+
+def haggle(connection, city_id: str, shop: dict, band: str, day: str) -> int | None:
+    """Settle a haggle by how the roll landed; None when the shop was already haggled with today."""
+    if optional(connection, 'SELECT 1 FROM story_haggles WHERE city_id=? AND place_id=? AND day=?',
+                (city_id, shop['place'], day)):
+        return None
+    connection.execute('INSERT INTO story_haggles (city_id, place_id, day, percent) VALUES (?, ?, ?, ?) '
+                       'ON CONFLICT(city_id, place_id) DO UPDATE SET day=excluded.day, percent=excluded.percent',
+                       (city_id, shop['place'], day, HAGGLED[band]))
+    return HAGGLED[band]
+
+
+def priced(entry: dict, percent: int) -> int:
+    """An item's price today in hundredths, rounding half a hundredth up."""
+    return max(1, (cents(entry['price']) * (100 + percent) + 50) // 100)
+
+
+def haggle_text(percent: int) -> str:
+    return f'{-percent}% off today' if percent < 0 else f'{percent}% dearer today' if percent else ''
+
+
+# Buying in the story -----------------------------------------------------------------------------
+
+def nouns(entry: dict) -> set[str]:
+    """What a player might call an item: its name before any comma, and that name's last word ("rope", "sword")."""
+    name = entry['name'].split(',')[0].strip().lower()
+    return {name, name.split(' ')[-1]}
+
+
+def wanted(text: str, stock_rows: list[dict]) -> list[tuple[str, int]]:
+    """The stock a player's line buys ("I buy two loaves and a candle"): (item id, quantity), or nothing."""
+    if not BUY.search(text):
+        return []
+    found = []
+    for row in stock_rows:
+        for noun in sorted(nouns(row), key=len, reverse=True):
+            match = re.search(rf"(?:\b(\d+|{'|'.join(NUMBERS)})\s+(?:\w+\s+){{0,2}})?\b{re.escape(noun)}(e?s)?\b",
+                              text, re.I)
+            if match:
+                count = match.group(1)
+                found.append((row['item_id'], int(count) if count and count.isdigit() else NUMBERS.get(
+                    (count or 'one').lower(), 1)))
+                break
+    return found
+
+
+def buy_in_story(connection, city_id: str, shop: dict, text: str, stock_rows: list[dict], day: str, now: str,
+                 currency: dict) -> list[str]:
+    """Buy what the player's line asks for, at today's price; a refusal is a line too, so the narrator plays it."""
+    lines = []
+    for item_id, qty in wanted(text, stock_rows):
+        try:
+            done = buy(connection, city_id, shop, item_id, qty, now, day)
+        except DomainError as refused:
+            lines.append(f"No sale of {item(city_id, item_id)['name']}: {refused.message}")
+            continue
+        what = done['name'] if done['qty'] == 1 else f"{done['qty']} × {done['name']}"
+        lines.append(f"The player's character buys {what} for {money_text(done['amount'], currency)}; "
+                     'it is in their pack and the money is paid.')
+    return lines
+
+
+# The shop window ---------------------------------------------------------------------------------
+
+def window(connection, city_id: str, shop: dict, open_now: bool, keeper: str, day: str = '') -> dict:
     found = stock(connection, city_id, shop)
+    percent = haggled(connection, city_id, shop, day)
     order = [entry['id'] for entry in catalog(city_id)['items']]
     items = [(item(city_id, item_id), found[item_id])
              for item_id in sorted(found, key=lambda key: order.index(key) if key in order else len(order))]
     pack = carried(connection, city_id)
-    return {'place_id': shop['place'], 'open': open_now, 'keeper': keeper,
+    return {'place_id': shop['place'], 'open': open_now, 'keeper': keeper, 'haggled': percent,
             'stock': [{'item_id': entry['id'], 'name': entry['name'], 'category': entry['category'],
-                       'price': cents(entry['price']), 'qty': qty, 'slots': entry['slots']}
+                       'price': priced(entry, percent), 'qty': qty, 'slots': entry['slots']}
                       for entry, qty in items if entry and qty > 0],
             'offers': {row['id']: price for row in pack if (price := offer(shop, row)) is not None}}
 
@@ -147,10 +233,11 @@ def shop_prompt(view: dict, currency: dict) -> str:
     if not view['open']:
         return '## The shop here\nIt is closed now; nobody is behind the counter.'
     lines = [f"- {row['name']}: {money_text(row['price'], currency)} ({row['qty']} left)" for row in view['stock']]
+    haggled = f"\nToday's prices after haggling: {haggle_text(view['haggled'])}." if view.get('haggled') else ''
     return ('## The shop here (stock and prices kept by the game; quote them exactly, invent nothing)\n'
-            f"{view['keeper'] or 'The shopkeeper'} sells:\n" + '\n'.join(lines) +
-            '\nSales happen at the counter (the shop window): the shopkeeper can name what is there and its price, '
-            'but nothing changes hands until the game says so.')
+            f"{view['keeper'] or 'The shopkeeper'} sells:\n" + '\n'.join(lines) + haggled +
+            '\nThe shopkeeper can name what is there and its price, but nothing changes hands until the game says '
+            'so.')
 
 
 def log(connection, now: str, kind: str, city_id: str, item_id: str, qty: int, amount: int):
@@ -158,12 +245,12 @@ def log(connection, now: str, kind: str, city_id: str, item_id: str, qty: int, a
                        'VALUES (?, ?, ?, ?, ?, ?, ?)', (identifier(), kind, city_id, item_id, qty, amount, now))
 
 
-def buy(connection, city_id: str, shop: dict, item_id: str, qty: int, now: str) -> dict:
+def buy(connection, city_id: str, shop: dict, item_id: str, qty: int, now: str, day: str = '') -> dict:
     entry = item(city_id, item_id)
     have = stock(connection, city_id, shop).get(item_id, 0)
     require(entry is not None and have > 0, 'The shop has none of that.', 404)
     require(qty <= have, f'The shop has only {have}.', 409)
-    cost = cents(entry['price']) * qty
+    cost = priced(entry, haggled(connection, city_id, shop, day)) * qty
     require(cost <= purse(connection), "You can't afford that.", 409)
     pack = carried(connection, city_id)
     require(used(pack) + entry['slots'] * qty <= capacity(connection), "You can't carry that much more.", 409)

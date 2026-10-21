@@ -158,3 +158,8 @@ export function intensityChoices(world: Exclude<IntensityPreset, 'world'>): [Int
   return [['world', `The world's own (${PRESET_NAMES[world].split(':')[0]})`],
     ...(Object.entries(PRESET_NAMES) as [IntensityPreset, string][])]
 }
+
+/** "15% off today" or "20% dearer today" after a haggle; '' without one. */
+export function haggleText(percent: number): string {
+  return percent < 0 ? `${-percent}% off today` : percent > 0 ? `${percent}% dearer today` : ''
+}

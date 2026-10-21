@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
 import type { Gear, Shop } from '../../types'
 import { Notice } from '../../components/Feedback'
-import { gearLine, moneyText, slotsText } from './storyText'
+import { gearLine, haggleText, moneyText, slotsText } from './storyText'
 
 const GEAR_KEY = ['story-gear']
 
@@ -40,7 +40,8 @@ export function StoryGear({ onTrade, open }: { onTrade: () => void; open?: boole
 function ShopWindow({ shop, currency, onBuy }: { shop: Shop; currency: Gear['currency']; onBuy: (itemId: string) => void }) {
   return (
     <details className="story-people" open>
-      <summary>The counter{shop.open ? '' : ' (closed)'}</summary>
+      <summary>The counter{shop.open ? (shop.haggled ? ` (${haggleText(shop.haggled)})` : '') : ' (closed)'}</summary>
+      {shop.open && <p className="subtle">Buy here, or in the story (&ldquo;I buy two loaves&rdquo;). Haggling is an Allure roll, once a day.</p>}
       {shop.open ? <ul aria-label="For sale">
         {shop.stock.map((row) => <li key={row.item_id}>
           <p>{row.name} <span className="subtle">{moneyText(row.price, currency)} · {row.qty} left</span></p>

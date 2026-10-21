@@ -112,11 +112,18 @@ its shops with their starting stock, and each premade's starting kit (plus a def
   its prices and how many are left. The shop is open while one of its staff is at work. Buying takes the item from
   finite stock; selling gets the shop's sell rate (half the base price) for what it deals in. Each trade is logged
   (`story_trades`) and adds a line to the story ("You buy Rope, fifty feet for 0.75 cr.").
-- **In the story** the narrator is given the stock and prices to quote exactly; nothing changes hands until the
-  window says so.
+- **In the story** the narrator is given the stock and prices to quote exactly. A line that buys something in an
+  open shop ("I buy two loaves of bread and a rope") buys it at today's price before the narrator writes, and the
+  narrator is told what changed hands, or why not (too dear, too heavy, sold out) under "At the counter".
+- **Haggling** is a roll: an Allure action aimed at a better price ("I haggle over the rope") in an open shop sets
+  the shop's prices for the rest of the story day by how it landed. A critical gets a quarter off, a success 15%,
+  a success at a cost 10% (and the keeper likes the character less), a failure with an upside 5%; a failure changes
+  nothing and a critical failure makes everything 20% dearer. One haggle a shop a day; asking again gets nowhere.
+  Cold feelings make it harder, like any persuasion. Haggles are kept in `story_haggles`, and what happened at the
+  counter on a line in `story_counter`, so "Tell it again" retells it the same.
 - Everything branches with the story and is cleared by a new story.
 
-Not in v0: haggling rolls, restocking, shopkeeper cash, stolen goods and fences, wear, loot, appearance state.
+Not in v0: an opposed roll against the keeper's Resolve, selling in the story, restocking, shopkeeper cash, stolen goods and fences, wear, loot, appearance state.
 
 ## Fights
 

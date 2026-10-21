@@ -340,6 +340,21 @@ CREATE TABLE IF NOT EXISTS story_fight (
   foes TEXT NOT NULL
 );
 
+-- A haggle at a shop holds for the rest of that story day (dungeon/inventory.py): percent off (negative) or on.
+CREATE TABLE IF NOT EXISTS story_haggles (
+  city_id TEXT NOT NULL,
+  place_id TEXT NOT NULL,
+  day TEXT NOT NULL,
+  percent INTEGER NOT NULL,
+  PRIMARY KEY (city_id, place_id)
+);
+
+-- What happened at the counter on a player's line (haggling, buying in the story), decided once and retold the same.
+CREATE TABLE IF NOT EXISTS story_counter (
+  message_id TEXT PRIMARY KEY REFERENCES story_messages(id) ON DELETE CASCADE,
+  lines TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS story_rounds (
   message_id TEXT PRIMARY KEY REFERENCES story_messages(id) ON DELETE CASCADE,
   lines TEXT NOT NULL

@@ -128,3 +128,52 @@ def test_a_made_character_gets_the_default_kit(client, connected):
     ok(client.post('/api/story/start', json={'persona': {'name': 'Wat Fenn'}, 'stats': stats}))
     gear = ok(client.get('/api/story/gear'))
     assert gear['coins'] == 500 and {item['item_id'] for item in gear['items']} == {'knife', 'bread', 'waterskin', 'cloak'}
+
+
+def test_a_line_names_what_it_buys():
+    rows = [inventory.item('kingswood', item_id) | {'item_id': item_id} for item_id in ('bread', 'rope', 'candles', 'knife')]
+    assert inventory.wanted('I buy two loaves of bread and a rope.', rows) == [('bread', 2), ('rope', 1)]
+    assert inventory.wanted("I'll take 3 tallow candles.", rows) == [('candles', 3)]
+    # Talking about an item isn't buying it.
+    assert inventory.wanted('How much is the rope?', rows) == []
+
+
+class Charming:
+    """Dice that land a plain success on every roll: a d100 of 80, every other die its lowest."""
+
+    def randint(self, low, high):
+        return 80 if high == 100 else low
+
+    def choice(self, items):
+        return items[0]
+
+
+def test_haggling_and_buying_in_the_story(client, connected, clock, provider, app):
+    begin_when(client, clock)
+    app.state.dice = Charming()
+    provider.replies = [[Chunk('Pell sighs and names a better figure.'), Chunk('', 'stop')]] * 3
+    tell(client, 'I haggle with the storekeeper over the price of rope.', 'story-0001')
+    narrator = provider.requests[-1]['system']
+    assert "## At the counter (decided by the game)\n- The haggle settles today's prices: 15% off today." in narrator
+    assert "Today's prices after haggling: 15% off today." in narrator
+    shop = ok(client.get('/api/story/gear'))['shop']
+    assert shop['haggled'] == -15 and next(row for row in shop['stock'] if row['item_id'] == 'rope')['price'] == 64
+
+    # Telling it again keeps the haggle, and a second haggle the same day gets nowhere.
+    ok(client.post('/api/story/retry'))
+    assert provider.requests[-1]['system'].count('## At the counter') == 1
+    tell(client, 'I buy two ropes, and I haggle for a better price again.', 'story-0002')
+    narrator = provider.requests[-1]['system']
+    assert 'will not move on price again' in narrator
+    assert "buys 2 × Rope, fifty feet for 1.28 cr.; it is in their pack" in narrator
+    gear = ok(client.get('/api/story/gear'))
+    assert gear['coins'] == 340 - 128 and any(row['item_id'] == 'rope' and row['qty'] == 2 for row in gear['items'])
+    assert ok(client.post('/api/story/shop/buy', json={'item_id': 'bread'}))['coins'] == 340 - 128 - 9
+
+
+def test_buying_more_than_the_purse_holds_in_the_story_is_refused(client, connected, clock, provider):
+    begin_when(client, clock)
+    provider.replies = [[Chunk('Pell shakes his head.'), Chunk('', 'stop')]]
+    tell(client, 'I buy two hooded lanterns.', 'story-0001')
+    assert "No sale of Hooded lantern: You can't afford that." in provider.requests[-1]['system']
+    assert ok(client.get('/api/story/gear'))['coins'] == 340
