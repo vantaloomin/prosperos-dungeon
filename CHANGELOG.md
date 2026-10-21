@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Haggle and buy in the story.** In an open shop, "I haggle over the rope" rolls Allure and moves the shop's
+  prices for the rest of the day: up to a quarter off, or dearer if it goes badly. "I buy two loaves of bread"
+  buys them at that price before the narrator writes the scene. The counter shows today's haggled prices.
 - **How far the story goes.** Each world sets its own intensity and narrator voice: Kingswood is unflinching and
   grim. "How far the story goes" beside the story turns violence, sex, horror, cruelty and drugs down to mature or
   restrained, or back to the world's own, at any time; the next line follows it.

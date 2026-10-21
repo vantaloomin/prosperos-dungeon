@@ -218,7 +218,8 @@ export interface StoryPerson {
 /** The character's purse and pack, and the shop window where the story is (dungeon/inventory.py). Money is in hundredths. */
 export interface GearItem { id: string; item_id: string; name: string; category: string; qty: number; slots: number }
 export interface ShopRow { item_id: string; name: string; category: string; price: number; qty: number; slots: number }
-export interface Shop { place_id: string; open: boolean; keeper: string; stock: ShopRow[]; offers: Record<string, number> }
+/** `haggled`: today's prices after a haggle, in percent off (negative) or on; 0 without one. */
+export interface Shop { place_id: string; open: boolean; keeper: string; haggled: number; stock: ShopRow[]; offers: Record<string, number> }
 export interface Gear {
   coins: number; currency: { code: string; symbol?: string; name?: string }; slots: { used: number; max: number }
   items: GearItem[]; shop: Shop | null

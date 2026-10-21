@@ -38,6 +38,7 @@ top of it, milestone by milestone, as set out in [the roadmap](../../docs/roadma
 | `character_stats`, `story_rolls` | MARVEL stats, and the rolls of each turn |
 | `ledger_entries`, `ledger_corrections`, `story_summary` | The canon ledger, the player's corrections to it, and the story so far |
 | `story_inventory`, `story_purse`, `story_stock`, `story_trades` | What the character carries, their money, the shops' stock and the trade log (`dungeon/inventory.py`) |
+| `story_haggles`, `story_counter` | Each shop's haggled prices for the story day, and what happened at the counter on each line (`dungeon/inventory.py`) |
 | `story_wounds`, `story_fight`, `story_rounds` | The character's wound level, the fight under way, and each line's decided round (`dungeon/combat.py`) |
 | `story_clock`, `story_quests` | The story's own time, and its quests with their deadlines (`dungeon/quests.py`) |
 | `authors_notes` | The user's note that rides along with every narrator turn |

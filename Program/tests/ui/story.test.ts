@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { aroundText, branchLine, fightText, intensityChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats } from '../../src/features/story/storyText.ts'
+import { aroundText, branchLine, fightText, haggleText, intensityChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -101,4 +101,10 @@ test('intensityChoices offers the world\'s own preset first, by name', () => {
   const choices = intensityChoices('unflinching')
   assert.deepEqual(choices[0], ['world', "The world's own (Unflinching)"])
   assert.deepEqual(choices.map(([value]) => value), ['world', 'restrained', 'mature', 'unflinching'])
+})
+
+test('haggleText says how a haggle moved today\'s prices', () => {
+  assert.equal(haggleText(-15), '15% off today')
+  assert.equal(haggleText(20), '20% dearer today')
+  assert.equal(haggleText(0), '')
 })

@@ -27,7 +27,7 @@ from dungeon import (
 )
 from dungeon.authors_note import NOTE_CLOSE
 from dungeon.clock import zone
-from dungeon.database import identifier, many, one, optional, settings
+from dungeon.database import decode, encode, identifier, many, one, optional, settings
 from dungeon.errors import DomainError, require
 from dungeon.life import ages
 from dungeon.narration import prompt as narration_prompt
@@ -266,7 +266,12 @@ def shop_view(connection, view: dict) -> dict | None:
     staff = [person['sheet'] for person in view['people'] if person['sheet'].get('staff')
              and person['sheet']['place']['id'] == view['place']['id']]
     keeper = f"the {staff[0].get('occupation') or staff[0]['role']}" if staff else ''
-    return inventory.window(connection, view['city']['id'], shop, bool(staff), keeper)
+    return inventory.window(connection, view['city']['id'], shop, bool(staff), keeper, story_day(view)) | {
+        'keeper_key': staff[0]['key'] if staff else ''}
+
+
+def story_day(view: dict) -> str:
+    return view['local_time'][:10]
 
 
 def gear(database) -> dict:
@@ -290,7 +295,8 @@ def trade(database, kind: str, key: str, qty: int) -> dict:
         shop = inventory.shop_at(city, view['place']['id'])
         require(shop is not None, 'There is no shop here.', 404)
         require(shop_view(connection, view)['open'], 'The shop is closed; nobody is behind the counter.', 409)
-        done = (inventory.buy if kind == 'buy' else inventory.sell)(connection, city, shop, key, qty, database.now())
+        done = (inventory.buy(connection, city, shop, key, qty, database.now(), story_day(view)) if kind == 'buy'
+                else inventory.sell(connection, city, shop, key, qty, database.now()))
         what = done['name'] if done['qty'] == 1 else f"{done['qty']} × {done['name']}"
         verb = 'buy' if kind == 'buy' else 'sell'
         price = inventory.money_text(done['amount'], view['data']['currency'])
@@ -438,6 +444,7 @@ def clear(database) -> dict:
         connection.execute('DELETE FROM story_people')
         for table in ('ledger_entries', 'ledger_corrections', 'story_summary', 'story_clock', 'story_quests',
                       'story_inventory', 'story_purse', 'story_stock', 'story_trades', 'story_wounds', 'story_fight',
+                      'story_haggles', 'story_counter',
                       'story_rounds'):
             connection.execute(f'DELETE FROM {table}')
         timeline.clear(connection)
@@ -472,7 +479,7 @@ def steered(chat: list[dict], steer: str) -> list[dict]:
 
 
 def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list[dict] | None = None,
-           fought: list[str] | None = None) -> dict:
+           fought: list[str] | None = None, traded: list[str] | None = None) -> dict:
     view = scene(connection, now)
     craft = narration_prompt.craft_for(config.get('context_tokens'), prompt_library.text(connection, 'narrator-craft'))
     who_text, name = persona_text(connection)
@@ -488,8 +495,9 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
                                      persona=who_text, persona_name=name, memory=memory, narration=NARRATION,
                                      intensity=narration_prompt.Intensity.preset(level['preset'], level['voice']),
                                      outcomes=outcomes, rolls_shown=dice_shown(connection))
-    if fight_text := combat.prompt_text(fought or [], connection):
-        system += '\n\n' + fight_text
+    for extra in (combat.prompt_text(fought or [], connection), counter_text(traded or [])):
+        if extra:
+            system += '\n\n' + extra
     if in_character.out_of_character(latest['text']):
         system += '\n\n' + in_character.OUT_OF_CHARACTER_NOTE.format(name='the narrator', model=default_name(config))
     budget = (config['context_tokens'] - config['max_output_tokens']) * CHARS_PER_TOKEN - len(system)
@@ -522,6 +530,42 @@ async def complete(state, config: dict, system: str, messages: list[dict]) -> st
             config, key_for(state.vault, config), system, messages)])
 
 
+def counter_turn(state, user: dict, rolls: list[dict]) -> list[str]:
+    """The shop's part of the turn (dungeon/inventory.py), decided once: a haggle settled by the player's Allure roll,
+    then anything the line buys, at today's price."""
+    database = state.database
+    with database.connect(write=True) as connection:
+        if (kept := optional(connection, 'SELECT lines FROM story_counter WHERE message_id=?', (user['id'],))):
+            return decode(kept['lines'])
+        view = scene(connection, story_clock.now(connection, database.clock))
+        found = shop_view(connection, view)
+        if not found or not found['open']:
+            return []
+        city, shop, day = view['city']['id'], inventory.shop_at(view['city']['id'], view['place']['id']), story_day(view)
+        lines = haggle_lines(connection, city, shop, day, rolls, found['keeper_key'])
+        stock_rows = inventory.window(connection, city, shop, True, '', day)['stock']
+        lines += inventory.buy_in_story(connection, city, shop, user['text'], stock_rows, day, database.now(),
+                                        view['data']['currency'])
+        connection.execute('INSERT INTO story_counter (message_id, lines) VALUES (?, ?)', (user['id'], encode(lines)))
+        return lines
+
+
+def haggle_lines(connection, city: str, shop: dict, day: str, rolls: list[dict], keeper_key: str) -> list[str]:
+    roll = next((roll for roll in rolls if roll['stat'] == 'Allure' and inventory.HAGGLE.search(roll['action'])), None)
+    if roll is None:
+        return []
+    percent = inventory.haggle(connection, city, shop, roll['band'], day)
+    if percent is None:
+        return ['The shopkeeper has already haggled with the character today and will not move on price again.']
+    if roll['band'] == 'success_cost' and keeper_key:
+        feelings.change(connection, keeper_key, {'affection': -1}, 'Beat me down on price.')
+    return [f"The haggle settles today's prices: {inventory.haggle_text(percent) or 'no change'}."]
+
+
+def counter_text(lines: list[str]) -> str:
+    return '## At the counter (decided by the game)\n' + '\n'.join(f'- {line}' for line in lines) if lines else ''
+
+
 def fight_round(state, user: dict, rolls: list[dict]) -> list[str]:
     """The fight's part of the turn (dungeon/combat.py): a fight the player starts or a danger brings, one round."""
     database = state.database
@@ -552,9 +596,10 @@ async def answer(state, user: dict) -> dict:
             rolls = turn.saved(connection, user['id']) or turn.store(connection, user['id'], actions, database.now(),
                                                                        getattr(state, 'dice', None))
     fought = fight_round(state, user, rolls) if in_story else []
+    traded = counter_turn(state, user, rolls) if in_story else []
     with database.connect() as connection:
         packet = prompt(connection, story_clock.now(connection, database.clock), config, user,
-                        turn.outcomes(rolls) if in_story else None, fought)
+                        turn.outcomes(rolls) if in_story else None, fought, traded)
     try:
         text, error = await narrate(state, packet, config, in_story)
     except DomainError as failure:
