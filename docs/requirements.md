@@ -489,6 +489,25 @@ stored in the ledger as hidden truth.
   included, with no guaranteed warning. The player may find out late, or only by going back to an
   earlier branch.
 
+## Play screen and widgets
+
+Decided 2026-10-21. Builds on the widget layout under "Decided".
+
+- **The first playable version ships the systems widgets.** Story text (with lore and character
+  links), character sheet, inventory, journal, shop window, combat zones, clock and location,
+  and the chapter list. Visual widgets (VN portraits, background art, the map with fog of war)
+  come in the next release, followed by the branch tree, dice log, party and relationships panel,
+  and the grid map.
+- **Three presets, plus per-world defaults.** Classic RPG (sheet, map, story), Visual novel (big
+  art, portraits, text box) and Reader (wide story text, minimal panels). Each world can also
+  ship its own default layout (Havenbrooke's class schedule up front, for example).
+- **Phones get the story plus tabs.** On a phone the story fills the screen, and other widgets
+  sit in a tab bar or slide-up drawers.
+- **Free grid, saved layouts and themes.** Players can drag, resize and hide any widget on a
+  snapping grid, save named layouts, and pick one per world or campaign. Fonts, colors and
+  per-world themes are customizable too, so a grimdark world and a 2009 campus can look
+  different.
+
 ## World packages
 
 The three bases arrive in three shapes: Mabry (canon / hidden / continuity markdown plus dice
@@ -549,4 +568,3 @@ Decided 2026-10-21:
 
 - Exact licenses for Fate, Blades in the Dark and Dungeon World before they are added.
 
-- Which widgets and layout presets ship first.
