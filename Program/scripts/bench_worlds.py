@@ -1,4 +1,4 @@
-"""How the app's own work grows with the number of worlds, and what automatic backups cost (docs/scale.md).
+"""How the app's own work grows with the number of worlds, and what automatic backups cost.
 
 Run from Program/:  python scripts/bench_worlds.py [--max 50] [--heavy 25] [--speed 0.25] [--out results.json]
 

@@ -1,4 +1,4 @@
-"""Stand-in model and ComfyUI servers for the end-to-end acceptance pass (docs/acceptance-status.md).
+"""Stand-in model and ComfyUI servers for the end-to-end acceptance pass.
 
 Nothing is downloaded. The model server speaks the OpenAI-compatible chat and embeddings API and
 logs every request body to a JSON-lines file, so a run can inspect exactly what reached the model.

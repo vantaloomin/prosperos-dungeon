@@ -1,4 +1,4 @@
-"""Serve the Dungeon with a clock the acceptance driver can move forward (docs/acceptance-status.md).
+"""Serve the Dungeon with a clock the acceptance driver can move forward.
 
 The host clock is never changed. `POST /acceptance/clock` with `{"hours": 20}` moves the app's
 clock forward (negative hours move it back, to test clock rollback); `GET` reports it.

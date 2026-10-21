@@ -2,10 +2,8 @@
 
 [Back to the README](../../README.md)
 
-This describes what the current backend implements against the
-[product requirements](product-requirements.md). It covers the "Core companion preview" data
-model and the life simulation; the endpoints the interface uses for it are in the
-[life simulation API](life-api.md).
+This describes what the current backend implements: the "Core companion preview" data model and the life
+simulation. The endpoints the interface uses for it are in the [life simulation API](life-api.md).
 
 ## Sources of truth (M1)
 

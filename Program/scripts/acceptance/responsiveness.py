@@ -1,4 +1,4 @@
-"""Responsiveness acceptance run (docs/product-requirements.md, "Acceptance and measurement").
+"""Responsiveness acceptance run.
 
 Seeds a workspace with a long relationship (10,000 messages, 1,000+ committed life events and
 1,000 feed posts) and times the UI and the endpoints it uses. Model first-token and image times

@@ -1,4 +1,4 @@
-"""Cross-feature acceptance journeys against a running app (docs/acceptance-status.md).
+"""Cross-feature acceptance journeys against a running app.
 
 Start the stand-ins and the app on a fresh workspace first:
 

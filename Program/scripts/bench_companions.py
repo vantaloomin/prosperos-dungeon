@@ -1,4 +1,4 @@
-"""How the app's own work grows as companions are added by switching to townsfolk (docs/scale.md).
+"""How the app's own work grows as companions are added by switching to townsfolk.
 
 Run from Program/:  python scripts/bench_companions.py [--max 100] [--speed 0.5] [--out results.json]
 
