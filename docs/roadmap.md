@@ -55,6 +55,14 @@ Milestone 5.
    later.
 10. **Screen:** a fixed layout with story text, character sheet, inventory, journal, shop window,
     and clock with location. The free grid comes in Milestone 6.
+11. **Turn speed budget** (added 2026-10-21 from the competitive research): each turn has a time
+    budget, and how long each step took is logged. The narration streams, fact
+    extraction runs after the text is on screen, and the contradiction check runs only when the
+    narration names a ledger entity that is dead, spent or elsewhere. Obvious actions go through
+    the keyword Referee with no model call. See "Turn speed" in the requirements.
+12. **Decide before describing** (added 2026-10-21): when the player looks into something unseen
+    (a chest, a room, a pocket, a stranger's purse), code rolls and stores what is there in the
+    ledger before the narrator mentions it. The narrator describes only what is stored.
 
 **Not in the slice:** other rulesets, travel map, factions and clocks, off-page beats, Life Cards
 events, art, tiers, chapters and the branch tree, world packages, DB editor, themes.
@@ -78,6 +86,10 @@ hurt or die, and go back to an earlier turn and try again with new dice.
 
 ## Milestone 3: Memory and campaigns
 
+- **Schema-first fact extraction** (added 2026-10-21 from the competitive research): the extractor
+  fills a JSON Schema for ledger entries, constrained by grammar or structured output where the
+  backend supports it, and falls back to one field at a time on weak local models. The GM view
+  can regenerate or clear a single extracted fact. See "Fact extraction" in the requirements.
 - Full layered recall, model fact extraction checked by code, rewrite-on-contradiction (with skip
   toggle), forgetting with grudges.
 - Chapters at scene breaks, the chapter list, the branch tree, bookmarks, Ironman mode, the
