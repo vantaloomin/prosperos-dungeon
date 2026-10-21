@@ -17,7 +17,7 @@ say_ok() { printf '\033[32m%s\033[0m\n' "$*"; }
 say_warn() { printf '\033[33m%s\033[0m\n' "$*"; }
 say_error() { printf '\033[31m%s\033[0m\n' "$*" >&2; }
 
-companion_health() {
+dungeon_health() {
     # The health answer on the port, "other" when something else answers, or nothing when nothing does.
     # --noproxy keeps a system proxy out of a loopback check.
     local body
@@ -37,7 +37,7 @@ dungeon_state() {
     # Sets STATE to running (this app answers), foreign (another program holds the port) or stopped,
     # with STATE_PID and STATE_VERSION when known.
     local health
-    health="$(companion_health "$1")"
+    health="$(dungeon_health "$1")"
     STATE_PID="$(port_owner "$1")"
     STATE_VERSION=''
     if [ -n "$health" ] && [ "$health" != 'other' ]; then

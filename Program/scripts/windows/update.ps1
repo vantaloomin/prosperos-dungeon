@@ -41,7 +41,7 @@ function Update-WithGit {
 }
 
 function Update-FromZip {
-    $work = Join-Path ([IO.Path]::GetTempPath()) ("companion-update-" + [guid]::NewGuid().ToString('N'))
+    $work = Join-Path ([IO.Path]::GetTempPath()) ("dungeon-update-" + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $work | Out-Null
     try {
         $zip = Join-Path $work 'main.zip'
@@ -113,7 +113,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'The reinstall failed; see above.' }
 } catch {
     Write-Host "Update failed: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host 'Your companion''s data was not touched.'
+    Write-Host 'Your Dungeon data was not touched.'
     $result = 1
 }
 if (-not $NoPause) { Read-Host 'Press Enter to close' | Out-Null }

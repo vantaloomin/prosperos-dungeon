@@ -49,7 +49,7 @@ if (-not $StudyRunning) {
   $study = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 8765)
   $study.Start()
 }
-$log = Join-Path ([System.IO.Path]::GetTempPath()) 'companion-smoke.log'
+$log = Join-Path ([System.IO.Path]::GetTempPath()) 'dungeon-smoke.log'
 $app = Start-Process -FilePath $env:ComSpec -ArgumentList '/d', '/c', "`"`"$launcher`" --no-browser > `"$log`" 2>&1`"" -PassThru -WindowStyle Hidden
 try {
   $health = $null
