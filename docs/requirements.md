@@ -19,9 +19,17 @@ decisions; the language model narrates them.
 ## Decided
 
 - **Start from a clean copy of Companion's code** (no git history carried over), then grow from there.
-- **Dice:** d100 plus a stat-based bonus, with a difficulty shift, landing in six bands:
+- **Rule systems are selectable** (Vanta, 2026-10-21): the player can pick from several built-in
+  TTRPG rulesets, including MARVEL and open-licensed systems. See "Rulesets" below.
+  - Each world names a default ruleset. The player can change it when starting a campaign; after
+    that it is locked, so sheets never need converting.
+  - Each ruleset ships with its full open content from the start (classes, spells, monsters, items,
+    oracles), not resolution only.
+  - First three: **MARVEL**, **D&D 5e via SRD 5.2** (2024 rules), **Ironsworn/Starforged**.
+    Basic Roleplaying is next.
+- **MARVEL dice (the house ruleset):** d100 plus a stat-based bonus, with a difficulty shift, landing in six bands:
   Critical failure, Fail, Fail with an upside, Success at a cost, Success, Critical success.
-- **Stats (MARVEL):** Mind, Allure, Resolve, Vitality, Essence, Luck.
+- **MARVEL stats:** Mind, Allure, Resolve, Vitality, Essence, Luck.
 - **Roll visibility:** a toggle between hidden (felt only through the story) and exposed.
 - **Worlds:** Dungeon's own versions built from Vanta's bases: **Vallarith** (grimdark D&D-style),
   **Havenbrooke** (modern fantasy, supernatural university, 2009), and Mabry Curve's **BABEL** tower.
@@ -47,6 +55,46 @@ decisions; the language model narrates them.
 - **NPCs and party:** always autonomous. They can be influenced like real people, never commanded.
 - **Death:** always possible. Recovery is Study's infinite branching: go back to any earlier point
   and take another path; the dead branch is kept.
+
+## Rulesets
+
+Code still decides and the model still narrates, whatever ruleset is active. A ruleset is a
+pluggable module that supplies:
+
+- **Character sheet:** attributes, skills, derived values, character creation steps.
+- **Resolution:** how a check is rolled (d100 roll-under, d20 + modifier vs DC, 2d6 moves, action
+  die vs challenge dice) and its result.
+- **Outcome mapping:** every result is translated onto one shared outcome ladder (Critical failure
+  through Critical success), so the narrator, Life Cards, continuity and the UI work the same way
+  under any ruleset.
+- **Referee questions:** what the Referee and Jev must decide per action (MARVEL: stat + difficulty;
+  5e: ability, skill and DC; Ironsworn: which move; PbtA: which move and stat).
+- **Progression:** which tracks it uses (levels and XP, ranks, milestones, momentum).
+- **Content packs (data, not code):** classes, spells, monsters, items, oracles, where the license
+  allows. Shipped in full with the ruleset.
+- **Attribution:** each pack carries its license notice, shown in the app (SRD 5.2 needs one
+  attribution sentence; WotC trademarks such as "Dungeons & Dragons" are not used).
+
+### Candidate systems and licenses
+
+Dungeon is public, AGPL software, so a ruleset ships only if its license covers software. Licenses
+marked "unverified" were checked from memory or secondary coverage, not the license text.
+
+| System | License | Fit | Notes |
+| --- | --- | --- | --- |
+| **MARVEL d100** | Vanta's own | House default | Mabry Curve's system. |
+| **D&D 5e: SRD 5.2** (2024 rules) | CC-BY-4.0, irrevocable (Apr 2025) | Strong | One attribution sentence. Excludes D&D Beyond Basic Rules and WotC trademarks. |
+| **D&D 5e: SRD 5.1** (2014 rules) | CC-BY-4.0 | Strong | Pick 5.1 or 5.2, or both. |
+| **Basic Roleplaying (Chaosium)** | ORC (2023 Universal Game Engine) | Strong | d100 percentile skills, close kin to MARVEL. |
+| **Pathfinder 2e Remaster** | ORC (Archives of Nethys is the official SRD) | Medium | Very crunchy; big lift to do well. |
+| **Ironsworn / Starforged** | CC-BY-4.0 for SRD, moves, assets, oracles | Strong | Built for solo play with oracles; fits an AI GM. |
+| **Fate Core** | CC-BY-3.0 (unverified) | Medium | Narrative; aspects map well to LLM play. |
+| **Blades in the Dark / Forged in the Dark** | CC-BY-3.0 (unverified) | Medium | Position and effect, clocks. |
+| **PbtA** | Per game, not one license | Varies | Apocalypse World isn't open; Dungeon World is CC-BY-3.0 (unverified). |
+| **Cairn** | CC-BY-SA-4.0 (unverified) | Medium | Share-alike applies to derived text. |
+| **Year Zero Engine** | Free League Free Tabletop License | Risky | Written for tabletop games; software use unclear. |
+| **Cypher System** | Cypher System Open License | Risky | Written for tabletop games; software use unclear. |
+| **The Black Hack** | OGL 1.0a (unverified) | Low | OGL obligations; low priority. |
 
 ## World packages (proposed)
 
@@ -84,6 +132,8 @@ Dungeon would normalize them into one package per world:
 - Note: turn text sent to hosted services is subject to their content policies.
 
 ## Open questions
+
+- Exact licenses for Fate, Blades in the Dark and Dungeon World before they are added.
 
 - Off-page characters and their cadence (Mabry uses rolled beats every third turn).
 - Which proposed progression tracks to keep.
