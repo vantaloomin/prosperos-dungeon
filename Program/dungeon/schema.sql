@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS workspace_settings (
   auto_backups TEXT NOT NULL DEFAULT 'daily' CHECK (auto_backups IN ('off', 'daily', 'weekly')),
   -- How far the story goes on the page (dungeon/story.py intensity): the world's own preset, or one the player chose.
   intensity TEXT NOT NULL DEFAULT 'world' CHECK (intensity IN ('world', 'restrained', 'mature', 'unflinching')),
+  -- Seconds a story turn may take before its optional steps give way (dungeon/pace.py); 0 is automatic.
+  turn_budget INTEGER NOT NULL DEFAULT 0 CHECK (turn_budget IN (0, 15, 30, 60, 90, 120, 180)),
   -- The first-run notice: the story is AI written, and the user is 18 or older.
   ai_notice_at TEXT,
   updated_at TEXT NOT NULL
@@ -353,6 +355,12 @@ CREATE TABLE IF NOT EXISTS story_haggles (
 CREATE TABLE IF NOT EXISTS story_counter (
   message_id TEXT PRIMARY KEY REFERENCES story_messages(id) ON DELETE CASCADE,
   lines TEXT NOT NULL
+);
+
+-- How long each step of a turn took and what was skipped for time (dungeon/pace.py), kept with the player's line.
+CREATE TABLE IF NOT EXISTS story_turn_steps (
+  message_id TEXT PRIMARY KEY REFERENCES story_messages(id) ON DELETE CASCADE,
+  steps TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS story_rounds (

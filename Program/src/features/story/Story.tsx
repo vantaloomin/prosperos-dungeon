@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { MapPin, RotateCcw, Send, Undo2 } from 'lucide-react'
-import { api, newId } from '../../api'
+import { api, newId, streamApi } from '../../api'
 import type { View } from '../../workspace'
 import type { CitySummary, Story as StoryData, StoryBack, StoryMessage, StoryScene } from '../../types'
 import { Loading, Notice } from '../../components/Feedback'
@@ -9,7 +9,7 @@ import { ErrorNotice } from '../../components/ErrorNotice'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { InfoTip } from '../../components/InfoTip'
 import { AiFooter, CrisisNote } from '../../components/Safety'
-import { aroundText, fightText, placeGroups, rollText, sceneTime, spotsText, whereText } from './storyText'
+import { aroundText, fightText, paceText, placeGroups, rollText, sceneTime, spotsText, whereText } from './storyText'
 import { StoryPeople } from './StoryPeople'
 import { CityOptions } from '../world/CityOptions'
 import { AuthorsNote } from './AuthorsNote'
@@ -30,6 +30,8 @@ export function Story({ go }: { go: (view: View) => void }) {
   const story = useQuery({ queryKey: STORY_KEY, queryFn: () => api<StoryData>('/story') })
   const client = useQueryClient()
   const [pending, setPending] = useState<string | null>(null)
+  // The narration so far while it streams in (dungeon/pace.py).
+  const [streamed, setStreamed] = useState('')
   const [error, setError] = useState('')
   const [draft, setDraft] = useState({ text: '', at: 0 })
   if (story.isPending) return <Loading label="Opening your story" />
@@ -37,11 +39,13 @@ export function Story({ go }: { go: (view: View) => void }) {
   const update = (data: StoryData) => client.setQueryData(STORY_KEY, data)
   const run = async (text: string | null, request: () => Promise<unknown>) => {
     setPending(text)
+    setStreamed('')
     setError('')
     try { await request() } catch (failure) { setError(failure instanceof Error ? failure.message : 'That did not work. Try again.') }
     finally { setPending(null); await Promise.all([client.invalidateQueries({ queryKey: STORY_KEY }), client.invalidateQueries({ queryKey: ['story-journal'] }), client.invalidateQueries({ queryKey: ['story-gear'] })]) }
   }
-  const send = (text: string) => run(text, () => api('/story/messages', { text, client_id: newId() }))
+  const grow = (piece: string) => setStreamed((before) => before + piece)
+  const send = (text: string) => run(text, () => streamApi('/story/messages/stream', { text, client_id: newId() }, grow))
   const change = (request: () => Promise<StoryData>) => run(null, () => request().then(update))
   return (
     <section className="story" aria-labelledby="story-heading">
@@ -49,7 +53,7 @@ export function Story({ go }: { go: (view: View) => void }) {
         <StoryHeader story={story.data} change={change} />
         {!story.data.ready && <NoModel go={go} />}
         {!story.data.messages.length && pending === null ? <StoryStart onStarted={update} /> : <>
-          <StoryLog messages={story.data.messages} pending={pending} onRetry={() => void run(null, () => api('/story/retry', {}))}
+          <StoryLog messages={story.data.messages} pending={pending} streamed={streamed} onRetry={() => void run('', () => streamApi('/story/retry/stream', {}, grow))}
             onBack={(id) => void run(null, () => api<StoryBack>('/story/back', { message_id: id }).then((data) => { update(data); setDraft({ text: data.draft, at: Date.now() }) }))} />
           {error && <div className="story-notice"><Notice tone="error">{error}</Notice></div>}
           <StoryComposer key={draft.at} busy={pending !== null} draft={draft.text} onSend={(text) => void send(text)} />
@@ -139,16 +143,19 @@ function GoElsewhere({ scene, onDone, onMove }: GoProps) {
   )
 }
 
-interface LogProps { messages: StoryMessage[]; pending: string | null; onRetry: () => void; onBack: (id: string) => void }
+interface LogProps { messages: StoryMessage[]; pending: string | null; streamed: string; onRetry: () => void; onBack: (id: string) => void }
 
-function StoryLog({ messages, pending, onRetry, onBack }: LogProps) {
+function StoryLog({ messages, pending, streamed, onRetry, onBack }: LogProps) {
   const end = useRef<HTMLDivElement>(null)
-  useEffect(() => { end.current?.scrollIntoView?.({ block: 'end' }) }, [messages.length, pending])
+  useEffect(() => { end.current?.scrollIntoView?.({ block: 'end' }) }, [messages.length, pending, streamed])
   const last = messages[messages.length - 1]
   return (
     <div className="story-log" aria-live="polite">
       {messages.map((message) => <StoryLine key={message.id} message={message} onBack={pending ? undefined : onBack} />)}
-      {pending && <><p className="story-user">{pending}</p><p className="subtle">The narrator is writing…</p></>}
+      {pending && <p className="story-user">{pending}</p>}
+      {pending !== null && (streamed
+        ? <div className="story-narration">{streamed.split(/\n{2,}/).map((part, index) => <p key={index}>{part}</p>)}</div>
+        : <p className="subtle">The narrator is writing…</p>)}
       {last?.status === 'failed' && !pending && <button type="button" className="text-button" onClick={onRetry}><RotateCcw aria-hidden="true" />Try again</button>}
       <div ref={end} />
     </div>
@@ -162,6 +169,7 @@ function StoryLine({ message, onBack }: { message: StoryMessage; onBack?: (id: s
     <p className="story-user">{message.text}</p>
     <div className="story-turn">
       {!!message.rolls?.length && <ul className="story-rolls" aria-label="Rolls">{message.rolls.map((roll, index) => <li key={index} title={roll.action}>{rollText(roll)}</li>)}</ul>}
+      {message.pace && <p className="story-rolls">{paceText(message.pace)}</p>}
       {onBack && <button type="button" className="text-button story-back" onClick={() => onBack(message.id)}
         title="Go back to before this line and send it again, with new dice. The story from here is kept as a branch."><Undo2 aria-hidden="true" />Go back here</button>}
     </div>

@@ -1,4 +1,4 @@
-import type { Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset } from '../../types'
+import type { Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, TurnPace } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -162,4 +162,14 @@ export function intensityChoices(world: Exclude<IntensityPreset, 'world'>): [Int
 /** "15% off today" or "20% dearer today" after a haggle; '' without one. */
 export function haggleText(percent: number): string {
   return percent < 0 ? `${-percent}% off today` : percent > 0 ? `${percent}% dearer today` : ''
+}
+
+const STEP_NAMES: Record<string, string> = { contradiction: 'the contradiction check', rewrite: 'the prose rewrite' }
+
+/** "Took 12.4 s of 30 · narrator 9.8 s · skipped the prose rewrite for time", under a line with the dice shown. */
+export function paceText(pace: TurnPace): string {
+  const slowest = Object.entries(pace.steps).sort((a, b) => b[1] - a[1])[0]
+  const skipped = pace.skipped.map((step) => STEP_NAMES[step] ?? step)
+  return [`Took ${pace.total.toFixed(1)} s of ${pace.budget}`, slowest ? `${slowest[0]} ${slowest[1].toFixed(1)} s` : '',
+    skipped.length ? `skipped ${skipped.join(' and ')} for time` : ''].filter(Boolean).join(' · ')
 }

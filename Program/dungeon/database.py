@@ -123,7 +123,9 @@ ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"
                    for axis in ('trust', 'affection', 'respect', 'fear', 'desire')),
                  ('story_people', 'impressions', "TEXT NOT NULL DEFAULT '[]'"),
                  ('workspace_settings', 'intensity', "TEXT NOT NULL DEFAULT 'world' CHECK (intensity IN "
-                                                     "('world', 'restrained', 'mature', 'unflinching'))"))
+                                                     "('world', 'restrained', 'mature', 'unflinching'))"),
+                 ('workspace_settings', 'turn_budget', 'INTEGER NOT NULL DEFAULT 0 CHECK (turn_budget IN '
+                                                       '(0, 15, 30, 60, 90, 120, 180))'))
 
 
 def add_columns(connection):

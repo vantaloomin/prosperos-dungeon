@@ -1,8 +1,13 @@
 """The story API (dungeon/story.py, docs/story.md)."""
-from fastapi import APIRouter, Request
+import asyncio
+import json
+
+from fastapi import APIRouter, BackgroundTasks, Request
+from fastapi.responses import StreamingResponse
 from pydantic import Field
 
 from dungeon import campaign, ledger, quests, sheet, story, story_clock
+from dungeon.errors import DomainError
 from dungeon.models import Input, PersonaInput
 
 router = APIRouter(prefix='/api/story')
@@ -38,13 +43,55 @@ def find(request: Request, body: StoryPerson):
 
 
 @router.post('/messages')
-async def send(request: Request, body: StoryMessage):
-    return await story.send(request.app.state, body.text, body.client_id)
+async def send(request: Request, body: StoryMessage, background: BackgroundTasks):
+    result = await story.send(request.app.state, body.text, body.client_id)
+    background.add_task(story.settled, request.app.state)
+    return result
 
 
 @router.post('/retry')
-async def retry(request: Request):
-    return await story.retry(request.app.state)
+async def retry(request: Request, background: BackgroundTasks):
+    result = await story.retry(request.app.state)
+    background.add_task(story.settled, request.app.state)
+    return result
+
+
+def streamed(state, start) -> StreamingResponse:
+    """A turn as newline-delimited JSON: {"text": piece} as the narration is written, then {"done": result} once
+    the reply is saved (or {"error": message, "status": n}). Fact extraction runs after "done" (dungeon/pace.py)."""
+    pieces: asyncio.Queue = asyncio.Queue()
+
+    async def on_text(piece: str):
+        await pieces.put({'text': piece})
+
+    async def run():
+        try:
+            await pieces.put({'done': await start(on_text)})
+        except DomainError as failure:
+            await pieces.put({'error': failure.message, 'code': failure.code, 'status': failure.status})
+        finally:
+            await pieces.put(None)
+
+    async def lines():
+        task = asyncio.ensure_future(run())
+        while (item := await pieces.get()) is not None:
+            yield json.dumps(item, ensure_ascii=False) + '\n'
+        await task
+        await story.settled(state)
+
+    return StreamingResponse(lines(), media_type='application/x-ndjson')
+
+
+@router.post('/messages/stream')
+async def send_streamed(request: Request, body: StoryMessage):
+    state = request.app.state
+    return streamed(state, lambda on_text: story.send(state, body.text, body.client_id, on_text))
+
+
+@router.post('/retry/stream')
+async def retry_streamed(request: Request):
+    state = request.app.state
+    return streamed(state, lambda on_text: story.retry(state, on_text))
 
 
 class SheetChange(Input):

@@ -22,6 +22,8 @@ export interface WorkspaceSettings {
   adult_side?: boolean
   /** Hidden values: what townsfolk are like that way, for the user's eyes; off unless turned on. */
   show_adult_side?: boolean
+  /** Seconds a story turn may take before its optional steps give way; 0 is automatic (dungeon/pace.py). */
+  turn_budget?: number
   /** How far the story goes on the page; 'world' follows the world's own preset. */
   intensity?: IntensityPreset
   /** Settings > Debug: every model request and response is written in full to logs/model-calls; off by default. */
@@ -199,7 +201,10 @@ export interface StoryMessage {
   crisis_help?: boolean
   /** The turn's rolls (dungeon/turn.py), only while the dice are shown. */
   rolls?: StoryRoll[]
+  /** How long the turn took, step by step, and what gave way for time (dungeon/pace.py); with the dice shown. */
+  pace?: TurnPace | null
 }
+export interface TurnPace { steps: Record<string, number>; skipped: string[]; budget: number; total: number }
 export type Band = 'critical_failure' | 'failure' | 'failure_upside' | 'success_cost' | 'success' | 'critical_success'
 /** One MARVEL roll (dungeon/rules/marvel.py): d100 plus the stat die, less the difficulty shift. */
 export interface StoryRoll {
