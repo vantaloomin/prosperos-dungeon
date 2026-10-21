@@ -324,6 +324,25 @@ CREATE TABLE IF NOT EXISTS story_trades (
   created_at TEXT NOT NULL
 );
 
+-- The character's wounds and the fight under way (dungeon/combat.py); each round is kept with the player's line.
+CREATE TABLE IF NOT EXISTS story_wounds (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  level INTEGER NOT NULL CHECK (level BETWEEN 0 AND 5),
+  dead INTEGER NOT NULL DEFAULT 0 CHECK (dead IN (0, 1))
+);
+
+CREATE TABLE IF NOT EXISTS story_fight (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  round INTEGER NOT NULL,
+  wants TEXT NOT NULL,
+  foes TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS story_rounds (
+  message_id TEXT PRIMARY KEY REFERENCES story_messages(id) ON DELETE CASCADE,
+  lines TEXT NOT NULL
+);
+
 -- The story's own time once a campaign starts (dungeon/story_clock.py); without it the story runs on the app clock.
 CREATE TABLE IF NOT EXISTS story_clock (
   id INTEGER PRIMARY KEY CHECK (id = 1),

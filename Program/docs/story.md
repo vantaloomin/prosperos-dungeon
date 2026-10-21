@@ -118,6 +118,35 @@ its shops with their starting stock, and each premade's starting kit (plus a def
 
 Not in v0: haggling rolls, restocking, shopkeeper cash, stolen goods and fences, wear, loot, appearance state.
 
+## Fights
+
+Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line of the player's is one round.
+
+- **Starting.** A fight starts when the player attacks someone in the scene, by name or by what they do ("I punch
+  the barkeep"), or when a dangerous place's threat brings a foe (Kingswood's Heartwood: a ley-mad boar, or two
+  wardens who want the character taken).
+- **A round.** The player's rolled actions land first. An attack that succeeds wounds its target by the band (a
+  success with a cost one level, a success two, a critical three), plus one with a sword or felling axe and minus
+  one bare-handed. A successful dodge, block or parry makes the foes' attacks hard this round; a successful flight
+  ends the fight. Foes at a distance close in; engaged foes roll Vitality to hit back the same way.
+- **Morale.** A foe at Maimed is down. When one falls or is badly hurt, the rest roll Resolve, and on a failure they
+  break: they flee or give up. The fight is won when nobody is left standing and unbroken.
+- **Wounds.** Grazed, Hurt, Wounded, Maimed, Dying. Wounded makes physical actions a step harder; Maimed makes every
+  action a step harder and physical ones two. A night's sleep (eight hours or more, not mid-fight) heals one level,
+  down from Maimed. The narrator is told the character's condition every turn.
+- **Defeat.** At Dying the character rolls Vitality to cling on (which rules death out), then the defeat table is
+  weighted by what the foes want: beasts kill, wardens capture, robbers rob, a brawl ends with the character
+  beaten and thrown out, and sometimes someone drags them clear. Death is real: a dead character plays no more
+  lines, and "Go back here" on an earlier line brings them back.
+- **In the story.** The narrator gets "The fight" with the round exactly as it went and who is still fighting, and
+  writes only that. The Story screen shows the character's condition and the foes, with their wound levels while
+  the dice are shown. Moving elsewhere is refused mid-fight.
+- Each round is decided once and kept with the player's line (`story_rounds`): "Tell it again" retells the same
+  round. Wounds and the fight branch with the story.
+
+Not in v0: zones beyond near and engaged, armour, ranged weapons and ammunition, allies, injuries with lasting
+effects, healers and medicine, a fight started by an NPC without a danger roll.
+
 ## Going back
 
 Every line the player sends is a save point (`dungeon/timeline.py`): the game state as the line arrives (the scene,
@@ -135,9 +164,9 @@ keeps game state adds its tables to `timeline.SAVED`.
 
 | Request | Does |
 | --- | --- |
-| `GET /api/story` | `{scene, messages, people, ready, dice_shown, branches}`. `branches` lists every branch with `playing`, `turns`, `last_line` and `last_at`, the one being played first. User messages carry their `rolls` while the dice are shown. `people` are those met, newest first, with `meetings`, `notes`, `doing` and `place` now. `scene` has the city, place, `local_time` (city clock, no offset), `weather`, the city's `places` and `around` (who is there, named only once met). `ready` is false without a model. |
-| `PUT /api/story/scene` `{city_id, place_id?}` | Moves there; a city alone means its opening place. 404 for an unknown city or place. |
-| `POST /api/story/messages` `{text, client_id}` | Saves the user's line once per `client_id` and returns `{message, reply}`. A failed reply is saved with `status: failed` and its `error`. Sending the same `client_id` again returns the saved reply, or tries again if it failed. 409 `no_connection` without a model; the line stays saved. |
+| `GET /api/story` | `{scene, messages, people, ready, dice_shown, branches, fight}`. `fight` is `{condition, dead, fight}`: the character's wound level, whether they are dead, and the fight under way (null when none) with its `round` and `foes` (`name`, `state`, and `wound` while the dice are shown). `branches` lists every branch with `playing`, `turns`, `last_line` and `last_at`, the one being played first. User messages carry their `rolls` while the dice are shown. `people` are those met, newest first, with `meetings`, `notes`, `doing` and `place` now. `scene` has the city, place, `local_time` (city clock, no offset), `weather`, the city's `places` and `around` (who is there, named only once met). `ready` is false without a model. |
+| `PUT /api/story/scene` `{city_id, place_id?}` | Moves there; a city alone means its opening place. 404 for an unknown city or place, 409 in the middle of a fight. |
+| `POST /api/story/messages` `{text, client_id}` | Saves the user's line once per `client_id` and returns `{message, reply}`. A failed reply is saved with `status: failed` and its `error`. Sending the same `client_id` again returns the saved reply, or tries again if it failed. 409 `no_connection` without a model; the line stays saved. 409 when the character is dead. |
 | `POST /api/story/find` `{key}` | Moves the story to where someone the user has met is now. 404 if not met, 409 if they are nowhere the story can go. |
 | `POST /api/story/retry` | Tells the reply to the latest user line again, replacing the one there. |
 | `GET /api/story/start` | `{premades, points, range, stat_names, meanings}` for "Who are you?" in the scene's city. |

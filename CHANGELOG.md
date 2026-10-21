@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Fights.** Attack someone, or meet what the Heartwood holds, and the game runs the fight a round per line: hits
+  wound by how well the roll went and what you carry, a parry blunts the reply, running can end it, and foes break
+  when the fight turns. Your character can be grazed, hurt, wounded, maimed or dying, and a night's sleep heals a
+  level. Beaten, what happens depends on who beat you: beasts kill, wardens take prisoners, robbers rob. Death is
+  real, and going back to an earlier line undoes it. The Story screen shows your condition and who you are fighting.
 - **Your pack and the first shop.** Your character starts with a purse and the kit that fits them, carries what
   their Vitality allows, and can buy and sell at Pell's Provisions in Kingswood while someone is behind the
   counter. The narrator knows what you carry and quotes the shop's real prices.

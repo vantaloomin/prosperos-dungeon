@@ -9,7 +9,7 @@ import { ErrorNotice } from '../../components/ErrorNotice'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { InfoTip } from '../../components/InfoTip'
 import { AiFooter, CrisisNote } from '../../components/Safety'
-import { aroundText, placeGroups, rollText, sceneTime, spotsText, whereText } from './storyText'
+import { aroundText, fightText, placeGroups, rollText, sceneTime, spotsText, whereText } from './storyText'
 import { StoryPeople } from './StoryPeople'
 import { CityOptions } from '../world/CityOptions'
 import { AuthorsNote } from './AuthorsNote'
@@ -68,6 +68,7 @@ function StoryHeader({ story, change }: { story: StoryData; change: (request: ()
       <h1 id="story-heading">Story</h1>
       <p className="subtle">Your own story around town, told by a narrator.</p>
       <SceneBar scene={story.scene} onMove={(body) => change(() => api<StoryData>('/story/scene', body, 'PUT'))} />
+      {fightText(story.fight) && <p className={story.fight.fight || story.fight.dead ? 'story-fight' : 'subtle'} role="status">{fightText(story.fight)}</p>}
       {!!story.messages.length && <><StorySheet /><StoryGear onTrade={() => void refresh()} /><StoryJournal /></>}
       <StoryPeople people={story.people} onFind={(key) => void change(() => api<StoryData>('/story/find', { key }))} />
       <StoryBranches branches={story.branches}
