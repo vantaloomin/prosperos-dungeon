@@ -287,6 +287,13 @@ Decided 2026-10-21.
 - **Quests have real deadlines.** Many quests carry a deadline on the story clock. If the player is
   late, the hostage dies, the rival wins or the job goes to someone else, and the world remembers
   it (reputation, NPC memory, follow-on consequences).
+- **Institutions are factions; their demands are quests; the result is a track.** A university,
+  guild, army or church is a faction the player belongs to. Its recurring demands become generated
+  quests with deadlines on the story clock: Havenbrooke's assignments, exams, labs and club duties;
+  a guild's dues and contracts. How the player does on them feeds a progression track (Grades,
+  Rank) and their standing with the institution. Classes and shifts occupy fixed slots in the
+  player's schedule, the same way Companion's careers do, so skipping class is a real choice with
+  consequences.
 
 ## World packages (proposed)
 
