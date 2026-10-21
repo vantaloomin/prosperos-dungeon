@@ -34,7 +34,7 @@ elif [ "$STATE" = running ]; then
     echo "Using the Prospero Dungeon backend that is already running on $DUNGEON_PORT (it will not reload on changes)."
 else
     "$python" -m uvicorn dungeon.main:create_app --factory --host 127.0.0.1 --port "$DUNGEON_PORT" \
-        --reload --reload-dir companion &
+        --reload --reload-dir dungeon &
     backend=$!
     tries=120
     while [ "$tries" -gt 0 ]; do

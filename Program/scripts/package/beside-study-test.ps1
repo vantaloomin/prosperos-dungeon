@@ -6,7 +6,7 @@ Runs the installed Dungeon beside a running Prospero's Study (PRD "Standalone de
 Starts the Study from its checkout on its own port 8765, installs the Dungeon setup, and checks
 that the two never collide: a Dungeon pointed at the Study's port refuses and stops nothing, the
 Dungeon launches on 8785 while the Study keeps answering, each keeps its data in its own place,
-and the Study's database never gains the Companion's identity marker. Used by CI.
+and the Study's database never gains the Dungeon's identity marker. Used by CI.
 #>
 param(
   [Parameter(Mandatory = $true)][string]$Setup,
@@ -60,8 +60,8 @@ try {
   Check (Test-Path -LiteralPath (Join-Path $studyData 'roleplay.sqlite3')) "the Study keeps its database in its own data folder"
   $studyFiles = @(Get-ChildItem -LiteralPath $studyData -Recurse -File | ForEach-Object { $_.Name })
   Check (-not ($studyFiles | Where-Object { $_ -like 'dungeon*' })) "the Study's data folder holds no Dungeon files"
-  $companionFiles = @(Get-ChildItem -LiteralPath $workspace -Recurse -File | ForEach-Object { $_.Name })
-  Check (-not ($companionFiles | Where-Object { $_ -like 'roleplay*' })) "the Companion's workspace holds no Study files"
+  $dungeonFiles = @(Get-ChildItem -LiteralPath $workspace -Recurse -File | ForEach-Object { $_.Name })
+  Check (-not ($dungeonFiles | Where-Object { $_ -like 'roleplay*' })) "the Dungeon's workspace holds no Study files"
   $probe = "import sqlite3,sys; c=sqlite3.connect('file:'+sys.argv[1]+'?mode=ro', uri=True); " +
            "print(','.join(r[0] for r in c.execute(`"SELECT name FROM sqlite_master WHERE type='table'`")))"
   $tables = & (Join-Path $installed 'runtime\python.exe') -I -c $probe (Join-Path $studyData 'roleplay.sqlite3')

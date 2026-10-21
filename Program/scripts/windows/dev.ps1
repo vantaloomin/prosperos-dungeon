@@ -19,7 +19,7 @@ try {
         Write-Host 'Using the Prospero Dungeon backend that is already running on 8785 (it will not reload on changes).'
     } else {
         $arguments = @('-m', 'uvicorn', 'dungeon.main:create_app', '--factory', '--host', '127.0.0.1', '--port', '8785',
-            '--reload', '--reload-dir', 'companion')
+            '--reload', '--reload-dir', 'dungeon')
         $backend = Start-Process -FilePath $python -ArgumentList $arguments -WorkingDirectory $CompanionRoot -PassThru
         foreach ($attempt in 1..120) {
             if ((Get-DungeonState 8785).State -eq 'running') { break }

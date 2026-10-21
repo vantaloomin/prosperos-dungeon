@@ -34,7 +34,7 @@ check 'stop.command with nothing running succeeds and stops nothing' exits 0 sto
 background=$!
 check 'launch.command answers on 8785' wait_for_state running 8785
 check 'status.command reports the running Dungeon with exit code 0' exits 0 status.command
-check 'stop.command stops the running Companion' exits 0 stop.command
+check 'stop.command stops the running Dungeon' exits 0 stop.command
 check 'port 8785 is free after stop.command' wait_for_state stopped 8785 4
 check 'launch.command reports a missing option' exits 1 launch.command --nonsense
 

@@ -47,7 +47,7 @@ $app = Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile', '-Ex
 try {
   Check (Wait-State 'running') 'launch answers on 8785'
   Check ((Invoke-Bat 'status.bat') -eq 0) 'status.bat reports the running Dungeon with exit code 0'
-  Check ((Invoke-Bat 'stop.bat') -eq 0) 'stop.bat stops the running Companion'
+  Check ((Invoke-Bat 'stop.bat') -eq 0) 'stop.bat stops the running Dungeon'
   Check ((Get-DungeonState 8785).State -eq 'stopped') 'port 8785 is free after stop.bat'
 } finally { if (-not $app.HasExited) { & taskkill.exe /PID $app.Id /T /F | Out-Null } }
 
