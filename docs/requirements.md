@@ -489,7 +489,7 @@ stored in the ledger as hidden truth.
   included, with no guaranteed warning. The player may find out late, or only by going back to an
   earlier branch.
 
-## World packages (proposed)
+## World packages
 
 The three bases arrive in three shapes: Mabry (canon / hidden / continuity markdown plus dice
 files), Havenbrooke (character bibles with verbal fingerprints, world docs, season story beats,
@@ -504,6 +504,23 @@ Dungeon would normalize them into one package per world:
   that the director steers toward but doesn't force.
 - **Rules:** progression ladder, death rule, Life Cards tables, house voice and hard rules.
 - **Assets:** maps and images.
+
+Decided 2026-10-21:
+
+- **A world is one SQLite database file.** All of the above (canon, cast, personas, hidden truths,
+  planned beats, rules, tables, prices and assets) lives in one compact file per world, which is
+  also the file shared between players.
+- **Existing worlds come in through an importer, with review.** An importer built on Study's reads
+  any source shape (Mabry's markdown, Havenbrooke's bibles, Vallarith's lorebook JSON). A model
+  drafts each package section, and the author reviews and approves each one before it is used.
+- **Worlds are edited in the app, with a file round-trip.** An in-app world editor covers common
+  edits (cast, lore, tables, settings). For bulk edits, the app exports a world to a folder of
+  Markdown and JSON and imports it back, with a validator checking it before it replaces the
+  database.
+- **Planned beats are a soft pull.** The director nudges the story toward a world's planned beats
+  (Havenbrooke's seasons, Mabry's season events) but never forces them. If the player goes
+  elsewhere, the beats wait or quietly lapse, and the player's choices can take canon somewhere
+  else entirely.
 
 ## Turn loop (proposed, from Mabry Curve)
 
@@ -530,4 +547,3 @@ Dungeon would normalize them into one package per world:
 - Exact licenses for Fate, Blades in the Dark and Dungeon World before they are added.
 
 - Which widgets and layout presets ship first.
-- World package file format, and how canon, hidden truth and player knowledge are stored.
