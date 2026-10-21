@@ -480,12 +480,12 @@ class LifeSettingsUpdate(Input):
     life_turns: int | None = Field(default=None, ge=0, le=3)
     # Births and growing families (dungeon/life/families.py): 0 none, 1 now and then, 2 true to life, 3 lots.
     growing_families: int | None = Field(default=None, ge=0, le=3)
-    # Our child (dungeon/life/our_child.py): 0 easy kids, 1 gentle, 2 true to life, 3 true-to-life chaos.
+    # Family life (dungeon/life/own_family.py): 0 easy kids, 1 gentle, 2 true to life, 3 true-to-life chaos.
     family_life: int | None = Field(default=None, ge=0, le=3)
     # Loss and grief (dungeon/life/loss.py): whether people can pass away, and how often (0 rare ... 3 often).
     people_pass_away: bool | None = None
     loss: int | None = Field(default=None, ge=0, le=3)
-    # Breaks and breakups (dungeon/life/breakups.py): on for real life and drama, off for an easy life.
+    # Breakups of their own (dungeon/life/love_life.py): on for real life and drama, off for an easy life.
     breakups: bool | None = None
     on_her_mind: bool | None = None
     # Looks that change (dungeon/life/grooming.py): never (0), now and then, like real life, often (3).

@@ -22,7 +22,6 @@ from dungeon.life import (
     ages,
     big_days,
     body,
-    breakups,
     calls,
     chapters,
     circle,
@@ -37,15 +36,12 @@ from dungeon.life import (
     home,
     kids,
     kitchen,
-    long_distance,
     loss,
     love_life,
     media,
     money,
-    moving_in,
     network,
     occasions,
-    our_child,
     outings,
     own_plans,
     pacing,
@@ -55,13 +51,11 @@ from dungeon.life import (
     rough_patches,
     steps,
     storylines,
-    their_people,
     together,
     traditions,
     trips,
     upkeep,
     wardrobe,
-    wedding,
     where,
     work,
 )
@@ -141,8 +135,6 @@ HEADINGS = {
             'closeness': 'How close you two are (from your shared history; the user can see and change it)',
             # Next steps (dungeon/life/steps.py): changes when a step is reached, brought up or answered.
             'steps': 'Where things stand between you (decided by the app; the user can see and change it)',
-            # Engagement and wedding (dungeon/life/wedding.py): changes when they propose, plan or hold the wedding.
-            'wedding': 'Your engagement and wedding (planned by the app with you; the user can change the plan)',
             # Big days in the circle (dungeon/life/big_days.py): changes when one is found, the user is asked or it
             # is held.
             'big_days': 'Big days in your circle (weddings, birthdays and the like; decided by the app, keep to them)',
@@ -194,9 +186,6 @@ HEADINGS = {
             # Companions who already have kids (dungeon/life/kids.py): changes with a birthday or a move.
             'kids': 'Your children (decided by the app: they are yours and part of your days; keep to their names and '
                     'ages, and never invent other children)',
-            # Meeting their people (dungeon/life/their_people.py): changes when someone meets the user, and weekly.
-            'their_people': 'What your people think of the user (decided by the app: pass it on now and then, the way '
-                            'people do, like "my mom keeps asking when you\'re coming back", and never contradict it)',
             # Grows during a chat as memories are saved and the companion's life moves on.
             'boundaries': "The user's boundaries",
             'profile': 'What you know about the user',
@@ -255,8 +244,6 @@ NOW = {
                   'never explain it unless asked)',
        # Rough patches and making up (dungeon/life/rough_patches.py): a falling-out with the user, or making up.
        'patch': 'How things are between you and the user (decided by the app; keep to it)',
-       # Breaks and breakups (dungeon/life/breakups.py): strained, a break, exes, getting back together.
-       'breakup': 'Where the two of you stand after a hard time (decided by the app; keep to it)',
        # Go somewhere together and Trips and postcards (dungeon/life/outings.py, trips.py).
        # Together or apart (dungeon/life/together.py): a visit turned down, or time together that just ended; and
        # On a call (dungeon/life/calls.py): the call under way, or one that just ended or was missed.
@@ -480,20 +467,8 @@ def time_text(now, user_tz, companion_tz, previous) -> str:
     return '\n'.join(lines)
 
 
-def visit_time_text(now, city: str, tz, previous) -> str:
-    """During a weekend visit they are in the same room: only the local time where the visit is."""
-    lines = [f"Local time ({city}): {now.astimezone(tz).strftime('%A %d %B %Y, %H:%M (%Z)')}."]
-    if previous:
-        hours = (now - parse(previous)).total_seconds() / 3600
-        if hours >= 6:
-            lines.append(f'The previous message in this conversation was about {round(hours)} hours ago.')
-    return '\n'.join(lines)
-
-
 def clock_text(connection, companion, now, previous, group) -> str:
-    """Both local times, or during a weekend visit one clock, the visit city's (dungeon/life/long_distance.py)."""
-    if group is None and (visit := long_distance.visiting(connection, companion, now)):
-        return visit_time_text(now, visit['city_name'], long_distance.visit_zone(companion, visit), previous)
+    """Both local times."""
     return time_text(now, settings(connection)['user_timezone'], companion['version']['timezone'], previous)
 
 
@@ -761,12 +736,10 @@ def offer_people(packet, connection, companion, now, today):
             packet.offer('circle_now', person['id'], moment)
     for identity, text in families.context_lines(connection, companion, now):
         packet.offer('circle', identity, text)
-    for identity, text in [*kids.context_lines(connection, companion, now),
-                           *our_child.context_lines(connection, companion, now)]:
+    for identity, text in kids.context_lines(connection, companion, now):
         packet.offer('kids', identity, text)
-    found = kids.today_line(connection, companion, now)
-    for identity, text in [*([found] if found else []), *our_child.today_lines(connection, companion, now)]:
-        packet.offer('circle_now', identity, text)
+    if found := kids.today_line(connection, companion, now):
+        packet.offer('circle_now', *found)
     for identity, text in network.context_lines(connection, timeline_id, now):
         packet.offer('acquaintances', identity, text)
     for identity, text in encounters.context_lines(connection, companion, now):
@@ -825,9 +798,7 @@ def offer_together(packet, connection, companion, now, recent, group=None):
                            *trips.context_lines(connection, companion, now)]:
         packet.offer('booked' if identity.endswith(':booked') else 'together', identity, text)
     for identity, text in [*together.context_lines(connection, companion, now, turn),
-                           *calls.context_lines(connection, companion, now, turn),
-                           *long_distance.context_lines(connection, companion, now, turn),
-                           *moving_in.context_lines(connection, companion, now, turn)]:
+                           *calls.context_lines(connection, companion, now, turn)]:
         packet.offer('where', identity, text)
 
 
@@ -975,10 +946,7 @@ def fill(packet, connection, companion, now: datetime, turns: tuple, extra: dict
     offer_secrets(packet, connection, companion, group, now)
     closeness.offer(packet, connection, companion, now)
     steps.offer(packet, connection, companion, now, recent, group)
-    breakups.offer(packet, connection, companion, now, recent, group)
     love_life.offer(packet, connection, companion, now, group)
-    their_people.offer(packet, connection, companion, now, group)
-    wedding.offer(packet, connection, companion, now, group)
     big_days.offer(packet, connection, companion, now, group)
     loss.offer(packet, connection, companion, now, group)
     history.offer(packet, connection, companion, now)

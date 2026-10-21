@@ -15,7 +15,6 @@ import { HOBBY_LEVELS } from '../character/hobbiesText'
 import { TOGETHER_LEVELS } from '../conversation/whereText'
 import { ROUGH_PATCH_LEVELS } from '../profile/roughPatchText'
 import { PACE_LEVELS } from '../character/stepsText'
-import { BREAKUPS_HINT } from '../character/breakupText'
 import { LOVE_LIFE_LEVELS } from '../character/loveLifeText'
 import { FAMILY_LEVELS, FAMILY_LIFE_LEVELS } from '../character/familiesText'
 import { TURN_LEVELS } from '../character/turnsText'
@@ -154,8 +153,8 @@ export function LoveSettings() {
         {(id, describedBy) => <StepSlider id={id} describedBy={describedBy} value={data.rough_patches_realism} label={rough.label}
           onChange={(rough_patches_realism) => void save({ rough_patches_realism })} />}
       </Field>
-      <Toggle label="Breaks and breakups" checked={data.breakups} onChange={(value) => void save({ breakups: value })}
-        hint={BREAKUPS_HINT} tip="Either of you can end it, and getting back together is possible later. Nothing is deleted." />
+      <Toggle label="Breakups" checked={data.breakups} onChange={(value) => void save({ breakups: value })}
+        hint="Companions and their own partners can split up. Always off on Easy." />
       {result && <Notice tone={result.tone}>{result.text}</Notice>}
     </section>
   )

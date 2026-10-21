@@ -174,10 +174,7 @@ def occasions(connection, companion: dict, now) -> list[dict]:
                               person={'id': item['id'], 'name': item['name'], 'role': item['role']}))
     span = milestone(first, user_today) if first else None
     if span:
-        from dungeon.life import breakups  # It reads this module's neighbours; imported when used.
-        # Exes (dungeon/life/breakups.py) still know the day they met, but it is no longer "your anniversary".
-        romance = companion['version']['definition'].get('relationship') == 'romance' and not breakups.ended(
-            connection, companion)
+        romance = companion['version']['definition'].get('relationship') == 'romance'
         what = f"{span} since you and the user first talked ({steps.long_date(first.isoformat())})"
         found.append(occasion('anniversary', user_today, 0, f"your anniversary: {what}" if romance else what, '',
                               span=span))

@@ -12,7 +12,7 @@ from test_together import mira, notes, says
 from dungeon import consequences, moods
 from dungeon.characters import current, insert_version
 from dungeon.database import identifier
-from dungeon.life import breakups, love_life, openers, rough_patches
+from dungeon.life import love_life, openers, rough_patches
 from dungeon.models import CharacterDefinition
 
 BANKS = Path(__file__).resolve().parents[1] / 'dungeon' / 'world' / 'data' / 'rough_patches'
@@ -274,10 +274,6 @@ def test_once_exclusive_they_mind_another_romance(client, monkeypatch):
     assert not patch(client)['open']  # Only dating: nobody minds yet.
     assert client.put('/api/life/steps', json={'step': 'exclusive'}).status_code == 200
     show(client, show_moods=True)
-    with database.connect(write=True) as connection, monkeypatch.context() as broken_up:
-        broken_up.setattr(breakups, 'apart', lambda _connection, companion: 'ended' if companion['id'] == other else None)
-        rough_patches.seen_with_others(connection, current(connection), database.clock.now())
-    assert not patch(client)['open']  # An ex is not someone you're seeing.
     with database.connect(write=True) as connection:
         rough_patches.seen_with_others(connection, current(connection), database.clock.now())
     assert patch(client)['about'] == "over Mira finding out you're seeing Theo too"
@@ -287,13 +283,6 @@ def test_once_exclusive_they_mind_another_romance(client, monkeypatch):
         rough_patches.seen_with_others(connection, current(connection), database.clock.now())
     assert not patch(client)['open']  # Never on an easy life.
     set_life(client, rough_patches_realism=2)
-    from dungeon.life import steps
-    monkeypatch.setattr(steps, 'apart', lambda _connection, companion: 'ended' if companion['id'] == other else None)
-    with database.connect(write=True) as connection:
-        connection.execute('DELETE FROM rough_patches')
-        connection.execute('DELETE FROM consequences')
-        rough_patches.seen_with_others(connection, current(connection), database.clock.now())
-    assert not patch(client)['open']  # An ex is not someone you're seeing (E2E v0.13).
 
 
 def add_romance(database, name, created_at):
@@ -474,19 +463,3 @@ def test_with_nothing_tense_an_ask_is_not_rolled(client, patches, provider):
     send(client, 'want to get dinner friday?', 'client-patch-42')
     assert [item['activity'] for item in client.get('/api/life/outings').json()['outings']] == ['dinner']
     assert not [item for item in client.get('/api/life/reactions').json() if item['choice'] == 'user:ask_while_tense']
-
-
-def test_while_strained_an_outing_together_no_longer_mends_it_by_itself(client, patches, provider, clock, monkeypatch):
-    says(provider)
-    send(client, 'go away', 'client-patch-43')
-    with client.app.state.database.connect(write=True) as connection:
-        companion = current(connection)
-        [row] = rough_patches.rows(connection, companion)
-        monkeypatch.setattr(rough_patches, 'showed_up', lambda *_args: True)
-        monkeypatch.setattr(breakups, 'holds', lambda *_args: 'cool')
-        rough_patches.daily(connection, companion, clock.now())
-        assert not rough_patches.one(connection, 'SELECT gesture_at FROM rough_patches WHERE id=?', (row['id'],))['gesture_at']
-        monkeypatch.setattr(breakups, 'holds', lambda *_args: None)
-        rough_patches.daily(connection, companion, clock.now())
-        assert rough_patches.one(connection, 'SELECT mended_by FROM rough_patches WHERE id=?', (row['id'],))['mended_by'] \
-            == 'gesture'

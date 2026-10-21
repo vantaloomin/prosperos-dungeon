@@ -23,7 +23,7 @@ from dungeon.clock import parse, stamp, zone
 from dungeon.database import decode, many, optional, settings
 from dungeon.errors import require
 from dungeon.images import photos
-from dungeon.life import ages, breakups, occasions, our_child, steps, wedding
+from dungeon.life import ages, occasions, steps
 from dungeon.memory import closeness
 
 QUOTE_LIMIT = 280
@@ -143,7 +143,6 @@ def build(connection, companion: dict, key: str, now) -> dict:
                    if row['role'] == 'user'})
     pages = [cover(period, name, days, messages, sent), opening(period, first, messages, timezone),
              pictures(name, sent, messages, timezone), *together(connection, companion, now, period, timezone),
-             wedding.scrapbook_page(connection, companion, period['start'].isoformat(), period['end'].isoformat()),
              their_year(connection, companion, period, name), closing(period, days, name)]
     return {**view(period), 'name': name, 'pages': [page for page in pages if page]}
 
@@ -186,9 +185,7 @@ def together(connection, companion, now, period, timezone) -> list[dict]:
     reached = [{'date': step['on'], 'text': state['stages'][step['level'] - 1] + (' (you set it)' if step.get('kind') == 'set' else '')}
                for step in state['history'] if step.get('on') and low <= step['on'] <= high]
     # The steps you took together (dungeon/life/steps.py), in with the stages.
-    # ... and breaks, breakups and getting back together (dungeon/life/breakups.py).
-    reached = sorted(reached + steps.scrapbook_items(connection, companion, low, high)
-                     + breakups.scrapbook_items(connection, companion, low, high), key=lambda item: item['date'])
+    reached = sorted(reached + steps.scrapbook_items(connection, companion, low, high), key=lambda item: item['date'])
     nickname = f"They call you “{state['nickname']}”." if state['nickname'] else None
     pages = []
     if reached:
@@ -236,8 +233,6 @@ def their_year(connection, companion, period, name) -> dict | None:
         'local_date<=?', (timeline_id, low, high)) if row['kind'] in HOME_KINDS]
     # Milestone birthdays that have come round (dungeon/life/ages.py): theirs and their circle's.
     items += ages.milestones_between(connection, companion, period['start'], period['end'])
-    # The pair's own children's milestones (dungeon/life/our_child.py).
-    items += our_child.scrapbook_items(connection, companion, period['start'], period['end'])
     if not items:
         return None
     return {'kind': 'their-year', 'title': f"{name}'s year", 'items': sorted(items, key=lambda item: item['date'])}

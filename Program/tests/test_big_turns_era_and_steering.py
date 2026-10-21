@@ -86,9 +86,9 @@ def test_owning_a_place_lessons_and_tests_of_skill_in_era_words():
     definition = {'name': 'Elowen Ashby', 'home_city': 'camelot', 'location': 'Woolston, Camelot',
                   'money': {'career': 'baker'}, 'identity': 'Elowen is 40.'}
     place = big_turns.place_to_buy({'id': 'c', 'version': {'definition': definition}}, camelot,
-                                   money.profile(definition), None, 'seed')
+                                   money.profile(definition), 'seed')
     assert place['details']['medieval']
-    said = big_turns.buy_words(definition, place, date(2027, 3, 5), False, date(2027, 1, 10))
+    said = big_turns.buy_words(definition, place, date(2027, 3, 5), date(2027, 1, 10))
     assert 'struck a bargain' in said['share'] and said['share'].endswith('I get the keys March 5.')
     assert home.money_text({**place['details'], 'rent_from': 'home'}).startswith(' Payments on it are about')
     row = {'kind': 'buy_place', 'title': '', 'details': big_turns.encode(
@@ -105,7 +105,7 @@ def test_owning_a_place_lessons_and_tests_of_skill_in_era_words():
     # 1895 keeps the words that fit it.
     london = {**definition, 'home_city': 'london-1895', 'location': 'Lambeth, London', 'money': {'career': 'clerk'}}
     place = big_turns.place_to_buy({'id': 'c', 'version': {'definition': london}}, catalog.cities()['london-1895'],
-                                   money.profile(london), None, 'seed')
+                                   money.profile(london), 'seed')
     assert not place['details'].get('medieval')
     assert home.money_text({**place['details'], 'rent_from': 'home'}).startswith(' The mortgage is about')
 

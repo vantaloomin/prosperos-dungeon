@@ -41,9 +41,8 @@ def title(data: dict) -> str:
 
 
 def issue(connection, data: dict, world, day: date) -> dict:
-    """The issue out on the Sunday `day`, for the city `data`: the week up to it, and the week after. Engagements and
-    weddings lead with the user's own (dungeon/life/wedding.py)."""
-    from dungeon.life import ages, loss, wedding
+    """The issue out on the Sunday `day`, for the city `data`: the week up to it, and the week after."""
+    from dungeon.life import ages, loss
     week = (day - timedelta(days=6), day)
     # Townsfolk are as old as Around town says: from the day the town started getting older (dungeon/life/ages.py).
     data = {**data, 'began': ages.town_began(connection)}
@@ -53,7 +52,7 @@ def issue(connection, data: dict, world, day: date) -> dict:
             'news': city_news(connection, data, week),
             'townsfolk': [*loss.paper_items(connection, data, week), *townsfolk_news(data, day),
                           *comings_and_goings(mine, week)],
-            'couples': [*wedding.paper_items(connection, data, week), *couples_news(mine, week)][:MOST_COUPLES + 1],
+            'couples': couples_news(mine, week)[:MOST_COUPLES + 1],
             'seen': seen_around(connection, data, week, {(item['date'], item['place']) for item in talk}),
             'gossip': [{'text': item['text']} for item in talk],
             'ahead': coming_up(data, world, day)}

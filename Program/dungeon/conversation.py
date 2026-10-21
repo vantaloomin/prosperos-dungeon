@@ -31,9 +31,7 @@ from dungeon.errors import DomainError, require
 from dungeon.images import photos
 from dungeon.life import (
     big_days,
-    breakups,
     calls,
-    moving_in,
     occasions,
     outings,
     own_family,
@@ -43,7 +41,6 @@ from dungeon.life import (
     rough_patches,
     steps,
     together,
-    wedding,
 )
 from dungeon.memory import context, formation, look_back
 from dungeon.providers.chat import INCOMPLETE, ChatProvider
@@ -93,14 +90,10 @@ def record_user(database, body) -> dict:
         big_days.note(connection, message, companion, database.now())
         # A yes or no to babysitting their child for an evening (dungeon/life/own_family.py).
         own_family.note(connection, message, companion, database.now())
-        # A move-in step just reached settles where (dungeon/life/moving_in.py); "I'm out" or "I'm home" at home.
-        moving_in.note(connection, message, companion, database.now())
         self_checks.heed(connection, message, database.now())
         moods.from_user(connection, f"companion:{companion['id']}", body.text, database.clock.now())
         # Rough patches (dungeon/life/rough_patches.py): words that sting, a promise, an apology or making up.
         rough_patches.note(connection, message, companion, database.clock.now())
-        # Breaks and breakups (dungeon/life/breakups.py): ending it, a break, asking to try again.
-        breakups.note(connection, message, companion, database.clock.now())
         return message
 
 
@@ -593,7 +586,6 @@ class Conversation:
                 self_facts.note(connection, finished, self.database.now())
                 own_plans.note(connection, finished, companion, self.database.now())
                 outings.note(connection, finished, companion, self.database.now())
-                wedding.after_reply(connection, finished, companion, self.database.clock.now())
             return status == 'complete' and spoken
 
 

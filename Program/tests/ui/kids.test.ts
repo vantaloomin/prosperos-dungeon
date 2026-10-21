@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { kidLine, kidsHint, standingLine, whereHint, wherePick } from '../../src/features/character/familyText.ts'
+import { kidLine, kidsHint, whereHint, wherePick } from '../../src/features/character/familyText.ts'
 import type { Kid, KidsView } from '../../src/types.ts'
 
 const kid = (changes: Partial<Kid>): Kid => ({
@@ -8,7 +8,7 @@ const kid = (changes: Partial<Kid>): Kid => ({
 })
 const view = (changes: Partial<KidsView>): KidsView => ({
   shown: true, how: 'description', kids: [kid({})], other: { name: 'Mark', role: 'ex-husband' }, pattern: 'with_them',
-  pattern_how: 'fixed', patterns: [], step_parent: false, ...changes,
+  pattern_how: 'fixed', patterns: [], ...changes,
 })
 
 test('one of their kids reads as name, age and son or daughter', () => {
@@ -31,12 +31,4 @@ test('the first choice of where the kids live names the description or the app',
   assert.equal(wherePick(view({}), 'Sam', 'Mostly with Sam'), "From Sam's description (Mostly with Sam)")
   assert.equal(wherePick(view({ pattern_how: 'seeded' }), 'Dana', 'Mostly with Dana'), 'Let the app decide (Mostly with Dana)')
   assert.equal(wherePick(view({ pattern_how: 'set' }), 'Dana', 'Half and half'), 'Let the app decide (what fits them)')
-})
-
-test('a romance shows where you stand with their kids', () => {
-  assert.equal(standingLine(view({}), 'Dana'), null)
-  assert.deepEqual(standingLine(view({ step_parent: true }), 'Dana'), { label: 'Step-parent', text: "you live with Dana, so you're Leo's step-parent." })
-  assert.equal(standingLine(view({ step_parent: true, kids: [kid({ name: 'Major' }), kid({ name: 'Logan' })] }), 'Sam')?.text, "you live with Sam, so you're Major and Logan's step-parent.")
-  assert.deepEqual(standingLine(view({ meeting: 'unmet' }), 'Dana Reyes'), { label: 'Not met yet', text: 'Dana will bring it up when the time feels right.' })
-  assert.equal(standingLine(view({ meeting: 'met', kids: [kid({}), kid({ name: 'Mia' })] }), 'Dana')?.text, "you've met them.")
 })

@@ -288,9 +288,8 @@ ADDED_COLUMNS = (
     # Getting together (dungeon/life/together.py, Settings > Realism): how often companions suggest meeting up,
     # invite the user over and drop by, 0 never on their own, 1 light, 2 true to life, 3 often.
     ('life_settings', 'together_realism', 'INTEGER NOT NULL DEFAULT 2 CHECK (together_realism BETWEEN 0 AND 3)'),
-    # Long distance (dungeon/life/long_distance.py): a trip that is a weekend visit with the user, 'to-you' (they come
-    # to stay with the user) or 'host' (the user comes to stay with them); the message that asked for it, the memory it
-    # left, and when the user called it off.
+    # A trip that was a weekend visit with the user (v0.12 long distance, removed): kept so older rows still read; new
+    # trips leave `visit` empty. The message that asked for a trip, the memory it left, and when it was called off.
     ('trips', 'visit', "TEXT NOT NULL DEFAULT '' CHECK (visit IN ('', 'to-you', 'host'))"),
     ('trips', 'message_id', 'TEXT'),
     ('trips', 'memory_id', 'TEXT'),
@@ -305,21 +304,15 @@ ADDED_COLUMNS = (
     # Their own love life (dungeon/life/love_life.py, Settings > Realism): 0 nothing new, 1 quiet, 2 true to life,
     # 3 lots going on.
     ('life_settings', 'love_life', 'INTEGER NOT NULL DEFAULT 2 CHECK (love_life BETWEEN 0 AND 3)'),
-    # Breaks and breakups (dungeon/life/breakups.py, Settings > Realism): whether strained rough patches can lead to a
-    # break and a breakup (or a falling out with a friend). On for real life and drama, off for an easy life.
+    # Breakups (Settings > Realism): whether a companion and their own partner can split up (dungeon/life/love_life.py).
+    # On for real life and drama, off for an easy life.
     ('life_settings', 'breakups', 'INTEGER NOT NULL DEFAULT 1 CHECK (breakups IN (0, 1))'),
-    # Sharing a home (dungeon/life/moving_in.py): the shared home a moving-in row belongs to, by the id of the row
-    # that set it up. A second romance moving into it has the first one's household; NULL is a household of its own.
-    ('moving_in', 'household', 'TEXT'),
     # Life's big turns (dungeon/life/big_turns.py, Settings > Realism > Their days): how often life chapters come,
     # 0 off, 1 gentle (good turns only), 2 true to life, 3 eventful. The town's turnover follows it too
     # (dungeon/world/turnover.py).
     ('life_settings', 'life_turns', 'INTEGER NOT NULL DEFAULT 2 CHECK (life_turns BETWEEN 0 AND 3)'),
     # A big turn's stages (dungeon/life/big_turns.py): what stage it is at, when the next one comes, and its plan.
     ('life_chapters', 'details', "TEXT NOT NULL DEFAULT '{}'"),
-    # A fork's copy of a moving-in row (dungeon/life/moving_in.py `copy`): the row it was first copied from, so a home
-    # set up before the fork stays one household with those who moved in on other timelines; NULL for the original.
-    ('moving_in', 'origin', 'TEXT'),
     # Births and growing families (dungeon/life/families.py, Settings > Realism): how often babies arrive in the
     # circle and the town, 0 none, 1 now and then, 2 true to life, 3 lots.
     ('life_settings', 'growing_families', 'INTEGER NOT NULL DEFAULT 2 CHECK (growing_families BETWEEN 0 AND 3)'),
@@ -333,15 +326,9 @@ ADDED_COLUMNS = (
     # Companions' own babies (dungeon/life/own_family.py): whose child this is. '' someone in the circle's (v0.14),
     # 'companion' the companion's own with their partner (`parent_id`).
     ('circle_children', 'whose', "TEXT NOT NULL DEFAULT ''"),
-    # Our child (dungeon/life/our_child.py, Settings > Realism > Their days): how much family life shapes their
-    # days, 0 easy kids (only the good days), 1 gentle, 2 true to life, 3 true-to-life chaos.
+    # Family life (Settings > Realism > Their days): how much their own young children shape their days
+    # (dungeon/life/own_family.py), 0 easy kids (only the good days), 1 gentle, 2 true to life, 3 true-to-life chaos.
     ('life_settings', 'family_life', 'INTEGER NOT NULL DEFAULT 2 CHECK (family_life BETWEEN 0 AND 3)'),
-    # When families change (dungeon/life/custody.py): where the pair's children live after a breakup, when the user
-    # set it ('with_them', 'shared' or 'with_you'; NULL leaves it to the engine's family:custody).
-    ('our_family', 'custody', "TEXT CHECK (custody IS NULL OR custody IN ('with_them', 'shared', 'with_you'))"),
-    # The breakup that choice was made in: it holds only while that one stands (not after getting back together and
-    # splitting again).
-    ('our_family', 'custody_for', 'TEXT'),
     # Lifespans (dungeon/world/lifespans.py): the kind and How long they live the user picked on a child's card ('' and
     # NULL: the app's pick, from their parents' kinds; lifespan 0: they don't age).
     ('circle_children', 'own_kind', "TEXT NOT NULL DEFAULT ''"),
@@ -363,9 +350,9 @@ WIDENED_CHECKS = (
     ('life_admin', "'work', 'school'"),
     # Check-ups for a long-term condition and a parent's appointments (dungeon/life/health_turns.py).
     ('life_admin', "'school', 'health')"),
-    # Starting a family, the step beside the romance ladder (dungeon/life/parenthood.py).
+    # The family step beside the romance ladder, from before it was removed: older rows still pass the check.
     ('relationship_steps', "'friendship', 'parenthood')"),
-    # The pair's own child, born or home (dungeon/life/expecting.py).
+    # A child of the user and a companion, from before that was removed: older rows still pass the check.
     ('circle_children', "'friend', 'ours')"),
 )
 

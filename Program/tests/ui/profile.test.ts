@@ -42,7 +42,6 @@ test('the circle count reads naturally', () => {
 test('the card says long distance, the city and the time difference when they live in another city', () => {
   assert.equal(placeFact('Lisbon, Portugal', { state: 'apart', kind: 'long-distance', text: 'Long distance, Lisbon, 5 hours ahead' }), 'Long distance, Lisbon, 5 hours ahead')
   assert.equal(placeFact('Baltimore, Maryland', { state: 'apart', kind: 'apart', text: '' }), 'Baltimore, Maryland')
-  assert.equal(placeFact('Lisbon, Portugal', { state: 'together', kind: 'staying', text: 'Staying with you until Sunday' }), 'Lisbon, Portugal')
   assert.equal(placeFact('Baltimore, Maryland', null), 'Baltimore, Maryland')
 })
 

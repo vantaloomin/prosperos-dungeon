@@ -274,8 +274,6 @@ PICTURES = {
     'salon': 'just out of the salon, showing off a fresh new look',
     'hobby': 'absorbed in a favorite pastime',
     'nail-salon': 'holding up freshly done nails to show them off',
-    # Their wedding with the user (dungeon/life/wedding.py): what they wear is the moment's own.
-    'wedding': 'smiling among the guests on {possessive} wedding day',
     # A big day in their circle (dungeon/life/big_days.py) with the user: dressed up, a guest among guests.
     'big-day': 'dressed up and smiling among the guests at a celebration',
     # Their own wedding to their partner, with the user standing up at it (big_days.PICTURED).

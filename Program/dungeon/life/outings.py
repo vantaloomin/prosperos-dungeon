@@ -52,13 +52,6 @@ ACTIVITIES = {
     'visit-in': (r'(?!x)x', ('home',), '19:00', 3.0, 'visit', 'time together at their place'),
     'visit-yours': (r'(?!x)x', ('your-home',), '19:00', 3.0, 'visit', "time together at the user's place"),
     'dinner-yours': (r'(?!x)x', ('your-home',), '19:00', 3.0, 'visit', "dinner at the user's place"),
-    # Meeting their people (dungeon/life/their_people.py): planned by the app, never by these words.
-    'meet-family': (r'(?!x)x', ('family-home',), '18:30', 3.0, 'dinner', 'dinner with their family'),
-    'meet-friends': (r'(?!x)x', ('bar', 'nightlife', 'tavern'), '20:00', 3.0, 'drinks', 'drinks with their friends'),
-    # Their wedding with the user (dungeon/life/wedding.py): planned by the app, never by these words. Its cost is
-    # their share of the wedding, paid from savings.
-    'wedding': (r'(?!x)x', ('venue', 'landmark', 'garden', 'park', 'restaurant', 'inn'), '15:00', 8.0, 'wedding',
-                'your wedding'),
     # A big day in their circle (dungeon/life/big_days.py): planned by the app, never by these words. The user goes
     # as their plus-one; the host pays, and the gift is bought separately.
     'big-day': (r'(?!x)x', ('venue', 'landmark', 'garden', 'restaurant'), '15:00', 6.0, 'big-day', 'a big day'),
@@ -106,11 +99,9 @@ RECENT = timedelta(hours=18)
 CHEAP = {'', 'free', '$'}
 UNDO = timedelta(minutes=2)  # How long heading home early can be taken back; nothing is kept until then.
 SPOT = 'outing-spot'
-# Meeting their people (dungeon/life/their_people.py): dinner with their family, drinks with their friends.
-MEETUPS = ('meet-family', 'meet-friends')
-# Planned by the app for a day of its own, not where the user asked (dungeon/life/wedding.py, big_days.py): a long
-# day that takes its later hours too, and never moves somewhere else.
-LONG_DAYS = ('wedding', 'big-day')
+# Planned by the app for a day of its own, not where the user asked (dungeon/life/big_days.py): a long day that takes
+# its later hours too, and never moves somewhere else.
+LONG_DAYS = ('big-day',)
 
 
 def kinds(activity: str) -> tuple[str, ...]:
@@ -448,12 +439,9 @@ def note(connection, message: dict, companion: dict, timestamp: str) -> dict | N
 
 
 def across_distance(connection, message: dict, companion: dict, wanted: dict, timestamp: str) -> bool:
-    """Living in different cities, nothing is booked (dungeon/life/long_distance.py): while a weekend visit is under
-    way they are already together, and otherwise the reply to the user's ask says why they can't just meet up."""
-    from dungeon.life import long_distance, together
-    if long_distance.visiting(connection, companion, parse(message['created_at'])):
-        return True
-    between = long_distance.far(connection, companion)
+    """Living in different cities, nothing is booked: the reply to the user's ask says why they can't just meet up."""
+    from dungeon.life import together, where
+    between = where.far(connection, companion)
     if between is None:
         return False
     if message['role'] == 'user' and not optional(connection, 'SELECT id FROM together_asks WHERE message_id=?',
@@ -569,14 +557,14 @@ def as_plans(connection, timeline_id: str, since: str) -> dict[str, list[dict]]:
     for outing in in_force(connection, timeline_id, since):
         result.setdefault(outing['local_date'], []).append(
             {'id': f"outing:{outing['id']}:{outing['rolls']}", 'at_time': outing['at_time'], 'outing': outing})
-        # A wedding runs on past its first block: the later ones are quiet, still time with the user, not free time.
+        # A big day runs on past its first block: the later ones are quiet, still time with the user, not free time.
         result[outing['local_date']] += [{'id': f"outing:{outing['id']}:{outing['rolls']}:{at}", 'at_time': at,
                                           'outing': outing, 'continues': True} for at in later_hours(outing)]
     return result
 
 
 def later_hours(outing: dict) -> list[str]:
-    """The whole hours after a wedding's start, up to its end ('16:00' ... '22:00'): blocks it also takes."""
+    """The whole hours after a big day's start, up to its end ('16:00' ... '21:00'): blocks it also takes."""
     if outing['activity'] not in LONG_DAYS or outing['until_time'] <= outing['at_time']:
         return []
     return [f'{hour:02d}:00' for hour in range(int(outing['at_time'][:2]) + 1, int(outing['until_time'][:2]))]
@@ -585,11 +573,9 @@ def later_hours(outing: dict) -> list[str]:
 def doing(outing: dict) -> str:
     """'went to dinner at Lupa', 'went for a walk in Patterson Park'."""
     place, activity = outing['place']['name'], outing['activity']
-    if outing['place'].get('family'):  # A family day out (dungeon/life/our_child.py).
-        from dungeon.life import our_child
-        return our_child.doing(outing)
-    if activity in (*MEETUPS, *LONG_DAYS):
-        return planned_doing(outing)
+    if activity in LONG_DAYS:
+        from dungeon.life import big_days
+        return big_days.doing(outing)
     if activity == 'dinner-in':
         return f"had you over for {menu_text(outing['place'].get('menu') or {})} at home"
     if activity in VISIT_DOING:
@@ -606,15 +592,6 @@ def doing(outing: dict) -> str:
     if activity == 'show':
         return f'went to see a show at {place}'
     return f'spent a few hours at {place}' if activity == 'museum' else f'browsed around {place}'
-
-
-def planned_doing(outing: dict) -> str:
-    """The outings the app plans, as the module that plans them tells them: meeting their people, the wedding, a big
-    day in their circle."""
-    from dungeon.life import big_days, their_people, wedding
-    if outing['activity'] in MEETUPS:
-        return their_people.doing(outing)
-    return wedding.doing(outing) if outing['activity'] == 'wedding' else big_days.doing(outing)
 
 
 # Visits (dungeon/life/together.py), as their day tells them.
@@ -661,17 +638,14 @@ def entry(plan: dict, block: dict, definition: dict) -> dict:
     # A big day says who it was with (dungeon/life/big_days.py doing): the area would land after "with you".
     area = f" in {place['neighborhood']}" if place['neighborhood'] and place['neighborhood'] not in place['name'] \
         and place['kind'] not in ('home', 'your-home', 'family-home') and outing['activity'] != 'big-day' else ''
-    alone = outing['activity'] in ('dinner-in', *LONG_DAYS, *VISIT_DOING, *MEETUPS) or (place.get('hobby') or {}).get(
+    alone = outing['activity'] in ('dinner-in', *LONG_DAYS, *VISIT_DOING) or (place.get('hobby') or {}).get(
         'event')
     summary = f"{definition['name']} {doing(outing)}{area}" + ('.' if alone else ' with you.')
     seed = f"outing:{outing['id']}:{outing['rolls']}"
     spot = generators.pick(seed, SPOT, place.get('spots') or [])
     if spot:
         summary += f' {generators.pick(seed, "outing-line", list(inside.SENTENCES)).format(where=spot)}'
-    if outing['activity'] == 'wedding':
-        from dungeon.life import wedding
-        post = wedding.caption(outing)
-    elif outing['activity'] == 'big-day':
+    if outing['activity'] == 'big-day':
         from dungeon.life import big_days
         post = big_days.caption(outing)
     else:
@@ -724,12 +698,6 @@ def proper(cuisine: str) -> str:
 def what(outing: dict) -> str:
     """'dinner at Lupa, a restaurant in Little Italy'; dinner at their place with what they are making."""
     place = outing['place']
-    if outing['activity'] in MEETUPS:
-        from dungeon.life import their_people
-        return their_people.what(outing)
-    if outing['activity'] == 'wedding':
-        from dungeon.life import wedding
-        return wedding.what(outing)
     if outing['activity'] == 'big-day':
         from dungeon.life import big_days
         return big_days.what(outing)
@@ -744,9 +712,6 @@ def what(outing: dict) -> str:
         return f"{hobby.get('event') or hobby['together']} at {place['name']}"
     kind = f"{proper(place['cuisine'])} {place['kind']}".strip() if place.get('cuisine') else place['kind']
     area = f" in {place['neighborhood']}" if place['neighborhood'] else ''
-    if place.get('family'):  # A family day out (dungeon/life/our_child.py): the children in words only.
-        from dungeon.life import steps
-        return f"a family day out with {steps.names_text(place['family'])} at {place['name']} ({kind}{area})"
     return f"{ACTIVITIES[outing['activity']][5]} at {place['name']} ({kind}{area})"
 
 
@@ -783,12 +748,6 @@ def scene(connection, companion: dict, outing: dict, now: datetime | None = None
     conditions = generators.conditions(data, date.fromisoformat(outing['local_date'])) if data else None
     if outing['activity'] in VISIT_DOING:
         return visit_scene(outing, spot, conditions, here_too(connection, companion, outing, now) if now else ())
-    if outing['activity'] in MEETUPS:
-        from dungeon.life import their_people
-        return their_people.scene(connection, companion, outing, spot)
-    if outing['activity'] == 'wedding':
-        from dungeon.life import wedding
-        return wedding.scene(connection, companion, outing, now)
     if outing['activity'] == 'big-day':
         from dungeon.life import big_days
         return big_days.scene(connection, companion, outing, now)
@@ -803,9 +762,6 @@ def scene(connection, companion: dict, outing: dict, now: datetime | None = None
              f'You are {spot}.' if spot else '', place.get('summary', ''), menu(data, outing),
              f'Weather: {agenda.weather_text(conditions)}' if conditions else '',
              'Talk as if you are there together, face to face, not texting.']
-    if place.get('proposal'):
-        from dungeon.life import wedding
-        parts.append(wedding.proposal_lines(connection, outing))
     return '- ' + ' '.join(part.strip() for part in parts if part.strip())
 
 
@@ -847,8 +803,6 @@ def visit_scene(outing: dict, spot: str | None, conditions, others=()) -> str:
 
 
 def planned_line(outing: dict) -> str:
-    if outing['activity'] == 'wedding':  # Months off: with its year, so it never reads as next week.
-        return f"- {day_text(outing['local_date'])}, {outing['local_date'][:4]} at {outing['at_time']}: {what(outing)}."
     if outing['activity'] == 'big-day':
         return f"- {day_text(outing['local_date'])} at {outing['at_time']}: {what(outing)}, with the user."
     line = f"- {day_text(outing['local_date'])} at {outing['at_time']}: {what(outing)}, with the user."
@@ -856,8 +810,6 @@ def planned_line(outing: dict) -> str:
         return line + ' You are cooking.'
     if outing['activity'] in VISIT_DOING:
         return line
-    if outing['activity'] in MEETUPS:
-        return line + ' You arranged it and invited the user.'
     return line + (' They picked the place.' if outing['named'] else ' You picked the place.')
 
 
@@ -900,20 +852,14 @@ def context_lines(connection, companion: dict, now: datetime, fresh_ids: set[str
             result.append((f"outing:{outing['id']}:now", scene(connection, companion, outing, now)))
         elif found == 'planned':
             result.append((f"outing:{outing['id']}", planned_line(outing)))
-            # The wedding is kept on the latest message (dungeon/life/wedding.py), not one that asked for it.
+            # A big day is kept on the latest message (dungeon/life/big_days.py), not one that asked for it.
             if outing['message_id'] in fresh_ids and outing['activity'] not in LONG_DAYS:
                 result.append((f"outing:{outing['id']}:booked",
                                booked_line(outing, holding_for(connection, companion, outing))))
-        elif now - window(outing, version['timezone'])[1] < RECENT and outing['activity'] == 'wedding':
-            when = 'Earlier today' if outing['local_date'] == today.isoformat() else 'Yesterday'  # Past midnight.
-            result.append((f"outing:{outing['id']}:done",
-                           f"- {when} you and the user got married at {outing['place']['name']}; the wedding "
-                           'is over now.'))
         elif now - window(outing, version['timezone'])[1] < RECENT:
-            from dungeon.life import their_people
             paid = money_text(companion, outing)
-            had = their_people.what(outing, past=True) if outing['activity'] in MEETUPS else what(outing)
-            result.append((f"outing:{outing['id']}:done", f"- Earlier you and the user had {had}; it is over now.{paid}"))
+            result.append((f"outing:{outing['id']}:done",
+                           f"- Earlier you and the user had {what(outing)}; it is over now.{paid}"))
     return result
 
 
@@ -960,12 +906,6 @@ def memory_text(outing: dict, name: str) -> dict:
     day = date.fromisoformat(outing['local_date'])
     place = outing['place']
     on = f"on {day:%A, %B} {day.day}"
-    if outing['activity'] in MEETUPS:
-        from dungeon.life import their_people
-        return their_people.memory_text(outing, name)
-    if outing['activity'] == 'wedding':
-        from dungeon.life import wedding
-        return wedding.memory_text(outing, name)
     if outing['activity'] == 'big-day':
         from dungeon.life import big_days
         return big_days.memory_text(outing, name)
@@ -1001,29 +941,21 @@ def old_outing(row: dict) -> bool:
         row['activity'] == 'dinner-in' and row['memory_value'].startswith('Went out together for'))
 
 
-def old_stay(row: dict) -> bool:
-    return 'the user' in f"{row['memory_subject']} {row['memory_value']}"
-
-
 def reworded(connection) -> list[tuple[dict, dict]]:
-    """(row, {subject, value}) for each memory an outing or a long-distance stay left in the old wording."""
-    from dungeon.life.long_distance import stay_text
+    """(row, {subject, value}) for each memory an outing left in the old wording."""
     cursor = connection.cursor()
     cursor.row_factory = sqlite3.Row  # The upgrade's own connection has no row factory.
     found = []
     for row in map(dict, cursor.execute(REWORD.format(table='outings')).fetchall()):
-        if old_outing(row):
+        if row['activity'] in ACTIVITIES and old_outing(row):  # Not one of the kinds since removed (a wedding).
             found.append((row, memory_text(view(row), row['memory_name'].split()[0])))
-    for row in map(dict, cursor.execute(REWORD.format(table='trips')).fetchall()):
-        if row['visit'] and old_stay(row):
-            found.append((row, stay_text(row, {'version': {'definition': {'name': row['memory_name']}}})))
     return [(row, text) for row, text in found
             if (text['subject'], text['value']) != (row['memory_subject'], row['memory_value'])]
 
 
 def reword_memories(connection, timestamp: str) -> int:
-    """Memories that outings and long-distance stays saved before this version read the way new ones are written
-    ("You and Mira got married at ...", "Mira came to stay with you in Baltimore, Friday July 10 to ..."). Runs at
+    """Memories that outings saved before this version read the way new ones are written ("Mira came over to your
+    place"). Runs at
     every start (dungeon/database.py initialize) and changes only memories still in the old wording that were never
     corrected: a correction is a new revision, which leaves the outing's own one superseded."""
     from dungeon.memory.extraction import subject_key
@@ -1044,8 +976,7 @@ def purchases(connection, timeline_id: str, start: date, day: date) -> list[dict
     return [{'text': f"paid for {ACTIVITIES[outing['activity']][5]} at {outing['place']['name']}",
              'date': outing['local_date'], 'spend': '', 'cost': outing['cost'], 'for': 'outing'}
             for outing in in_force(connection, timeline_id, start.isoformat())
-            if outing['status'] == 'done' and outing['local_date'] <= day.isoformat() and outing['cost']
-            and outing['activity'] != 'wedding']
+            if outing['status'] == 'done' and outing['local_date'] <= day.isoformat() and outing['cost']]
 
 
 # --- What the user can change ---
@@ -1058,7 +989,6 @@ def owned(connection, companion: dict, outing_id: str) -> dict:
 
 def cancel(connection, companion: dict, outing_id: str, now: datetime) -> dict:
     outing = owned(connection, companion, outing_id)
-    require(outing['activity'] != 'wedding', 'The wedding is planned in Life admin, on their Character page.', 409)
     require(state(outing, companion['version']['timezone'], now) == 'planned',
             'Only an outing that has not started can be called off.', 409)
     connection.execute("UPDATE outings SET status='cancelled', cancelled_at=? WHERE id=?", (stamp(now), outing_id))
@@ -1110,9 +1040,7 @@ def elsewhere(connection, companion: dict, outing_id: str, now: datetime) -> dic
     require(state(outing, companion['version']['timezone'], now) == 'planned',
             'Only an outing that has not started can move.', 409)
     require(outing['activity'] != 'dinner-in', 'Dinner at their place stays at their place.', 409)
-    require(outing['activity'] != 'wedding', 'The wedding is planned in Life admin, on their Character page.', 409)
     require(outing['activity'] != 'big-day', 'A big day is where it is: the place is not theirs to pick.', 409)
-    require(outing['activity'] != 'meet-family', 'Dinner with their family stays at their family\'s place.', 409)
     data = city_data(connection, companion['version']['definition'])
     require(data is not None, "Their city isn't known, so there is nowhere else to go.", 409)
     day = date.fromisoformat(outing['local_date'])
@@ -1132,11 +1060,9 @@ def listing(connection, companion: dict, now: datetime) -> list[dict]:
     version = companion['version']
     since = (now.astimezone(zone(version['timezone'])).date() - timedelta(days=14)).isoformat()
     found = in_force(connection, companion['active_timeline_id'], since, include_cancelled=True)
-    from dungeon.life import our_child  # An evening out with a child at home: who watches them (screen only).
     return [{**outing, 'state': state(outing, version['timezone'], now),
              'undo': undoable_home(outing, now) or undoable_cancel(outing, version['timezone'], now),
-             'cost_text': money_text(companion, outing).strip(),
-             'sitter': our_child.sitter_view(connection, companion, outing)} for outing in found]
+             'cost_text': money_text(companion, outing).strip()} for outing in found]
 
 
 def photo_ready(connection, now: datetime) -> list[dict]:
@@ -1173,11 +1099,7 @@ def photograph(database) -> None:
         post_id = told['id'] if told else feed.create(connection, companion['active_timeline_id'], 'event',
                                                        feed.PHOTO_KEY + key, [], slot['ends_at'], stamp(now))
         found = moment(companion, outing, decode(slot['entry']), key)
-        if outing['activity'] == 'wedding':
-            from dungeon.life import wedding
-            found = {**found, 'wearing': wedding.photo_wearing(connection, companion, outing),
-                     'label': 'Your wedding day'}
-        elif outing['activity'] == 'big-day':
+        if outing['activity'] == 'big-day':
             from dungeon.life import big_days
             found = {**found, 'wearing': big_days.photo_wearing(connection, outing),
                      'label': f"At {outing['place'].get('title') or 'a big day'}",

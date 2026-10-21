@@ -363,7 +363,7 @@ def goal_since(setup: dict, day: date) -> date:
 
 def goal(found: Profile, setup: dict, day: date, drawn: float = 0.0) -> dict:
     """What they are saving for and how far along they are, less what big buys took from savings meanwhile
-    (`drawn`: an engagement ring, their share of a wedding). Without a goal of their own, one is seeded for each half
+    (`drawn`: a deposit on a place of their own). Without a goal of their own, one is seeded for each half
     of the year, sized so steady saving just about reaches it."""
     half = date(day.year, 1 if day.month <= 6 else 7, 1)
     custom = bool(setup.get('saving_for'))
@@ -452,10 +452,6 @@ UPKEEP = {'dog': 0.025, 'cat': 0.015, 'rabbit': 0.01, 'bird': 0.005, 'parrot': 0
           'guinea-pig': 0.006, 'lizard': 0.008, 'snake': 0.006, 'tortoise': 0.005, 'ferret': 0.012, 'chickens': 0.006,
           'car': 0.08, 'motorcar': 0.08, 'scooter': 0.02, 'horse': 0.06, 'bike': 0.003, 'bicycle': 0.003}
 PURCHASES = {'$': 0.01, '$$': 0.04, '$$$': 0.1, '$$$$': 0.25}
-# A big bill that can't wait for savings (a child's nursery, an adoption agency's fees: dungeon/life/expecting.py):
-# what their savings on hand cover comes out of them, the rest month by month from their pay, about this share of a
-# month's take-home each month and paid off within OWED_MONTHS, as people pay such a bill off.
-OWED_SHARE, OWED_MONTHS, OWED_DAYS = 0.12, 60, 30
 
 
 def household(connection, timeline_id: str, definition: dict, day: date) -> dict | None:
@@ -467,26 +463,20 @@ def household(connection, timeline_id: str, definition: dict, day: date) -> dict
         admin,
         big_days,
         big_turns,
-        expecting,
         grooming,
         hobbies,
         home,
         kitchen,
         media,
-        our_child,
         outings,
         own_family,
         trips,
         wardrobe,
-        wedding,
         work,
     )
 
     found = profile(definition)
-    from dungeon.life import moving_in
-    # Living together, the rent is split (dungeon/life/moving_in.py).
-    costs = moving_in.split(connection, timeline_id, home.monthly_costs(connection, timeline_id, day), day) \
-        if found else None
+    costs = home.monthly_costs(connection, timeline_id, day) if found else None
     if not costs:
         return None
     start = cycle_start(found, day)
@@ -497,12 +487,9 @@ def household(connection, timeline_id: str, definition: dict, day: date) -> dict
               *media.purchases(connection, timeline_id, start, day, definition),
               *admin.purchases(connection, timeline_id, start, day),
               *hobbies.purchases(connection, timeline_id, start, day),
-              *wedding.purchases(connection, timeline_id, start, day),
               *big_days.purchases(connection, timeline_id, start, day),
               *big_turns.purchases(connection, timeline_id, start, day),
-              *own_family.purchases(connection, timeline_id, start, day),
-              *expecting.purchases(connection, timeline_id, start, day),
-              *our_child.purchases(connection, timeline_id, start, day)]
+              *own_family.purchases(connection, timeline_id, start, day)]
     # Raises, promotions and time between jobs (dungeon/life/work.py), or a pension once retired (big_turns.py);
     # what big buys took from savings since the goal began (`drawn_from`).
     drawn = drawn_since(connection, timeline_id, drawn_from(connection, definition, day), day)
@@ -513,49 +500,17 @@ def household(connection, timeline_id: str, definition: dict, day: date) -> dict
 
 def drawn_from(connection, definition: dict, day: date) -> date:
     """When big buys start counting against the savings goal: when the goal began, but never before the world's
-    first day on v0.14 (the town's start, dungeon/life/ages.py: the upgrade day for an older world), so a ring or a
-    wedding from v0.13 doesn't empty the goal at the upgrade."""
+    first day on v0.14 (the town's start, dungeon/life/ages.py: the upgrade day for an older world)."""
     from dungeon.life import ages
     since, began = goal_since(definition.get('money') or {}, day), ages.town_began(connection)
     return max(since, began) if began else since
 
 
 def drawn_since(connection, timeline_id: str, since: date, day: date) -> float:
-    """What big buys took from savings between two dates: a ring or a wedding, a deposit on a place, or a child's
-    nursery and an agency's fees (dungeon/life/expecting.py)."""
-    from dungeon.life import big_turns, expecting, wedding
-    found = [item for item in [*big_turns.purchases(connection, timeline_id, since, day),
-                               *expecting.purchases(connection, timeline_id, since, day)] if item.get('savings')]
-    return sum(item['cost'] for item in [*wedding.purchases(connection, timeline_id, since, day), *found])
+    """What big buys took from savings between two dates: a deposit on a place of their own (big_turns.py)."""
+    from dungeon.life import big_turns
+    return sum(item['cost'] for item in big_turns.purchases(connection, timeline_id, since, day) if item.get('savings'))
 
-
-# How far back savings on hand reach: what they put by in this long, less what came out of it.
-SAVED_DAYS = 365
-
-
-def on_hand(connection, timeline_id: str, definition: dict, day: date) -> float | None:
-    """The savings they have to draw on for a big buy (a ring, their share of a wedding): what they put by in the
-    last year at their pay and rent now, less what big buys took from it. None where money does not apply."""
-    found = profile(definition)
-    if not found:
-        return None
-    home = household(connection, timeline_id, definition, day)
-    if home:
-        found = with_home(found, home['costs'], home.get('pay'))
-    since = day - timedelta(days=SAVED_DAYS)
-    drawn = drawn_since(connection, timeline_id, since, day)
-    return max(saved_since(found, since, day) - drawn, 0.0)
-
-
-def paying(cost: float, saved: float | None, month: float) -> dict:
-    """How a big bill is paid ({saved, monthly, months}): from savings what `saved` covers, the rest in equal
-    payments of about OWED_SHARE of a month's take-home (`month`), never over OWED_MONTHS."""
-    from_savings = round(min(cost, max(saved or 0.0, 0.0)), 2)
-    rest = round(cost - from_savings, 2)
-    if rest < 1 or month <= 0:
-        return {'saved': round(cost, 2), 'monthly': 0.0, 'months': 0}
-    months = min(max(round(rest / (month * OWED_SHARE)), 1), OWED_MONTHS)
-    return {'saved': from_savings, 'monthly': round(rest / months, 2), 'months': months}
 
 
 def typical_month(city: dict) -> float:
@@ -588,8 +543,8 @@ def with_home(found: Profile, costs: dict, pay: dict | None = None) -> Profile:
 
 def spent_at_home(found: Profile, purchases: list[dict]) -> list[dict]:
     """Home changes, clothes, outings and trips this cycle with what they cost ({label, on, cost, for}). Outings and
-    trips carry their own cost; `shown` is the screen's wording when it differs from the model's. An engagement ring and their share of the wedding come from savings
-    (`savings`), so they leave this cycle's money alone."""
+    trips carry their own cost; `shown` is the screen's wording when it differs from the model's. A deposit on a place comes
+    from savings (`savings`), so it leaves this cycle's money alone."""
     month = monthly_share(found)
     return [{'label': item['text'], 'on': item['date'],
              'cost': round(item.get('cost') or PURCHASES.get(item['spend'], 0) * month, 2),
@@ -694,7 +649,7 @@ def context_lines(definition: dict, local_date: str, home: dict | None = None) -
 
 
 SPENT_ON = {'clothes': 'on clothes', 'outing': 'going out', 'trip': 'on a trip', 'food': 'on takeout',
-            'hobby': 'on your pastimes', 'ring': 'from your savings', 'wedding': 'from your savings',
+            'hobby': 'on your pastimes',
             'gift': 'on gifts', 'school': 'on your course', 'deposit': 'from your savings',
             'business': 'from your savings', 'care': "on a parent's care", 'funeral': 'for a funeral',
             'family': 'from your savings', 'owed': 'on what you still owe', 'childcare': 'for the family',

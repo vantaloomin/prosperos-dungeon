@@ -6,7 +6,7 @@ import type { KidsView } from '../../types'
 import { Field } from '../../components/Fields'
 import { Notice } from '../../components/Feedback'
 import { WhyItWent } from '../today/WhyItWent'
-import { KIDS_KEY, kidLine, kidsHint, standingLine, whereHint, wherePick } from './familyText'
+import { KIDS_KEY, kidLine, kidsHint, whereHint, wherePick } from './familyText'
 
 type KidsChange = { pattern?: string; remove?: string; restore?: string }
 export type Removed = { id: string; name: string } | null
@@ -39,7 +39,6 @@ export function Kids({ view, name, removed, setRemoved }: { view: KidsView; name
         ))}
       </ul>
       <p className="subtle">{kidsHint(view, name)}</p>
-      <Standing view={view} name={name} />
       {view.consequence_id && <WhyItWent id={view.consequence_id} />}
       <WhereField view={view} name={name} save={(change) => void save(change)} />
       <div aria-live="polite">
@@ -72,11 +71,6 @@ export function KidsUndo({ removed, setRemoved }: { removed: Removed; setRemoved
   )
 }
 
-/** For a romance: "Step-parent · you live with Sam, so you're Major and Logan's step-parent." */
-function Standing({ view, name }: { view: KidsView; name: string }) {
-  const line = standingLine(view, name)
-  return line && <p className="subtle pet-line kids-standing"><span className="pet-line-label">{line.label} ·</span> {line.text}</p>
-}
 
 /** Where the kids live: the app's pick first, named, then the others that fit who they live with. */
 function WhereField({ view, name, save }: { view: KidsView; name: string; save: (change: KidsChange) => void }) {

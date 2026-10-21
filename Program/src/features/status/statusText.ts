@@ -8,23 +8,14 @@ export interface CompanionStatus { text: string; set_by: 'app' | 'you'; away: { 
 /** Where they are with you while together ("At your place") or on the phone ("On a call", "Calling you"), the away line while they are asleep, at work or out, else their status. */
 export function shown(status: CompanionStatus | null | undefined): { text: string; away: AwayGlyph | null } | null {
   if (!status) return null
-  if (status.where?.state === 'together' && status.where.text) return { text: status.where.text, away: togetherGlyph(status.where) }
+  if (status.where?.state === 'together' && status.where.text) return { text: status.where.text, away: 'pin' }
   if (onThePhone(status.where) && status.where?.text) return { text: status.where.text, away: 'phone' }
   return status.away ? { text: status.away.text, away: status.away.glyph } : status.text ? { text: status.text, away: null } : null
 }
 
-/** A weekend visit across the distance (dungeon/life/long_distance.py) shows luggage, like the chat strip; home
- * together (dungeon/life/moving_in.py) the house, and together somewhere out the pin. */
-function togetherGlyph(where: StatusWhere): AwayGlyph {
-  if (where.kind === 'home') return 'home'
-  return where.kind === 'staying' || where.kind === 'hosting' ? 'luggage' : 'pin'
-}
-
-/** The glyph beside where they are on the chat list: a phone on a call, luggage on a weekend visit, the house at home
- * together, else a pin. */
-export function whereGlyph(where: StatusWhere | null | undefined): 'phone' | 'luggage' | 'pin' | 'home' {
-  if (onThePhone(where)) return 'phone'
-  return where ? togetherGlyph(where) as 'luggage' | 'pin' | 'home' : 'pin'
+/** The glyph beside where they are on the chat list: a phone on a call, else a pin. */
+export function whereGlyph(where: StatusWhere | null | undefined): 'phone' | 'pin' {
+  return onThePhone(where) ? 'phone' : 'pin'
 }
 
 /** On a call, or ringing you (dungeon/life/calls.py). */

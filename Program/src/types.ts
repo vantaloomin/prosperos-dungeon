@@ -519,103 +519,6 @@ export interface StepsView {
   /** Only with Hidden values' odds on. */
   planned?: { step: string; due_on: string; consequence_id: string | null; topic: string } | null
   asks?: { id: string; step: string; side: 'them' | 'you'; status: 'open' | 'yes' | 'not_yet' | 'no' | 'lapsed'; topic: string; on: string; consequence_id: string | null }[]
-  /** Moving in together (dungeon/life/moving_in.py), from the moving-in step on; `consequence_id` only with odds on. */
-  moving_in?: MovingIn | null
-  /** Living apart again after living together: since when, and who moved out ('you' the user, 'them' the companion). */
-  apart?: { since: string; by: 'you' | 'them' | null } | null
-}
-
-/** Wanting children (GET /api/life/steps/family, dungeon/life/parenthood.py); `shown` false for one who reads as
- * a minor. The route and the family step only for a romance; consequence ids only with Hidden values' odds on. */
-export interface FamilyView {
-  shown: boolean
-  wants: 'yes' | 'someday' | 'no'
-  wants_how: 'set' | 'description' | 'seeded' | 'nudged'
-  nudged_by: string | null
-  wants_consequence_id: string | null
-  wants_options: { key: string; label: string }[]
-  romance: boolean
-  route?: string; route_how?: 'set' | 'seeded'; route_consequence_id?: string | null
-  routes?: { key: string; label: string }[]
-  decided_on?: string | null; decided_how?: 'them' | 'you' | 'set' | null; can_decide?: boolean
-  /** Expecting or adopting together (dungeon/life/expecting.py), once you two have decided. */
-  journey?: Journey | null
-  /** Another child (dungeon/life/parenthood.py): when you two decided on one, and whether it can be set now. */
-  another_on?: string | null
-  can_decide_another?: boolean
-}
-
-/** The pair's own children (GET /api/life/steps/ours, dungeon/life/our_child.py); `shown` false with none. Who
- * looks after them is the app's pick (`seeded`) or the user's (`set`); its consequence id only with Hidden values'
- * odds on. */
-export interface OursView {
-  shown: boolean
-  children: OurChild[]
-  care?: 'both_work' | 'part_time' | 'them_home' | 'you_home'
-  care_how?: 'set' | 'seeded'
-  /** Whether it applies now: until the youngest starts school. */
-  care_now?: boolean
-  care_consequence_id?: string | null
-  cares?: { key: string; label: string }[]
-  /** Where they live while their parents live apart (dungeon/life/custody.py); null under one roof. */
-  custody?: Custody | null
-}
-
-/** Where the pair's children live after a breakup (`split`) or across cities (`far`, with the user's `city`):
- * `patterns` to pick from only after a breakup; the consequence id only with Hidden values' odds on. */
-export interface Custody {
-  pattern: 'with_them' | 'shared' | 'with_you'
-  how: 'set' | 'seeded'
-  split: boolean
-  far: boolean
-  /** The day it ended, after a breakup. */
-  ended_on: string | null
-  city: string | null
-  detail: string
-  patterns: { key: string; label: string }[]
-  consequence_id: string | null
-}
-
-/** One child of the pair: their sheet for now (a newborn has only a temperament) and the milestones reached. Words
- * only, never a picture. */
-export interface OurChild {
-  id: string
-  name: string
-  pronouns: string
-  born_on: string
-  arrived_on: string
-  journey_id: string
-  age: number
-  age_text: string
-  grown: boolean
-  relation: 'son' | 'daughter' | 'child'
-  temperament: string | null
-  likes: string | null
-  quirk: string | null
-  milestones: { key: string; label: string; date: string }[]
-  latest: { label: string; date: string } | null
-  kind?: KindShown
-}
-
-/** A child of the pair on Today. */
-export type TodayChild = Pick<OurChild, 'id' | 'name' | 'age_text' | 'relation' | 'likes' | 'latest'> & {
-  /** 'With Sam today', 'With you today', 'Lives with Sam' while their parents live apart. */
-  where_today?: string | null
-}
-
-/** How the child comes: the stages reached, and once it is under way those to come; the child's name once known;
- * consequence ids only with Hidden values' odds on. */
-export interface Journey {
-  route: string
-  status: 'planned' | 'running' | 'home'
-  due_on: string | null
-  arrived_on: string | null
-  name: string | null
-  renamed: boolean
-  stages: { key: string; label: string; date: string | null; done: boolean }[]
-  consequences: string[]
-  /** The same outcomes with the engine's choice each is ('soon', 'turn', 'wait', 'match', 'fostered'). */
-  outcomes?: { key: string; id: string }[]
 }
 
 /** Companions who already have kids (GET /api/life/steps/kids, dungeon/life/kids.py); `shown` false with none. Where
@@ -633,33 +536,9 @@ export interface KidsView {
   consequence_id?: string | null
   /** The arrangement spelled out: "with Dana, every other weekend at Mark's". */
   detail?: string
-  step_parent?: boolean
-  /** For a romance not living together: whether you have met the kids. */
-  meeting?: 'met' | 'soon' | 'unmet' | null
 }
 
 export interface Kid { id: string; name: string; pronouns: string; born_on: string; age: number; age_text: string; relation: 'son' | 'daughter' | 'child' }
-
-/** Whose place in one city ('yours', 'theirs', 'new'), or who moves across the distance ('them' to your city; 'you',
- * which waits until you move to theirs). `place` is the neighbourhood, `city` the city, `home` the shared home once moved. */
-export interface MovingIn {
-  status: 'moving' | 'waiting' | 'moved'; plan: 'yours' | 'theirs' | 'new' | 'them' | 'you'
-  city: string; place: string; home: string; move_on: string | null; moved_on: string | null; consequence_id: string | null
-  /** Sharing a home: moving into (or living in) the home you share with another partner (`with`, first names), whether
-   * they are open to sharing it (`ready`), and who living there isn't (`not_ready`). */
-  joins?: boolean; ready?: boolean; with?: string[]; not_ready?: string[]
-  /** On the page of one living with you: another partner who would move in, and whether this one is open to it. */
-  newcomers?: Newcomer[]
-  /** While that move waits or is on its way: each one's answer, the newcomer first. */
-  rolls?: ShareRoll[]
-}
-
-export interface ShareRoll { name: string; open: boolean; consequence_id: string | null }
-
-export interface Newcomer {
-  name: string; status: 'moving' | 'waiting'; move_on: string | null; open: boolean; not_ready: string[]
-  consequence_id: string | null
-}
 
 export interface BackupResult { path: string; created_at: string; database_bytes: number }
 export interface BackupEntry {
@@ -729,8 +608,6 @@ export interface Today {
   mind?: { thoughts: Thought[] } | null
   moments: Moment[]
   dreams: Dream[]
-  /** The pair's own children (dungeon/life/our_child.py). */
-  family?: TodayChild[]
 }
 
 /** One day's thought on the companion's mind. */
@@ -808,8 +685,6 @@ export interface CirclePerson {
   knows?: CircleTie[]
   /** How close they and the companion feel, both ways (dungeon/memory/pairs.py); read-only. */
   stage?: PairStage | null
-  /** What they think of you, once they have met you (dungeon/life/their_people.py). */
-  met?: CircleMet | null
   now: RoutineBlock | null
   recent: DiaryEntry[]
   /** Their pets (dungeon/life/pets.py), seeded by who they are. */
@@ -847,19 +722,6 @@ export interface CircleChild {
   title: 'family' | 'godchild' | 'friend'
   /** The companion's own child with their partner (dungeon/life/own_family.py). */
   own?: boolean
-}
-
-/** A circle person who has met the user, or is about to (dungeon/life/their_people.py). `before` is a couple who go
- * back years, so they have always known you; `meeting` is a meet-up still to come ('soon') or under way ('now'). `consequence_id` only with Hidden
- * values' odds on. */
-export interface CircleMet {
-  met_on: string | null
-  before: boolean
-  meeting: 'soon' | 'now' | null
-  impression: 'warm' | 'smitten' | 'curious' | 'protective' | 'wary'
-  warmth: number
-  label: string
-  consequence_id: string | null
 }
 
 /** Someone around the circle, a few layers out (dungeon/life/network.py); built on request, never stored. */
@@ -1372,16 +1234,6 @@ export interface NewsItem {
   heard: { name: string; heard_on: string; from: string | null; companion_id: string | null }[]
 }
 
-/** The pregnancy's hard turn once it has come (dungeon/life/expecting.py `turn_shown`), listed on Today with an
- * Undo like a chapter: bed rest until the birth, an early arrival for two weeks after it. */
-export interface FamilyTurn {
-  /** The journey's id. */
-  id: string
-  kind: 'bed_rest' | 'early'
-  on: string
-  title: string
-  consequence: string | null
-}
 export interface LifeChapter {
   id: string
   kind: 'new_job' | 'move' | 'pet' | 'hobby' | 'friend_moves' | 'relationship' | 'move_in' | 'move_out' | 'school' | 'career_change' | 'buy_place' | 'retire' | 'business' | 'health' | 'caring'
@@ -2027,18 +1879,6 @@ export interface AdminItem {
 
 export interface AdminLater { kind: string; title: string; local_date: string; due: boolean }
 
-/** A guest on the wedding list: `side` is 'theirs' (their family and friends) or 'yours' (people you told them about,
- * your other companions). `who` is how they know the couple ("Mira's mom", "your sister"). */
-export interface WeddingGuest { key: string; name: string; who: string; side: 'theirs' | 'yours'; invited: boolean }
-/** The wedding an engagement plans (dungeon/life/wedding.py): picked by the app, changed by the user. */
-export interface WeddingPlan {
-  id: string; status: 'planned' | 'done'; engaged_on: string; date: string; at: string; until: string
-  size: 'small' | 'proper' | 'big'; size_label: string; sizes: { key: string; label: string }[]
-  venue: { id: string; name: string; kind: string; neighborhood: string; mapped: boolean }
-  budget_text: string; share_text: string; guest_count: number; guests: WeddingGuest[]; moved_by_user: boolean
-  customs: string; tasks: { title: string; date: string; done: boolean; done_text?: string }[]; consequence_id: string | null
-}
-
 /** The Character page's Life admin panel (/api/life/admin). */
 export interface AdminView {
   state: string[]
@@ -2049,8 +1889,6 @@ export interface AdminView {
   level: number
   /** 0 to 100, only with Hidden values' home-life meters on. */
   meter: number | null
-  /** The wedding being planned (dungeon/life/wedding.py), null when there is none. */
-  wedding: WeddingPlan | null
 }
 
 /** Something that changed at work (dungeon/life/work.py): a raise, a promotion, a project wrapped up, a new job. */

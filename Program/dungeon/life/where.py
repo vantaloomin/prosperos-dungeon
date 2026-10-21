@@ -102,9 +102,7 @@ def your_home(connection) -> tuple[dict, dict | None] | None:
     city = row and row['home_city_id'] and changes.resolve(row['home_city_id'], custom.all_cities(connection))
     if not city:
         return None
-    # Living with a companion in this city, home is the place they share (dungeon/life/moving_in.py).
-    from dungeon.life import moving_in
-    return city, hood_named(city, moving_in.shared_home(connection, city['id']) or row['home_neighbourhood'])
+    return city, hood_named(city, row['home_neighbourhood'])
 
 
 def home_text(connection) -> str:
@@ -186,3 +184,9 @@ def between(connection, definition: dict) -> Between:
         return Between(True, True, city, theirs, 0.0, True)
     km = catalog.distance_km(city, theirs) if 'lat' in city and 'lat' in theirs else None
     return Between(True, False, city, theirs, km, km is not None and km <= trips.REACH_KM[3])
+
+
+def far(connection, companion: dict) -> Between | None:
+    """How far apart they are, when they live in different cities; None in the same city or when it can't be told."""
+    found = between(connection, companion['version']['definition'])
+    return found if found.known and found.long_distance else None

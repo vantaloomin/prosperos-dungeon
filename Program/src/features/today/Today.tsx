@@ -10,7 +10,6 @@ import { Circle } from './Circle'
 import { CorrectEvent, type EventCorrection } from './CorrectEvent'
 import { EventItem } from './EventItem'
 import { MoneyPanel } from './MoneyPanel'
-import { OurFamily } from './OurFamily'
 import { Paper } from './Paper'
 import { Recommendations } from './Recommendations'
 import { Chapters } from './Chapters'
@@ -118,7 +117,6 @@ export function Today({ companion, go }: { companion: Companion; go: (view: View
       <LittleThings moments={data.moments} dreams={data.dreams} name={name} />
       <Reactions name={name} />
       <Routine data={data} name={name} go={go} />
-      <OurFamily family={data.family} />
       <MoneyPanel name={name} go={() => go('character')} />
       <Circle name={name} />
       <Paper />

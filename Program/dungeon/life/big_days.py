@@ -19,8 +19,7 @@ The app decides, the user overrides ("the world exists outside of User", Vanta 2
   outfit from their wardrobe (dungeon/life/wardrobe.py), and the day itself.
 - The invitation is a first text (dungeon/life/openers.py) naming whose day it is, the day, the time and the place;
   sending it books the day as an outing (dungeon/life/outings.py, activity 'big-day'), in person with the circle
-  there. Long distance, the user's stay with them is planned around it by v0.12's rules (a 'host' visit,
-  dungeon/life/long_distance.py); when no visit can reach them, they go on their own. An out-of-town relative's
+  there. Living in different cities, the user can't come and they go on their own. An out-of-town relative's
   day is in the city they live in (trips.hometown): the user comes along when a trip from the city they share
   reaches it, and either way the companion travels there (the fare from their money, a line saying so).
 - The invitation never lands on a day an outing with the user already has: a party or a wedding moves a week on, a
@@ -44,7 +43,7 @@ from datetime import date, datetime, timedelta
 from functools import cache
 
 from dungeon import consequences
-from dungeon.clock import parse, stamp, zone
+from dungeon.clock import stamp, zone
 from dungeon.database import decode, encode, identifier, many, optional
 from dungeon.life import ages, circle, money, outings, steps
 from dungeon.life.upkeep import days_ago
@@ -124,16 +123,13 @@ KINDS = {
                            '17:00', (), 'first_birthday', 0.01),
     # Their own baby's naming day at home (dungeon/life/own_family.py): a best friend is asked to be the godparent.
     'naming': Kind('naming', "{name}'s naming day", "{who}'s naming day", '11:00', '14:00', (), None),
-    # The pair's baby shower (dungeon/life/expecting.py), thrown by someone close at their place: no photo, no buzz.
-    'own_shower': Kind('own_shower', 'Baby shower at {name}\'s', 'the baby shower {who} is throwing for you and the user',
-                       '14:00', '17:00', (), None, 0.0, True),
     # Someone in their circle or town who passed away (dungeon/life/loss.py): its word, times and place follow the
     # city's customs; a quiet day with no photo and no buzz.
     'funeral': Kind('funeral', "{name}'s {word}", "{who}'s {word}", '11:00', '15:00', ('temple', 'landmark', 'garden'),
                     None, 0.005),
 }
 # A child's day: the parent hosts, and it is never pictured or passed on as group chat buzz.
-CHILDS = ('first_birthday', 'naming', 'own_shower')
+CHILDS = ('first_birthday', 'naming')
 GRADUATION_PLACES = ('university', 'college', 'campus', 'school', 'academy', 'institute')
 NOT_PARTY = ('station', 'hospital', 'clinic', 'airport', 'prison', 'jail', 'court', 'police', 'parking', 'office')
 # Bank lines that only fit a modern city (texts, cars, photos): left out in an old one, by the place's `modern`.
@@ -353,12 +349,6 @@ def namings(connection, companion: dict, today: date, people: dict, now) -> list
     return result
 
 
-def showers(connection, companion: dict, today: date, people: dict, now) -> list[dict]:
-    """The pair's baby shower, while they are expecting (dungeon/life/expecting.py)."""
-    from dungeon.life import expecting
-    return expecting.showers(connection, companion, today, people, now)
-
-
 def funerals(connection, companion: dict, today: date, people: dict, now) -> list[dict]:
     """A funeral for someone in their circle or town who passed away (dungeon/life/loss.py)."""
     from dungeon.life import loss
@@ -367,15 +357,14 @@ def funerals(connection, companion: dict, today: date, people: dict, now) -> lis
 
 # In order; later features add their own.
 SOURCES = [sibling_weddings, friend_weddings, milestone_birthdays, retirements, graduations, town_weddings, chapters,
-           first_birthdays, namings, funerals, showers]
+           first_birthdays, namings, funerals]
 # The companion's own days: the user is there for them, and there is no gift or buzz about someone else.
-OWN = ('own_wedding', 'own_graduation', 'own_retirement', 'own_shower')
+OWN = ('own_wedding', 'own_graduation', 'own_retirement')
 # Days with no group chat buzz and no photo.
 QUIET = ('funeral',)
 # What they mean to ask the user, before they have: a plus-one, unless it is their own day or a funeral.
 ASKING = {'own_wedding': 'to stand up with you at your wedding', 'own_graduation': 'to be there with you',
-          'own_retirement': 'to be there with you', 'funeral': 'to come with you', 'naming': 'to be the godparent',
-          'own_shower': 'to come with you'}
+          'own_retirement': 'to be there with you', 'funeral': 'to come with you', 'naming': 'to be the godparent'}
 
 
 # Planning a big day ----------------------------------------------------------------------------------------------
@@ -422,7 +411,7 @@ def said(row: dict) -> str:
 def place_for(connection, companion: dict, kind: Kind, day: date, seed: str, details: dict) -> dict:
     """Where it is held: a venue in their city that fits the kind; somewhere unnamed out of town or in a city the app
     doesn't know."""
-    from dungeon.life import wedding
+    from dungeon.life import wedding_customs
     data = outings.city_data(connection, companion['version']['definition'])
     away = details.get('city') if details.get('local') is False else ''
     if not data or away:
@@ -433,7 +422,8 @@ def place_for(connection, companion: dict, kind: Kind, day: date, seed: str, det
         return {'id': '~big-day', 'name': details.get('home') or f"{first(details.get('host') or '')}'s place", 'kind': 'venue',
                 'neighborhood': '', 'summary': '', 'cost': '', 'cuisine': '', 'city': '', 'city_id': '', 'spots': []}
     if kind.key in ('wedding', 'own_wedding'):
-        return wedding.venue_for(data, wedding.customs(wedding.culture_of(data)), 'proper', seed, day=day)
+        return wedding_customs.venue_for(data, wedding_customs.customs(wedding_customs.culture_of(data)), 'proper', seed,
+                                         day=day)
     if kind.key == 'funeral':
         from dungeon.life import loss
         return loss.venue_for(connection, companion, data, seed, day, bool(details.get('notable')))
@@ -442,8 +432,8 @@ def place_for(connection, companion: dict, kind: Kind, day: date, seed: str, det
     if kind.key in ('graduation', 'own_graduation'):
         options = [item for item in data['places'] if any(word in item['name'].lower() for word in GRADUATION_PLACES)
                    ] or options
-    if wedding.cold(data, day):
-        options = [item for item in options if item['kind'] not in wedding.OUTDOOR] or options
+    if wedding_customs.cold(data, day):
+        options = [item for item in options if item['kind'] not in wedding_customs.OUTDOOR] or options
     part = 'morning' if kind.at < '12:00' else 'afternoon' if kind.at < '17:00' else 'evening'
     options = [item for item in options if part in item.get('day_parts', (part,))] or options  # Open then.
     item = generators.pick(seed, 'venue', options or data['places'])
@@ -473,12 +463,12 @@ def gift_era(connection, companion: dict) -> str:
 def outfit_for(connection, companion: dict, row_id: str, day: date, wear: str = '', kind: str = '') -> str:
     """What they wear on the day: what the customs ask for (a funeral's dark clothes, their own wedding's attire),
     else something to go out in from their wardrobe."""
-    from dungeon.life import wardrobe, wedding
+    from dungeon.life import wardrobe, wedding_customs
     if wear:
         return wear
     if kind == 'own_wedding':  # Their own wedding: what the city's customs have them marry in.
         data = outings.city_data(connection, companion['version']['definition'])
-        return wedding.attire(companion['version']['definition'], wedding.culture_of(data))
+        return wedding_customs.attire(companion['version']['definition'], wedding_customs.culture_of(data))
     timeline_id = companion['active_timeline_id']
     state = optional(connection, 'SELECT * FROM wardrobe_state WHERE timeline_id=?', (timeline_id,))
     if not state:
@@ -580,25 +570,21 @@ def loss_person(connection, details: dict) -> str | None:
 def travels(connection, companion: dict, row: dict) -> bool:
     """The user can come along to a day out of town: both live in the companion's city (long distance, the user
     can't come) and a trip from there reaches it (trips.fits, within a long weekend's reach)."""
-    from dungeon.life import long_distance, trips
+    from dungeon.life import trips, where
     home = outings.city_data(connection, companion['version']['definition'])
     city = catalog.cities().get(row['details'].get('city_id') or '')
-    return bool(home and city) and not long_distance.far(connection, companion) and trips.fits(home, city) and \
+    return bool(home and city) and not where.far(connection, companion) and trips.fits(home, city) and \
         catalog.distance_km(home, city) <= trips.REACH_KM[3]
 
 
 def invitable(connection, companion: dict, row: dict) -> bool:
-    """Whether the user could come at all: someone in town or a trip they can make together (or a visit can reach
-    them), not apart from the companion, and no other big day they are asked to that close (their own wedding and the
-    pair's baby shower always ask them)."""
-    from dungeon.life import long_distance
+    """Whether the user could come at all: someone in town or a trip they can make together, both living in the same
+    city, and no other big day they are asked to that close (their own wedding always asks them)."""
+    from dungeon.life import where
     if row['details'].get('local') is False and not travels(connection, companion, row) or \
-            steps.apart(connection, companion) == 'ended':
+            where.far(connection, companion):
         return False
-    between = long_distance.far(connection, companion)
-    if between and not long_distance.reachable(between):
-        return False
-    return row['kind'] in ('own_wedding', 'own_shower') or not crowded(connection, row)
+    return row['kind'] == 'own_wedding' or not crowded(connection, row)
 
 
 def crowded(connection, row: dict) -> bool:
@@ -614,13 +600,12 @@ def crowded(connection, row: dict) -> bool:
 
 
 def decide_invite(connection, companion: dict, row: dict, now: datetime) -> None:
-    """Whether they ask the user along: always to their own wedding and to the pair's baby shower, else the engine's
-    `bigday:invite`."""
+    """Whether they ask the user along: always to their own wedding, else the engine's `bigday:invite`."""
     if not invitable(connection, companion, row):
         return
-    if row['kind'] in ('own_wedding', 'naming', 'own_shower'):  # A naming day: godparent if best friends.
+    if row['kind'] in ('own_wedding', 'naming'):  # A naming day: godparent if best friends.
         found = steps.state(connection, companion, now, write=False) if row['kind'] == 'naming' else None
-        if row['kind'] in ('own_wedding', 'own_shower') or found and found['ladder'] == 'friendship' and found['step'] != 'friends':
+        if row['kind'] == 'own_wedding' or found and found['ladder'] == 'friendship' and found['step'] != 'friends':
             connection.execute('UPDATE big_days SET invite=1 WHERE id=?', (row['id'],))
         return
     from dungeon import group_guests
@@ -703,7 +688,7 @@ def follow(connection, companion: dict, now: datetime) -> None:
         if row['status'] == 'declined' and state == 'planned':
             row = taken_back(connection, row, stamp(now))
         if row['status'] == 'invited' and state == 'planned':
-            state = moved_apart(connection, companion, row, outing, now)
+            state = moved_apart(connection, companion)
         if row['status'] == 'invited' and state in (None, 'cancelled'):
             decline(connection, row, stamp(now))
         elif row['status'] == 'invited' and state == 'done':
@@ -729,21 +714,11 @@ def reconsider(connection, companion: dict, now: datetime) -> None:
                                (moved.isoformat(), gift_on, stamp(now), row['id']))
 
 
-def moved_apart(connection, companion: dict, row: dict, outing: dict, now: datetime) -> str:
-    """They live apart since the invitation (one of them moved): the user's stay with them is planned around the day,
-    or, when no visit can reach them, the user can't come after all ('cancelled'). Else the outing stays 'planned'."""
-    from dungeon.life import long_distance
-    between = long_distance.far(connection, companion)
-    if not between or optional(connection, "SELECT id FROM trips WHERE id=? AND status='planned'",
-                               (row['trip_id'] or '',)):
-        return 'planned'
-    if row['details'].get('city_id'):  # Out of town: the trip there together was from the city they shared.
-        return 'cancelled'
-    if long_distance.reachable(between):
-        trip_id = stay(connection, companion, date.fromisoformat(row['local_date']), outing['message_id'], now)
-        connection.execute('UPDATE big_days SET trip_id=? WHERE id=?', (trip_id or row['trip_id'], row['id']))
-        return 'planned'
-    return 'cancelled'
+def moved_apart(connection, companion: dict) -> str:
+    """They live apart since the invitation (one of them moved): the user can't come after all ('cancelled'). Else the
+    outing stays 'planned'."""
+    from dungeon.life import where
+    return 'cancelled' if where.far(connection, companion) else 'planned'
 
 
 def gone(connection, row: dict) -> bool:
@@ -752,9 +727,6 @@ def gone(connection, row: dict) -> bool:
     if row['kind'] == 'funeral':
         from dungeon.life import loss
         return loss.gone(connection, row)
-    if row['kind'] == 'own_shower':
-        from dungeon.life import expecting
-        return expecting.shower_gone(connection, row)
     if row['person_id']:
         person = optional(connection, 'SELECT status FROM circle_people WHERE id=?', (row['person_id'],))
         if person is None or person['status'] == 'removed':
@@ -785,16 +757,15 @@ def cancel_plans(connection, row: dict, timestamp: str) -> None:
 
 
 def undone(connection, outing_id: str, timestamp: str) -> None:
-    """outings.undo of the day's outing: taken back at once, before a long distance day plans around a stay that
-    was called off with the no (long_distance.far_plans)."""
+    """outings.undo of the day's outing: taken back at once."""
     row = optional(connection, "SELECT * FROM big_days WHERE outing_id=? AND status='declined'", (outing_id,))
     if row:
         taken_back(connection, row, timestamp)
 
 
 def taken_back(connection, row: dict, timestamp: str) -> dict:
-    """"Can't make it" undone on Today (outings.undo): the user is coming after all, and long distance their stay
-    for it (called off with the no) is back on."""
+    """"Can't make it" undone on Today (outings.undo): the user is coming after all, and a trip there together
+    (called off with the no) is back on."""
     connection.execute("UPDATE big_days SET status='invited', answered_at=NULL, updated_at=? WHERE id=?",
                        (timestamp, row['id']))
     connection.execute("UPDATE trips SET status='planned', cancelled_at=NULL WHERE id=? AND status='cancelled' AND "
@@ -860,7 +831,6 @@ def finish(connection, companion: dict, row: dict, with_user: bool, now: datetim
 def invite_due(connection, companion: dict, now: datetime) -> list:
     """A big day they will ask the user to: on its day, the invitation naming whose, when and where."""
     from dungeon.life.openers import Trigger
-    from dungeon.life.their_people import clock_text
     if not ACTIVE or not FIRST_TEXTS or not companion.get('active_timeline_id'):
         return []
     local = now.astimezone(zone(companion['version']['timezone']))
@@ -898,9 +868,6 @@ def reason_for(row: dict, day: date) -> str:
                 f"on {day:%A} {day.day} {day:%B} at {row['at_time']}, and you want the user, your close friend, to be "
                 f"{first(row['details']['name'])}'s godparent. Ask them in your own words, naming the day and the time, "
                 'warmly; it means a lot to you.')
-    if row['kind'] == 'own_shower':
-        return (f"{said(row)[:1].upper()}{said(row)[1:]} on {when}. You're both the guests of honour. Tell the user "
-                'about it in your own words, naming the day, the time and the place.')
     if row['kind'] in OWN:
         return (f"It's {said(row)} on {when}, and you'd love the user to be there with you. Ask them in your own "
                 "words, naming the day, the time and the place. If they can't come, that's fine.")
@@ -921,9 +888,6 @@ def invitation(row: dict, day: str, time: str, era: str = 'modern') -> str:
     elif row['kind'] == 'own_wedding':
         line = seed.choice(fitting(bank()['stand_up'], row['place'])).format(
             partner=first(row['details']['name']), day=day, place=row['place']['name'])
-    elif row['kind'] == 'own_shower':
-        line = seed.choice(bank()['invite_shower']).format(host=first(row['details']['name']), day=day, time=time,
-                                                           place=row['place']['name'])
     else:
         event = said(row).replace('your ', 'my ', 1)
         lines = fitting(bank()['invite_funeral' if row['kind'] == 'funeral' else 'invite'], row['place'])
@@ -959,9 +923,8 @@ def settle(connection, companion: dict, message: dict, trigger, timestamp: str) 
              'people': [host(row)] if row['person_id'] else []}
     outing = together.insert(connection, companion, message['id'], ACTIVITY, place, day, row['at_time'],
                              row['until_time'], None, timestamp)
-    trip_id = stay(connection, companion, day, message['id'], parse(timestamp))
-    connection.execute("UPDATE big_days SET status='invited', message_id=?, outing_id=?, trip_id=?, updated_at=? "
-                       'WHERE id=?', (message['id'], outing['id'], trip_id, timestamp, row['id']))
+    connection.execute("UPDATE big_days SET status='invited', message_id=?, outing_id=?, updated_at=? "
+                       'WHERE id=?', (message['id'], outing['id'], timestamp, row['id']))
     return outings.get(connection, outing['id'])
 
 
@@ -971,21 +934,6 @@ def host(row: dict) -> dict:
     if details.get('host'):
         return {'id': row['person_id'], 'name': details['host'], 'role': details.get('host_role', '')}
     return {'id': row['person_id'], 'name': details.get('name', ''), 'role': details.get('role', '')}
-
-
-def stay(connection, companion: dict, day: date, message_id: str, now: datetime) -> str | None:
-    """Long distance: the user's stay with them over the big day, by v0.12's rules (none needed when one covers it)."""
-    from dungeon.life import long_distance, trips
-    between = long_distance.far(connection, companion)
-    if not between or not long_distance.reachable(between):
-        return None
-    days = [day - timedelta(days=1), day, day + timedelta(days=1)]
-    if long_distance.overlaps(connection, companion, days):
-        return None
-    home = outings.city_data(connection, companion['version']['definition'])
-    trip = long_distance.plan(connection, companion, home, between, days, long_distance.HOST, message_id) if home \
-        else None
-    return trips.insert(connection, companion, trip, now) if trip else None
 
 
 def note(connection, message: dict, companion: dict, timestamp: str) -> bool:
@@ -1133,7 +1081,7 @@ def alone_doing(row: dict) -> str:
         return f'held {title(row)} at home'
     if row['kind'] in OWN:
         return {'own_graduation': 'graduated', 'own_retirement': 'had their retirement party',
-                'own_wedding': 'got married', 'own_shower': 'had their baby shower'}[row['kind']] + f' at {place}'
+                'own_wedding': 'got married'}[row['kind']] + f' at {place}'
     return f'went to {title(row)} at {place}'
 
 
@@ -1227,14 +1175,12 @@ def context_lines(connection, companion: dict, now: datetime) -> list[tuple[str,
     modern = modern_city(connection, companion)
     result = []
     hidden = CHILDS if withheld(connection) else ()
-    ended = steps.apart(connection, companion) == 'ended'  # Broken up: no longer asking the user along.
     for row in rows(connection, companion['active_timeline_id'], ('planned', 'invited', 'declined', 'done')):
         if row['kind'] in hidden:
             continue
         gap = (date.fromisoformat(row['local_date']) - today).days
         if row['status'] != 'done' and gap >= 0:
-            shown = {**row, 'invite': 0} if ended and row['status'] == 'planned' else row
-            result.append((f"bigday:{row['id']}:{row['status']}", coming_line(shown, today)))
+            result.append((f"bigday:{row['id']}:{row['status']}", coming_line(row, today)))
         elif row['status'] == 'done' and -TOLD_DAYS <= gap <= 0:
             result.append((f"bigday:{row['id']}:done", past_line(row, today)))
         buzz = buzz_line(row, today) if modern and row['status'] != 'called_off' else ''
@@ -1342,3 +1288,9 @@ def copied_outing(connection, row: dict, row_id: str, message: str, cutoff: str)
          outing['activity'], outing['asked_date'], encode(place), outing['named'], outing['cost'],
          outing['created_at']))
     return copied
+
+
+def clock_text(at: str) -> str:
+    """'7', '6:30' on a twelve-hour clock, as a text says it."""
+    hour, minute = int(at[:2]), at[3:]
+    return f"{hour % 12 or 12}{'' if minute == '00' else ':' + minute}"

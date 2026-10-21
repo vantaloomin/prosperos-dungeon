@@ -148,14 +148,11 @@ def pictured(connection, timeline_id: str, texts) -> bool:
 
 
 def names(connection, timeline_id: str, ever: bool = False) -> set[str]:
-    """The circle's children, the pair's own child on the way (dungeon/life/expecting.py) and grown up, by the name
-    the circle has for them now (dungeon/life/our_child.py). `ever` also takes the ones no longer in the circle."""
-    from dungeon.life import expecting
-    grown = {row['name'] for row in many(connection, "SELECT name FROM circle_people WHERE timeline_id=? AND "
-                                         "json_extract(details, '$.our_child') IS NOT NULL", (timeline_id,))}
+    """The circle's children, by the name the circle has for them now. `ever` also takes the ones no longer in the
+    circle."""
     status = '' if ever else " AND status!='ended'"
     return {row['name'] for row in many(connection, f"SELECT name FROM circle_children WHERE timeline_id=?{status}",
-                                        (timeline_id,))} | expecting.names(connection, timeline_id) | grown
+                                        (timeline_id,))}
 
 
 def every_name(connection) -> set[str]:

@@ -20,9 +20,8 @@ The app decides, the user overrides ("the world exists outside of User", Vanta 2
   picked by the engine (kids:custody): with the companion and every other weekend at the other parent's, a week at
   each, or with the other parent and every other weekend with the companion. The weeks alternate the way a rota
   does (dungeon/life/shifts.py `monday_of`), from the week it was decided.
-- Dating a parent: the kids are part of their life in the chat from the start ('kids' section), the user meets them
-  with their people (dungeon/life/their_people.py, the "meeting their people" step), and once the two of them
-  live together (dungeon/life/moving_in.py) the user is their step-parent.
+- Dating a parent: the kids are part of their life in the chat from the start ('kids' section), and the user knows
+  about them.
 - A circle parent the companion dates goes the same way (the v0.14 E2E note): a love-life partner past their
   twenties may come with kids of their own (`partner_kids`, dungeon/life/love_life.py; not with Growing families at
   None), listed under the partner,
@@ -449,7 +448,7 @@ def add_described(connection, companion: dict, world, row: dict, now) -> None:
 
 def grow_up(connection, companion: dict, world, now) -> None:
     """A child of theirs who has turned 18 is a grown son or daughter in their circle, living in town, and no longer
-    one of the kids (dungeon/life/our_child.py does the same for the pair's own)."""
+    one of the kids."""
     timeline_id, today = companion['active_timeline_id'], steps.local_today(companion, now)
     for kid in own(connection, timeline_id):
         age = families.age_of(kid, today)
@@ -671,51 +670,11 @@ def where_line(connection, companion: dict, row: dict, pattern: str, kids: list[
 
 
 def user_line(connection, companion: dict, kids: list[dict], now) -> str | None:
-    """For a romance: what the user knows of the kids, met them, or is their step-parent."""
+    """For a romance: the user knows about the kids."""
     if companion['version']['definition'].get('relationship') != 'romance':
         return None
     names = steps.names_text([first(kid['name']) for kid in kids])
-    if living_together(connection, companion):
-        return f'- You and the user live together, so the user is {names}\'s step-parent now.'
-    if met(connection, companion):
-        return f'- The user has met {names}.'
-    if dinner := meeting_soon(connection, companion):
-        return f'- The user is meeting {names} at the {dinner} you planned, along with your people.'
-    return (f"- The user knows you have {'a child' if len(kids) == 1 else 'kids'} but hasn't met "
-            f"{'them' if len(kids) > 1 else names} yet; you'd introduce them once things are serious.")
-
-
-def living_together(connection, companion: dict) -> bool:
-    """Whether the user lives with this romance companion (dungeon/life/moving_in.py): their step-parent then."""
-    from dungeon.life import moving_in
-    return companion['version']['definition'].get('relationship') == 'romance' and bool(moving_in.living(connection,
-                                                                                                         companion))
-
-
-def met(connection, companion: dict) -> bool:
-    """Whether the user has met their kids: at the family dinner for the "meeting their people" step (not drinks with
-    their friends), or by knowing their people already (a pair from way back)."""
-    timeline_id = companion['active_timeline_id']
-    if optional(connection, "SELECT id FROM people_meetups WHERE timeline_id=? AND why='step' AND kind='family' AND "
-                "status='done'", (timeline_id,)):
-        return True
-    return bool(optional(connection, "SELECT id FROM people_impressions WHERE timeline_id=? LIMIT 1", (timeline_id,))) \
-        and not optional(connection, "SELECT id FROM people_meetups WHERE timeline_id=? AND why='step'", (timeline_id,))
-
-
-def meeting_soon(connection, companion: dict) -> str | None:
-    row = optional(connection, "SELECT kind FROM people_meetups WHERE timeline_id=? AND why='step' AND kind='family' "
-                   "AND status IN ('planned', 'booked')", (companion['active_timeline_id'],))
-    return 'family dinner' if row else None
-
-
-def at_dinner_on(connection, companion: dict, day: date) -> bool:
-    """Whether the family dinner where the user first meets their people (and their kids) is on this day: the kids are
-    with them that day, whatever the rota says."""
-    from dungeon.life import outings, their_people
-    return any(row['activity'] == their_people.AT_FAMILY and row['local_date'] == day.isoformat() and
-               (row['place'] if isinstance(row['place'], dict) else decode(row['place'])).get('first')
-               for row in outings.in_force(connection, companion['active_timeline_id'], day.isoformat()))
+    return f"- The user knows you have {'a child' if len(kids) == 1 else 'kids'}: {names}."
 
 
 def at_dinner(connection, companion: dict) -> str:
@@ -799,7 +758,7 @@ def today_line(connection, companion: dict, now) -> tuple[str, str] | None:
     them, _name = other_text(connection, companion, row)
     who = 'the kids' if len(kids) > 1 else first(kids[0]['name'])
     since = date.fromisoformat(row['since'])
-    here = with_them(pattern, since, today) or at_dinner_on(connection, companion, today)
+    here = with_them(pattern, since, today)
     where = 'with you' if here else f'with {them}'
     line = f"- Today {who} {'are' if len(kids) > 1 else 'is'} {where}."
     if not here and (coming := next_weekend(pattern, since, today)):
@@ -847,16 +806,7 @@ def view(connection, companion: dict, world, now, show_odds: bool) -> dict:
             'patterns': [{'key': key, 'label': PATTERN_LABELS[key].format(**labels)} for key in keys],
             'pattern_consequence_id': row['pattern_consequence_id'] if show_odds else None,
             'consequence_id': row['consequence_id'] if show_odds and row['how'] == 'seeded' else None,
-            'detail': PATTERN_DETAILS[pattern].format(**labels), 'step_parent': living_together(connection, companion),
-            'meeting': meeting(connection, companion)}
-
-
-def meeting(connection, companion: dict) -> str | None:
-    """For a romance not living together: whether the user has met the kids ('met'), is about to ('soon'), or not
-    yet ('unmet')."""
-    if companion['version']['definition'].get('relationship') != 'romance' or living_together(connection, companion):
-        return None
-    return 'met' if met(connection, companion) else 'soon' if meeting_soon(connection, companion) else 'unmet'
+            'detail': PATTERN_DETAILS[pattern].format(**labels)}
 
 
 def kid_view(kid: dict, today: date) -> dict:

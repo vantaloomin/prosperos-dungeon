@@ -290,40 +290,6 @@ def test_gentle_keeps_hard_turns_away(client, mira, monkeypatch):
         assert big_turns.allowed(connection, 'school')
 
 
-def test_living_together_they_buy_a_place_for_both(client, provider, clock, monkeypatch):
-    from test_moving_in import ask_to_move_in, moving_day
-    from test_together import mira as together
-
-    from dungeon.life import moving_in
-    monkeypatch.setattr(consequences, 'roll', lambda _seed, found: found[0]['option'])
-    together(client, monkeypatch, relationship='romance', identity='Mira is 33, an accountant.',
-             money={'career': 'accountant'})
-    ask_to_move_in(client, provider)
-    moving_day(client, clock)
-    monkeypatch.setattr(chapters, 'GAP', timedelta(0))
-    chapter = begun(client, monkeypatch, clock, 'buy_place')
-    found = details(client, chapter['id'])
-    assert found['shared'] and chapter['title'] == 'Mira and you are buying a place together'
-    assert found['place']['details']['bedrooms'] == 'two_bedroom'
-    next_stage(client, clock, chapter['id'])
-    [place] = items(client, 'home')
-    with client.app.state.database.connect() as connection:
-        companion = current(client)
-        shared = moving_in.current(connection, companion['active_timeline_id'])
-        costs = money.household(connection, companion['active_timeline_id'], companion['version']['definition'],
-                                clock.now().date())['costs']
-    hood = moving_in.hood_named(money.city_for(companion['version']['definition']), place['neighborhood'])
-    assert shared['home_item_id'] == place['id'] and shared['neighbourhood'] == hood['id']
-    with client.app.state.database.connect() as connection:
-        from dungeon.life import where
-        assert where.home_text(connection) == f"{place['neighborhood']}, Baltimore"  # The user's home too.
-    assert 'You split the mortgage and the bills' in client.get('/api/context/preview').json()['prompt']
-    assert costs['owned'] and costs['shared'] and costs['rent'] == round(place['rent'] / 2, 2)
-    client.post(f"/api/life/chapters/{chapter['id']}/undo")
-    with client.app.state.database.connect() as connection:
-        assert moving_in.current(connection, companion['active_timeline_id'])['home_item_id'] != place['id']
-
-
 @pytest.mark.parametrize(('city_id', 'location', 'career'), [('camelot', 'Woolston, Camelot', 'baker'),
                                                              ('london-1895', 'Lambeth, London', 'clerk')])
 def test_a_place_bought_for_pennies_or_shillings_has_a_mortgage_above_nothing(city_id, location, career):
@@ -334,5 +300,5 @@ def test_a_place_bought_for_pennies_or_shillings_has_a_mortgage_above_nothing(ci
     companion = {'id': 'c', 'version': {'definition': definition}}
     found = money.profile(definition)
     for seed in range(12):
-        place = big_turns.place_to_buy(companion, city, found, None, f'seed-{seed}')
+        place = big_turns.place_to_buy(companion, city, found, f'seed-{seed}')
         assert place and place['details']['rent'] >= 1, place

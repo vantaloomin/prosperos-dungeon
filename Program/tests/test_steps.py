@@ -465,10 +465,10 @@ def test_other_romances_they_knew_of_before_the_app_started_them_out_exclusive(c
     assert 'only' not in line.split('Keep to')[0]
 
 
-def test_an_open_relationship_an_easy_life_and_a_shared_home(client, monkeypatch, minds):
+def test_an_open_relationship_and_an_easy_life(client, monkeypatch, minds):
     make(client, monkeypatch, interests=['open relationships'])
     client.put('/api/life/steps', json={'step': 'love'})
-    other, timeline = add_romance(client, 'Theo Park')
+    add_romance(client, 'Theo Park')
     line = standing(client)
     assert 'You are a couple and you have both said "I love you".' in line
     assert 'Your relationship with the user is open: the user is also seeing Theo, and you know.' in line
@@ -478,23 +478,14 @@ def test_an_open_relationship_an_easy_life_and_a_shared_home(client, monkeypatch
                            'WHERE id=?', (version,))
     set_life(client, rough_patches_realism=1)
     assert 'The user is also seeing Theo; you know, and it does not bother you.' in standing(client)
-    database = client.app.state.database
-    with database.connect(write=True) as connection:
-        for timeline_id in (current(connection)['active_timeline_id'], timeline):
-            connection.execute("INSERT INTO moving_in (id, timeline_id, plan, status, city_id, decided_on, moved_on, "
-                               "created_at) VALUES (?, ?, 'yours', 'moved', 'baltimore', '2026-09-01', '2026-09-20', ?)",
-                               (f'home-{timeline_id}', timeline_id, database.now()))
-    assert 'Theo also lives with you and the user: the user is with Theo too, and you all know it.' in standing(client)
 
 
-def test_an_ex_is_not_another_romance_and_a_group_chat_reads_the_same_line(client, monkeypatch, minds):
+def test_a_group_chat_reads_the_same_line(client, monkeypatch, minds):
     make(client, monkeypatch)
     client.put('/api/life/steps', json={'step': 'exclusive'})
-    other, _timeline = add_romance(client, 'Theo Park')
+    add_romance(client, 'Theo Park')
     group = {'older': [], 'query': '', 'lines': [], 'previous': None}
     assert 'as far as you know the user sees only you' in standing(client, group)
-    monkeypatch.setattr(steps, 'apart', lambda _connection, companion: 'ended' if companion['id'] == other else None)
-    assert 'you are a couple and only see each other' in standing(client)
 
 
 # Which message is the answer (Vanta 2026-10-17): only the user's first reply after an ask is read whatever it says; a

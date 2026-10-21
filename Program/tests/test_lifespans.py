@@ -212,20 +212,6 @@ def test_the_character_page_reads_their_kind_from_their_words_until_the_user_pic
     assert picked['found'] == 'elf' and picked['kind'] == 'orc' and picked['years'] == 55
 
 
-def test_a_child_of_an_elf_and_a_human_is_a_half_elf_until_the_user_picks(client, clock, monkeypatch):
-    from test_expecting import stage, started, to
-    from test_our_child import ours
-    row = started(client, monkeypatch, identity='She is an elf and a 31-year-old nurse.')
-    to(client, clock, stage(row, 'born')['on'])
-    [child] = ours(client)['children']
-    assert child['kind']['kind'] == 'half-elf' and child['kind']['found'] == 'half-elf' and child['kind']['picked'] == ''
-    assert child['kind']['from_parents']
-    changed = client.put(f"/api/life/steps/ours/{child['id']}/kind", json={'kind': 'elf', 'lifespan': None})
-    assert changed.status_code == 200, changed.text
-    [child] = changed.json()['children']
-    assert child['kind']['kind'] == 'elf' and child['kind']['picked'] == 'elf' and child['kind']['found'] == 'half-elf'
-
-
 def test_doesnt_age_on_the_character_page_is_a_lifespan_of_its_own_beside_keeps_their_age(client):
     companion = make(client)
     definition = companion['version']['definition']
@@ -332,23 +318,6 @@ def test_a_grown_kid_of_an_elf_and_a_human_is_a_half_elf(client, clock, monkeypa
     reconcile(client)
     [leo] = [person for person in client.get('/api/life/circle').json() if person['name'] == 'Leo']
     assert leo['role'] == 'son' and leo['age'] == 18 and leo['kind']['kind'] == 'half-elf'
-
-
-def test_a_child_of_two_of_a_citys_own_kind_is_that_kind(client, clock, monkeypatch):
-    from test_expecting import stage, started, to
-    from test_our_child import ours
-    raw = copy.deepcopy(catalog.city('grandport'))
-    for key in ('data_version', 'import_notes', 'builtin', 'origin'):
-        raw.pop(key, None)
-    raw |= {'id': 'tiefport', 'name': 'Tiefport',
-            'kinds': {'tiefling': {'label': 'Tiefling', 'lifespan': 200, 'words': ['tiefling']}}}
-    assert client.post('/api/world/cities', json=raw).status_code == 200
-    client.put('/api/persona', json={'name': 'Sam', 'about': 'A tiefling smith.'})
-    row = started(client, monkeypatch, identity='She is a tiefling and a 31-year-old nurse.', home_city='tiefport',
-                  location='Gran Porte, Tiefport')
-    to(client, clock, stage(row, 'born')['on'])
-    [child] = ours(client)['children']
-    assert (child['kind']['label'], child['kind']['years']) == ('Tiefling', 200)
 
 
 def test_a_persona_can_be_an_elf_of_300_once_the_kind_is_picked_or_read_from_their_words(client):

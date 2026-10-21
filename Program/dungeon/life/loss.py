@@ -554,10 +554,10 @@ def news_due(connection, companion: dict, now) -> list:
 # Funerals (big days, dungeon/life/big_days.py) --------------------------------------------------------------------
 
 def customs(connection, companion: dict) -> dict:
-    from dungeon.life import outings, wedding
+    from dungeon.life import outings, wedding_customs
     data = outings.city_data(connection, companion['version']['definition'])
     found = bank()['customs']
-    return found.get(wedding.culture_of(data)) or found['modern']
+    return found.get(wedding_customs.culture_of(data)) or found['modern']
 
 
 def funerals(connection, companion: dict, today: date, now) -> list[dict]:
@@ -596,12 +596,12 @@ def venue_for(connection, companion: dict, data: dict, seed: str, day: date, not
     no funeral is held (a Shinto shrine in Osaka)."""
     import re
 
-    from dungeon.life import big_days, outings, wedding
+    from dungeon.life import big_days, outings, wedding_customs
     rules = customs(connection, companion)
     words = re.compile(rf"\b(?:{rules['words']})", re.IGNORECASE)
     never = re.compile(rf"\b(?:{rules['never']})", re.IGNORECASE) if rules.get('never') else None
     places = [item for item in data['places'] if not any(word in item['name'].lower() for word in big_days.NOT_PARTY)
-              and item['kind'] not in wedding.OUTDOOR and not wedding.OUTDOOR_NAMES.search(item['name'])
+              and item['kind'] not in wedding_customs.OUTDOOR and not wedding_customs.OUTDOOR_NAMES.search(item['name'])
               and not (never and never.search(' '.join([item['name'], *item.get('tags', ())])))]
     named = held_in(places, words)
     options = [item for item in named if notable or not grand(item)]

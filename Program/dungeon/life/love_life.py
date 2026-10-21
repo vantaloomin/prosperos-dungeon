@@ -42,7 +42,7 @@ from dungeon import consequences
 from dungeon.clock import parse, stamp, zone
 from dungeon.database import decode, encode, identifier, many, one, optional
 from dungeon.errors import require
-from dungeon.life import ages, breakups, circle, pronouns, steps
+from dungeon.life import ages, circle, pronouns, steps
 from dungeon.world import catalog, lifespans
 
 # Off in tests unless a test turns it on (tests/conftest.py): a seeded partner adds circle people and first texts.
@@ -109,8 +109,8 @@ def mode(connection, companion: dict) -> str | None:
     definition = companion['version']['definition']
     if intimacy.reads_as_minor(definition) or sheet_partner(connection, companion):
         return None
-    if definition.get('relationship') != 'romance' or steps.apart(connection, companion) == 'ended':
-        return 'free'  # A friend, or an ex (dungeon/life/breakups.py): free to date.
+    if definition.get('relationship') != 'romance':
+        return 'free'  # A friend: free to date.
     if is_open(definition):
         return 'open'
     return 'secret' if steps.drama(connection) >= 3 and exclusive(connection, companion) else None
@@ -118,8 +118,6 @@ def mode(connection, companion: dict) -> str | None:
 
 def exclusive(connection, companion: dict) -> bool:
     """The user and this companion are exclusive or further along (dungeon/life/steps.py)."""
-    if steps.apart(connection, companion) == 'ended':
-        return False
     rows = steps.reached(connection, companion['active_timeline_id'], LADDER)
     return any(steps.index_of(LADDER, row['step']) >= 1 for row in rows)
 
@@ -290,15 +288,10 @@ def plan(connection, companion: dict, world, day: date, seed: str) -> dict | Non
 
 
 def resting(connection, companion: dict, day: date) -> bool:
-    """Within REBOUND days of a split: a partner of theirs (however it ended, but undone), or the user's breakup
-    with them (dungeon/life/breakups.py)."""
-    from dungeon.life import breakups
+    """Within REBOUND days of a split: a partner of theirs (however it ended, but undone)."""
     row = optional(connection, "SELECT MAX(ended_on) AS on_ FROM love_partners WHERE timeline_id=? AND "
                    "ended_how IS NOT NULL AND ended_how != 'undone'", (companion['active_timeline_id'],))
     ends = [row['on_']] if row and row['on_'] else []
-    if steps.apart(connection, companion) == 'ended':
-        found, _stage = breakups.current(connection, companion)
-        ends += [found['ended_at'][:10]] if found and found['ended_at'] else []
     return any((day - date.fromisoformat(end)).days < REBOUND for end in ends)
 
 
@@ -365,11 +358,10 @@ def advance(connection, companion: dict, world, now) -> None:
 
 
 def for_user(connection, companion: dict) -> bool:
-    """They are the user's romance now (a friend who fell for the user, a sheet changed to romance, an ex back
-    together), and not in an open relationship: a partner they had is over."""
+    """They are the user's romance now (a friend who fell for the user, a sheet changed to romance), and not in an
+    open relationship: a partner they had is over."""
     definition = companion['version']['definition']
-    return definition.get('relationship') == 'romance' and steps.apart(connection, companion) != 'ended' and \
-        not is_open(definition)
+    return definition.get('relationship') == 'romance' and not is_open(definition)
 
 
 def make_way(connection, found: dict, day: date) -> None:
@@ -429,11 +421,17 @@ def subject_of(found: dict, topic: str, turn: int) -> str:
     return f"love:{found['id']}:{topic}:{turn}"
 
 
+def breakups_on(connection) -> int:
+    """The Breakups switch (life_settings.breakups): whether a pair of theirs can split up."""
+    row = optional(connection, 'SELECT breakups FROM life_settings WHERE id=1')
+    return int(bool(row['breakups'])) if row else 1
+
+
 def roll(connection, companion: dict, found: dict, top: int, following, topic: str, turn: int, day: date, now) -> dict:
     from dungeon.memory import pairs
     definition = companion['version']['definition']
     facts = {'love_life': level(connection), 'drama': steps.drama(connection), 'step': top,
-             'can_up': int(following is not None), 'breakups': int(breakups.switched_on(connection)),
+             'can_up': int(following is not None), 'breakups': breakups_on(connection),
              'mood': consequences.total(connection, companion['active_timeline_id'],
                                         pairs.companion_key(companion['id']), 'mood', day.isoformat()),
              'sheet': {group for group in consequences.WORDS if consequences.sheet_has(definition, group)}}

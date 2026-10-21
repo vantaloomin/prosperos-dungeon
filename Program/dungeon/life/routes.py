@@ -15,7 +15,6 @@ from dungeon.life import (
     ages,
     big_days,
     big_turns,
-    breakups,
     calls,
     chapters,
     circle,
@@ -24,15 +23,12 @@ from dungeon.life import (
     encounters,
     families,
     kids,
-    long_distance,
     loss,
     love_life,
     money,
     mood,
-    moving_in,
     network,
     outings,
-    parenthood,
     pets,
     reactions,
     recommendations,
@@ -41,13 +37,11 @@ from dungeon.life import (
     simulation,
     steps,
     storylines,
-    their_people,
     today,
     together,
     town_personality,
     trips,
     web,
-    wedding,
 )
 from dungeon.memory import pairs
 from dungeon.models import Input, KindChange, LifeSettingsUpdate, TownsfolkPersonality
@@ -190,10 +184,9 @@ def read_circle(request: Request, include_removed: bool = False):
         people = with_pets(connection, companion, engine.world, people, now)
         # Someone they are seeing (dungeon/life/love_life.py): where the two of them stand.
         love = love_life.circle_extras(connection, companion, now, bool(settings(connection)['show_odds']))
-        met = their_people.for_circle(connection, companion, bool(settings(connection)['show_odds']), now)
         # Their children and a due month while expecting (dungeon/life/families.py), in words only.
         kids = families.for_circle(connection, companion, now)
-        return [{**person, 'stage': stages.get(person['id']), 'met': met.get(person['id']), **love.get(person['id'], {}),
+        return [{**person, 'stage': stages.get(person['id']), **love.get(person['id'], {}),
                  **kids.get(person['id'], {'children': [], 'expecting': None})} for person in people]
 
 
@@ -344,16 +337,6 @@ def read_where(request: Request):
         return together.view(connection, require_current(connection), database.clock.now())
 
 
-@router.post('/living/{action}')
-def home_together(request: Request, action: Literal['out', 'home']):
-    """Living together (dungeon/life/moving_in.py): the user heads out for a while (the chat texts), or is home."""
-    database = db(request)
-    with database.connect(write=True) as connection:
-        companion, now = require_current(connection), database.clock.now()
-        moving_in.set_out(connection, companion, action == 'out', now)
-        return together.view(connection, companion, now)
-
-
 @router.post('/calls')
 def start_call(request: Request):
     """The user calls the companion in focus (the chat header's Call button, dungeon/life/calls.py): they pick up
@@ -372,17 +355,6 @@ def change_call(request: Request, call_id: str, action: Literal['answer', 'decli
     database = db(request)
     with database.connect(write=True) as connection:
         return calls.act(connection, require_current(connection), call_id, action, database.clock.now())
-
-
-@router.post('/trips/{trip_id}/{action}')
-def change_visit(request: Request, trip_id: str, action: Literal['cancel', 'undo']):
-    """Call off a weekend visit with the user that has not started (dungeon/life/long_distance.py), or undo that."""
-    database = db(request)
-    change = {'cancel': long_distance.cancel, 'undo': long_distance.undo}[action]
-    with database.connect(write=True) as connection:
-        changed = change(connection, require_current(connection), trip_id, database.clock.now())
-    request.app.state.life.extend_agenda('return')
-    return changed
 
 
 @router.post('/outings/{outing_id}/{action}')
@@ -418,24 +390,6 @@ def let_go_rough_patch(request: Request, patch_id: str):
 def undo_let_go_rough_patch(request: Request, patch_id: str):
     """Take back Let it go."""
     return rough_patches.undo_let_go(db(request), patch_id)
-
-
-@router.get('/breakup')
-def read_breakup(request: Request):
-    """Whether things are strained, on a break or over with the companion in focus (dungeon/life/breakups.py)."""
-    return breakups.read(db(request))
-
-
-@router.post('/breakup/{breakup_id}/mend')
-def mend_breakup(request: Request, breakup_id: str):
-    """The user overrides: things are fine again, or exes are back together."""
-    return breakups.mend(db(request), breakup_id)
-
-
-@router.post('/breakup/{breakup_id}/undo')
-def undo_mend_breakup(request: Request, breakup_id: str):
-    """Take back the override."""
-    return breakups.undo_mend(db(request), breakup_id)
 
 
 @router.get('/web')
@@ -526,19 +480,15 @@ def read_consequence(request: Request, consequence_id: str):
     with db(request).connect() as connection:
         found = consequences.by_id(connection, consequence_id)
         companion = require_current(connection)
-        # Sharing a home: the answer of one living there shows on the newcomer's page too (moving_in.py).
-        require(found['timeline_id'] == companion['active_timeline_id'] or
-                moving_in.shown_with(connection, consequence_id, companion), 'That outcome is not on this timeline.', 404)
+        require(found['timeline_id'] == companion['active_timeline_id'], 'That outcome is not on this timeline.', 404)
         # How a stage went, once a later stage followed: no "Make it go this way", and why (big_turns.py).
         return {**found, 'settled': big_turns.settled_note(connection, found) or families.odds_settled(connection, found)}
 
 
 # "Change how it went" by subject prefix, for those that take (connection, companion, consequence_id, option, now).
-CHANGES = {'moving_in:': lambda: moving_in.change, 'steps:': lambda: steps.change,
-           'people:': lambda: their_people.change, 'breakup:': lambda: breakups.change,
+CHANGES = {'steps:': lambda: steps.change,
            'bigday:': lambda: big_days.change, 'tense-ask:': lambda: rough_patches.change_ask,
-           'wedding:': lambda: wedding.change_size, 'loss:': lambda: loss.change,
-           'family:': lambda: parenthood.change,
+           'loss:': lambda: loss.change,
            # How a business, a health turn or a parent's care is going (big_turns.py).
            'business:': lambda: big_turns.change_stage, 'health:': lambda: big_turns.change_stage,
            'caring:': lambda: big_turns.change_stage, 'kids:': lambda: kids.change,

@@ -40,7 +40,7 @@ def with_chapters(connection, companion: dict) -> dict:
         definition = apply_changes(definition, decode(row['changes']))
     if (definition.get('money') or {}).get('career') != (companion['version']['definition'].get('money') or {}).get('career'):
         definition = {**definition, 'schedule': relabeled(connection, definition)}
-    # A move to another city (dungeon/life/moving_in.py) brings that city's clock.
+    # A move to another city brings that city's clock.
     version = {**companion['version'], 'definition': definition, 'timezone': definition.get('timezone')
                or companion['version']['timezone']}
     # Their shifts or gigs week by week (dungeon/life/shifts.py), on top of the week as written.
@@ -69,7 +69,7 @@ def apply_changes(definition: dict, changes: dict) -> dict:
         found['money'] = {**(found.get('money') or {}), 'career': changes['career']}
     if 'location' in changes:
         found['location'], found['near'] = changes['location'], ''
-    for key in ('home_city', 'timezone'):  # Another city altogether (dungeon/life/moving_in.py).
+    for key in ('home_city', 'timezone'):  # Another city altogether.
         if key in changes:
             found[key] = changes[key]
     if 'interest' in changes and changes['interest'] not in (found.get('interests') or []):
@@ -150,8 +150,6 @@ def revise(database, body) -> dict:
         version_id = insert_version(connection, companion['id'], number, body.definition, body.note,
                                     database.now())
         connection.execute('UPDATE companions SET active_version_id=? WHERE id=?', (version_id, companion['id']))
-        from dungeon.life import long_distance
-        long_distance.settle_all(connection, database.clock.now())  # A move: visits planned for their old city.
         return current(connection)
 
 

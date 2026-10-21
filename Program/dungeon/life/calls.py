@@ -44,7 +44,7 @@ TOLD_FOR = timedelta(hours=2)
 # Ringing the user: the chance a day brings a call, by the slider; more for someone in another city. Only someone at
 # least Comfortable (Friends) with the user rings (dungeon/memory/closeness.py).
 RING_CHANCE = {1: 0.06, 2: 0.15, 3: 0.3}
-# Long distance (dungeon/life/long_distance.py): twice as often within a weekend visit's reach, three times beyond it.
+# Living in different cities: twice as often within a trip's reach, three times beyond it.
 FAR_TIMES = 2
 BEYOND_TIMES = 3
 RING_HOURS = (10, 22)
@@ -414,10 +414,8 @@ def ring_due(connection, companion: dict, now: datetime) -> list:
     if rng.random() >= chance * times or \
             local.hour * 60 + local.minute < rng.randint(RING_HOURS[0] * 60, RING_HOURS[1] * 60 - 30):
         return []
-    from dungeon.life import moving_in
     if blocked(connection, companion, now) or line_busy(connection, companion, now) or \
-            why_not(connection, companion, now) or not close(connection, companion, now) or \
-            moving_in.just_out(connection, companion, now):
+            why_not(connection, companion, now) or not close(connection, companion, now):
         return []
     return [Trigger(key, 'call', rng.choice(WHY_FAR if far else WHY))]
 

@@ -33,21 +33,17 @@ from dungeon.database import decode, encode, identifier, many, one, optional, se
 from dungeon.errors import DomainError
 from dungeon.life import (
     big_days,
-    breakups,
     calls,
     chapters,
     composer,
     deck,
     dreams,
     encounters,
-    expecting,
     hobbies,
     kitchen,
-    long_distance,
     loss,
     love_life,
     media,
-    moving_in,
     occasions,
     own_family,
     own_plans,
@@ -57,11 +53,9 @@ from dungeon.life import (
     routine,
     steps,
     storylines,
-    their_people,
     together,
     trips,
     usual_hours,
-    wedding,
 )
 from dungeon.life.mood import ABSENCE_HOURS, last_presence
 from dungeon.memory import context, pairs
@@ -431,28 +425,17 @@ PAST_WAITING = {'occasion', 'postcard'}
 # dream and Life deck news, which otherwise took every day's text first and the invite never went out.
 # A knock at the door (dungeon/life/together.py) happens at its minute or not at all, so it comes early; so does a
 # call (dungeon/life/calls.py), and the text after a missed one. A next step they planned to bring up
-# (dungeon/life/steps.py) waits for its day, so it goes ahead of the everyday news too, and so does an invitation to
-# meet their people (dungeon/life/their_people.py), the evening they plan to propose (dungeon/life/wedding.py),
-# and asking the user along to a big day in their circle (dungeon/life/big_days.py), after the news of a death
-# (dungeon/life/loss.py) so that a funeral is never how the user first hears of it, and after the news of a baby on
-# the way or a child coming home (dungeon/life/expecting.py), so a baby shower is never how they hear of that.
-FINDERS = [occasion, breakups.news_due, rough_patches.apology_due, trips.postcard_due, together.knock_due, calls.ring_due, calls.missed_due, moving_in.share_due, steps.ask_due, their_people.meet_due, wedding.propose_due, loss.news_due, expecting.news_due, big_days.invite_due, own_family.ask_due, love_life.spotted_due, love_life.came_out_due, plan_follow_ups, promises, finished, chapter_news, love_life.news_due, storyline_news, news, crossed_paths, heard_news, reminders, silence,
-           kitchen.invite_due, together.suggest_due, long_distance.news_due, media.recommend_due, hobbies.invite_due, hobbies.news_due, dream_news, little_news, usual_time, check_in]
+# (dungeon/life/steps.py) waits for its day, so it goes ahead of the everyday news too, and so does asking the user
+# along to a big day in their circle (dungeon/life/big_days.py), after the news of a death (dungeon/life/loss.py) so
+# that a funeral is never how the user first hears of it.
+FINDERS = [occasion, rough_patches.apology_due, trips.postcard_due, together.knock_due, calls.ring_due, calls.missed_due, steps.ask_due, loss.news_due, big_days.invite_due, own_family.ask_due, love_life.spotted_due, love_life.came_out_due, plan_follow_ups, promises, finished, chapter_news, love_life.news_due, storyline_news, news, crossed_paths, heard_news, reminders, silence,
+           kitchen.invite_due, together.suggest_due, media.recommend_due, hobbies.invite_due, hobbies.news_due, dream_news, little_news, usual_time, check_in]
 
 
 # While a rough patch of the user's making is open (dungeon/life/rough_patches.py) they hold back: no check-ins,
 # invitations, knocks, calls or next steps of their own.
 COOLED = {check_in, usual_time, together.suggest_due, together.knock_due, calls.ring_due, kitchen.invite_due,
-          hobbies.invite_due, media.recommend_due, steps.ask_due, their_people.meet_due, wedding.propose_due,
-          big_days.invite_due, own_family.ask_due}
-
-
-# While apart (dungeon/life/breakups.py) texting drops off: on a break only what the break itself brings; exes still
-# say happy birthday, and may reach out about trying again.
-APART = {'break': {breakups.news_due}, 'ended': {breakups.news_due, occasion}}
-# The one occasion an ex still writes about: the user's birthday (not the day they first talked, a step's anniversary,
-# their own birthday or a family holiday).
-EX_OCCASION = 'occasion:user_birthday:'
+          hobbies.invite_due, media.recommend_due, steps.ask_due, big_days.invite_due, own_family.ask_due}
 
 
 # While they grieve (dungeon/life/loss.py) they make fewer plans: no plans of their own while it is raw, about half the
@@ -461,23 +444,14 @@ PLANS = {together.suggest_due, together.knock_due, kitchen.invite_due, hobbies.i
          usual_time}
 
 
-def apart_allows(held_back: str | None, trigger: Trigger) -> bool:
-    return held_back != 'ended' or trigger.kind != 'occasion' or trigger.key.startswith(EX_OCCASION)
-
-
 def candidates(connection, companion, now) -> list[Trigger]:
     timeline_id = companion['active_timeline_id']
     fired = {row['trigger_key'] for row in many(connection, 'SELECT trigger_key FROM openers WHERE timeline_id=?',
                                                  (timeline_id,))}
     cool = rough_patches.cool(connection, companion, now)
-    held_back = breakups.holds(connection, companion)
-    allowed = APART.get(held_back)
-    cool = cool or held_back == 'cool'
     grieving = loss.holds_back(connection, companion, now)
-    return [trigger for finder in FINDERS if not (cool and finder in COOLED) and (allowed is None or finder in allowed)
-            and not (grieving and finder in PLANS)
-            for trigger in finder(connection, companion, now) if trigger.key not in fired
-            and apart_allows(held_back, trigger)]
+    return [trigger for finder in FINDERS if not (cool and finder in COOLED) and not (grieving and finder in PLANS)
+            for trigger in finder(connection, companion, now) if trigger.key not in fired]
 
 
 def held(connection, companion, life, now, occasion: bool = False) -> str | None:
@@ -707,7 +681,7 @@ def settle(connection, companion, row, trigger, timestamp):
         kitchen.settle_invite(connection, companion, row, trigger, timestamp)
     if trigger.kind == 'hobby_invite':
         hobbies.settle_invite(connection, companion, row, trigger, timestamp)
-    for module in (together, steps, their_people, wedding, big_days, breakups, moving_in, own_family):
+    for module in (together, steps, big_days, own_family):
         if trigger.kind in module.SETTLES:
             module.settle(connection, companion, row, trigger, timestamp)
 

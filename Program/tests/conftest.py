@@ -98,24 +98,12 @@ def no_storylines(monkeypatch):
     monkeypatch.setattr('dungeon.life.together.FIRST_TEXTS', False)
     # Nor calls ringing, or texts after a missed one (dungeon/life/calls.py).
     monkeypatch.setattr('dungeon.life.calls.FIRST_TEXTS', False)
-    # Nor news of a weekend visit planned across the distance (dungeon/life/long_distance.py).
-    monkeypatch.setattr('dungeon.life.long_distance.FIRST_TEXTS', False)
     # Nor rough patches opening from what the user says or misses (dungeon/life/rough_patches.py).
     monkeypatch.setattr('dungeon.life.rough_patches.ACTIVE', False)
-    # Nor warnings, breaks and breakups growing out of them (dungeon/life/breakups.py).
-    monkeypatch.setattr('dungeon.life.breakups.ACTIVE', False)
     # Nor a next step or a confession brought up in a first text (dungeon/life/steps.py).
     monkeypatch.setattr('dungeon.life.steps.FIRST_TEXTS', False)
     # Nor news from their own love life, or a friend who saw someone out with another (dungeon/life/love_life.py).
     monkeypatch.setattr('dungeon.life.love_life.FIRST_TEXTS', False)
-    # Nor an invitation to meet their people (dungeon/life/their_people.py).
-    monkeypatch.setattr('dungeon.life.their_people.FIRST_TEXTS', False)
-    # Nor an invitation to the evening they plan to propose (dungeon/life/wedding.py).
-    monkeypatch.setattr('dungeon.life.wedding.FIRST_TEXTS', False)
-    # Nor a text from the one you live with about another of your partners moving in (dungeon/life/moving_in.py).
-    monkeypatch.setattr('dungeon.life.moving_in.FIRST_TEXTS', False)
-    # Nor the news of a baby on the way or a child coming home (dungeon/life/expecting.py).
-    monkeypatch.setattr('dungeon.life.expecting.FIRST_TEXTS', False)
     # And the Life deck's small moments (dungeon/life/deck.py), drawn on seeded days.
     monkeypatch.setattr('dungeon.life.deck.ACTIVE', False)
     # And dreams (dungeon/life/dreams.py), on seeded nights.

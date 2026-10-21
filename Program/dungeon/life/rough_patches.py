@@ -10,11 +10,7 @@ What opens one, all caught by rules from what the app already knows:
 - calling off an outing on its own day (small friction, gone in a day);
 - finding out you're seeing someone else once you two are exclusive (`seeing_someone`, called by Next steps), never
   on an easy life;
-- small everyday friction other features report through `friction` (a chore after moving in, or another of your
-  partners wanting to move in when they aren't ready to share their home);
-- saying no when they ask you to marry them (`proposal_no`, from dungeon/life/wedding.py);
-- saying no when they bring up starting a family and want children (`family_no`, from dungeon/life/parenthood.py),
-  never on an easy life.
+- small everyday friction other features report through `friction`.
 
 Whether something you did starts a rough patch is a roll in the consequence engine (choice user:rough_patch in
 world/data/consequences.json): odds from the Rough patches slider (life_settings.rough_patches_realism: 0 off,
@@ -22,7 +18,7 @@ world/data/consequences.json): odds from the Rough patches slider (life_settings
 description (forgiving, holds on to things) and how close they are. The odds stay under Hidden values ("Why it went
 this way" on Today, with show_odds), where the user can also make it go the other way. One over the same thing as a
 rough patch already open (or one that started that day) is less likely, a half for the second, a quarter for the third
-(`stacked_on`), and counts for less where Breaks and breakups adds them up (`weighed`).
+(`stacked_on`).
 
 The companion can be the one at fault: on Real life and Drama they now and then call off an outing with you at the
 last minute (`stand_ups`), and then apologise first, in a first text.
@@ -63,17 +59,15 @@ OPENS = 1  # The option in the odds table that starts one.
 CAUSES = {
     'words': ('big', 'user'), 'missed_plan': ('big', 'user'), 'forgot_occasion': ('big', 'user'),
     'secret_told': ('big', 'user'), 'secret_kept': ('big', 'user'), 'promise': ('big', 'user'),
-    'seeing_someone': ('big', 'user'), 'called_off': ('small', 'user'), 'chore': ('small', 'user'), 'sharing': ('small', 'user'),
-    'stood_up': ('big', 'companion'), 'hidden_partner': ('big', 'companion'), 'proposal_no': ('big', 'user'),
-    'family_no': ('big', 'user'),
+    'seeing_someone': ('big', 'user'), 'called_off': ('small', 'user'),
+    'stood_up': ('big', 'companion'), 'hidden_partner': ('big', 'companion'),
 }
 # What they did, for the lines about their own fault: (in the chat context, after "You let the user down: ", and
 # after "The user forgave you for "). `hidden_partner` comes from Their own love life (dungeon/life/love_life.py).
 THEIR_DEED = {'stood_up': ('you called off {about}', 'calling off {about}'),
               'hidden_partner': ('{about}', 'seeing someone behind their back')}
-# Never on an easy life: finding out about someone else, and saying no to the family they want
-# (dungeon/life/parenthood.py).
-NEVER_EASY = {'seeing_someone', 'family_no'}
+# Never on an easy life: finding out about someone else.
+NEVER_EASY = {'seeing_someone'}
 # On drama these need both an apology and a gesture.
 SERIOUS = {'secret_told', 'secret_kept', 'seeing_someone'}
 # Calm days before it mends by itself, by slider level, for (the user's fault, theirs). Level 1 fades overnight.
@@ -87,10 +81,7 @@ MINDS = {'words': r'sensitive|thin[- ]skinned|insecure|proud|need|lonely|sulk',
          'forgot_occasion': reactions.MINDS['user:forgot_occasion'], 'secret_told': reactions.MINDS['user:told_secret'],
          'secret_kept': r'trust|betray|honest|secret|loyal|guarded|parano',
          'seeing_someone': r'jealous|possessive|insecure|loyal|trust|clingy|need',
-         'called_off': reactions.MINDS['user:missed_plan'], 'chore': r'tidy|neat|clean|particular|fussy',
-         'sharing': r'jealous|possessive|insecure|territorial|clingy|need',
-         'proposal_no': r'insecure|sensitive|need|lonely|reject|abandon|clingy|romantic',
-         'family_no': r'insecure|sensitive|need|lonely|reject|abandon|family|maternal|paternal|nurtur'}
+         'called_off': reactions.MINDS['user:missed_plan']}
 
 # Words aimed at them that can start one: a narrower set than the mood nudge, and only said to them.
 STINGS = re.compile(r"\b(?:shut up|go away|leave me alone|you'?re (?:so )?(?:annoying|useless|boring|pathetic|"
@@ -119,8 +110,8 @@ KEEP_GAP = timedelta(minutes=45)
 STAND_UP = {2: 0.03, 3: 0.08}
 STAND_UP_BEFORE = timedelta(hours=3)
 # Stacking: a rough patch over the same thing as one already open, or one that started the same day, weighs less (the
-# second counts half, the third a quarter; Vanta 2026-10-17), in the roll that starts it (reader `stacked`) and in what
-# Breaks and breakups counts (`weighed`). Not a cap: four stinging messages in two minutes can still be four.
+# second counts half, the third a quarter; Vanta 2026-10-17), in the roll that starts it (reader `stacked`). Not a
+# cap: four stinging messages in two minutes can still be four.
 STACK_WEIGHT = 0.5
 
 
@@ -433,18 +424,11 @@ def daily(connection, companion: dict, now: datetime):
             mend(connection, row, 'calm', now)  # Faded by time, so changing it on Today no longer opens it.
         elif not picked_open(connection, row):
             continue  # Let go for now, but Today can still make it start.
-        elif showed_up(connection, row, now) and not warned(connection, companion):
+        elif showed_up(connection, row, now):
             if row['fault'] == 'companion':
                 mend(connection, row, 'gesture', now)
             elif not row['gesture_at']:
                 progress(connection, row, 'gesture_at', 'gesture', now)
-
-
-def warned(connection, companion: dict) -> bool:
-    """Strained or thinking about a break (dungeon/life/breakups.py): an outing together no longer mends it by itself
-    then; an apology or a gesture still does."""
-    from dungeon.life import breakups  # Imported here: breakups reads this module.
-    return breakups.holds(connection, companion) == 'cool'
 
 
 def showed_up(connection, row: dict, now: datetime) -> bool:
@@ -508,13 +492,11 @@ NOT_NOW = 1  # The option in the odds table where they would rather not, for now
 
 
 def tension(connection, companion: dict, now: datetime) -> dict | None:
-    """What makes things tense now, for the engine: `patch` (a big rough patch of the user's making is open) and
-    `warning` (Breaks and breakups: 1 strained, 2 thinking about a break). None when nothing does."""
+    """What makes things tense now, for the engine: `patch` (a big rough patch of the user's making is open). None
+    when nothing does."""
     row = current(connection, companion, now)
     patch = int(bool(row) and row['size'] == 'big' and row['fault'] == 'user')
-    from dungeon.life import breakups  # Imported here: breakups reads this module.
-    warning = {'strained': 1, 'thinking': 2}.get(breakups.current(connection, companion)[1], 0)
-    return {'patch': patch, 'warning': warning} if patch or warning else None
+    return {'patch': patch, 'warning': 0} if patch else None
 
 
 def turned_down(connection, companion: dict, message: dict, kind: str, now: datetime) -> bool:
@@ -632,13 +614,6 @@ def stacked_on(connection, companion: dict, row: dict, lvl: int) -> int:
                                        (companion['active_timeline_id'], row['cause'], since, row['started_at']))
                if picked_open(connection, found)]
     return sum(stacks(found, row, lvl, companion) for found in earlier)
-
-
-def weighed(connection, companion: dict, found: list[dict]) -> list[tuple[dict, float]]:
-    """Rough patches with what each counts for (1, a half, a quarter...): one over the same thing as an earlier one in
-    the list that was open then, or started the same day, counts less."""
-    lvl = level(connection)
-    return [(row, STACK_WEIGHT ** sum(stacks(earlier, row, lvl, companion) for earlier in found)) for row in found]
 
 
 def open_rows(connection, companion: dict, lvl: int, now: datetime) -> list[dict]:

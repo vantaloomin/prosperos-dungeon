@@ -1,6 +1,6 @@
 """Companions who already have kids (dungeon/life/kids.py): children read from their description or kept from their
-life as a townsperson or seeded for a new companion, their other parent and where they live, meeting them and the
-user as their step-parent, a love-life partner's kids, and the limits children keep."""
+life as a townsperson or seeded for a new companion, their other parent and where they live, what the user knows of
+them, a love-life partner's kids, and the limits children keep."""
 from datetime import date, timedelta
 
 import pytest
@@ -9,7 +9,7 @@ from conftest import intimate, reconcile, set_life
 from dungeon import consequences
 from dungeon.characters import current
 from dungeon.database import decode
-from dungeon.life import families, kids, love_life, steps, their_people
+from dungeon.life import families, kids, love_life, steps
 from dungeon.memory import pairs
 
 DANA = {'name': 'Dana Reyes', 'timezone': 'UTC', 'location': 'Fells Point, Baltimore',
@@ -142,7 +142,7 @@ def test_kids_from_the_description_are_children_in_words_never_circle_people(cli
     assert view['pattern'] in kids.CUSTODY and view['pattern_how'] == 'seeded'
     text = prompt(client)
     assert 'Your children' in text and 'Leo (7, your son)' in text and 'Mia (4, your daughter)' in text
-    assert "hasn't met them yet" in text
+    assert 'The user knows you have kids: Leo and Mia.' in text
 
 
 def test_a_single_dad_of_two_gets_two_kids_named_by_the_app(client):
@@ -255,17 +255,6 @@ def test_with_the_other_parent_today_they_know_their_next_weekend(client, clock)
 
 # Seeded for a new companion ---------------------------------------------------------------------------------------
 
-def test_on_the_day_of_the_family_dinner_the_kids_are_with_them_whatever_the_rota(client, clock, monkeypatch):
-    make(client, background='Her son Leo, 7, lives with his dad and spends every other weekend with her.')
-    monkeypatch.setattr(kids, 'with_them', lambda *_args: False)
-    with client.app.state.database.connect(write=True) as connection:
-        companion = current(connection)
-        assert kids.today_line(connection, companion, clock.now())[1].startswith('- Today Leo is with their')
-        dinner = {'activity': their_people.AT_FAMILY, 'local_date': steps.local_today(companion, clock.now()).isoformat(),
-                  'place': {'first': True}}
-        monkeypatch.setattr('dungeon.life.outings.in_force', lambda *_args: [dinner])
-        assert kids.today_line(connection, companion, clock.now())[1] == '- Today Leo is with you.'
-
 
 def test_a_new_companion_may_be_given_kids_by_the_engine(client, monkeypatch):
     forced(monkeypatch, 'kids:has', 1)
@@ -326,45 +315,9 @@ def test_a_companion_who_reads_as_under_18_has_no_kids(client, monkeypatch):
 
 # The user, the kids and a partner's kids --------------------------------------------------------------------------
 
-def test_the_user_meets_the_kids_with_their_people_and_becomes_a_step_parent(client, clock, monkeypatch):
+def test_dating_a_parent_the_user_knows_about_the_kids(client, clock, monkeypatch):
     make(client, background='Her son Leo, 7.')
-    assert "hasn't met" in prompt(client)
-    assert panel(client)['meeting'] == 'unmet'
-    with client.app.state.database.connect(write=True) as connection:
-        companion = current(connection)
-        timeline_id = companion['active_timeline_id']
-        connection.execute("INSERT INTO people_meetups (id, timeline_id, kind, why, due_on, status, created_at) VALUES "
-                           "('m1', ?, 'family', 'step', ?, 'planned', ?)", (timeline_id, clock.now().date().isoformat(),
-                                                                           clock.now().isoformat()))
-    assert 'meeting Leo at the family dinner' in prompt(client)
-    with client.app.state.database.connect(write=True) as connection:
-        connection.execute("UPDATE people_meetups SET status='done'")
-    assert 'The user has met Leo.' in prompt(client)
-    assert panel(client)['meeting'] == 'met'
-    monkeypatch.setattr(kids, 'living_together', lambda *_args: True)
-    assert "the user is Leo's step-parent" in prompt(client)
-    assert panel(client)['step_parent'] and panel(client)['meeting'] is None
-
-
-def test_drinks_with_their_friends_is_not_meeting_the_kids_and_the_family_dinner_has_them_there(client, clock):
-    make(client, background='Her son Leo, 7, and her daughter Mia, 4.')
-    with client.app.state.database.connect(write=True) as connection:
-        timeline_id = current(connection)['active_timeline_id']
-        connection.execute("INSERT INTO people_meetups (id, timeline_id, kind, why, due_on, status, created_at) VALUES "
-                           "('m1', ?, 'friends', 'step', ?, 'done', ?)", (timeline_id, clock.now().date().isoformat(),
-                                                                         clock.now().isoformat()))
-    assert "hasn't met them yet" in prompt(client) and panel(client)['meeting'] == 'unmet'
-    outing = {'activity': their_people.AT_FAMILY, 'until_time': '21:30',
-              'place': {'name': "Rosa's place", 'first': True, 'people': [{'id': 'p', 'name': 'Rosa', 'role': 'mom'}]}}
-    with client.app.state.database.connect(write=True) as connection:
-        companion = current(connection)
-        line = their_people.scene(connection, companion, outing, None)
-        assert 'Here with you: your mom Rosa, and your kids Leo and Mia. Nobody else is there.' in line
-        assert 'Leo' not in their_people.scene(connection, companion, {**outing, 'activity': their_people.OUT_WITH_FRIENDS,
-                                                                          'place': {**outing['place'], 'kind': 'bar'}}, None)
-    assert client.put('/api/settings', json={'adult_side': True}).status_code == 200
-    with client.app.state.database.connect(write=True) as connection:
-        assert 'Leo' not in their_people.scene(connection, current(connection), outing, None)
+    assert 'The user knows you have a child: Leo.' in prompt(client)
 
 
 def test_a_love_life_partner_may_come_with_kids_and_the_companion_becomes_their_step_parent(client, clock, monkeypatch):

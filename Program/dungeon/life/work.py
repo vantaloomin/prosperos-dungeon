@@ -437,12 +437,9 @@ def hunt_span(found: dict) -> tuple[str, str] | None:
 def days_off(connection, companion: dict, start: date, end: date) -> dict[str, str]:
     """{local date: 'Vacation', 'Job hunt' or a big day's title} for the agenda: vacation days, workdays while between
     jobs, and a workday a big day falls in their working hours (dungeon/life/big_days.py)."""
-    from dungeon.life import big_days, expecting, our_child, own_family
-    # Weeks of parental leave after a baby of theirs (dungeon/life/own_family.py), days home with the pair's own
-    # (dungeon/life/our_child.py), bed rest while they carry one (dungeon/life/expecting.py), then big days.
+    from dungeon.life import big_days, own_family
+    # Weeks of parental leave after a baby of theirs (dungeon/life/own_family.py), then big days.
     result = {**own_family.leave_days(connection, companion, start, end),
-              **our_child.days_off(connection, companion, start, end),
-              **expecting.days_off(connection, companion, start, end),
               **big_days.days_off(connection, companion, start, end)}
     found = state(connection, companion['active_timeline_id']) if ACTIVE else None
     if not found or not level(connection):
@@ -805,8 +802,6 @@ def pay(connection, timeline_id: str, day: date, payday: date | None = None) -> 
         return None
     hunting = found['status'] == 'hunting' and found['hunt_since'] <= day.isoformat()
     factor = found['pay'] * (HUNT_PAY.get(found['hunt_reason'] or '', 0.5) if hunting else 1)
-    from dungeon.life import our_child
-    factor *= our_child.pay(connection, timeline_id, day)  # Part-time or at home with the pair's children.
     if not hunting and shifts.ACTIVE:
         # Shifts worked and gigs landed lately, tips and all (dungeon/life/shifts.py).
         factor *= shifts.pay(connection, timeline_id, payday or day)

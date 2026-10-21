@@ -29,10 +29,7 @@ test('Retro IM decorations are not read aloud', () => {
   assert.equal(statusLabel('Maya', { text: '♪ Yellow - Coldplay ♪', set_by: 'app', away: null }), "Maya's status: Yellow - Coldplay")
 })
 
-test('the chat list shows luggage on a weekend visit, a phone on a call, else a pin', () => {
-  assert.equal(whereGlyph({ state: 'together', kind: 'staying', text: 'Staying with you until Sunday' }), 'luggage')
-  assert.equal(whereGlyph({ state: 'together', kind: 'hosting', text: "You're staying in London until Monday" }), 'luggage')
-  assert.equal(whereGlyph({ state: 'together', kind: 'home', text: 'Home together' }), 'home')
+test('the chat list shows a phone on a call, else a pin', () => {
   assert.equal(whereGlyph({ state: 'call', kind: 'call', text: 'On a call' }), 'phone')
   assert.equal(whereGlyph({ state: 'apart', kind: 'long-distance', text: 'Long distance, London, 5 hours ahead' }), 'pin')
   assert.equal(whereGlyph(null), 'pin')

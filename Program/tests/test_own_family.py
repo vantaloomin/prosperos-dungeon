@@ -374,13 +374,12 @@ def test_babysitting_asks_fit_the_citys_era(client, mira):
 
 
 def test_a_young_baby_of_theirs_does_not_walk_sit_up_or_eat_yet():
-    from dungeon.life import our_child
     lines = families.fitting(families.bank()['own_baby'], 'modern')
     young = own_family.for_age(lines, 40)
     assert len(young) >= 50
     for line in young:
         said = f"{line['text']} {line['share']}"
-        assert not our_child.MOVING.search(said) and not our_child.FOOD.search(said) and \
+        assert not own_family.MOVING.search(said) and not own_family.FOOD.search(said) and \
             not own_family.SITTING.search(said), line
     assert len(own_family.for_age(lines, 330)) == len(lines)
     child = {'id': 'c1', 'born_on': '2027-01-04', 'pronouns': 'she/her', 'name': 'Ivy'}

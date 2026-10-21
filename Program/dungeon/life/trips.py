@@ -14,10 +14,6 @@ The trip's cost comes out of their budget on the day they leave (money.household
 while they are away (their blocks are out-and-about time, dungeon/life/pacing.py) and their status says where they
 are. On the first afternoon they send the user a postcard: a first text (dungeon/life/openers.py) with a picture
 postcard of the landmark when pictures in chat are on.
-
-Weekend visits with the user when they live in different cities (dungeon/life/long_distance.py) are trips too: a
-row with `visit` set, 'to-you' when the companion comes to stay with the user, 'host' when the user comes to stay with
-them. Their days are written here the same way, spent with the user, and the user can call one off before it starts.
 """
 import re
 from datetime import date, datetime, timedelta
@@ -250,22 +246,13 @@ def plan_ahead(connection, companion: dict, world, now: datetime) -> int:
         return 0
     timeline_id = companion['active_timeline_id']
     today = now.astimezone(zone(companion['version']['timezone'])).date()
-    from dungeon.life import long_distance
-    far = long_distance.settle_moves(connection, companion, today)
     rows = many(connection, "SELECT start_date FROM trips WHERE timeline_id=? AND status='planned'", (timeline_id,))
     written = 0
     for saturday in saturdays(today):
-        # Any trip or visit around that weekend, planned or called off, settles it.
+        # Any trip around that weekend, planned or called off, settles it.
         if optional(connection, 'SELECT id FROM trips WHERE timeline_id=? AND start_date<=? AND end_date>=?',
                     (timeline_id, (saturday + timedelta(days=2)).isoformat(),
                      (saturday - timedelta(days=2)).isoformat())):
-            continue
-        # Living apart, a weekend visit with the user comes before a trip of their own.
-        visit = far and long_distance.decide(connection, companion, home, far, saturday)
-        if visit:
-            insert(connection, companion, visit, now)
-            rows.append(visit)
-            written += 1
             continue
         if too_soon(rows, saturday):
             continue
@@ -340,11 +327,7 @@ def with_text(trip: dict) -> str:
 
 
 def block(view: dict, trip: dict) -> dict:
-    """A waking block on a trip day: out and about in the other city. On a weekend visit it is time with the user,
-    so replies are not held (dungeon/life/pacing.py)."""
-    if trip.get('visit'):
-        return {**view, 'kind': 'social', 'label': f"With you in {trip['city_name']}", 'trip': trip['id'],
-                'holiday': None, 'sick_day': False, 'with_user': True}
+    """A waking block on a trip day: out and about in the other city."""
     return {**view, 'kind': 'social', 'label': f"Away in {trip['city_name']}", 'trip': trip['id'],
             'holiday': None, 'sick_day': False}
 
@@ -362,16 +345,11 @@ def entry(trip: dict, slot_view: dict, definition: dict, world, seed: str, ends:
               'weather': (getattr(world, 'weather', None) or (lambda *_args: None))(
                   trip['city_id'], date.fromisoformat(slot_view['local_date']))}
     if ends == 'first':
-        summary = {'to-you': f'{name} set off to see you in {city}.', 'host': f'{name} welcomed you to {city}.'}.get(
-            trip.get('visit'), f'{name} set off for {city}{company}.')
-        return {**common, 'summary': summary, 'post': f'Off to {city}!' if trip.get('visit') != 'host' else
-                'Best kind of weekend.', 'activity': 'trip-travel', 'place': None, 'mood': 'excited'}
+        return {**common, 'summary': f'{name} set off for {city}{company}.', 'post': f'Off to {city}!',
+                'activity': 'trip-travel', 'place': None, 'mood': 'excited'}
     if ends == 'last':
-        summary = {'to-you': f'{name} said goodbye to you and headed home from {city}.',
-                   'host': f'{name} saw you off home from {city}.'}.get(trip.get('visit'),
-                                                                        f'{name} headed home from {city}{company}.')
-        return {**common, 'summary': summary, 'post': 'Home again.' if trip.get('visit') != 'host' else
-                'Already miss it.', 'activity': 'trip-home-sun' if trip['sunny'] else 'trip-home', 'place': None,
+        return {**common, 'summary': f'{name} headed home from {city}{company}.', 'post': 'Home again.',
+                'activity': 'trip-home-sun' if trip['sunny'] else 'trip-home', 'place': None,
                 'mood': 'content'}
     from dungeon.life import composer
     part = composer.day_part(slot_view['block']['start'])
@@ -417,8 +395,6 @@ def context_lines(connection, companion: dict, now: datetime) -> list[tuple[str,
     today = now.astimezone(zone(companion['version']['timezone'])).date()
     result = []
     for trip in planned(connection, companion['active_timeline_id'], (today - timedelta(days=2)).isoformat()):
-        if trip['visit']:
-            continue  # Weekend visits with the user say their own lines (dungeon/life/long_distance.py).
         start, end = date.fromisoformat(trip['start_date']), date.fromisoformat(trip['end_date'])
         span = f"{day_text(trip['start_date'])} to {day_text(trip['end_date'])}"
         if start <= today <= end:
@@ -456,8 +432,7 @@ def purchases(connection, timeline_id: str, start: date, day: date) -> list[dict
     pets even on a trip that cost nothing itself."""
     rows = many(connection, "SELECT * FROM trips WHERE timeline_id=? AND status='planned' AND start_date>=? AND "
                 'start_date<=?', (timeline_id, start.isoformat(), day.isoformat()))
-    found = [{'text': "spent a bit extra having you to stay" if row['visit'] == 'host' else
-              f"paid for the trip to {row['city_name']}", 'date': row['start_date'], 'spend': '', 'cost': row['cost'],
+    found = [{'text': f"paid for the trip to {row['city_name']}", 'date': row['start_date'], 'spend': '', 'cost': row['cost'],
               'for': 'trip'} for row in rows if row['cost'] > 0]
     for row in rows:
         start_day = date.fromisoformat(row['start_date'])
@@ -469,10 +444,10 @@ def purchases(connection, timeline_id: str, start: date, day: date) -> list[dict
 
 def away_status(connection, block: dict, seed: str) -> dict | None:
     """The status line's away message while on a trip: where they are and when they are back."""
-    row = optional(connection, 'SELECT city_name, end_date, visit FROM trips WHERE id=?', (block.get('trip'),)) \
+    row = optional(connection, 'SELECT city_name, end_date FROM trips WHERE id=?', (block.get('trip'),)) \
         if block.get('trip') else None
-    if not row or row['visit'] == 'host':
-        return None  # Home, with the user staying over.
+    if not row:
+        return None
     city, back = row['city_name'], date.fromisoformat(row['end_date'])
     lines = (f'in {city} ✈️', f'away in {city} till {back:%A}', f'{city} mode, back {back:%A}')
     return {'text': generators.pick(seed, 'trip-away', list(lines)), 'glyph': 'pin'}
@@ -560,22 +535,17 @@ def picture_postcards(database) -> None:
 
 def listing(connection, companion: dict, now: datetime) -> list[dict]:
     """Trips from the last two weeks on, with their state and postcard message, for Today."""
-    from dungeon.life import long_distance
     today = now.astimezone(zone(companion['version']['timezone'])).date()
     rows = many(connection, 'SELECT * FROM trips WHERE timeline_id=? AND end_date>=? ORDER BY start_date',
                 (companion['active_timeline_id'], (today - timedelta(days=14)).isoformat()))
     result = []
-    under_way = long_distance.visiting(connection, companion, now)
     for row in map(view, rows):
         found = 'cancelled' if row['status'] == 'cancelled' else 'done' if row['end_date'] < today.isoformat() else \
             'now' if row['start_date'] <= today.isoformat() else 'planned'
-        if row['visit'] and found == 'now' and not (under_way and under_way['id'] == row['id']):
-            # A visit is together from arrival to leaving, not all day (dungeon/life/long_distance.py).
-            found = 'planned' if row['start_date'] >= today.isoformat() else 'done'
         card = optional(connection, "SELECT message_id FROM openers WHERE timeline_id=? AND trigger_key=?",
                         (row['timeline_id'], f"postcard:{row['id']}"))
         found_cost = money.profile(companion['version']['definition'])
         cost_text = money.amount(row['cost'], found_cost.city['currency']) if found_cost and row['cost'] else ''
         result.append({**row, 'state': found, 'postcard_message_id': card['message_id'] if card else None,
-                       'cost_text': cost_text, 'undo': long_distance.undoable(row, today, now)})
+                       'cost_text': cost_text})
     return result

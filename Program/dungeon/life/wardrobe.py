@@ -718,10 +718,6 @@ def image_hint(connection, timeline_id: str, moment: dict) -> str:
     local_date = moment.get('local_date')
     if not local_date:
         return ''
-    if moment.get('activity') == 'wedding':
-        from dungeon.life import wedding
-        if found := wedding.dressed(connection, timeline_id, local_date):
-            return f'Wearing {found}.'
     if moment.get('activity') == 'big-day':
         from dungeon.life import big_days
         if found := big_days.dressed(connection, timeline_id, local_date):
@@ -769,11 +765,8 @@ def context_lines(connection, timeline_id: str, day: date, now) -> list[tuple[st
     if favourites:
         lines.append((f'wardrobe:{timeline_id}:favorites', f"- Favourites you wear a lot: {listing(favourites)}."))
     moment = current_moment(connection, timeline_id, now)
-    from dungeon.life import big_days, wedding
-    if moment and (found_attire := wedding.dressed(connection, timeline_id, moment['local_date'], now)):
-        lines.append((f"wardrobe:{timeline_id}:now:{moment['local_date']}:wedding",
-                      f"- Wearing right now (at your wedding): {found_attire}."))
-    elif moment and (found_attire := big_days.dressed(connection, timeline_id, moment['local_date'], now)):
+    from dungeon.life import big_days
+    if moment and (found_attire := big_days.dressed(connection, timeline_id, moment['local_date'], now)):
         lines.append((f"wardrobe:{timeline_id}:now:{moment['local_date']}:big-day",
                       f"- Wearing right now (dressed up for a big day): {found_attire}."))
     elif moment:

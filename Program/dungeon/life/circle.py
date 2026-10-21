@@ -616,7 +616,7 @@ def set_status(connection, person_id, status: str, now) -> dict:
 
 def tie(first: dict, second: dict, older: bool = False) -> str | None:
     """How two circle members know each other, the same every time for the same two people. In an older city
-    (before 1950) parents who parted are separated, and far fewer did (breakups.separated)."""
+    (before 1950) parents who parted are separated, and far fewer did."""
     kinds = {role_kind(first['role']), role_kind(second['role'])}
     pair = ':'.join(sorted((first['id'], second['id'])))
     if kinds == {'parent'}:
@@ -661,7 +661,7 @@ def city_of_timeline(connection, timeline_id: str) -> dict | None:
 
 
 def older_era(connection, timeline_id: str) -> bool:
-    """The timeline's companion lives in an older city (before 1950), as breakups.separated reads it."""
+    """The timeline's companion lives in an older city (before 1950)."""
     from dungeon.characters import by_id
     from dungeon.world import newcomers, townsfolk
     row = optional(connection, 'SELECT companion_id FROM timelines WHERE id=?', (timeline_id,))

@@ -54,9 +54,34 @@ ASK_HOURS = (10, 21)
 TOLD_DAYS = 14
 STATUSES = ('planned', 'asked', 'yes', 'no', 'done', 'called_off')
 EX = 'ex'  # The partner's role once they split up (dungeon/life/love_life.py).
+# Family life (life_settings.family_life, Settings > Realism): 0 easy, 1 gentle, 2 true to life, 3 chaos.
+USUAL = 2
+# Each night's chance of a broken night until they sleep through, by Family life; a third of it while a toddler.
+BROKEN = (0.0, 0.15, 0.35, 0.55)
+# Sleeping through the night, in days from birth, by Family life: sooner on an easy life.
+SLEEPS = ((60, 120), (100, 220), (120, 300), (200, 420))
+# A young baby doesn't eat solid food or get moving yet: bank lines that say so wait until these ages in days.
+SOLIDS_DAYS = 180
+FOOD = re.compile(r'\b(?:banana\w*|mash\w*|pur[ée]e\w*|food|eat\w*|spoon\w*|porridge|oatmeal|biscuits?|cookies?|toast|apple\w*|'
+                  r'peas|carrots?|avocado|yogh?urt|crusts?|rusks?|snacks?|bread|cheese|berr(?:y|ies)|pasta|rice)\b',
+                  re.IGNORECASE)
+MOVING_DAYS = 300
+MOVING = re.compile(r'\b(?:crawl\w*|walk\w*|toddl\w*|ran|run\w*|climb\w*|steps?|stood|standing)\b', re.IGNORECASE)
 
 
 # Who could start a family ---------------------------------------------------------------------------------------------
+
+def family_life(connection) -> int:
+    row = optional(connection, 'SELECT * FROM life_settings WHERE id=1') or {}
+    return int(row.get('family_life', USUAL))
+
+
+def companion_of(connection, timeline_id: str) -> dict | None:
+    from dungeon.characters import by_id
+    row = optional(connection, 'SELECT companion_id FROM timelines WHERE id=?', (timeline_id,))
+    found = by_id(connection, row['companion_id']) if row else None
+    return {**found, 'active_timeline_id': timeline_id} if found else None
+
 
 def wants(connection, companion: dict, now=None) -> str:
     """'yes', 'someday' or 'no' for children: Wanting children's answer (dungeon/life/parenthood.py), the user's
@@ -70,7 +95,7 @@ def theirs(connection, companion: dict) -> bool:
     definition = companion['version']['definition']
     if intimacy.reads_as_minor(definition) or not companion.get('active_timeline_id'):
         return False
-    return definition.get('relationship') != 'romance' or steps.apart(connection, companion) == 'ended'
+    return definition.get('relationship') != 'romance'
 
 
 def pair(connection, companion: dict) -> dict | None:
@@ -296,19 +321,18 @@ def leave_days(connection, companion: dict, start: date, end: date) -> dict[str,
 
 def broken_night(connection, timeline_id: str, day: date) -> dict | None:
     """The body state a broken night with their own baby leaves (dungeon/life/agenda.py `day_facts`), as for the
-    pair's own (dungeon/life/our_child.py): by Family life, until the youngest sleeps through on a seeded day, a
-    third as often after that while a toddler; never on an easy life, nor on a night the child is at their ex's."""
-    from dungeon.life import our_child
-    level = our_child.level(connection)
+    Family life, until the youngest sleeps through on a seeded day, a third as often after that while a toddler; never
+    on an easy life, nor on a night the child is at their ex's."""
+    level = family_life(connection)
     kids = [child for child in own_children(connection, timeline_id) if child['status'] == 'born' and
-            child['born_on'] < day.isoformat() and families.age_of(child, day) < 3] if our_child.BROKEN[level] else []
+            child['born_on'] < day.isoformat() and families.age_of(child, day) < 3] if BROKEN[level] else []
     if not kids or not with_them(connection, timeline_id, kids[-1], day - timedelta(days=1)):
         return None
     youngest, seed = kids[-1], f"own-nights:{kids[-1]['id']}"
-    low, high = our_child.SLEEPS[level]
+    low, high = SLEEPS[level]
     sleeps = date.fromisoformat(youngest['born_on']) + timedelta(days=low + int(generators.unit(seed, 'sleeps') *
                                                                                  (high - low)))
-    chance = our_child.BROKEN[level] / (3 if day >= sleeps else 1)
+    chance = BROKEN[level] / (3 if day >= sleeps else 1)
     if generators.unit(seed, 'night', day.isoformat()) >= chance:
         return None
     return {'state': 'tired', 'because': 'after a broken night'}
@@ -317,11 +341,11 @@ def broken_night(connection, timeline_id: str, day: date) -> dict | None:
 def with_them(connection, timeline_id: str, child: dict, day: date) -> bool:
     """Whether their child sleeps at theirs this night: always while together; after a split, by the pattern
     (dungeon/life/custody.py `own_line`): every night but some weekends, every other week, or weekends only."""
-    from dungeon.life import custody, our_child
+    from dungeon.life import custody
     person = optional(connection, 'SELECT * FROM circle_people WHERE id=?', (child['parent_id'],))
     if person is None or person['role'] != EX or not (decode(person['details']) or {}).get('co_parent'):
         return True
-    companion = our_child.companion_of(connection, timeline_id)
+    companion = companion_of(connection, timeline_id)
     pattern = custody.OWN_PATTERNS[custody.own_outcome(connection, companion, person)['picked']] if companion else \
         'with_them'
     if pattern == 'shared':  # A week each, turn and turn about.
@@ -375,16 +399,14 @@ def news_on(child: dict, day: date, pace: float, era: str) -> tuple[str, str, st
     return 'baby_update', line['text'], line['share']
 
 
-# A young baby doesn't sit up, roll, cut teeth, eat or walk yet (as for the pair's own, dungeon/life/our_child.py).
+# A young baby doesn't sit up, roll, cut teeth, eat or walk yet.
 SITTING = re.compile(r'\b(?:sat|sits|sitting|roll\w*|tooth|teeth)\b', re.IGNORECASE)
 SITTING_DAYS = 150
 
 
 def for_age(lines: list[dict], days: int) -> list[dict]:
     """The bank lines a baby this many days old can do."""
-    from dungeon.life import our_child
-    rules = ((our_child.MOVING, our_child.MOVING_DAYS), (our_child.FOOD, our_child.SOLIDS_DAYS),
-             (SITTING, SITTING_DAYS))
+    rules = ((MOVING, MOVING_DAYS), (FOOD, SOLIDS_DAYS), (SITTING, SITTING_DAYS))
     return [line for line in lines if not any(days < after and found.search(f"{line['text']} {line['share']}")
                                               for found, after in rules)] or lines
 
@@ -463,9 +485,9 @@ def plan_asks(connection, companion: dict, day: date, pace: float, now) -> int:
 
 
 def reachable(connection, companion: dict) -> bool:
-    """The user lives near enough to come over and isn't broken up with them."""
-    from dungeon.life import long_distance
-    return steps.apart(connection, companion) != 'ended' and long_distance.far(connection, companion) is None
+    """The user lives near enough to come over."""
+    from dungeon.life import where
+    return where.far(connection, companion) is None
 
 
 def follow(connection, companion: dict, today: date, now) -> None:
@@ -503,8 +525,8 @@ def partner_first(connection, row: dict) -> str:
 
 def ask_due(connection, companion: dict, now: datetime) -> list:
     """The ask, as a first text, from the day it was planned until two days before the evening."""
+    from dungeon.life.big_days import clock_text
     from dungeon.life.openers import Trigger
-    from dungeon.life.their_people import clock_text
     if not families.ACTIVE or not companion.get('active_timeline_id') or families.withheld(connection):
         return []
     local = now.astimezone(zone(companion['version']['timezone']))
@@ -563,7 +585,7 @@ def note(connection, message: dict, companion: dict, timestamp: str) -> bool:
 
 def babysitting_lines(connection, companion: dict, now) -> list[tuple[str, str]]:
     from dungeon.life import big_days
-    from dungeon.life.their_people import clock_text
+    from dungeon.life.big_days import clock_text
     timeline_id, local = companion['active_timeline_id'], now.astimezone(zone(companion['version']['timezone']))
     today, result = local.date(), []
     for row in rows(connection, timeline_id, ('asked', 'yes', 'no', 'done')):

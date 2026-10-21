@@ -14,9 +14,7 @@ chapter's `told` and `share` lines, which change with each stage.
 - `career_change`: retraining the same way for a line of work in another sector of their city, then the new job (the
   career overlay), which Work life (dungeon/life/work.py) starts afresh.
 - `buy_place`: the app picks a place their pay fits; house hunting until keys day, then the home is theirs, with a
-  mortgage instead of rent and a deposit from savings. Living together it is a shared chapter: the companion raises it,
-  the app picks a bigger place for both and the shared home moves there (dungeon/life/moving_in.py), the mortgage
-  split like the rent was.
+  mortgage instead of rent and a deposit from savings.
 - `retire`: older characters only (their age from dungeon/life/ages.py). They hand in their notice; after their
   last day at work their working hours become time for a pursuit from the bank, and their pay a pension (`pay`).
 
@@ -38,7 +36,7 @@ from functools import cache
 from dungeon import consequences
 from dungeon.database import decode, encode, many, optional
 from dungeon.errors import require
-from dungeon.life import ages, home, money, moving_in, routine
+from dungeon.life import ages, home, money, routine
 from dungeon.world import catalog, generators, intimacy, looks
 
 KINDS = ('school', 'career_change', 'buy_place', 'retire', 'business', 'health', 'caring')
@@ -167,8 +165,7 @@ def free(connection, companion: dict, day: date) -> int | None:
 
 def facts(connection, companion: dict, day: date) -> dict:
     """What the engine reads for big turns."""
-    return {'age': life_age_of(connection, companion, day), 'turns': level(connection),
-            'together': int(bool(moving_in.living(connection, companion, day))),
+    return {'age': life_age_of(connection, companion, day), 'turns': level(connection), 'together': 0,
             **health_turns.facts(connection, companion, day)}
 
 
@@ -334,47 +331,58 @@ def plan_buy(connection, companion, world, day, seed) -> dict | None:
     found, city = money.profile(definition), money.city_for(definition)
     if age is None or age < BUY_AGE or not found or found.tier < 1 or owns(connection, timeline_id, day):
         return None
-    together = moving_in.current(connection, timeline_id)
-    if together and (together['status'] != 'moved' or together['city_id'] != city['id']):
-        return None  # A move in together still to come, or a shared home in another city.
-    place = place_to_buy(companion, city, found, together, seed)
+    place = place_to_buy(companion, city, found, seed)
     if not place:
         return None
     keys = day + timedelta(days=random.Random(f'{seed}:keys').randint(*HUNT_DAYS))
-    deposit = money.monthly_share(found) * DEPOSIT_MONTHS / (2 if together else 1)
+    deposit = money.monthly_share(found) * DEPOSIT_MONTHS
     details = {'stage': 'hunting', 'next_on': keys.isoformat(), 'keys_on': keys.isoformat(), 'place': place,
-               'deposit': {'on': keys.isoformat(), 'cost': round(deposit, 2)}, 'shared': bool(together),
-               **old_words(city)}
-    return {**buy_words(definition, place, keys, bool(together), day), 'details': details}
+               'deposit': {'on': keys.isoformat(), 'cost': round(deposit, 2)}, **old_words(city)}
+    return {**buy_words(definition, place, keys, day), 'details': details}
 
 
-def place_to_buy(companion: dict, city: dict, found, together: dict | None, seed: str) -> dict | None:
-    """A place their pay fits (living together, a two-bedroom near the home they share), owned with a mortgage."""
+def place_to_buy(companion: dict, city: dict, found, seed: str) -> dict | None:
+    """A place their pay fits, owned with a mortgage."""
     hoods = sorted((hood for hood in city['neighborhoods'] if hood.get('rent')
                     and hood['rent_tier'] in money.HOOD_TIERS[found.tier]), key=lambda hood: hood['name'])
-    shared = moving_in.hood_named(city, together['neighbourhood']) if together else None
-    hood = shared if shared and shared.get('rent') else random.Random(f'{seed}:hood').choice(hoods) if hoods else None
+    hood = random.Random(f'{seed}:hood').choice(hoods) if hoods else None
     if not hood:
         return None
-    unit = 'two_bedroom' if together or found.tier >= 2 else 'one_bedroom'
-    place = moving_in.shared_place(f'{seed}:place', companion, city, hood, unit)
+    unit = 'two_bedroom' if found.tier >= 2 else 'one_bedroom'
+    place = home_in(f'{seed}:place', companion, city, hood, unit)
     payment = place['details'].get('rent') or 0
     # To the ten from 200, as money.amount says it, so the Home card and the budget show the same number; a few
     # shillings or pennies stay whole (never 0).
     payment *= random.Random(f'{seed}:mortgage').uniform(*MORTGAGE)
     payment = int(round(payment, -1)) if payment >= 200 else max(1, round(payment))
-    return {**place, 'details': {**place['details'], 'owned': True, 'shared': bool(together), 'rent': payment,
+    return {**place, 'details': {**place['details'], 'owned': True, 'rent': payment,
                                  'rent_from': 'mortgage', 'estimate': True, 'city': city['name'],
                                  **old_words(city)}}  # Payments on the place, not a mortgage, in a medieval city.
 
 
-def buy_words(definition: dict, place: dict, keys: date, together: bool, today: date) -> dict:
+def home_in(seed: str, companion: dict, city: dict | None, hood: dict | None, unit: str) -> dict:
+    """A home in this neighbourhood, built the way home.py builds one, at the size and rent of the unit."""
+    from dungeon.characters import apply_changes
+    definition = companion['version']['definition']
+    if city and hood:
+        definition = apply_changes(definition, {'location': f"{hood['name']}, {city['name']}",
+                                                'home_city': city['name']})
+    place = home.place_item(seed, definition, city)
+    details = dict(place['details'])
+    rents = (hood or {}).get('rent') or {}
+    if unit in rents and city:
+        low, high = rents[unit]
+        rent = low + (high - low) * random.Random(f'{seed}:rent').random()
+        name = home.home_name(place['variety'], unit, city)
+        step = generators.rent_step(rent)  # By 25 in dollars, by 1 in Camelot's pennies (never down to 0).
+        details.update({'bedrooms': unit, 'rent': max(step, int(round(rent / step) * step)),
+                        'description': f"{name} in {hood['name']}", 'neighborhood': hood['name']})
+        place = {**place, 'name': name}
+    return {**place, 'details': details}
+
+
+def buy_words(definition: dict, place: dict, keys: date, today: date) -> dict:
     name, where = first(definition), place['details']['description']
-    if together:
-        return {'title': f'{name} and you are buying a place together',
-                'told': f'You brought up buying a place together with the user, and you found {where}; you get the '
-                        f'keys on {day_text(keys)}.',
-                'share': f"Hear me out: what if we stopped renting? I found a place, {where}. I think it's the one."}
     offer = 'struck a bargain for a place' if place['details'].get('medieval') else 'put in an offer on a place'
     return {'title': f'{name} is buying a place of their own',
             'told': f'You decided to buy a place of your own and found {where}; you get the keys on {day_text(keys)}.',
@@ -495,24 +503,14 @@ def keys_day(connection, companion, row, details, day, now) -> dict:
     connection.execute("UPDATE life_admin SET status='removed' WHERE timeline_id=? AND key LIKE 'admin:lease:%' AND "
                        "status='planned'", (timeline_id,))
     undo = {'ended': [item['id'] for item in old], 'added': [added]}
-    together = moving_in.living(connection, companion, day) if details.get('shared') else None
-    if together:
-        undo['moving_in'] = {'id': together['id'], 'neighbourhood': together['neighbourhood'],
-                             'home_item_id': together['home_item_id']}
-        # Stored as the neighbourhood's id, as moving_in.py does (where.py finds the user's home by it).
-        hood = moving_in.hood_named(money.city_for(companion['version']['definition']),
-                                    details['place']['details']['neighborhood'])
-        connection.execute('UPDATE moving_in SET neighbourhood=?, home_item_id=? WHERE id=?',
-                           (hood['id'] if hood else details['place']['details']['neighborhood'], added, together['id']))
     place = details['place']['details']
     name = first(companion['version']['definition'])
-    ours = 'you and the user own' if together else 'you own'
     paying = 'paying it off month by month' if place.get('medieval') else 'with a mortgage'
-    return {'title': f"{name} bought {place['description']}" + (' with you' if together else ''),
+    return {'title': f"{name} bought {place['description']}",
             'changes': {'location': f"{place['neighborhood']}, {place['city']}"},
-            'told': f"You got the keys and moved into {place['description']}, which {ours} now, {paying} instead of "
+            'told': f"You got the keys and moved into {place['description']}, which you own now, {paying} instead of "
                     'rent.',
-            'share': 'We got the keys!! Our own place.' if together else 'I got the keys!! My own place.',
+            'share': 'I got the keys!! My own place.',
             'undo': undo, 'details': {'stage': 'moved', 'next_on': None, 'keys_on': day.isoformat(),
                                       'deposit': {**details['deposit'], 'on': day.isoformat()}}}
 
@@ -553,10 +551,6 @@ def fork_row(connection, row: dict, copy_id: str, timeline_id: str, cutoff: str)
     if undo.get('decided'):
         undo['decided'] = [forked_outcome(connection, consequence_id, row['id'], copy_id, timeline_id)
                            for consequence_id in undo['decided'] if decided_by(connection, consequence_id, cutoff)]
-    if undo.get('moving_in'):  # The fork's own shared home, the copy of this one (moving_in.copy keeps `origin`).
-        home = optional(connection, 'SELECT id, origin FROM moving_in WHERE id=?', (undo['moving_in']['id'],))
-        undo['moving_in'] = {**undo['moving_in'], 'timeline_id': timeline_id,
-                             'origin': (home['origin'] or home['id']) if home else undo['moving_in']['id']}
     return {**found, 'id': copy_id, 'timeline_id': timeline_id, 'undo': encode(undo), 'details': encode(details)}
 
 
@@ -624,19 +618,10 @@ def forked_outcome(connection, consequence_id: str, row_id: str, copy_id: str, t
 
 
 def reverse(connection, found: dict):
-    """What an undone big turn changed beyond home items: the shared home goes back where it was, and the marks its
-    stages' outcomes left (a business's months, how caring goes) come off."""
+    """What an undone big turn changed beyond home items: the marks its stages' outcomes left (a business's months,
+    how caring goes) come off."""
     for consequence_id in found.get('decided', ()):
         consequences.clear_marks(connection, consequence_id)
-    if found.get('moving_in'):
-        back = found['moving_in']
-        if back.get('timeline_id'):  # Undone on a fork: the fork's copy of the shared home (fork_row).
-            connection.execute('UPDATE moving_in SET neighbourhood=?, home_item_id=? WHERE timeline_id=? AND '
-                               '(origin=? OR id=?)', (back['neighbourhood'], back['home_item_id'], back['timeline_id'],
-                                                      back['origin'], back['origin']))
-            return
-        connection.execute('UPDATE moving_in SET neighbourhood=?, home_item_id=? WHERE id=?',
-                           (back['neighbourhood'], back['home_item_id'], back['id']))
 
 
 def undone(connection, row: dict):
@@ -773,8 +758,7 @@ def line(row: dict) -> str:
         currency = place.get('currency') or {}
         mortgage = money.amount(place['rent'], currency) if currency and place.get('rent') else ''
         loan = 'Payments on it' if place.get('medieval') else 'The mortgage'
-        return (f"Buying {place['description']}" + (' with you' if details.get('shared') else '') +
-                f"; keys on {short_day(details['keys_on'])}." +
+        return (f"Buying {place['description']}; keys on {short_day(details['keys_on'])}." +
                 (f' {loan} will be about {mortgage} a month.' if mortgage else ''))
     if stage == 'leaving':
         return f"{'Giving up work' if details.get('medieval') else 'Retiring'}; their last day at work is " \

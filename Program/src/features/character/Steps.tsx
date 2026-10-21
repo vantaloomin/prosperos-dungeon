@@ -1,5 +1,4 @@
-import { useEffect, useState, type MouseEvent } from 'react'
-import { CloudRain, HeartCrack, Undo2 } from 'lucide-react'
+import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
 import { COMPANION_KEY } from '../../companion'
@@ -9,17 +8,13 @@ import { Notice } from '../../components/Feedback'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { WhyItWent } from '../today/WhyItWent'
 import { firstName } from './panelText'
-import { Wedding } from './WeddingPlan'
-import { STEPS_KEY, apartStep, askText, howText, movingText, newcomerText, ownAnswerLabel, pendingStepText, plannedText, rollLabel, stepDate } from './stepsText'
-import { apartHint, apartSummary, BREAKUP_KEY, breakupLine, endedStep, isApart, mendLabel, mendedText, standsLabel, type BreakupView } from './breakupText'
-import { UNDO_MS } from '../profile/roughPatchText'
+import { STEPS_KEY, askText, howText, plannedText, stepDate } from './stepsText'
 
 /** Where you and them stand (dungeon/life/steps.py): one plain line, the steps so far, what came up lately and,
  * for a friend, the "just friends" lock. The app moves it on; the user can set it here. Nothing for a mentor or family. */
 export function Steps({ name }: { name: string }) {
   const client = useQueryClient()
   const query = useQuery({ queryKey: STEPS_KEY, queryFn: () => api<StepsView>('/life/steps') })
-  const breakup = useQuery({ queryKey: BREAKUP_KEY, queryFn: () => api<BreakupView>('/life/breakup') })
   const [error, setError] = useState('')
   const view = query.data
   if (query.isError) return <ErrorNotice error={query.error} />
@@ -32,27 +27,21 @@ export function Steps({ name }: { name: string }) {
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'That was not saved.') }
   }
   const who = firstName(name)
-  // On a break or broken up (dungeon/life/breakups.py) the summary says so, and the steps wait.
-  const apart = isApart(breakup.data)
-  const line = apart ? apartSummary(breakup.data) : view.text
-  const hint = apartHint(breakup.data) ||
-    `Picked and moved on by the app, as ${who} brings things up and you answer. Set it yourself any time; moving it back takes the later steps back.`
+  const hint = `Picked and moved on by the app, as ${who} brings things up and you answer. Set it yourself any time; moving it back takes the later steps back.`
   return (
     <section id="steps" className="home-panel steps-panel" aria-labelledby="steps-heading">
       <h2 id="steps-heading">You and {who}</h2>
-      {line && <p className="steps-line">{line}</p>}
-      <BreakupLine name={name} view={breakup.data} />
-      <Field label={standsLabel(breakup.data)} hint={hint}>
+      {view.text && <p className="steps-line">{view.text}</p>}
+      <Field label="Where things stand" hint={hint}>
         {(id, describedBy) => (
-          <select id={id} aria-describedby={describedBy} value={view.step} disabled={apart} onChange={(event) => void save({ step: event.target.value })}>
+          <select id={id} aria-describedby={describedBy} value={view.step} onChange={(event) => void save({ step: event.target.value })}>
             {view.ladder_steps?.map((item) => <option key={item.step} value={item.step}>{item.label}</option>)}
           </select>
         )}
       </Field>
-      <StepsSoFar view={view} name={name} ended={endedStep(breakup.data, name) || apartStep(view, name)} />
-      <Wedding name={name} />
+      <StepsSoFar view={view} name={name} />
       {view.can_fall && (
-        <Toggle label="Just friends" checked={view.just_friends} disabled={apart} onChange={(just_friends) => void save({ just_friends })}
+        <Toggle label="Just friends" checked={view.just_friends} onChange={(just_friends) => void save({ just_friends })}
           hint={`On: ${who} stays a friend. Off: a close friend can fall for you now and then, if Friends can fall for you is on in Settings > Realism.`} />
       )}
       {error && <Notice tone="error">{error}</Notice>}
@@ -60,55 +49,16 @@ export function Steps({ name }: { name: string }) {
   )
 }
 
-/** The Living together step's detail: where you live together, or the move planned. Waiting on the user to move cities,
- * it links to where they change it: their persona's home on Worlds. */
-function MovingLine({ moving, name }: { moving: NonNullable<StepsView['moving_in']>; name: string }) {
-  const change = (event: MouseEvent) => {
-    event.preventDefault()
-    window.history.pushState({ focus: 'persona-home' }, '', '#worlds')
-    window.dispatchEvent(new PopStateEvent('popstate', { state: { focus: 'persona-home' } }))
-  }
-  return (
-    <div className="steps-detail">
-      <p>{movingText(moving, name)}{moving.status === 'waiting' && moving.plan === 'you' && !moving.joins && <> <a className="text-button inline" href="#worlds" onClick={change}>Change your home city</a> when you're ready.</>}</p>
-      {moving.consequence_id && <WhyItWent id={moving.consequence_id} settled={moving.status === 'moved'} />}
-      {moving.rolls?.map((roll) => roll.consequence_id && <WhyItWent key={roll.name} id={roll.consequence_id} summary={rollLabel(roll)} />)}
-      {moving.newcomers?.map((newcomer) => (
-        <div key={newcomer.name} className="steps-newcomer">
-          <p>{newcomerText(newcomer, name)}</p>
-          {newcomer.consequence_id && <WhyItWent id={newcomer.consequence_id} summary={ownAnswerLabel(newcomer, name)} />}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-/** Moving into a home you share with another partner, not yet moved: Living together isn't so yet. */
-function pending(view: StepsView): boolean {
-  return Boolean(view.moving_in?.joins && view.moving_in.status !== 'moved')
-}
-
-/** A step's date; Living together, once moved into a shared home, dates from the move. */
-function stepDay(item: NonNullable<StepsView['steps']>[number], view: StepsView): string {
-  return item.step === 'moving_in' && view.moving_in?.joins && view.moving_in.moved_on ? view.moving_in.moved_on : item.on
-}
-
 /** The steps so far with their dates, what came up lately and (with odds shown) what is planned. */
-function StepsSoFar({ view, name, ended }: { view: StepsView; name: string; ended: string }) {
+function StepsSoFar({ view, name }: { view: StepsView; name: string }) {
   return <>
-    {view.steps && (view.steps.length > 1 || ended) && (
+    {view.steps && view.steps.length > 1 && (
       <ol className="steps-list">
         {view.steps.map((item) => (
           <li key={item.step}>
-            {item.step === 'moving_in' && pending(view) ? (
-              <><strong className="step-pending">{item.label}</strong> <span className="subtle">· {pendingStepText(view.moving_in!)}</span></>
-            ) : (
-              <><strong>{item.label}</strong> <span className="subtle">{item.how === 'history' ? howText(item.how, name) : `${stepDate(stepDay(item, view))} · ${howText(item.how, name)}`}</span></>
-            )}
-            {item.step === 'moving_in' && view.moving_in && <MovingLine moving={view.moving_in} name={name} />}
+            <strong>{item.label}</strong> <span className="subtle">{item.how === 'history' ? howText(item.how, name) : `${stepDate(item.on)} · ${howText(item.how, name)}`}</span>
           </li>
         ))}
-        {ended && <li className="step-ended subtle">{ended}</li>}
       </ol>
     )}
     {view.asks && view.asks.length > 0 && (
@@ -131,41 +81,4 @@ function StepsSoFar({ view, name, ended }: { view: StepsView; name: string; ende
       </div>
     )}
   </>
-}
-
-/** Breaks and breakups (dungeon/life/breakups.py): "Things are strained", "They're thinking about a break", a break or
- * the breakup, with "Why it went this way" for each roll (Hidden values > odds) and the override, with Undo after. */
-function BreakupLine({ name, view }: { name: string; view: BreakupView | undefined }) {
-  const client = useQueryClient()
-  const [mended, setMended] = useState<{ id: string; text: string } | null>(null)
-  useEffect(() => {
-    if (!mended) return
-    const timer = window.setTimeout(() => setMended(null), UNDO_MS)
-    return () => window.clearTimeout(timer)
-  }, [mended])
-  const act = async (id: string, action: 'mend' | 'undo', text = '') => {
-    client.setQueryData(BREAKUP_KEY, await api<BreakupView>(`/life/breakup/${id}/${action}`, {}))
-    setMended(action === 'mend' ? { id, text } : null)
-    void client.invalidateQueries({ queryKey: STEPS_KEY })
-  }
-  if (mended) return (
-    <p className="breakup-line" role="status" aria-live="polite">
-      <span>{mended.text}</span>
-      <button type="button" className="text-button" onClick={() => void act(mended.id, 'undo')}><Undo2 aria-hidden="true" />Undo</button>
-    </p>
-  )
-  const line = breakupLine(view, name)
-  if (!view?.id || !line.status) return null
-  const Glyph = view.stage === 'ended' ? HeartCrack : CloudRain
-  const id = view.id
-  return (
-    <div className="breakup-block">
-      <div className="breakup-line">
-        <Glyph aria-hidden="true" />
-        <p className="breakup-text">{line.status}{line.detail && <small className="subtle">{line.detail}</small>}</p>
-        {view.mendable && <button type="button" className="text-button" onClick={() => void act(id, 'mend', mendedText(view))}>{mendLabel(view)}</button>}
-      </div>
-      {view.odds.map((odds) => <WhyItWent key={odds} id={odds} />)}
-    </div>
-  )
 }

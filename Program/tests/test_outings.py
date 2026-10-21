@@ -262,13 +262,9 @@ def test_outing_memories_are_worded_for_the_user_and_turned_round_for_the_compan
         row = {**memory, 'layer': 'shared_experience', 'origin': origin}
         found = records.as_told(row, 'Mira')
         return f"{found['subject']}: {found['value']}"
-    people = [{'role': 'mom', 'name': 'Ana Moreno'}, {'role': 'dad', 'name': 'Rui Moreno'}]
     found = {
         'visit-in': text('visit-in'), 'visit-yours': text('visit-yours'), 'dinner-yours': text('dinner-yours'),
         'knock': text('visit-yours', knock=True), 'dinner-in': text('dinner-in', menu={'dish': 'risotto'}),
-        'met': text('meet-family', name="Ana and Rui's place", people=people, first=True),
-        'saw': text('meet-family', name="Ana and Rui's place", people=people),
-        'wedding': text('wedding', name="St Paul's Church", kind='church'),
     }
     assert found['visit-in'] == {'subject': "Over at Mira's place",
                                  'value': "You came over to Mira's place on Saturday, March 7."}
@@ -276,20 +272,11 @@ def test_outing_memories_are_worded_for_the_user_and_turned_round_for_the_compan
     assert found['dinner-yours']['value'] == 'Mira came over to your place for dinner on Saturday, March 7.'
     assert found['knock']['value'] == 'Mira dropped by your place on Saturday, March 7.'
     assert found['dinner-in']['value'] == "Had dinner, risotto, at Mira's place on Saturday, March 7."
-    assert found['met'] == {'subject': "Meeting Mira's mom Ana and dad Rui",
-                            'value': "You met Mira's mom Ana and dad Rui over dinner at Ana and Rui's place on "
-                                     'Saturday, March 7.'}
-    assert found['saw']['value'].startswith("You saw Mira's mom Ana and dad Rui again over dinner")
-    assert found['wedding'] == {'subject': 'Your wedding',
-                                'value': "You and Mira got married at St Paul's Church on Saturday, March 7, 2026."}
     for memory in found.values():
         assert 'the user' not in f"{memory['subject']} {memory['value']}".lower(), memory
     # To Mira, "you" is Mira.
     assert told(found['visit-in']) == "Over at your place: The user came over to your place on Saturday, March 7."
     assert told(found['visit-yours']) == "You came over: You came over to the user's place on Saturday, March 7."
-    assert told(found['met']).startswith("Meeting your mom Ana and dad Rui: The user met your mom Ana and dad Rui")
-    assert told(found['wedding']) == \
-        "Your wedding: The user and you got married at St Paul's Church on Saturday, March 7, 2026."
     # Older memories were written Mira's way already, and a memory the user wrote is left as they wrote it.
     assert told({'subject': 'Your wedding', 'value': 'You married the user at Lupa.'}) == \
         'Your wedding: You married the user at Lupa.'
@@ -297,8 +284,8 @@ def test_outing_memories_are_worded_for_the_user_and_turned_round_for_the_compan
 
 
 def test_memories_saved_in_the_old_wording_read_the_new_way_after_an_upgrade(client, companion):
-    """Memories outings and stays saved before v0.14 said "You married the user at ..." (E2E v0.13 left them as they
-    were): opening the workspace rewords them, but never one the user corrected or one already in today's wording."""
+    """Memories outings saved before v0.14 said "the user" (E2E v0.13 left them as they were): opening the workspace
+    rewords them, but never one the user corrected, one already in today's wording, or one of a kind since removed."""
     from dungeon.characters import current
     from dungeon.conversation import next_seq
     from dungeon.database import encode, identifier, settings
@@ -338,12 +325,6 @@ def test_memories_saved_in_the_old_wording_read_the_new_way_after_an_upgrade(cli
         corrected = outing(connection, mira, 'visit-yours', {'name': "The user's place", 'kind': 'your-home'},
                            "You went over to the user's place", "You went over to the user's place on Friday, June 12.")
         records.revise(connection, records.get(connection, corrected), stamp, value='Mira came round for tea.')
-        stay = saved(connection, mira, 'You stayed with the user in Baltimore',
-                     'You stayed with the user in Baltimore, Friday July 10 to Sunday July 12.')
-        connection.execute(
-            'INSERT INTO trips (id, companion_id, timeline_id, start_date, end_date, city_id, city_name, kind, visit, '
-            "memory_id, created_at) VALUES (?, ?, ?, '2026-07-10', '2026-07-12', 'baltimore', 'Baltimore', 'getaway', "
-            "'to-you', ?, ?)", (identifier(), mira['id'], mira['active_timeline_id'], stay, stamp))
         revision = settings(connection)['memory_revision']
     from dungeon import upgrade
     upgrade.migrate(database.path, stamp)  # The upgrade's own connection, without a row factory.
@@ -351,10 +332,8 @@ def test_memories_saved_in_the_old_wording_read_the_new_way_after_an_upgrade(cli
         def text(memory_id):
             row = records.get(connection, memory_id)
             return row['subject'], row['value']
-        assert text(wedding) == ('Your wedding', "You and Mira got married at St Paul's Church on Friday, June 12, 2026.")
+        assert text(wedding) == ('Your wedding', "You married the user at St Paul's Church on Friday, June 12, 2026.")
         assert text(dinner) == ("Dinner at Mira's place", "Had dinner, risotto, at Mira's place on Saturday, April 4.")
-        assert text(stay) == ("Mira's visit to Baltimore",
-                              'Mira came to stay with you in Baltimore, Friday July 10 to Sunday July 12.')
         # The correction made a new revision; the outing's own one stays as history, as it was.
         assert text(corrected)[1] == "You went over to the user's place on Friday, June 12."
         assert settings(connection)['memory_revision'] > revision

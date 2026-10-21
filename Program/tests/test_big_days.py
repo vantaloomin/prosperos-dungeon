@@ -9,7 +9,7 @@ from conftest import send
 
 from dungeon.characters import current
 from dungeon.database import decode, encode, one, optional
-from dungeon.life import ages, big_days, circle, long_distance, love_life, money, outings, steps, trips
+from dungeon.life import ages, big_days, circle, love_life, money, outings, steps
 from dungeon.memory import context
 from dungeon.providers.chat import Chunk
 
@@ -353,8 +353,8 @@ def test_a_friends_own_wedding_has_you_standing_up_and_makes_them_married(client
         assert big_days.waiting(connection, partner)
         [row] = big_days.rows(connection, companion['active_timeline_id'])
     assert row['kind'] == 'own_wedding' and row['invite'] == 1 and row['gift'] == ''
-    from dungeon.life import wedding
-    assert row['outfit'] == wedding.attire(companion['version']['definition'], 'us')  # Their own wedding's attire.
+    from dungeon.life import wedding_customs
+    assert row['outfit'] == wedding_customs.attire(companion['version']['definition'], 'us')  # Their own wedding's attire.
     assert date.fromisoformat(row['local_date']) >= today + timedelta(days=30)
     at(clock, row['invite_on'], '12:00')
     trigger, outing = invite(client, clock)
@@ -418,20 +418,6 @@ def test_their_own_graduation_and_retirement_party_come_from_their_life_chapters
     assert 'there with you' in big_days.reason_for(graduation, date.fromisoformat(graduation['local_date']))
 
 
-def test_after_a_breakup_they_no_longer_mean_to_ask_the_user_along(client, clock, monkeypatch):
-    from dungeon.life import breakups
-    monkeypatch.setattr(breakups, 'ACTIVE', True)
-    make(client)
-    guests(client, 3)
-    row = add(client, clock)
-    with client.app.state.database.connect(write=True) as connection:
-        connection.execute('UPDATE big_days SET invite=1 WHERE id=?', (row['id'],))
-    assert "You mean to ask the user to come with you as your plus-one" in lines(client, clock)[0]
-    send(client, "I'm sorry, I think we should break up.", 'client-bigday-breakup')
-    [line] = lines(client, clock)
-    assert 'mean to ask the user' not in line and "You're going on your own." in line
-
-
 def test_taking_back_cant_make_it_on_today_means_you_are_coming_after_all(client, clock):
     make(client)
     guests(client, 3)
@@ -447,52 +433,6 @@ def test_taking_back_cant_make_it_on_today_means_you_are_coming_after_all(client
     # The circle's own big days may come first: find this one's line.
     assert any(found['place']['name'] in line and 'The user is coming with you as your plus-one.' in line
                for line in lines(client, clock))
-
-
-def test_long_distance_the_day_is_a_stay_and_undoing_the_no_brings_it_back(client, clock, monkeypatch):
-    monkeypatch.setattr(trips, 'ACTIVE', True)
-    for name in ('CHANCE', 'LONG_CHANCE'):
-        monkeypatch.setattr(trips, name, 0.0)
-    monkeypatch.setattr(long_distance, 'CHANCE', {1: 0.0, 2: 0.0, 3: 0.0})
-    make(client, home_city='Chicago', timezone='America/Chicago')
-    world = client.get('/api/worlds').json()['world']
-    assert client.put(f"/api/worlds/{world['id']}/home", json={'city_id': 'baltimore'}).status_code == 200
-    guests(client, 3)
-    row = add(client, clock)
-    at(clock, row['invite_on'], '18:00')
-    _trigger, outing = invite(client, clock)
-
-    def stays():
-        return [trip['status'] for trip in client.get('/api/life/outings').json()['trips'] if trip['visit'] == 'host']
-    assert stays() == ['planned']
-    assert client.post(f"/api/life/outings/{outing['id']}/cancel", json={}).status_code == 200
-    assert stays() == ['cancelled'] and row_of(client, row['id'])['status'] == 'declined'
-    assert client.post(f"/api/life/outings/{outing['id']}/undo", json={}).status_code == 200
-    advance(client, clock)
-    assert stays() == ['planned'] and row_of(client, row['id'])['status'] == 'invited'
-
-
-def test_moving_apart_after_saying_yes_plans_a_stay_and_keeps_the_day(client, clock, monkeypatch):
-    monkeypatch.setattr(trips, 'ACTIVE', True)
-    for name in ('CHANCE', 'LONG_CHANCE'):
-        monkeypatch.setattr(trips, name, 0.0)
-    monkeypatch.setattr(long_distance, 'CHANCE', {1: 1.0, 2: 1.0, 3: 1.0})
-    make(client, home_city='Chicago', timezone='America/Chicago')
-    guests(client, 3)
-    row = add(client, clock)
-    at(clock, row['invite_on'], '18:00')
-    _trigger, outing = invite(client, clock)
-    world = client.get('/api/worlds').json()['world']
-    assert client.put(f"/api/worlds/{world['id']}/home", json={'city_id': 'baltimore'}).status_code == 200
-    with client.app.state.database.connect(write=True) as connection:
-        long_distance.settle_moves(connection, current(connection), clock.now().date(), clock.now())
-    advance(client, clock)
-    found = row_of(client, row['id'])
-    with client.app.state.database.connect() as connection:
-        kept = outings.get(connection, outing['id'])
-        stay = one(connection, 'SELECT * FROM trips WHERE id=?', (found['trip_id'],))
-    assert found['status'] == 'invited' and kept['status'] == 'planned' and kept['local_date'] == row['local_date']
-    assert stay['status'] == 'planned' and stay['start_date'] <= row['local_date'] <= stay['end_date']
 
 
 def branch_at(client, message_id, **body):
@@ -739,7 +679,7 @@ def test_an_out_of_town_relatives_wedding_is_a_trip_you_can_come_along_to(client
         assert details['fare'] > 0 and fares == [{'text': f"travelled to {details['city']} for {big_days.title(row)}",
                                                   'date': set_off.isoformat(), 'spend': '', 'cost': details['fare'],
                                                   'for': 'trip'}]
-        monkeypatch.setattr(long_distance, 'far', lambda *_args: object())
+        monkeypatch.setattr('dungeon.life.where.far', lambda *_args: object())
         assert not big_days.invitable(connection, companion, row)  # The user lives elsewhere: they go on their own.
     line = next(text for text in lines(client, clock) if 'wedding is on' in text)
     assert f"It's out of town, in {details['city']}: you travel there for it." in line
@@ -811,26 +751,6 @@ def test_a_friends_own_wedding_photo_has_them_in_wedding_clothes():
     line = prompts.doing({'activity': big_days.PICTURED, 'summary': 'Priya got married.', 'place': 'Royal Observatory'},
                          'Priya', 'her', 'she')
     assert line == 'Priya is smiling in wedding clothes at her own wedding at Royal Observatory.'
-
-
-def test_a_wedding_a_friend_went_to_is_a_big_day_not_their_own_wedding(client, clock, monkeypatch):
-    from dungeon.life import wedding
-
-    class Packet:
-        def __init__(self):
-            self.offered = []
-
-        def offer(self, section, identity, text):
-            self.offered.append((section, identity))
-
-    make(client, 'friendship')
-    monkeypatch.setattr(wedding, 'context_lines', lambda *_args: [('wedding:w1:done', '- You married the user.'),
-                                                                  ('wedding-guest:w2:done:2026-10-10', '- The user '
-                                                                   'married Mira on 10 October; you were there.')])
-    packet = Packet()
-    with client.app.state.database.connect() as connection:
-        wedding.offer(packet, connection, current(connection), clock.now())
-    assert packet.offered == [('wedding', 'wedding:w1:done'), ('big_days', 'wedding-guest:w2:done:2026-10-10')]
 
 
 def test_the_feed_rephrase_keeps_the_user_on_a_day_together():

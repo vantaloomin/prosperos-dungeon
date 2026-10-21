@@ -333,14 +333,6 @@ def test_townsfolk_couples_move_on_week_by_week():
         {**data, 'neighborhoods': [data['neighborhoods'][0]]}, week)) or len(events) > paper.MOST_COUPLES
 
 
-def test_an_ex_seeing_someone_new_is_not_told_it_is_an_open_relationship(client, romance, clock, monkeypatch):
-    # After a breakup (dungeon/life/breakups.py) the user's ex is free to date, and their sheet still says romance.
-    monkeypatch.setattr(steps, 'apart', lambda *_args: 'ended')
-    found = begin_partner(client, clock)
-    prompt = client.get('/api/context/preview').json()['prompt']
-    assert f"You are seeing {found['name']}" in prompt and 'open relationship' not in prompt
-
-
 def test_a_new_partner_never_shares_a_first_name_with_someone_already_in_their_life(client, clock):
     client.post('/api/companion', json={'name': 'Sarah Wells', 'timezone': 'UTC', 'home_city': 'baltimore'})
     world = client.app.state.life.world
@@ -498,18 +490,6 @@ def test_after_a_split_they_wait_about_two_months_before_someone_new(client, mir
     labels = [rule['why'] for option in consequences.tables()[chapters.CHOICE]['options'] for rule in option['rules']
               if rule['reader'] == 'can_relationship']
     assert labels == ['{name} is already seeing someone, split up lately, or has no love life of their own here']
-
-
-def test_the_users_breakup_with_them_counts_as_a_split_too(client, romance, clock, monkeypatch):
-    from dungeon.life import breakups
-    monkeypatch.setattr(steps, 'apart', lambda *_args: 'ended')
-    ended = (clock.now() - timedelta(days=20)).isoformat()
-    monkeypatch.setattr(breakups, 'current', lambda *_args: ({'ended_at': ended}, 'ended'))
-    with client.app.state.database.connect() as connection:
-        companion = current(client)
-        today = steps.local_today(companion, clock.now())
-        assert love_life.resting(connection, companion, today)
-        assert not love_life.resting(connection, companion, today + timedelta(days=love_life.REBOUND))
 
 
 def open_romance(client):

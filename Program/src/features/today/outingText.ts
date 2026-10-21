@@ -14,15 +14,12 @@ export interface Outing {
   id: string; local_date: string; at_time: string; until_time: string; activity: string; asked_date: string | null
   place: OutingPlace; named: boolean; cost: number; cost_text: string; state: OutingState; rolls: number
   ended_at: string | null; undo: boolean
-  /** An evening out with a child of yours at home: who is watching them that night (dungeon/life/our_child.py). */
-  sitter?: { text: string; cost: number } | null
 }
-/** `visit` marks a weekend visit with the user across the distance (dungeon/life/long_distance.py): 'to-you' when they come to stay with you, 'host' when you go to stay with them; '' for a trip of their own. `undo` is true for a visit called off a little while ago. */
+/** One of the companion's own trips. */
 export interface Trip {
   id: string; start_date: string; end_date: string; city_id: string; city_name: string; kind: 'getaway' | 'family'
   company: { id: string; name: string; role: string } | null; landmark: { name: string; summary: string } | null
   sunny: boolean; cost_text: string; state: OutingState; postcard_message_id: string | null
-  visit: '' | 'to-you' | 'host'; undo: boolean
 }
 export interface Together { outings: Outing[]; trips: Trip[] }
 
@@ -31,10 +28,6 @@ const WHAT: Record<string, string> = {
   walk: 'A walk', market: 'A look around', 'dinner-in': 'Dinner', hobby: 'A pastime',
   // Visits (dungeon/life/together.py).
   'visit-in': 'Time together', 'visit-yours': 'A visit', 'dinner-yours': 'Dinner',
-  // Meeting their people (dungeon/life/their_people.py).
-  'meet-family': 'Family dinner', 'meet-friends': 'Drinks with friends',
-  // Engagement and wedding (dungeon/life/wedding.py).
-  wedding: 'Your wedding',
   // Big days in their circle (dungeon/life/big_days.py), named by their own title.
   'big-day': 'A big day',
 }
@@ -70,13 +63,13 @@ const JOINED: Record<string, string> = {
 }
 
 // Their place for dinner or a visit, and the user's own (dungeon/life/together.py).
-const HOMES: Record<string, string> = { home: 'Their place', 'your-home': 'Your place', 'family-home': 'Family home' }
+const HOMES: Record<string, string> = { home: 'Their place', 'your-home': 'Your place' }
 
 /** "Greek restaurant in Harbor East", "Irish pub in Canton", "Tex-Mex restaurant in Fells Point". */
 export function placeLine(place: OutingPlace): string {
   if (place.kind === 'spot') return place.city ? `Somewhere in ${place.city}` : 'Somewhere nearby'
   const home = HOMES[place.kind]
-  if (home) return place.neighborhood ? `${home}${place.kind === 'family-home' ? ',' : ' in'} ${place.neighborhood}` : home
+  if (home) return place.neighborhood ? `${home} in ${place.neighborhood}` : home
   const cuisine = JOINED[place.cuisine] ?? place.cuisine.replace(/-/g, ' ')
   const kind = !cuisine ? place.kind : PLACE_WORDS.test(cuisine) ? cuisine : `${cuisine} ${place.kind}`
   const text = place.neighborhood ? `${kind} in ${place.neighborhood}` : kind
@@ -91,15 +84,12 @@ export function outingPlace(outing: Pick<Outing, 'activity' | 'place'>): string 
   return outing.place.neighborhood ? `${name}, ${outing.place.neighborhood}` : name
 }
 
-/** "With Ana (mom), Rui (dad) and Leo (brother)", for meeting their people, the companion's own kids first ("With Leo
- * (son, 6), Edward (close friend) and Tamika (friend)"); '' for any other outing. Once the evening is over, the first
- * meeting is told as past. */
-export function peopleLine(place: OutingPlace, state?: OutingState): string {
+/** "With Ana (mom), Rui (dad) and Leo (brother)": who is there at a big day in their circle; '' for any other
+ * outing. */
+export function peopleLine(place: OutingPlace): string {
   const people = [...(place.kids ?? []), ...(place.people ?? [])].map((person) => `${person.name} (${person.role})`)
   if (!people.length) return ''
-  const list = people.length === 1 ? people[0] : `${people.slice(0, -1).join(', ')} and ${people[people.length - 1]}`
-  const first = state === 'done' ? ', the first time you met' : ', meeting you for the first time'
-  return `With ${list}${place.first ? first : ''}`
+  return `With ${people.length === 1 ? people[0] : `${people.slice(0, -1).join(', ')} and ${people[people.length - 1]}`}`
 }
 
 /** A big day: the user's part in it and the gift. "You're Mira's plus-one. They're bringing a teapot." or, at their
@@ -150,10 +140,8 @@ export function tripDays(trip: Pick<Trip, 'start_date' | 'end_date'>): string {
   return `${dayText(trip.start_date)} – ${dayText(trip.end_date)}`
 }
 
-/** "A weekend in New York with Dana", "Visiting Mom in Chicago"; a visit, "Mira comes to stay with you", "You stay with Mira in Chicago". */
-export function tripTitle(trip: Trip, name = ''): string {
-  if (trip.visit === 'to-you') return `${name} comes to stay with you`
-  if (trip.visit === 'host') return `You stay with ${name} in ${trip.city_name}`
+/** "A weekend in New York with Dana", "Visiting Mom in Chicago". */
+export function tripTitle(trip: Trip): string {
   const nights = (Date.parse(trip.end_date) - Date.parse(trip.start_date)) / 86_400_000
   const length = nights >= 2 ? 'A long weekend' : 'A weekend'
   if (trip.kind === 'family' && trip.company) return `Visiting ${trip.company.name} in ${trip.city_name}`

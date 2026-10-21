@@ -57,8 +57,8 @@ You have your own life and opinions; keep to what you'd plausibly know.
 # shared past the user brings up (A/B, companion-v11-guests-ab: 80% held vs 58% with the sheet alone).
 NO_HISTORY = ("You and the user have no history outside this chat: if they bring up something you did together, it "
               "didn't happen as far as you know.")
-# Someone who has met the user in person (dungeon/life/their_people.py) and likes them may drop in on their own, not
-# only when named: this share of the usual chance.
+# Someone who has met the user in person and likes them may drop in on their own, not only when named: this share of
+# the usual chance.
 DROP_IN_SHARE = 0.25
 
 
@@ -79,12 +79,8 @@ def host_companion(connection, stay_or_candidate: dict) -> dict | None:
 
 
 def circle_people(connection, companion: dict) -> list[dict]:
-    """The circle, without the pair's own grown children while the adult side of life is on (a group chat always
-    carries its lines, dungeon/memory/sides.py)."""
-    from dungeon.life import our_child
-    from dungeon.world import intimacy
-    rows = circle.people(connection, companion['active_timeline_id']) if companion.get('active_timeline_id') else []
-    return [row for row in rows if not (our_child.grown_child(row) and intimacy.turned_on(connection))]
+    """The circle."""
+    return circle.people(connection, companion['active_timeline_id']) if companion.get('active_timeline_id') else []
 
 
 def full_name(row: dict, details: dict) -> str:
@@ -314,23 +310,13 @@ def pull_in(connection, group_id: str, row: dict, members: list[dict], now) -> d
 
 
 def dropping_in(connection, members: list[dict], now) -> list[dict]:
-    """People from a member's circle who have met the user and like them, who may drop in unasked; not once the user
-    and that member have broken up (dungeon/life/breakups.py)."""
-    from dungeon.life import breakups, their_people
-    result = []
-    for person in candidates(connection, members, now):
-        companion = host_companion(connection, person) if person['kind'] == 'circle' else None
-        if companion and not breakups.ended(connection, companion) and \
-                person['person_id'] in their_people.met_people(connection, companion):
-            result.append(person)
-    return result
+    """People from a member's circle who have met the user and like them, who may drop in unasked: nobody now that the
+    user no longer meets their people."""
+    return []
 
 
 def history_line(connection, found: dict) -> str:
-    """What a guest shares with the user outside this chat: nothing, unless they have met in person."""
-    from dungeon.life import their_people
-    if found.get('kind') == 'circle':
-        return their_people.guest_line(connection, found['person_id'], found['timeline_id']) or NO_HISTORY
+    """What a guest shares with the user outside this chat: nothing."""
     return NO_HISTORY
 
 

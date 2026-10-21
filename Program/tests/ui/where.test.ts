@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { homeLine, inPerson, stripAction, stripLine, type WhereOuting, type WhereState } from '../../src/features/conversation/whereText.ts'
+import { inPerson, stripAction, stripLine, type WhereOuting, type WhereState } from '../../src/features/conversation/whereText.ts'
 import { shown } from '../../src/features/status/statusText.ts'
 
 const outing: WhereOuting = {
@@ -40,7 +40,6 @@ test('while together, their status line says where', () => {
   const status = { text: 'coffee first', set_by: 'app' as const, away: null, where: { state: 'together' as const, kind: 'yours', text: 'At your place' } }
   assert.deepEqual(shown(status), { text: 'At your place', away: 'pin' })
   assert.deepEqual(shown({ ...status, where: { state: 'apart', kind: 'long-distance', text: 'Long distance, Lisbon' } }), { text: 'coffee first', away: null })
-  assert.deepEqual(shown({ ...status, where: { state: 'together', kind: 'staying', text: 'Staying with you until Sunday' } }), { text: 'Staying with you until Sunday', away: 'luggage' })
 })
 
 test('on a call the strip says with whom and how long, with End call; a ring offers Answer and Decline', async () => {
@@ -67,28 +66,4 @@ test('on a call their status line says so', () => {
   const status = { text: 'coffee first', set_by: 'app' as const, away: null, where: { state: 'call' as const, kind: 'call', text: 'On a call' } }
   assert.deepEqual(shown(status), { text: 'On a call', away: 'phone' })
   assert.deepEqual(shown({ ...status, where: { state: 'apart', kind: 'ringing', text: 'Calling you' } }), { text: 'Calling you', away: 'phone' })
-})
-
-test('a weekend visit across the distance says who is staying with whom, and until when', async () => {
-  const { canCall, notTexting } = await import('../../src/features/conversation/whereText.ts')
-  const visit = { id: 't1', direction: 'to-you' as const, city_name: 'Baltimore', start_date: '2026-10-17', end_date: '2026-10-18', leave_at: '16:00' }
-  const staying: WhereState = { state: 'together', kind: 'staying', text: 'Staying with you until Sunday', outing: null, call: null, visit }
-  const line = stripLine(staying, 'Mira')
-  assert.equal(line?.lead, 'Mira is staying with you')
-  assert.match(line?.tail ?? '', /^ until Sun/)
-  assert.equal(stripAction(staying), null)
-  assert.ok(notTexting(staying) && !canCall(staying))
-  const hosting: WhereState = { ...staying, kind: 'hosting', visit: { ...visit, direction: 'host', city_name: 'Chicago' } }
-  assert.equal(stripLine(hosting, 'Mira')?.lead, 'Staying with Mira in Chicago')
-})
-
-test('living together, the strip says home together or out, with the way to switch', () => {
-  const home: WhereState = { state: 'together', kind: 'home', text: 'Home together', outing: null, home: { status: 'home' } }
-  assert.deepEqual(homeLine(home, 'Mira'), { lead: 'Home together with Mira', action: 'out', label: 'Heading out' })
-  assert.deepEqual(homeLine({ ...home, state: 'apart', kind: 'apart', home: { status: 'out' } }, 'Mira'),
-    { lead: "You're out. Mira's at home.", action: 'home', label: "I'm home" })
-  assert.equal(homeLine({ ...home, state: 'apart', kind: 'apart', home: { status: 'out', they_home: false } }, 'Mira')?.lead,
-    "You're out.")  // They are at work or out themselves: the strip doesn't say they're home.
-  assert.equal(homeLine({ ...home, home: null }, 'Mira'), null)
-  assert.ok(inPerson(home))
 })

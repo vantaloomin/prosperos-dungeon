@@ -22,10 +22,8 @@ from dungeon.errors import require
 from dungeon.life import (
     big_days,
     big_turns,
-    breakups,
     custody,
     encounters,
-    expecting,
     families,
     feed,
     grooming,
@@ -36,9 +34,7 @@ from dungeon.life import (
     loss,
     love_life,
     media,
-    moving_in,
     network,
-    our_child,
     own_family,
     shifts,
     steps,
@@ -46,7 +42,6 @@ from dungeon.life import (
     traditions,
     upkeep,
     wardrobe,
-    wedding,
 )
 from dungeon.memory import history
 from dungeon.voice import notes as voice_notes
@@ -229,16 +224,11 @@ def copy_history(connection, parent_id, new_id, through_seq, cutoff) -> dict:
     kids.copy(connection, parent_id, new_id, ids)
     copy_chapters(connection, parent_id, new_id, ids, cutoff[:10])
     copy_steps(connection, parent_id, new_id, cutoff)
-    wedding.copy_proposals(connection, steps.copy_open(connection, parent_id, new_id, cutoff, ids), new_id)
+    steps.copy_open(connection, parent_id, new_id, cutoff, ids)
     love_life.copy(connection, parent_id, new_id, ids, cutoff[:10])
-    wedding.copy(connection, parent_id, new_id, cutoff[:10])
-    expecting.copy(connection, parent_id, new_id, cutoff[:10])
-    our_child.copy(connection, parent_id, new_id)
     loss.copy(connection, parent_id, new_id, ids, cutoff[:10])
     big_days.copy(connection, parent_id, new_id, ids, cutoff)  # After what its sources name (loss.py's funerals).
-    breakups.copy(connection, parent_id, new_id, ids, cutoff)
-    custody.copy(connection, parent_id, new_id, ids)  # After the breakups it names.
-    copy_impressions(connection, parent_id, new_id, ids, cutoff[:10])
+    custody.copy(connection, parent_id, new_id, ids)
     copy_recall(connection, parent_id, new_id, ids, cutoff[:10])
     network.copy(connection, parent_id, new_id, cutoff)
     encounters.copy(connection, parent_id, new_id, cutoff)
@@ -289,27 +279,6 @@ def copy_steps(connection, parent_id, new_id, cutoff):
     insert(connection, 'relationship_steps', [
         {**row, 'id': identifier(), 'timeline_id': new_id, 'ask_id': None,
          'undone_at': row['undone_at'] if row['undone_at'] and row['undone_at'] < cutoff else None} for row in rows])
-    # Moving in together (dungeon/life/moving_in.py) as it stood.
-    insert(connection, 'moving_in', moving_in.copy(connection, parent_id, new_id, cutoff_date))
-
-
-def copy_impressions(connection, parent_id, new_id, ids, cutoff_date):
-    """What their people thought of the user by the fork carries over (dungeon/life/their_people.py), for people the
-    copy has; meet-ups still to come are the copy's own."""
-    rows = [row for row in many(connection, "SELECT * FROM people_impressions WHERE timeline_id=? AND met_on IS NOT NULL "
-                                "AND (met_on='before' OR met_on<=?)", (parent_id, cutoff_date)) if row['person_id'] in ids]
-    # The meet-ups they met at come too, or the copy plans the first meeting all over again.
-    meetups = {row['id']: row for row in many(connection, "SELECT * FROM people_meetups WHERE timeline_id=? AND "
-                                              "status='done'", (parent_id,))}
-    moved = {meetup_id: identifier() for meetup_id in {row['meetup_id'] for row in rows} if meetup_id in meetups}
-    insert(connection, 'people_meetups', [
-        {**meetups[old], 'id': new, 'timeline_id': new_id, 'consequence_id': None,
-         'people': encode([ids[person] for person in decode(meetups[old]['people']) or [] if person in ids])}
-        for old, new in moved.items()])
-    insert(connection, 'people_impressions', [{**row, 'id': identifier(), 'timeline_id': new_id,
-                                               'meetup_id': moved.get(row['meetup_id']),
-                                               'person_id': ids[row['person_id']], 'consequence_id': None}
-                                              for row in rows])
 
 
 def copy_recall(connection, parent_id, new_id, ids, cutoff_date):

@@ -91,10 +91,8 @@ def level(connection) -> int:
 
 def invites(connection, companion: dict) -> bool:
     """Whether they may ask the user over or along on their own (kitchen.py, hobbies.py): the slider is not off, and
-    they live in the user's city (long distance gets weekend visits instead)."""
-    from dungeon.life import moving_in
-    return bool(level(connection)) and not where.between(connection, companion['version']['definition']).long_distance \
-        and not moving_in.living(connection, companion)
+    they live in the user's city."""
+    return bool(level(connection)) and not where.between(connection, companion['version']['definition']).long_distance
 
 
 # --- Places -----------------------------------------------------------------------------------------------------
@@ -210,11 +208,8 @@ def together_now(connection, companion: dict, now: datetime) -> dict | None:
 
 
 def in_person(connection, companion: dict, now: datetime) -> bool:
-    """Together right now: out, at one of their places, on a weekend visit (dungeon/life/long_distance.py), or home
-    together of an evening when they live together (dungeon/life/moving_in.py)."""
-    from dungeon.life import long_distance, moving_in
-    return bool(together_now(connection, companion, now) or long_distance.visiting(connection, companion, now)
-                or moving_in.home_state(connection, companion, now))
+    """Together right now: out, or at one of their places."""
+    return bool(together_now(connection, companion, now))
 
 
 def outing_today(connection, companion: dict, day: date, now: datetime) -> bool:
@@ -273,13 +268,7 @@ def note(connection, message: dict, companion: dict, timestamp: str) -> bool:
     now = parse(message['created_at'])
     if ended_by_words(connection, companion, message, now):
         return True
-    from dungeon.life import long_distance
-    if long_distance.note(connection, message, companion, timestamp):
-        return True  # A weekend visit across the distance, or anything about visiting while one is under way.
     kind = asked(message['text'])
-    from dungeon.life import moving_in
-    if kind is not None and moving_in.living(connection, companion):
-        return True  # Living together, nobody comes over: the 'where' section says they share a home.
     if kind is None or optional(connection, 'SELECT id FROM outings WHERE message_id=?', (message['id'],)) or \
             optional(connection, 'SELECT id FROM together_asks WHERE message_id=?', (message['id'],)):
         return kind is not None
@@ -301,7 +290,6 @@ def timing(text: str, local: datetime, day: date | None, at: str | None) -> str:
 
 def settle_ask(connection, companion: dict, message: dict, kind: str, now: datetime, timestamp: str) -> bool:
     """A visit asked for: now when they can, later on the day or time it names, or nothing yet for "sometime"."""
-    from dungeon.life import long_distance
     activity = 'visit-in' if kind == 'door' else kind
     version = companion['version']
     local = now.astimezone(zone(version['timezone']))
@@ -309,16 +297,12 @@ def settle_ask(connection, companion: dict, message: dict, kind: str, now: datet
                                                                                  local.date()))
     at, _said = own_plans.clock(message['text'])
     when = 'now' if kind == 'door' else timing(message['text'], local, day, at)
-    far = long_distance.far(connection, companion)
+    far = where.far(connection, companion)
     if when == 'someday' and not far:
         return True  # "Come over sometime next week?": the reply is free to say when; nothing is settled yet.
     from dungeon.life import rough_patches
     if kind != 'door' and rough_patches.turned_down(connection, companion, message, kind, now):
         return True  # Things are tense: they would rather not, for now.
-    if when == 'later' and far and (day or at):
-        # "Come over Saturday?" from another city: a weekend visit, when one works.
-        return long_distance.request(connection, companion, message, long_distance.HOST if activity == 'visit-in'
-                                     else long_distance.TO_YOU, day or local.date(), timestamp)
     if when == 'later' and not far:
         visit_later(connection, companion, message, activity, day or local.date(), at, timestamp)
         return True
@@ -365,9 +349,7 @@ def turned_away(outing: dict, timezone: str) -> bool:
 ASKED = {'visit-yours': 'you to come over to their place now', 'dinner-yours': 'you to come over to theirs for dinner',
          'visit-in': 'to come over to your place now', 'door': 'to be let in: they say they are at your door',
          'call': 'to talk on the phone now',  # On a call (dungeon/life/calls.py).
-         # Long distance (dungeon/life/long_distance.py) and going out (outings.py) from another city.
-         'weekend-to-you': 'you to come and stay with them for a weekend',
-         'weekend-host': 'to come and stay with you for a weekend', 'out': 'to meet up and go out together'}
+         'out': 'to meet up and go out together'}  # Going out (outings.py) from another city.
 
 
 # Asked while things are tense, and they would rather not, for now (dungeon/life/rough_patches.py `turned_down`).
@@ -394,8 +376,6 @@ def reason_text(reason: dict) -> str:
         return f"you are out ({reason['label']}) until about {reason['until']}"
     if why == 'plans':
         return 'you already have plans with them'
-    if why in FAR_REASONS:
-        return FAR_REASONS[why]
     return 'it is getting late for you, and you have an early night or work soon'
 
 
@@ -411,12 +391,9 @@ def context_lines(connection, companion: dict, now: datetime, fresh_ids: set[str
             if reason['why'] == 'tense':
                 result.append((f"together-ask:{row['id']}", TENSE_LINE.format(asked=TENSE_ASKED[row['kind']])))
                 continue
-            if reason['why'] == 'child':
-                result.append((f"together-ask:{row['id']}", child_line(connection, row['kind'], reason)))
-                continue
             result.append((f"together-ask:{row['id']}",
                            f"- The user asked {ASKED[row['kind']]}. You can't: {reason_text(reason)}. Say so kindly in "
-                           f"your own words, and suggest {'a weekend visit instead' if reason['why'] == 'far' else 'another time'}"
+                           f"your own words, and suggest {'calling instead' if reason['why'] == 'far' else 'another time'}"
                            ' if you like. You are apart, texting.'))
     timezone = companion['version']['timezone']
     since = (now.astimezone(zone(timezone)).date() - timedelta(days=1)).isoformat()
@@ -432,30 +409,6 @@ def context_lines(connection, companion: dict, now: datetime, fresh_ids: set[str
     return result
 
 
-# Split up with a child (dungeon/life/long_distance.py `for_the_child`): the visit is coming to see them.
-CHILD_LINE = ("- The user asked {asked}. You are not together any more, so it isn't a stay with you: it is settled as "
-              "{who} the weekend of {saturday} to see {names}. Say yes to that kindly in your own words, naming the "
-              "weekend. You are apart, texting.")
-CHILD_WHO = {'them': 'the user coming to {city}', 'you': 'you going to {city}'}
-# With the adult side on and this reply carrying it, nothing about a child (dungeon/life/families.py `withheld`).
-APART_LINE = ("- The user asked {asked}. You are not together any more, so it isn't a stay with you: say so kindly in "
-              "your own words. You are apart, texting.")
-
-
-def child_line(connection, kind: str, reason: dict) -> str:
-    from dungeon.life import families, steps
-    if families.withheld(connection):
-        return APART_LINE.format(asked=ASKED[kind])
-    saturday = date.fromisoformat(reason['saturday'])
-    return CHILD_LINE.format(asked=ASKED[kind], names=steps.names_text(reason['names']),
-                             who=CHILD_WHO[reason['lives']].format(city=reason['city'] or 'their city'),
-                             saturday=f'{saturday:%A %B} {saturday.day}')
-
-
-FAR_REASONS = {'money': "you can't afford the trip this pay period",
-               'weekends': 'you have no free weekend in the next few weeks',
-               'no-time': 'it is too far for just a weekend, and you have no time off coming up'}
-
 ENDED = {'visit-yours': "You left the user's place a little while ago.", 'dinner-yours':
          "You left the user's place after dinner a little while ago.",
          'visit-in': 'The user headed home from your place a little while ago.',
@@ -469,19 +422,13 @@ def state(connection, companion: dict, now: datetime) -> dict:
     """{state: 'together'|'apart'|'call', kind, text, outing}: what the chat strip, the chat list and the Character page
     show. Apart in the same city says nothing; long distance says where and the time difference. On a call, or
     ringing, says so (dungeon/life/calls.py)."""
-    from dungeon.life import calls, long_distance
+    from dungeon.life import calls
     on_phone = calls.state(connection, companion, now)
     if on_phone:
         return {**on_phone, 'outing': None}
-    weekend = long_distance.state(connection, companion, now)
-    if weekend:
-        return {**weekend, 'outing': None}  # A weekend visit across the distance, under way.
     found = together_now(connection, companion, now)
     if found and not found['ended_at']:
         return {'state': 'together', 'kind': kind_of(found), 'text': together_text(found, companion), 'outing': found}
-    from dungeon.life import moving_in
-    if at_home := moving_in.home_state(connection, companion, now):
-        return {**at_home, 'outing': None}  # Both home of an evening, living together.
     between = where.between(connection, companion['version']['definition'])
     if between.known and between.long_distance:
         return {'state': 'apart', 'kind': 'long-distance', 'outing': None,
@@ -504,8 +451,6 @@ def together_text(outing: dict, companion: dict) -> str:
         return 'At your place'
     if place['kind'] == 'home':
         return f"At {companion['version']['definition']['name']}'s place"
-    if outing['activity'] == 'wedding':
-        return f"Your wedding at {place['name']}"
     if place.get('big_day') and place.get('title'):  # dungeon/life/big_days.py
         return f"At {place['title']} at {place['name']}"
     return f"Together at {place['name']}"
@@ -542,11 +487,6 @@ def view(connection, companion: dict, now: datetime) -> dict:
         since = (now.astimezone(zone(timezone)).date() - timedelta(days=1)).isoformat()
         found_in = outings.in_force(connection, companion['active_timeline_id'], since)
         outing = next((item for item in found_in if outings.undoable_home(item, now)), None)
-        if outing is None and found['state'] == 'apart':
-            # Your wedding stays on the strip ("Married today at ...") for the rest of its day.
-            today = now.astimezone(zone(timezone)).date().isoformat()
-            outing = next((item for item in found_in if item['activity'] == 'wedding' and item['local_date'] == today
-                           and outings.state(item, timezone, now) == 'done'), None)
         if outing:
             found = {**found, 'kind': kind_of(outing), 'text': together_text(outing, companion)}
     if outing:
@@ -557,11 +497,8 @@ def view(connection, companion: dict, now: datetime) -> dict:
                            < NOT_NOW_WINDOW}
     else:
         found['outing'] = None
-    from dungeon.life import calls, long_distance
+    from dungeon.life import calls
     found['call'] = calls.view(connection, companion, now)
-    found['visit'] = long_distance.view(connection, companion, now)
-    from dungeon.life import moving_in
-    found['home'] = moving_in.view_strip(connection, companion, now)  # Living together: home, or the user out.
     return found
 
 
@@ -591,7 +528,7 @@ def knock_due(connection, companion: dict, now: datetime) -> list:
         return []
     found = where.your_home(connection)
     if not found or not free_for(connection, companion, now, KNOCK_HOURS_LONG) or not close(connection, companion, now) \
-            or with_someone(connection, now) or lives_with_you(connection, companion):
+            or with_someone(connection, now):
         return []
     city, hood = found
     area = hood['name'] if hood else city['name']
@@ -601,12 +538,6 @@ def knock_due(connection, companion: dict, now: datetime) -> list:
               'a good time.')
     template = rng.choice(KNOCKS)
     return [Trigger(key, 'drop_in', reason, template, ())]
-
-
-def lives_with_you(connection, companion: dict) -> bool:
-    """Living together (dungeon/life/moving_in.py): nobody knocks at their own door or asks to come over."""
-    from dungeon.life import moving_in
-    return bool(moving_in.living(connection, companion))
 
 
 def with_someone(connection, now: datetime) -> bool:
@@ -637,8 +568,7 @@ def suggest_due(connection, companion: dict, now: datetime) -> list:
     window = local.date().toordinal() // SUGGEST_EVERY
     key = f'get-together:{window}'
     rng = random.Random(f"{companion['id']}:{key}")
-    if rng.random() >= chance or where.between(connection, version['definition']).long_distance or \
-            lives_with_you(connection, companion):
+    if rng.random() >= chance or where.between(connection, version['definition']).long_distance:
         return []
     if local.hour < 17 and rng.random() < 0.4:
         evening = local.replace(hour=19, minute=30, second=0, microsecond=0)

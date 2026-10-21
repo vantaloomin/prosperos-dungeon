@@ -572,11 +572,10 @@ def money_text(home: dict) -> str:
     # In the city's own money, as money.py says it ('$1,410', '5 d.').
     said = money.amount(home['rent'], currency) if isinstance(currency, dict) and currency.get('symbol') else \
         f"${home['rent']:,}"
-    shared = ', split with the user' if home.get('shared') else ''  # Living together (dungeon/life/moving_in.py).
     if home.get('owned'):  # A place they bought (dungeon/life/big_turns.py); no mortgage in a medieval city.
         loan = 'Payments on it are' if home.get('medieval') else 'The mortgage is'
-        return f" {loan} about {said} a {home.get('rent_period', 'month')}{shared} (an estimate)."
-    return f" Rent is about {said} a {home.get('rent_period', 'month')}{shared} (an estimate)."
+        return f" {loan} about {said} a {home.get('rent_period', 'month')} (an estimate)."
+    return f" Rent is about {said} a {home.get('rent_period', 'month')} (an estimate)."
 
 
 def context_lines(connection, timeline_id: str, day: date) -> list[tuple[str, str]]:
