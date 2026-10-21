@@ -12,7 +12,7 @@ It builds on [Prospero's Companion](https://github.com/vantaloomin/prosperos-com
 No game features are built yet. The code in `Program` is a clean copy of Prospero's Companion v0.15.0
 (without its history), renamed to Dungeon so both can be installed and run side by side. It still behaves
 like the Companion until the Dungeon's own systems replace or reshape those parts. See
-[the requirements](docs/requirements.md) for what is planned.
+[the requirements](docs/requirements.md) and [the build roadmap](docs/roadmap.md) for what is planned.
 
 It runs on your computer and talks to whichever model you choose: a hosted API (OpenAI, Anthropic, Google,
 OpenRouter, any OpenAI-compatible service, your Codex login) or a local model through LM Studio, Kobold or any
@@ -81,6 +81,7 @@ Each script has a Mac twin in `Mac` with the same name ending in `.command`.
 ## Documentation
 
 - [Requirements and system design](docs/requirements.md)
+- [Build roadmap](docs/roadmap.md)
 - [Development](Program/docs/development.md)
 - [Backbone architecture](Program/docs/architecture.md)
 - [Models](Program/docs/models.md)
