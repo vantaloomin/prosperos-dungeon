@@ -97,7 +97,7 @@ marked "unverified" were checked from memory or secondary coverage, not the lice
 | **Cypher System** | Cypher System Open License | Risky | Written for tabletop games; software use unclear. |
 | **The Black Hack** | OGL 1.0a (unverified) | Low | OGL obligations; low priority. |
 
-## Shops and economy (proposed)
+## Shops and economy
 
 Code decides what a shop has and what it costs; the narrator only voices the shopkeeper. The
 narrator never invents an item, a price or money: it gets the shop's real stock and quotes.
@@ -132,8 +132,14 @@ seeded `price()` picker. Dungeon extends this rather than starting over.
   outcome ladder. Success lowers the price; success at a cost gets the price but the owner
   remembers; a critical failure can raise prices or get the player thrown out.
 - **Money is tracked by code.** Wallet, carried goods and a transaction log live in the database.
-- **Ironsworn** has no coins by design: it tracks an abstract Supply track and buys with moves.
-  Proposed: keep Supply under Ironsworn, with the world's currency as color only.
+- **Shop window and story both (decided).** Talking to a shopkeeper in the story opens a shop
+  window with the stock list, prices and buy/sell; either side can drive the purchase.
+- **Selling and fencing (decided).** The player can sell loot and fence stolen goods. Stolen goods
+  are tracked as such; fences pay less, and honest shops may refuse them or call the watch.
+- **Shopkeeper cash (decided, toggle).** Shopkeepers have finite cash by default, so a village smith
+  can't buy a dragon hoard. A setting turns this off.
+- **Ironsworn (decided):** keeps its abstract Supply track and buys with moves; the world's
+  currency is color only.
 
 ## World packages (proposed)
 
@@ -172,8 +178,6 @@ Dungeon would normalize them into one package per world:
 
 ## Open questions
 
-- Shops: a shop window in the UI or purely in-story; selling loot and fencing stolen goods;
-  whether shopkeepers have finite cash; Ironsworn Supply vs coins.
 
 - Exact licenses for Fate, Blades in the Dark and Dungeon World before they are added.
 
