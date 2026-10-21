@@ -300,7 +300,8 @@ def test_hosted_providers_need_a_key():
     assert error.value.status == 409
 
 
-def test_testing_a_form_lists_models_with_their_reported_limits(tmp_path, clock):
+def test_testing_a_form_lists_models_with_their_reported_limits(tmp_path, clock, monkeypatch):
+    monkeypatch.delenv('OPENROUTER_API_KEY', raising=False)  # A key in the environment would stand in for the missing one.
     seen = {}
 
     def handler(request):
