@@ -5,6 +5,7 @@ from datetime import timedelta
 
 import pytest
 from fastapi.testclient import TestClient
+from life_posts import posts
 
 from dungeon.identity import CLIENT_HEADER
 from dungeon.images import memes, prompts
@@ -107,8 +108,8 @@ def test_a_photo_of_the_current_moment_becomes_the_feed_image(client, life, cloc
     shown = client.get(f"/api/images/photos/{reply['id']}").json()
     assert shown['status'] == 'completed' and shown['ref']
     assert len(adapters['comfyui'].requests) == 1
-    # Not in the feed until the moment is an event. (A seeded status post can land on this very minute.)
-    assert [post for post in client.get('/api/feed').json()['posts'] if post['source'] != 'social'] == []
+    # No post to show until the moment is an event.
+    assert posts(client) == []
     # Asking again in the same moment shows the same photo, without making another.
     again = ask(client, 'wyd', 'ask-0002')['photo']
     assert again['post_id'] == photo['post_id'] and again['ref'] == shown['ref']
@@ -117,14 +118,13 @@ def test_a_photo_of_the_current_moment_becomes_the_feed_image(client, life, cloc
     set_life(client, automatic_events=True)
     clock.advance(timedelta(days=1))
     reconcile(client)
-    posts = client.get('/api/feed').json()['posts']
-    pictured = [post for post in posts if post['id'] == photo['post_id']]
+    pictured = [post for post in posts(client) if post['id'] == photo['post_id']]
     assert pictured and pictured[0]['image']['ref'] == shown['ref']
     # The same moment; only a model's later rephrasing can change its words.
     assert photo['summary'] in pictured[0]['events'][0]['summary']
     # The event is told once: the digest leaves it to the photo's post.
     event_id = pictured[0]['events'][0]['id']
-    assert all(event['id'] != event_id for post in posts if post['id'] != photo['post_id'] for event in post['events'])
+    assert all(event['id'] != event_id for post in posts(client) if post['id'] != photo['post_id'] for event in post['events'])
     assert client.get(f"/api/images/photos/{reply['id']}").json()['in_feed'] is True
     history = client.get('/api/conversation').json()['messages']
     assert next(message for message in history if message['id'] == reply['id'])['photo']['ref'] == shown['ref']
@@ -242,7 +242,7 @@ def test_a_meme_is_a_joke_that_never_reaches_the_feed(client, life, clock, provi
     set_life(client, automatic_events=True)
     clock.advance(timedelta(days=1))
     reconcile(client)
-    assert all(post['id'] != photo['post_id'] for post in client.get('/api/feed').json()['posts'])
+    assert all(post['id'] != photo['post_id'] for post in posts(client))
     # Another meme is a new one, not a repeat.
     other = ask(client, 'another meme pls', 'ask-0002')['photo']
     assert other['post_id'] != photo['post_id'] and other['top_text'] != photo['top_text']

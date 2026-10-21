@@ -41,7 +41,6 @@ from dungeon.life import (
     our_child,
     own_family,
     shifts,
-    social,
     steps,
     storylines,
     traditions,
@@ -218,7 +217,6 @@ def copy_history(connection, parent_id, new_id, through_seq, cutoff) -> dict:
     shifts.copy(connection, parent_id, new_id, cutoff)
     traditions.copy(connection, parent_id, new_id, ids)
     copy_posts(connection, posts, ids, new_id)
-    social.copy(connection, parent_id, new_id, cutoff, ids, remap)
     # Triggers already used before the fork stay used, so the copy is not texted about them again.
     insert(connection, 'openers', [{**row, 'id': identifier(), 'timeline_id': new_id, 'message_id': ids[row['message_id']],
                                     'notify': None} for row in many(connection, 'SELECT * FROM openers WHERE timeline_id=?',
@@ -365,10 +363,6 @@ def copy_posts(connection, posts, ids, new_id):
     for post in posts:
         insert(connection, 'feed_post_events', [{**link, 'post_id': ids[post['id']], 'event_id': ids[link['event_id']]}
                                                 for link in post_links(connection, post['id'])])
-    links = many(connection, 'SELECT * FROM message_post_links')
-    insert(connection, 'message_post_links', [
-        {'message_id': ids[link['message_id']], 'post_id': ids[link['post_id']]}
-        for link in links if link['message_id'] in ids and link['post_id'] in ids])
     sent = many(connection, 'SELECT * FROM chat_photos')
     insert(connection, 'chat_photos', [
         {**photo, 'message_id': ids[photo['message_id']], 'post_id': ids[photo['post_id']],

@@ -2,7 +2,7 @@
 
 [Back to the README](../../README.md)
 
-Feed posts can carry an illustration made by one of three kinds of backend (PRD F3 to F9). Every
+Moments of the companion's life (posts, dungeon/life/feed.py) can carry an illustration made by one of three kinds of backend (PRD F3 to F9). Every
 backend is off until the user sets it up, and text never waits for an image. The code is in
 `dungeon/images/`.
 
@@ -358,12 +358,11 @@ hair, skin tone and build and to take the outfit, pose and setting from its own 
 Settings has an **Images** section: add a ComfyUI server, a Codex backend or an image API, accept
 what it receives, order, check, enable or remove each one, and set automatic images, fallback,
 the daily limit, the shape and a style line. A blocked Codex backend shows the sign-in step and a
-**Signed in again** button. In the Feed, each post shows its image, a line saying what is
-happening, and **Make an image**, **New version**, **Cancel image** or **Retry**. **Image details**
-lists every request for the post with its backend, model, likeness method, content check,
-routing, seed and prompt, lets the user pick between finished versions, and can mark the next
-request NSFW so it only goes to a backend that accepts NSFW. The feed refreshes every few seconds while an image is in progress.
-Display logic that needs no browser is in `src/features/feed/imageState.ts`.
+**Signed in again** button. Finished pictures of moments show in Our year and, for a photo a reply
+sent, in the chat. The image API (`/api/images/jobs`, `/api/images/preview`) still lists every request
+for a post with its backend, model, likeness method, content check, routing, seed and prompt, and can
+pick between finished versions; no screen offers that by hand since the feed went.
+Display logic that needs no browser is in `src/features/images/imageState.ts`.
 
 ## API
 

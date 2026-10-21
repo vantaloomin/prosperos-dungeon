@@ -2,7 +2,7 @@ import type { View } from '../../companion'
 
 const PLACES: Partial<Record<string, string>> = {
   conversation: "{name}'s chat", character: "{name}'s character", memories: "{name}'s memories", today: "{name}'s day",
-  feed: 'the feed', appearance: "{name}'s look", portraits: "{name}'s pictures", groups: 'group chats',
+  appearance: "{name}'s look", portraits: "{name}'s pictures", groups: 'group chats',
   story: 'the story', settings: 'Settings', worlds: 'Worlds',
 }
 

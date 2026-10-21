@@ -8,7 +8,7 @@ import type { BackendCheck, BackendFiles, BackendKind, HostedProvider, ImageBack
 import { Notice } from '../../components/Feedback'
 import { useReturnFocus } from '../../components/returnFocus'
 import { Field, TextArea, TextInput, Toggle } from '../../components/Fields'
-import { BACKEND_KINDS, NSFW_PROVIDERS, PROVIDERS, disclosureFor } from '../feed/imageState'
+import { BACKEND_KINDS, NSFW_PROVIDERS, PROVIDERS, disclosureFor } from '../images/imageState'
 import { HardwareWarnings } from './models/HardwareCheck'
 import { HARDWARE_KEY, useHardware } from './models/hardware'
 import { FAMILIES, FAMILY_KEYS, MAX_STYLE_LORAS, MISSING, PRESET_FILES, missingFrom, NEW_STYLE_LORA, TURBO, familyOf, fileChoices, filesBody, hasMatching, isChosen, isTuned, linksByRole, noChoice, serverFiles, shownFiles, shownSampler, stylesBody, type FileSlot } from './modelFiles'
@@ -46,9 +46,9 @@ export function ImageSettings() {
     <section className="settings-section form-stack" aria-labelledby="images-heading">
       <div>
         <h2 id="images-heading">Images</h2>
-        <p className="subtle">Feed posts can have an illustration. Every request is checked on this computer first. NSFW requests only go to a ComfyUI server on this computer, or to an image API you switched to take NSFW; Codex, Google and the OpenAI API only ever receive safe requests, and some things are never made anywhere.</p>
+        <p className="subtle">Moments of their life can have an illustration, shown in Our year. Every request is checked on this computer first. NSFW requests only go to a ComfyUI server on this computer, or to an image API you switched to take NSFW; Codex, Google and the OpenAI API only ever receive safe requests, and some things are never made anywhere.</p>
       </div>
-      {list.length === 0 && <p className="subtle">No image backend is set up yet. Posts stay text-only until you add one.</p>}
+      {list.length === 0 && <p className="subtle">No image backend is set up yet. Their moments stay text-only until you add one.</p>}
       {list.length > 0 && !hasLocal && <p className="subtle">No enabled backend takes NSFW requests, so they will be refused.</p>}
       <Backends list={list} refresh={refresh} setResult={setResult} phone={onPhone} />
       <ImageControls data={data} save={save} />
@@ -79,10 +79,10 @@ function ImageControls({ data, save }: { data: Limits; save: (change: Partial<Li
     if (style !== null && await save({ style }, 'Saved.')) setStyle(null)
   }
   return <>
-      <Toggle label="Make images for new posts automatically" checked={data.automatic_images} onChange={(value) => void save({ automatic_images: value })}
-        hint="Needs background activity on. Only covers posts written from now on, never catch-up summaries, and stops at the daily limit." />
+      <Toggle label="Make images of new moments automatically" checked={data.automatic_images} onChange={(value) => void save({ automatic_images: value })}
+        hint="Needs background activity on. Only covers moments from now on, never catch-up summaries, and stops at the daily limit." />
       <Toggle label="Send photos, selfies and memes in chat" checked={data.chat_photos} onChange={(value) => void save({ chat_photos: value })}
-        hint="Ask what they're up to, or for a selfie or a meme, and they can answer with a picture. A photo of the moment is also that moment's feed picture. Made by the backends above under the same content rules." />
+        hint="Ask what they're up to, or for a selfie or a meme, and they can answer with a picture. A photo of the moment is also that moment's picture in Our year. Made by the backends above under the same content rules." />
       <Toggle label="Let them send pictures without being asked" checked={data.unprompted_photos} disabled={!data.chat_photos} onChange={(value) => void save({ unprompted_photos: value })}
         hint="Now and then a reply comes with a photo or a meme, a few a day at most. If they may message you first (Life & cities), they sometimes text a photo of what they're out doing, once a day at most." />
       <Toggle label="If a backend fails, try the next one" checked={data.fallback} onChange={(value) => void save({ fallback: value })}

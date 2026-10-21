@@ -519,11 +519,6 @@ def moods(connection, companion: dict, now) -> list[tuple[tuple[str, int], str]]
              f"{first(row['name'])} from town died")]
 
 
-def raw_or_heavy(connection, timeline_id: str, day: date) -> bool:
-    """Whether grief is raw or heavy on this day: their own feed posts only a quiet status (dungeon/life/social.py)."""
-    return ACTIVE and any(stage(row, day) in ('raw', 'heavy') for row in rows(connection, timeline_id))
-
-
 def holds_back(connection, companion: dict, now) -> bool:
     """Fewer plans of their own while grief is raw (none) or heavy (about half the days)."""
     found = grieving(connection, companion, now)

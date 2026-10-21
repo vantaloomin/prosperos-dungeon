@@ -1,5 +1,5 @@
 import { useReferences } from '../appearance/queries'
-import { imageFile } from '../feed/imageState'
+import { imageFile } from '../images/imageState'
 import { usePhoto } from './usePhoto'
 import { usePortrait } from './portrait'
 

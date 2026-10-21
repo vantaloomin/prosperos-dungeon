@@ -44,7 +44,7 @@ export interface VoiceNote { url: string; duration_ms: number | null; engine: st
 
 export interface SentPicture { id: string; width: number; height: number; status: 'pending' | 'seen' | 'unseen'; reason: string | null }
 
-/** A picture a reply sent: a photo, selfie or view of the moment (shared with its feed post), or a meme. */
+/** A picture a reply sent: a photo, selfie or view of the moment (shared with its post), or a meme. */
 export interface ChatPhoto {
   message_id: string
   post_id: string
@@ -57,7 +57,7 @@ export interface ChatPhoto {
   job_id: string | null
   ref: string | null
   error: string | null
-  /** Whether the moment has become an event in the feed yet. */
+  /** Whether the moment has become an event yet. */
   in_feed: boolean
   /** Sent without being asked. */
   unasked: boolean
@@ -714,7 +714,6 @@ export interface Today {
   changes: LifeEvent[]
   review: LifeEvent[]
   plans: { shared: SharedPlan[]; companion: LifeEvent[]; threads: LifeEvent[]; admin?: AdminItem[] }
-  feed_unread: number
   last_run: LifeRun | null
   paused: boolean
   paused_at: string | null
@@ -745,36 +744,6 @@ export interface Moment { day: string; title: string; text: string; source: stri
 export interface BodyState { state: 'sick' | 'hungover' | 'tired' | 'worn out' | 'sore'; because: string }
 
 export interface PauseRecord { id: string; started_at: string; ended_at: string | null; catch_up_requested_at: string | null; catch_up_run_id: string | null }
-
-export type Reaction = 'heart' | 'laugh' | 'wow' | 'sad' | 'hug'
-
-export type FeedSource = 'all' | 'companion' | 'circle'
-export interface FeedAuthor { kind: 'companion' | 'person'; id: string | null; name: string; role: string }
-export interface FeedComment { author: 'companion' | 'person'; name: string; text: string; at: string }
-
-export interface FeedPost {
-  id: string
-  /** Life posts tell life events; social posts (friends, status, shout-outs, city news, questions) carry their own text. */
-  kind: 'digest' | 'event' | 'status' | 'friend' | 'birthday' | 'holiday' | 'city' | 'question'
-  source: 'life' | 'social'
-  author: FeedAuthor
-  intro: string
-  status: 'visible' | 'hidden'
-  read: boolean
-  reaction: Reaction | null
-  occurs_at: string
-  created_at: string
-  events: { id: string; summary: string; caption: string; mine?: { caption: string; summary: string }; mood: string | null; label: string | null; kind: string; starts_at: string; ends_at: string; revision: number }[]
-  text?: string
-  context?: string
-  place?: string
-  options?: string[]
-  answer?: string | null
-  image: PostImage | null
-  audience: { likes: string[]; comments: FeedComment[] }
-}
-
-export interface FeedPage { posts: FeedPost[]; next_before: string | null; unread: number }
 
 export interface CitySummary { id: string; name: string; region: string; country: string; timezone: string; summary: string; era?: string; category?: string }
 

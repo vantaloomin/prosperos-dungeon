@@ -6,7 +6,7 @@ import type { Companion, WorkspaceSettings } from './types'
 import type { SettingsTab } from './features/settings/sections'
 
 /** A view, as named in the address after #. Settings can name a tab too: #settings/models. */
-export type View = 'conversation' | 'chats' | 'story' | 'today' | 'feed' | 'memories' | 'character' | 'appearance' | 'portraits' | 'settings' | `settings/${SettingsTab}`
+export type View = 'conversation' | 'chats' | 'story' | 'today' | 'memories' | 'character' | 'appearance' | 'portraits' | 'settings' | `settings/${SettingsTab}`
   /** Making a townsperson the main character: #cast/<their key>. */
   | `cast/${string}`
   /** A companion's chat, opened from a notification: #chat/<their id>. */

@@ -322,7 +322,7 @@ export function AdultSideSettings() {
         <p className="subtle">Real people have a love life and desires of their own. Off until you turn it on.</p>
       </div>
       <Toggle label="Give adults an adult side" checked={settings.data?.adult_side === true} disabled={!settings.data} onChange={(checked) => void save(checked)}
-        hint="Every adult townsperson and companion gets who they're drawn to, how adventurous they are, their drive and a few things they're into, rolled by the app. Adults only: nobody under 18 ever gets one. It stays private to each person and only shapes them when romance or intimacy comes up. It never goes into pictures, the town paper or the feed."
+        hint="Every adult townsperson and companion gets who they're drawn to, how adventurous they are, their drive and a few things they're into, rolled by the app. Adults only: nobody under 18 ever gets one. It stays private to each person and only shapes them when romance or intimacy comes up. It never goes into pictures, or the town paper."
         tip="Change a companion's on their Character page, under Life details. Hidden values can show what townsfolk are like this way." />
       {error && <Notice tone="error">{error}</Notice>}
     </section>

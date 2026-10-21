@@ -4,6 +4,7 @@ import time
 from datetime import timedelta
 
 from conftest import reconcile, set_life
+from life_posts import posts
 from test_groups import companion_named
 
 from dungeon.life import simulation
@@ -58,7 +59,7 @@ def test_a_companion_out_of_focus_lives_her_days_in_template_wording(app, client
     ok(client.post('/api/companion/cast/focus', json={'companion_id': billy}))
     shown = ok(client.get('/api/events'))
     assert [event['id'] for event in shown] == [event['id'] for event in theirs]
-    assert ok(client.get('/api/feed'))['posts']
+    assert posts(client)
 
 
 def test_the_cast_follows_the_same_settings_and_never_repeats_a_day(app, client, life, clock):

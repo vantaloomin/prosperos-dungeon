@@ -7,7 +7,7 @@ import sqlite3
 AREAS = (
     ('/api/life/home', 'their home'), ('/api/life/wardrobe', 'their wardrobe'), ('/api/life/kitchen', 'their kitchen'), ('/api/life/media', 'what they are reading and watching'), ('/api/life/hobbies', 'their pastimes'), ('/api/life', 'their life'),
     ('/api/world', 'the cities'), ('/api/context', 'real-world lookups'),
-    ('/api/conversation', 'the chat'), ('/api/messages', 'the chat'), ('/api/feed', 'Posts'),
+    ('/api/conversation', 'the chat'), ('/api/messages', 'the chat'),
     ('/api/images', 'pictures'), ('/api/photos', 'pictures'), ('/api/pictures', 'pictures'),
     ('/api/memories', 'memories'), ('/api/memory', 'memory'), ('/api/self-facts', 'memories'),
     ('/api/today', 'Today'), ('/api/people', 'their people'), ('/api/closeness', 'closeness'),

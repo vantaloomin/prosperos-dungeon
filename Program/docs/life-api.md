@@ -2,7 +2,7 @@
 
 [Back to the README](../../README.md) · [Architecture](architecture.md)
 
-These endpoints back the interface's Today and Feed views. All times are UTC ISO 8601 strings
+These endpoints back the interface's Today view. All times are UTC ISO 8601 strings
 with an offset; display them in the user's timezone (`GET /api/settings` → `user_timezone`) or the
 companion's (`GET /api/companion` → `version.timezone`). Writes need the
 `x-dungeon-client: workspace` header, like the rest of the API.
@@ -30,7 +30,7 @@ The response always has a `state`, plus the batch (`run`) when one started, resu
 
 | `state` | Meaning | Suggested interface |
 | --- | --- | --- |
-| `started` | A catch-up batch ran now. `run.results` lists each slot's outcome. | Refresh Today and Feed. |
+| `started` | A catch-up batch ran now. `run.results` lists each slot's outcome. | Refresh Today. |
 | `resumed` | An interrupted batch from earlier finished now. | Same as `started`. |
 | `in_progress` | Another window or process is running the batch. | Poll `GET /api/life/runs` or reconcile again later. |
 | `not_due` | Too little time has passed since the last batch. `due_at` says when one could run. | Nothing. |
@@ -50,7 +50,7 @@ each background tick then takes a turn of the companions out of focus (`LifeEngi
 time in a round that comes back to the start, so a large cast never makes one tick slow and nobody is skipped.
 They follow the same settings, catch-up limits and permissions as the one in focus, and their events belong to
 their own timeline, so switching to one of them (`POST /api/companion/cast/focus`) shows the day they had on
-Today and their Feed. To keep this free, their moments keep the template wording (no model call) and their
+Today. To keep this free, their moments keep the template wording (no model call) and their
 posts don't raise desktop notices; only the companion in focus is phrased by the model and notifies. A return
 doesn't wait for the cast: their turn runs after the response.
 
@@ -327,7 +327,7 @@ exists and its climate how many coats they need.
 - **Events.** `agenda.extend_subject` calls `wardrobe.touch` after `home.touch`; on the day of a
   change it appends one sentence ("Kim bought a mustard raincoat.") to a non-work entry, once.
   `entry.wardrobe` records `{change, sentence}`. Tests turn this off (`wardrobe.WEAVE`).
-- **Images.** Feed pictures (`images/prompts.setting`) and chat moments and selfies
+- **Images.** Pictures of moments (`images/prompts.setting`) and chat moments and selfies
   (`build_moment`, not views) add `wardrobe.image_hint`: "Wearing a camel peacoat over …". When they
   do, `prompts.without_clothes` drops the clothing clauses from the appearance description (glasses
   and accessories stay), so the picture doesn't mix their usual outfit with the moment's.
@@ -1059,7 +1059,6 @@ POST /api/today/seen
 | `changes` | Events committed since `last_seen_at`, newest first (the latest ten on a first visit) |
 | `review` | Proposed events waiting for the user's commit or reject, oldest first |
 | `plans` | `shared`: the user's open plans from memory; `companion`: the companion's upcoming committed plans; `threads`: committed open threads whose outcome is not committed yet |
-| `feed_unread` | Unread feed posts |
 | `last_run` | The most recent batch, or `null` |
 | `paused`, `paused_at`, `simulated_through`, `clock_behind`, `limits` | State for the activity controls |
 | `last_seen_at` | When the user last marked Today as seen |
@@ -1157,33 +1156,19 @@ The composer calls `money.affordable(definition, activity_key, local_date)` once
 outing they cannot afford that day gives way to a free activity (a walk, cooking at home). If
 nothing is affordable the routine happens as before.
 
-## Feed
+## Posts
 
-```http
-GET  /api/feed?limit=20&before=…&hidden=false&source=all
-GET  /api/feed/{post_id}
-POST /api/feed/read                {"post_ids": ["…"]}   (omit the body to mark everything read)
-POST /api/feed/{post_id}/reaction  {"reaction": "heart"} (heart, laugh, wow, sad, hug, or null to clear)
-POST /api/feed/{post_id}/hide
-POST /api/feed/{post_id}/unhide
-POST /api/feed/{post_id}/remove
-POST /api/feed/{post_id}/discuss   {"text": "…", "client_id": "…"}
-POST /api/feed/{post_id}/answer    {"option": "Tacos", "client_id": "…"}   (question posts)
-POST /api/feed/posts               {"event_id": "…", "intro": "…"}
-GET  /api/feed/export
-```
+There is no feed screen: posts are what the companion's pictures hang on
+([dungeon/life/feed.py](../dungeon/life/feed.py)). A catch-up batch writes one `digest` post for its
+events and background activity one `event` post per event; a photo sent in chat waits on a post keyed
+`photo:<event key>` until its slot becomes an event. An image job always belongs to a post
+(`POST /api/images/jobs {"post_id": …}`), and Our year shows the pictures.
 
-`GET /api/feed` returns `{posts, next_before, unread}`, newest first. Pass `next_before` as
-`before` to load older posts; it is `null` at the end of the history. `hidden=true` includes
-hidden posts. Opening the feed does not mark anything read; call `POST /api/feed/read` for the
-posts the user actually saw, so a new post never steals focus or silently disappears from unread.
-
-A post:
+A post, as the image API and Our year read it:
 
 ```json
 {
-  "id": "…", "kind": "digest", "intro": "", "status": "visible", "read": false, "read_at": null,
-  "reaction": null, "occurs_at": "…", "created_at": "…",
+  "id": "…", "kind": "digest", "intro": "", "status": "visible", "occurs_at": "…", "created_at": "…",
   "events": [{"id": "…", "summary": "Walked to the harbour market.", "caption": "Lovely light today.",
               "mood": "content", "label": "Morning", "kind": "ordinary",
               "starts_at": "…", "ends_at": "…", "revision": 1}],
@@ -1191,50 +1176,15 @@ A post:
 }
 ```
 
-- `kind` is `digest` (one per catch-up batch, covering its events) or `event` (one event, from
-  background activity or an explicit post).
 - A post shows events by reference, always at their current committed revision. Correcting an
   event changes every post that shows it. Proposed events appear only once committed, and
-  rejected ones never do, so a post with nothing committed is left out of the feed.
+  rejected ones never do.
 - `caption` is the companion's own line for the moment, falling back to the summary.
 - `occurs_at` is the fictional time the post is about; `created_at` is when it was written.
 - `image.status` is `none`, `queued`, `running`, `completed`, `failed`, `cancelled` or
-  `interrupted`; `image.ref` is the job whose file is shown. Render the text whatever the image
-  state. `image.outdated` is true when the shown picture was made from an event version that has
-  since been corrected or withdrawn; say so rather than presenting it as the corrected moment. See
+  `interrupted`; `image.ref` is the job whose file is shown. `image.outdated` is true when the
+  picture was made from an event version that has since been corrected or withdrawn. See
   [image generation](images.md).
-- Hide is reversible. Remove clears the post for good but leaves its events in the companion's
-  life and conversation. Removed posts are not listed or exported.
-- `discuss` sends a chat message linked to the post and returns the same shape as
-  `POST /api/conversation/messages`. The reply is written knowing which post the user meant.
-- `POST /api/feed/posts` posts an event committed by other means; it is idempotent per event.
-- `export` returns `{format: "prospero-dungeon-feed", version (2), exported_at, companion, posts}`,
-  oldest first, hidden posts included.
-- Every post has `source` (`life` for the posts above, `social` below), an `author`
-  (`{kind: "companion" | "person", id, name, role}`) and an `audience`
-  (`{likes: [names], comments: [{author, name, text, at}]}`).
-
-### The social side
-
-`source=companion` keeps only the companion's posts and `source=circle` only their friends'.
-Reading the feed or Today writes the social posts due for the last few days
-([dungeon/life/social.py](../companion/life/social.py)). No model is involved: everything comes
-from the agenda, the circle, the city data and fixed phrasing, under seeded idempotency keys.
-
-- `friend`: a circle member shares a happened diary entry (`text` is their line, `context` what
-  happened, `place` where). A few a day across the circle, at most one per person.
-- `status`: a passing thought of the companion's from the day's weather, how they feel, the weekday
-  or an interest. It never claims anything happened.
-- `birthday` (a circle member's birthday), `holiday` (a public holiday), `city` (an opening,
-  closing or road works the day people hear of it, or an annual event on its day).
-- `question`: an either-or with `options`; `answer` records the user's pick and sends it to chat as
-  a reply to the post. `answer` is `null` until then.
-
-Social posts have `events: []` and `image: null`. They are read, reacted to, hidden, removed and
-discussed with the same endpoints. Likes and comments are derived, not stored: they come from the
-post, the active circle and the clock, arriving within a few hours of the post, at most three
-comments each. No line is said twice on one post or repeated on the few posts just before it. The companion likes and comments on friends' posts. A renamed friend shows their new
-name; a removed one's posts and comments leave the feed. A branched timeline keeps the social posts from before it split off, with their read, reaction and answer state.
 
 ## Going out together and trips
 

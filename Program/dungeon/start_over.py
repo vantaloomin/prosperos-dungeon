@@ -52,7 +52,7 @@ CHARACTER = (
 # drawn from them (world_changes with origin 'real') goes with them by ON DELETE CASCADE; changes
 # the user made to a city stay.
 HISTORY = (
-    'away_recaps', 'context_uses', 'context_observations', 'notifications', 'chat_photos', 'message_social_links', 'social_posts', 'message_post_links',
+    'away_recaps', 'context_uses', 'context_observations', 'notifications', 'chat_photos',
     'feed_post_events', 'image_jobs', 'feed_posts', 'memory_sources', 'memory_declines', 'memory_jobs',
     'memory_candidates', 'memory_vectors', 'memory_summaries', 'memory_proposals', 'memory_activity',
     'birth_dates', 'closeness_jokes', 'closeness_settings', 'people_impressions', 'people_meetups', 'step_settings', 'family_wishes', 'family_journeys', 'our_family', 'proposals', 'weddings', 'big_days', 'losses', 'step_asks', 'relationship_steps', 'love_partners', 'moving_in_shares', 'moving_in', 'openers', 'self_fact_jobs', 'self_facts', 'companion_plans', 'breakup_reaches', 'breakups', 'rough_patch_promises', 'rough_patches', 'calls', 'together_asks', 'outings', 'trips', 'recommendations', 'life_chapters', 'chapter_days', 'thoughts', 'life_moments', 'dreams', 'news_holders', 'news', 'marks', 'consequences', 'storylines',
@@ -71,7 +71,6 @@ SCOPE = (
     ('gone_storylines', 'SELECT id FROM storylines WHERE timeline_id IN gone_timelines'),
     ('gone_candidates', 'SELECT id FROM memory_candidates WHERE timeline_id IN gone_timelines'),
     ('gone_posts', 'SELECT id FROM feed_posts WHERE timeline_id IN gone_timelines'),
-    ('gone_social', 'SELECT id FROM social_posts WHERE timeline_id IN gone_timelines'),
     ('gone_events', 'SELECT id FROM life_events WHERE timeline_id IN gone_timelines'),
     ('gone_jobs', 'SELECT id FROM image_jobs WHERE timeline_id IN gone_timelines'),
     ('gone_evaluations', 'SELECT id FROM lora_evaluations WHERE companion_id=:companion'),
@@ -85,8 +84,6 @@ OWN = {
     'context_observations': None,
     'notifications': 'post_id IN gone_posts',
     'chat_photos': 'message_id IN gone_messages OR post_id IN gone_posts OR job_id IN gone_jobs',
-    'message_social_links': 'message_id IN gone_messages OR post_id IN gone_social',
-    'message_post_links': 'message_id IN gone_messages OR post_id IN gone_posts',
     'feed_post_events': 'post_id IN gone_posts OR event_id IN gone_events',
     'memory_sources': 'message_id IN gone_messages OR memory_id IN gone_memories',
     'memory_declines': 'message_id IN gone_messages',

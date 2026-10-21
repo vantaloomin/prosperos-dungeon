@@ -58,7 +58,7 @@ than this PC). It needs phone access to be on, a `*.ts.net` host name or a Tails
 fd7a:115c:a1e0::/48), and the cookie of a paired device. Only a
 hash of each device's token is stored.
 
-A paired phone can chat and use Today, the Feed, Memories, Character and most of Settings. These stay on the PC,
+A paired phone can chat and use Today, Memories, Character and most of Settings. These stay on the PC,
 because they run programs or read files there, restore data, or could send a saved API key to a new address:
 
 - Phone access itself (turning it on or off, pairing, removing phones)

@@ -161,6 +161,16 @@ def present_day(world, definition: dict) -> bool:
     return modern(finder(city) if finder and city else None)
 
 
+def city_data(connection, definition):
+    """The companion's city, from their home city or location, if the world data has it."""
+    from dungeon.world import changes, custom
+    extra = custom.all_cities(connection)
+    for text in (definition.get('home_city'), definition.get('location')):
+        if text and (data := changes.resolve(text, extra)):
+            return data
+    return None
+
+
 def modern(data: dict | None) -> bool:
     return not data or data.get('era', 'modern') == 'modern'
 
@@ -497,7 +507,6 @@ def fresh_city_events(connection, now) -> dict | None:
 def fresh_culture(connection, now, definition: dict) -> dict | None:
     """Today's culture digest, while it is fresh: what's out and trending, for the companion to bring up. None
     for a companion who does not live in the present day, even when one asked earlier still is."""
-    from dungeon.life.social import city_data
     if not modern(city_data(connection, definition)):
         return None
     row = optional(connection, "SELECT * FROM context_observations WHERE category='culture' AND purpose='ambient' "

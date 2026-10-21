@@ -138,7 +138,7 @@ function Explanation({ access: { enabled, address, tailscale } }: { access: Phon
       <p>Your phone opens the Dungeon at <strong>{address}</strong>.{!tailscale.serving && ' Tailscale is not sharing it right now; turn phone access off and on again.'}</p>
       <PhonesOnTailnet phones={tailscale.phones} />
       {!tailscale.magic_dns && <Notice tone="warning"><Linked text={`MagicDNS is off for your tailnet, so a phone cannot find ${tailscale.name}. Turn it on under DNS in the Tailscale admin console, https://login.tailscale.com/admin/dns, or use the backup address when you pair.`} /></Notice>}
-      <p className="subtle">A paired phone can chat and use Today, the Feed, Memories and Character. {pcOnly(loraMaker)} stay on this PC.</p>
+      <p className="subtle">A paired phone can chat and use Today, Memories and Character. {pcOnly(loraMaker)} stay on this PC.</p>
     </>
   )
 }

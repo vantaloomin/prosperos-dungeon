@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { disclosureFor, imageAlt, imageLine, OUTDATED, isActive, isLoopback, provenance } from '../../src/features/feed/imageState.ts'
+import { disclosureFor, imageAlt, imageLine, OUTDATED, isActive, isLoopback, provenance } from '../../src/features/images/imageState.ts'
 import type { ImageJob, PostImage } from '../../src/types.ts'
 
 const image = (values: Partial<PostImage>): PostImage => ({ status: 'none', job_id: null, ref: null, error: null, updated_at: null, ...values })

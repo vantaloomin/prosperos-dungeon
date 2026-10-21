@@ -74,7 +74,6 @@ FRESH_DAYS = 2
 # them, but not from further back than this (E2E v0.13: in a jump every step but one went untold).
 CATCH_UP_DAYS = 14
 # Date nights in the feed: the chance on any one day.
-DATE_POST = 0.14
 BY_STEP = {'dating': 'dating', 'exclusive': 'dating', 'love': 'dating', 'their_people': 'dating', 'key': 'dating',
            'moving_in': 'dating', 'engaged': 'engaged', 'married': 'married'}
 ROLES = {'dating': {'she/her': 'girlfriend', 'he/him': 'boyfriend', 'they/them': 'partner'},
@@ -862,38 +861,6 @@ def came_out_due(connection, companion: dict, now) -> list:
                     f"Word has got around, and the user now knows you were seeing {first(row['name'])} behind their "
                     "back. You've ended it. Text them first: own up and say you're sorry, in your own words, without "
                     'excuses.') for row in rows]
-
-
-# The feed (dungeon/life/social.py) --------------------------------------------------------------------------------------
-
-def feed_posts(connection, companion: dict, days: list[date], timezone: str) -> list[dict]:
-    """Date nights now and then, and a post on the day of a step: status posts of the companion's own. Never a
-    secret's."""
-    from dungeon.life import social
-    timeline_id = companion['active_timeline_id']
-    data, result = city_of(connection, companion), []
-    for found in partners(connection, timeline_id, active=False):
-        if found['secret'] or found['ended_how'] == 'undone':
-            continue
-        for day in days:
-            on, seed = day.isoformat(), f"love:{found['id']}:{day.isoformat()}"
-            if on < found['met_on'] or (found['ended_on'] and on >= found['ended_on']):
-                continue
-            text = step_post(connection, companion, found, on, seed, data)
-            if text is None and random.Random(f'{seed}:date').random() < DATE_POST:
-                text = told(random.Random(f'{seed}:line').choice(fitting(bank()['dates'], data, day)), found)
-            if text:
-                result.append(social.own('status', f'love:{seed}', social.at(day, timezone, seed, 18, 23),
-                                         {'text': text, 'tone': 'good'}))
-    return result
-
-
-def step_post(connection, companion: dict, found: dict, on: str, seed: str, data: dict | None) -> str | None:
-    for row in steps.reached(connection, companion['active_timeline_id'], LADDER, key_of(found)):
-        if row['reached_on'] == on and row['how'] == 'them' and row['step'] in bank()['milestones']:
-            lines = fitting(bank()['milestones'][row['step']], data, date.fromisoformat(on))
-            return told(random.Random(f'{seed}:step').choice(lines), found)
-    return None
 
 
 # The Character page's circle, and changing how it went ----------------------------------------------------------------------

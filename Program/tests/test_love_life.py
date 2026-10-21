@@ -75,14 +75,6 @@ def test_their_news_and_how_they_met_use_the_partners_pronouns(client, mira, clo
     assert planned['told'].startswith(f"You started seeing {planned['person']['name']}; you met when {they} returned")
     found = begin_partner(client, clock)
     assert found['details']['met'] == f'when {they} returned the scarf you left on a bench'
-    force(monkeypatch, 0)
-    clock.advance(timedelta(days=40))
-    with client.app.state.database.connect(write=True) as connection:
-        love_life.advance(connection, current(client), world, clock.now())
-        [step] = [row for row in steps.reached(connection, found['timeline_id'], 'romance', love_life.key_of(found))
-                  if row['step'] == 'exclusive']
-        posts = love_life.feed_posts(connection, current(client), [date.fromisoformat(step['reached_on'])], 'UTC')
-    assert [post['content']['text'] for post in posts] == [f'{name} is mine and I am {theirs}.']
 
 
 # Lines where "they" or "them" is someone else (friends, jars, keys, a saying), not the partner.

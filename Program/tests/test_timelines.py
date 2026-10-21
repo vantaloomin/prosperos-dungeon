@@ -1,19 +1,12 @@
 """Alternative timelines: historical edits, switching and freezing (PRD C4, T7, M6, M12)."""
 from datetime import timedelta
 
-import pytest
 from conftest import reconcile, send, set_life
+from life_posts import post_event, posts
 
 from dungeon import timelines
 from dungeon.clock import parse
-from dungeon.life import social
 from dungeon.providers.chat import Chunk
-
-
-@pytest.fixture(autouse=True)
-def life_posts_only(monkeypatch):
-    """These tests count life posts; branching social posts is covered in tests/test_social_feed.py."""
-    monkeypatch.setattr(social, 'write', lambda *_args: 0)
 
 
 def fork(client, message_id, text='Actually, I went to the coast.', **extra):
@@ -165,8 +158,7 @@ def test_committed_history_before_the_edit_carries_over(client, companion, clock
              'ends_at': (clock.now() - timedelta(hours=2)).isoformat()}
     event = client.post('/api/events', json=early).json()
     assert client.post(f"/api/events/{event['id']}/commit").json()['status'] == 'committed'
-    post = client.post('/api/feed/posts', json={'event_id': event['id']})
-    assert post.status_code == 200, post.text
+    post_event(client, event['id'])
     clock.advance(timedelta(hours=1))
     message = send(client, 'Hi', 'client-0001')['message']
     clock.advance(timedelta(hours=3))
@@ -180,8 +172,8 @@ def test_committed_history_before_the_edit_carries_over(client, companion, clock
     carried = client.get('/api/events').json()
     assert [item['summary'] for item in carried] == ['Visited the lighthouse']
     assert carried[0]['id'] != event['id'] and carried[0]['timeline_id'] == created['id']
-    posts = client.get('/api/feed').json()['posts']
-    assert len(posts) == 1 and posts[0]['events'][0]['id'] == carried[0]['id']
+    shown = posts(client)
+    assert len(shown) == 1 and shown[0]['events'][0]['id'] == carried[0]['id']
     preview = client.get('/api/context/preview').json()['prompt']
     assert 'lighthouse' in preview and 'kite' not in preview
 
@@ -313,13 +305,13 @@ def test_a_corrected_events_post_carries_over_showing_the_correction(client, com
              'ends_at': (clock.now() - timedelta(hours=2)).isoformat()}
     event = client.post('/api/events', json=early).json()
     client.post(f"/api/events/{event['id']}/commit")
-    client.post('/api/feed/posts', json={'event_id': event['id']})
+    post_event(client, event['id'])
     client.post(f"/api/events/{event['id']}/correct", json={'summary': 'Visited the harbour'})
     clock.advance(timedelta(hours=1))
     message = send(client, 'Hi', 'client-0001')['message']
     activate(client, fork(client, message['id'])['id'])
     carried = client.get('/api/events').json()
-    posts = client.get('/api/feed').json()['posts']
+    shown = posts(client)
     assert [item['summary'] for item in carried] == ['Visited the harbour']
-    assert len(posts) == 1 and posts[0]['events'][0]['id'] == carried[0]['id']
-    assert posts[0]['events'][0]['summary'] == 'Visited the harbour'
+    assert len(shown) == 1 and shown[0]['events'][0]['id'] == carried[0]['id']
+    assert shown[0]['events'][0]['summary'] == 'Visited the harbour'

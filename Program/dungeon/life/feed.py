@@ -1,20 +1,18 @@
-"""The private feed (PRD F1, F2, F4).
+"""Posts: what pictures of the companion's life hang on (PRD F3, F4).
 
 A post never carries its own account of an event. It references life events and shows the
 current committed revision of each, so a correction updates the post, a pending proposal waits
-until it is committed, and a rejected one never appears. A post with nothing committed to show
-is left out of the feed and the unread count.
+until it is committed, and a rejected one never appears. A picture of a moment (dungeon/images),
+a photo sent in chat (dungeon/images/photos.py) and the pictures in Our year are all a post's image.
 
 Return batches make one digest post; background batches make one post per event (T5). The
 image columns are a hook for a later image job: the text never waits for an image.
 """
-from dungeon.characters import definition_for_timeline, require_current
-from dungeon.clock import parse, zone
+from dungeon.characters import definition_for_timeline
 from dungeon.database import decode, identifier, many, one, optional
 from dungeon.errors import require
-from dungeon.life import composer, loss, social
+from dungeon.life import composer
 
-REACTIONS = ('heart', 'laugh', 'wow', 'sad', 'hug')
 # A photo sent in chat waits on a post keyed to the event its slot will become (dungeon/images/photos.py).
 PHOTO_KEY = 'photo:'
 IMAGE_STATES = ('none', 'queued', 'running', 'completed', 'failed', 'cancelled', 'interrupted')
@@ -139,182 +137,6 @@ def photo_post(connection, event_id) -> str | None:
     connection.execute('INSERT OR IGNORE INTO feed_post_events (post_id, event_id, position) VALUES (?, ?, 0)',
                        (post['id'], event_id))
     return post['id']
-
-
-def post_event(database, event_id, intro='') -> dict:
-    """An explicit post for a committed event the simulation did not write (F1)."""
-    with database.connect(write=True) as connection:
-        companion = require_current(connection)
-        event = current_revision(connection, event_id)
-        require(event is not None, 'This item could not be found.', 404)
-        require(event['status'] == 'committed' and event['timeline_id'] == companion['active_timeline_id'],
-                'Only a committed event on the active timeline can be posted.', 409)
-        post_id = photo_post(connection, event['id']) or create(
-            connection, event['timeline_id'], 'event', f"event:{event['id']}", [event['id']], event['ends_at'],
-            database.now(), intro=intro)
-        return post_view(connection, one(connection, 'SELECT * FROM feed_posts WHERE id=?', (post_id,)))
-
-
-def visible_posts(connection, timeline_id, include_hidden=False) -> list[dict]:
-    statuses = "('visible','hidden')" if include_hidden else "('visible')"
-    rows = many(connection, f'SELECT * FROM feed_posts WHERE timeline_id=? AND status IN {statuses} '
-                'ORDER BY occurs_at DESC, id DESC', (timeline_id,))
-    mourning = grief_test(connection, timeline_id)
-    # A post the user already read or reacted to stays: holding back never takes away what they saw (a workspace
-    # from before v0.15 had these posts on show).
-    return [view for view in (post_view(connection, row) for row in rows
-                              if row['read_at'] or row['reaction'] or not mourning(row['occurs_at'])) if view]
-
-
-def grief_test(connection, timeline_id):
-    """A test for whether a life post falls on a day grief is raw or heavy (dungeon/life/loss.py): those posts are
-    held back, so the feed shows only the quiet status (dungeon/life/social.py) those days."""
-    losses = loss.rows(connection, timeline_id) if loss.ACTIVE else []
-    if not losses:
-        return lambda _occurs_at: False
-    row = optional(connection, 'SELECT v.timezone FROM timelines t JOIN companions c ON c.id=t.companion_id '
-                   'JOIN character_versions v ON v.id=c.active_version_id WHERE t.id=?', (timeline_id,))
-    timezone = zone(row['timezone'] if row else 'UTC')
-
-    def mourning(occurs_at: str) -> bool:
-        day = parse(occurs_at).astimezone(timezone).date()
-        return any(loss.stage(found, day) in ('raw', 'heavy') for found in losses)
-    return mourning
-
-
-def everything(connection, companion, now: str, include_hidden=False, source='all') -> list[dict]:
-    """Life posts and social posts (dungeon/life/social.py) together, newest first, with the circle's
-    likes and comments. `source` keeps only the companion's own posts or only the circle's. Likes and
-    comments are worked out over every post, so a filter or a hidden post never changes them."""
-    timeline_id, name = companion['active_timeline_id'], companion['version']['name']
-    people = social.active_people(connection, timeline_id)
-    posts = [{**post, 'author': social.author_view(social.COMPANION, people, name),
-              '_basis': (social.COMPANION, {'mood': (post['events'] or [{}])[0].get('mood', '')})}
-             for post in visible_posts(connection, timeline_id, include_hidden=True)]
-    posts += social.visible(connection, companion, include_hidden=True)
-    social.add_audiences(posts, now, people, name)
-    posts = [post for post in posts if (include_hidden or post['status'] == 'visible')
-             and (source == 'all' or (post['author']['kind'] == 'companion') == (source == 'companion'))]
-    return sorted(posts, key=lambda post: (post['occurs_at'], post['id']), reverse=True)
-
-
-def shown(connection, post_id, now: str) -> dict | None:
-    """One post as the feed shows it, author, likes and comments included. A removed post is shown
-    bare, with no likes or comments."""
-    companion = require_current(connection)
-    found = next((post for post in everything(connection, companion, now, include_hidden=True)
-                  if post['id'] == post_id), None)
-    if found:
-        return found
-    if row := social.find(connection, post_id):
-        post = social.view(row, social.active_people(connection, row['timeline_id']), companion['version']['name'])
-    else:
-        post = post_view(connection, one(connection, 'SELECT * FROM feed_posts WHERE id=?', (post_id,)))
-        post = post and {**post, 'author': social.author_view(social.COMPANION, {}, companion['version']['name'])}
-    if post:
-        post.pop('_basis', None)
-        post['audience'] = {'likes': [], 'comments': []}
-    return post
-
-
-def listing(database, before=None, limit=20, include_hidden=False, source='all') -> dict:
-    """Newest first; `before` is the `next_before` of the previous page."""
-    with database.connect() as connection:
-        companion = require_current(connection)
-        posts = everything(connection, companion, database.now(), include_hidden, source)
-        if before:
-            occurs_at, _, post_id = before.partition('|')
-            posts = [post for post in posts if (post['occurs_at'], post['id']) < (occurs_at, post_id)]
-        page = posts[:limit]
-        more = len(posts) > limit
-        return {'posts': page, 'next_before': f"{page[-1]['occurs_at']}|{page[-1]['id']}" if more else None,
-                'unread': unread(connection, companion['active_timeline_id'])}
-
-
-def unread(connection, timeline_id) -> int:
-    return sum(1 for post in visible_posts(connection, timeline_id) if not post['read']) + \
-        social.unread(connection, timeline_id)
-
-
-def get(database, post_id) -> dict:
-    with database.connect() as connection:
-        view = shown(connection, post_id, database.now())
-        require(view is not None, 'This item could not be found.', 404)
-        return view
-
-
-def mark_read(database, post_ids=None) -> dict:
-    """Read state records when the user saw a post (observation time, T1)."""
-    with database.connect(write=True) as connection:
-        companion = require_current(connection)
-        timestamp, timeline_id = database.now(), companion['active_timeline_id']
-        if post_ids is None:
-            connection.execute('UPDATE feed_posts SET read_at=? WHERE timeline_id=? AND read_at IS NULL',
-                               (timestamp, timeline_id))
-        else:
-            connection.executemany('UPDATE feed_posts SET read_at=? WHERE id=? AND timeline_id=? AND read_at IS NULL',
-                                   [(timestamp, post_id, timeline_id) for post_id in post_ids])
-        social.mark_read(connection, timeline_id, timestamp, post_ids)
-        return {'unread': unread(connection, timeline_id)}
-
-
-def set_status(database, post_id, status) -> dict:
-    """Hide is reversible. Remove clears the post's own text for good; its events stay in the
-    companion's life and the conversation, since the post never owned them."""
-    with database.connect(write=True) as connection:
-        if row := social.find(connection, post_id):
-            social.set_status(connection, row, status, database.now())
-            return shown(connection, post_id, database.now())
-        post = one(connection, 'SELECT * FROM feed_posts WHERE id=?', (post_id,))
-        require(post['status'] != 'removed', 'This post was removed.', 409)
-        if status == 'removed':
-            connection.execute("UPDATE feed_posts SET status='removed', intro='', reaction=NULL, image_ref=NULL, "
-                               'removed_at=? WHERE id=?', (database.now(), post_id))
-            connection.execute('DELETE FROM feed_post_events WHERE post_id=?', (post_id,))
-        else:
-            connection.execute('UPDATE feed_posts SET status=? WHERE id=?', (status, post_id))
-        return shown(connection, post_id, database.now())
-
-
-def react(database, post_id, reaction) -> dict:
-    require(reaction is None or reaction in REACTIONS, 'Unknown reaction.', 422)
-    with database.connect(write=True) as connection:
-        if row := social.find(connection, post_id):
-            social.react(connection, row, reaction, database.now())
-            return shown(connection, post_id, database.now())
-        post = one(connection, 'SELECT * FROM feed_posts WHERE id=?', (post_id,))
-        require(post['status'] != 'removed', 'This post was removed.', 409)
-        connection.execute('UPDATE feed_posts SET reaction=?, read_at=COALESCE(read_at, ?) WHERE id=?',
-                           (reaction, database.now(), post_id))
-        return shown(connection, post_id, database.now())
-
-
-def link_message(database, message_id, post_id):
-    with database.connect(write=True) as connection:
-        if row := social.find(connection, post_id):
-            social.link_message(connection, row, message_id, database.now())
-            return
-        post = one(connection, 'SELECT * FROM feed_posts WHERE id=?', (post_id,))
-        require(post['status'] != 'removed', 'This post was removed.', 409)
-        connection.execute('INSERT OR IGNORE INTO message_post_links (message_id, post_id) VALUES (?, ?)',
-                           (message_id, post_id))
-        connection.execute('UPDATE feed_posts SET read_at=COALESCE(read_at, ?) WHERE id=?', (database.now(), post_id))
-
-
-def linked_post(connection, message_id) -> dict | None:
-    link = optional(connection, 'SELECT post_id FROM message_post_links WHERE message_id=?', (message_id,))
-    if link is None:
-        return social.linked(connection, message_id)
-    return post_view(connection, one(connection, 'SELECT * FROM feed_posts WHERE id=?', (link['post_id'],)))
-
-
-def export(database) -> dict:
-    """Everything the user can see in the feed, hidden posts included (F2)."""
-    with database.connect() as connection:
-        companion = require_current(connection)
-        posts = everything(connection, companion, database.now(), include_hidden=True)
-        return {'format': 'prospero-dungeon-feed', 'version': 2, 'exported_at': database.now(),
-                'companion': companion['version']['name'], 'posts': list(reversed(posts))}
 
 
 def set_image(database, post_id, job_id, status, ref=None, error=None) -> dict:

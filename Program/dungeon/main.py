@@ -272,7 +272,6 @@ def create_app(database_path: str | Path | None = None, *, clock=None, vault=Non
     app.include_router(scrapbook_routes.router)
     app.include_router(history_routes.router)
     app.include_router(life_routes.today_router)
-    app.include_router(life_routes.feed_router)
     app.include_router(world_routes.router)
     app.include_router(image_routes.router)
     app.include_router(context_routes.router)

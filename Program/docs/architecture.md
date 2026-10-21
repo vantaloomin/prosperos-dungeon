@@ -525,16 +525,14 @@ API: `GET /api/self-facts`, `POST /api/self-facts/{id}/keep`, `POST /api/self-fa
   `automatic_events`. Commit revalidates the character version, timeline, pause and permission
   revision as before.
 
-## Feed and Today (F1, F2, F4)
+## Posts and Today (F1, F4)
 
 `dungeon/life/feed.py` keeps posts as references to life events (`feed_post_events`). A post
-renders each event at its current committed revision, so the feed, chat and recall share one
+renders each event at its current committed revision, so pictures, chat and recall share one
 account of every event and a correction reaches all three. A return batch publishes one digest
 post and a background batch one post per event; posts wait until at least one of their events is
-committed. Read state, hide/remove, reactions, export and links from chat messages
-(`message_post_links`) live beside the posts. A message linked to a post adds that post to the
-next reply's context. The image columns record the post's current image job, which only that
-job may change ([image generation](images.md)).
+committed. Nothing lists them on a screen: they carry the pictures of moments. The image columns
+record the post's current image job, which only that job may change ([image generation](images.md)).
 
 `dungeon/life/today.py` assembles the Today view and records the last visit (`visits`), which
 only moves forward.

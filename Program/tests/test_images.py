@@ -12,6 +12,8 @@ from pathlib import Path
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from life_posts import post as read_post
+from life_posts import post_event, posts
 
 from dungeon import worlds
 from dungeon.identity import CLIENT_HEADER
@@ -80,7 +82,7 @@ def make_post(client, clock, summary='Mira walked along the harbour at dusk.', k
         'details': {'post': 'The water was so calm.', 'mood': 'content'},
         'starts_at': start.isoformat(), 'ends_at': (start + timedelta(minutes=30)).isoformat()}))
     ok(client.post(f"/api/events/{event['id']}/commit"))
-    return ok(client.post('/api/feed/posts', json={'event_id': event['id']}))
+    return post_event(client, event['id'])
 
 
 def add_backend(client, **body):
@@ -101,7 +103,7 @@ def generate(client, post, **body):
 
 
 def post_image(client, post):
-    return ok(client.get(f"/api/feed/{post['id']}"))['image']
+    return read_post(client, post['id'])['image']
 
 
 # Classification (F6) -------------------------------------------------------------------------
@@ -392,7 +394,7 @@ def test_a_finished_image_of_a_corrected_event_is_marked_outdated(client, compan
         'details': {'post': 'Quiet corner.', 'place': {'id': 'the-charmery', 'name': 'The Charmery', 'kind': 'cafe'}},
         'starts_at': start.isoformat(), 'ends_at': (start + timedelta(minutes=30)).isoformat()}))
     ok(client.post(f"/api/events/{event['id']}/commit"))
-    post = ok(client.post('/api/feed/posts', json={'event_id': event['id']}))
+    post = post_event(client, event['id'])
     generate(client, post)
     drain(client)
     assert post_image(client, post)['outdated'] is False
@@ -416,8 +418,7 @@ def test_a_carried_over_image_is_not_marked_outdated(client, companion, clock, a
     message = ok(client.post('/api/conversation/messages', json={'text': 'Hi', 'client_id': 'client-0001'}))['message']
     created = ok(client.post('/api/timelines', json={'message_id': message['id'], 'text': 'Hello'}))
     ok(client.post(f"/api/timelines/{created['id']}/activate"))
-    # The companion may also have posted a random status update by now.
-    [copy] = [item for item in ok(client.get('/api/feed'))['posts'] if item['kind'] == 'event']
+    [copy] = [item for item in posts(client) if item['kind'] == 'event']
     assert copy['id'] != post['id'] and copy['image']['status'] == 'completed'
     assert copy['image']['outdated'] is False
 

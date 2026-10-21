@@ -17,7 +17,7 @@ export function mainPin(place: Pick<MapPlace, 'pins'>): Pin | 'place' {
 }
 
 export const PIN_LABELS: Record<Pin | 'place', string> = {
-  scene: 'Where your story is now', home: 'Their home', work: 'Their work', usual: 'Their usual places', recent: 'Places from Feed and Today', place: 'Everywhere else',
+  scene: 'Where your story is now', home: 'Their home', work: 'Their work', usual: 'Their usual places', recent: 'Places from Today', place: 'Everywhere else',
 }
 
 /** "Coffee after work · Tue" */

@@ -229,15 +229,6 @@ def test_a_daily_digest_gives_a_sense_of_whats_out(client, app, connected, provi
     assert 'you have not watched, played, read or heard any of them' in system
     assert 'Top movies on iTunes (new home releases): Big Movie, Small Movie' in system
     assert 'Most-played songs on Apple Music in the US: Song A by Artist A' in system
-    # Lines of the feed can come from it, for today only.
-    from dungeon.life import social
-    with app.state.database.connect() as connection:
-        companion = client.get('/api/companion').json()['companion']
-        assert social.culture_picks(connection, clock.now(), companion['version']['definition']) == {
-            'movies': 'Big Movie', 'music': 'Song A by Artist A', 'books': 'A Novel by Writer'}
-    facts = {'weather': None, 'body': None, 'culture': {'music': 'Song A by Artist A'}}
-    lines = {social.status_text(f'seed-{n}', date(2026, 10, 7), facts, {})[0] for n in range(200)}
-    assert "Can't get Song A by Artist A out of my head." in lines
     clock.advance(timedelta(hours=25))
     asyncio.run(app.state.life.quietly_observe())
     assert len(ambient_observations(client)) == 2

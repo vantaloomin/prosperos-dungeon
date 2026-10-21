@@ -305,7 +305,7 @@ def said(text: str | None, definition: dict, found: dict | None = None) -> str |
     return pronouns.said(text, OWN, definition, found)
 
 
-# A post is written by the one it is about, so the line under it says "I" (dungeon/life/feed.py, social.py): the
+# A post is written by the one it is about, so the line under it says "I" (dungeon/life/feed.py): the
 # summaries name them in the third person. A name that starts a clause is "I", anywhere else "me"; "Sam's" is "my".
 SUBJECT_BEFORE = r'(?:^|[.;:!?,] |\b(?:but|and|so|while|because|when|that|then) )'
 I_VERBS = {'is': 'am', 'has': 'have', 'does': 'do', 'goes': 'go', "isn't": "aren't", "hasn't": "haven't",

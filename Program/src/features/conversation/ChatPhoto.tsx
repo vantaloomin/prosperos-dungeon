@@ -4,12 +4,12 @@ import { ImageOff, RotateCcw } from 'lucide-react'
 import { Lightbox } from '../../components/Lightbox'
 import { api } from '../../api'
 import type { ChatPhoto as Photo, Message } from '../../types'
-import { imageFile } from '../feed/imageState'
+import { imageFile } from '../images/imageState'
 import { canRetry, photoAlt, photoLine, photoShape } from './photoState'
 import { usePhoto } from './usePhoto'
 
 /**
- * The photo a reply sent of what they were doing. Its picture is the moment's feed picture too.
+ * The photo a reply sent of what they were doing. Its picture is the moment's own picture too, in Our year.
  * Until it lands, the frame holds its final shape with a blurry picture filling in, like a photo
  * coming through on a slow connection, so nothing moves when the real one arrives.
  */

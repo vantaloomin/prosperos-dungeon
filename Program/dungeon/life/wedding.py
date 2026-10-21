@@ -1081,23 +1081,7 @@ def offer(packet, connection, companion: dict, now: datetime, group=None) -> Non
         packet.offer('big_days' if identity.startswith('wedding-guest:') else 'wedding', identity, text)
 
 
-# The feed, the scrapbook and the town paper ----------------------------------------------------------------------------
-
-def feed_posts(connection, companion: dict, days: list[date], timezone: str) -> list[dict]:
-    """Their post on the day they got engaged (a step reached in the chat, not one the user set)."""
-    from dungeon.life import social
-    found = steps.state(connection, companion, steps.now_for(days[-1], companion), write=False) if days else None
-    reached = engaged_step(found)
-    if not reached or reached['how'] not in ('them', 'you'):
-        return []
-    day = date.fromisoformat(reached['on'])
-    if day not in days:
-        return []
-    seed = f"engaged:{companion['active_timeline_id']}:{reached['on']}"
-    text = generators.pick(seed, 'line', bank()['engaged'])
-    return [social.own('status', f'wedding:{seed}', social.at(day, timezone, seed, 20, 23),
-                       {'text': text, 'tone': 'good'})]
-
+# The scrapbook and the town paper ----------------------------------------------------------------------------
 
 def scrapbook_page(connection, companion: dict, low: str, high: str) -> dict | None:
     """'Your wedding': where, when, who came, the order of the day and the photo, for a wedding in this stretch."""

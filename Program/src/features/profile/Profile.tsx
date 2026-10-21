@@ -13,9 +13,9 @@ import { PROFILE_TABS, circleText, handle, placeFact, profileClass, profileTab, 
 import { ROUGH_PATCH_KEY, UNDO_MS, roughPatchLine, type RoughPatch } from './roughPatchText'
 
 /**
- * The companion's profile: Messages, Posts and Character as tabs, then their card. It takes the chat
+ * The companion's profile: Messages, Memories and Character as tabs, then their card. It takes the chat
  * style's look. The tabs stay at the top on every tab and never scroll away. Messages keeps its own header,
- * so the card only shows on Posts and Character, scrolling with the page, with a Message button that goes
+ * so the card only shows on Character, scrolling with the page, with a Message button that goes
  * back to the chat the way a social app's profile does.
  */
 export function Profile({ companion, view, go, children }: { companion: Companion; view: View; go: (view: View) => void; children: ReactNode }) {

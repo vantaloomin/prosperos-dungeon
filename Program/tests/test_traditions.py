@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from conftest import reconcile
+from life_posts import posts
 
 from dungeon.database import decode
 from dungeon.life import body, composer, traditions
@@ -172,7 +173,7 @@ def test_tradition_lines_use_the_companions_own_pronouns_when_known():
         'Mira lost a favorite scarf somewhere around town and is retracing her steps.'
 
 
-def test_a_she_companions_tradition_reads_her_on_today_and_in_the_feed(client, monkeypatch, clock):
+def test_a_she_companions_tradition_reads_her_on_today_and_in_her_posts(client, monkeypatch, clock):
     monkeypatch.setattr(composer, 'QUIET_SHARE', 0)
     monkeypatch.setattr(composer, 'PLAN_SHARE', 0)
     monkeypatch.setattr(composer, 'THREAD_SHARE', 0)
@@ -190,7 +191,7 @@ def test_a_she_companions_tradition_reads_her_on_today_and_in_the_feed(client, m
         stored = [row[0] for row in connection.execute(
             "SELECT summary FROM life_events WHERE status='committed' AND summary LIKE '%Thanksgiving%'")]
     assert stored and all('their' in text or 'they' in text for text in stored)  # Stored as written.
-    shown = [event['summary'] for post in client.get('/api/feed').json()['posts'] for event in post['events']
+    shown = [event['summary'] for post in posts(client) for event in post['events']
              if 'Thanksgiving' in event['summary']]
     today = [event['summary'] for event in client.get('/api/today').json()['changes']
              if 'Thanksgiving' in event['summary']]

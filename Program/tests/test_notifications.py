@@ -4,14 +4,7 @@ from datetime import timedelta
 
 import pytest
 from conftest import send, set_life
-
-from dungeon.life import social
-
-
-@pytest.fixture(autouse=True)
-def life_posts_only(monkeypatch):
-    """These tests count life posts; the circle's posts are covered in tests/test_social_feed.py."""
-    monkeypatch.setattr(social, 'write', lambda *_args: 0)
+from life_posts import posts
 
 
 def configure(client, **values):
@@ -29,7 +22,7 @@ def check(client, focused=False):
 def background(app, client, clock, hours=20):
     clock.advance(timedelta(hours=hours))
     asyncio.run(app.state.life.reconcile('background'))
-    return client.get('/api/feed').json()['posts']
+    return posts(client)
 
 
 @pytest.fixture
@@ -107,7 +100,8 @@ def test_focused_app_waits_and_read_posts_are_dropped(app, client, active, clock
     configure(client, enabled=True, quiet_start='00:00', quiet_end='00:00')
     background(app, client, clock)
     assert check(client, focused=True)['held'] == 'focused'
-    client.post('/api/feed/read')
+    with client.app.state.database.connect(write=True) as connection:
+        connection.execute('UPDATE feed_posts SET read_at=?', (client.app.state.database.now(),))
     assert check(client) == {'notification': None, 'held': None}
     assert client.get('/api/notifications/settings').json()['queued'] == 0
 

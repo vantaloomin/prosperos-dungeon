@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { BookHeart, Check, Map as MapIcon, Network, Newspaper, Play, RotateCcw, X } from 'lucide-react'
+import { BookHeart, Check, Map as MapIcon, Network, Play, RotateCcw, X } from 'lucide-react'
 import { api } from '../../api'
 import { SETTINGS_KEY, type View } from '../../companion'
 import type { Companion, LifeEvent, PauseRecord, ScrapbookListing, Today as TodayData } from '../../types'
@@ -50,7 +50,6 @@ export function Today({ companion, go }: { companion: Companion; go: (view: View
   const decide = (event: LifeEvent, keep: boolean) => act(async () => {
     const result = await api<LifeEvent>(`/events/${event.id}/${keep ? 'commit' : 'reject'}`, {})
     if (keep && result.status === 'rejected') throw new Error(`That event could not be kept: ${result.rejection ?? 'it is out of date'}.`)
-    void client.invalidateQueries({ queryKey: ['feed'] })
   }, keep ? `Kept. It is now part of ${name}'s life.` : 'Discarded. It will not be mentioned.')
   const resume = () => act(async () => { client.setQueryData(SETTINGS_KEY, await api('/resume', {})) }, `Resumed. ${name}'s life picks up from now.`)
   const correct = async (event: LifeEvent, correction: EventCorrection) => {
@@ -58,7 +57,6 @@ export function Today({ companion, go }: { companion: Companion; go: (view: View
     await act(async () => {
       await api(`/events/${event.id}/correct`, correction)
       saved = true
-      void client.invalidateQueries({ queryKey: ['feed'] })
     }, 'Corrected. The earlier version is kept.')
     return saved
   }
@@ -77,7 +75,6 @@ export function Today({ companion, go }: { companion: Companion; go: (view: View
           {data.mind && <OnTheirMind thoughts={data.mind.thoughts} name={name} />}
         </div>
         <div className="today-actions">
-          {data.feed_unread > 0 && <button type="button" className="button" onClick={() => go('feed')}><Newspaper aria-hidden="true" />{data.feed_unread} new in Feed</button>}
           <button type="button" className="button" onClick={() => go('map')}><MapIcon aria-hidden="true" />Map</button>
           <button type="button" className="button" onClick={() => go('people')}><Network aria-hidden="true" />Who knows who</button>
         </div>

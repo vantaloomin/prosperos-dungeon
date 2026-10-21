@@ -40,7 +40,6 @@ const GroupChat = lazy(() => import('./features/groups/GroupChat').then((m) => (
 const Worlds = lazy(() => import('./features/worlds/Worlds').then((m) => ({ default: m.Worlds })))
 const WhoKnowsWho = lazy(() => import('./features/web/WhoKnowsWho').then((m) => ({ default: m.WhoKnowsWho })))
 const CityMap = lazy(() => import('./features/map/CityMap').then((m) => ({ default: m.CityMap })))
-const Feed = lazy(() => import('./features/feed/Feed').then((m) => ({ default: m.Feed })))
 const ChatsHome = lazy(() => import('./features/chats/ChatsHome').then((m) => ({ default: m.ChatsHome })))
 
 // Views outside the side rail: the phone's Chats list, worlds, and the map and Who knows who opened from Today.
@@ -166,7 +165,6 @@ function CompanionView({ view, companion, go }: { view: View; companion: Compani
   if (view === 'appearance') return <Appearance companion={companion} go={go} />
   if (view === 'portraits') return <Portraits companion={companion} go={go} />
   if (view === 'today') return <Today companion={companion} go={go} />
-  if (view === 'feed') return <Feed companion={companion} go={go} />
   if (fromToday(view)) return view === 'people' ? <WhoKnowsWho go={go} /> : <CityMap companion={companion} place={view.startsWith('map/') ? decodeURIComponent(view.slice(4)) : null} go={go} />
   if (profileTab(view) === 'memories') return <MemoriesView view={view} companion={companion} go={go} />
   return <Conversation companion={companion} go={go} />

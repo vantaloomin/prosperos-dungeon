@@ -23,7 +23,7 @@ export function StartOver({ name, go }: { name: string; go: (view: View) => void
     <section className="settings-section form-stack" aria-labelledby="start-over-heading">
       <div>
         <h2 id="start-over-heading">Start over or delete</h2>
-        <p className="subtle">Starting over keeps {name} as you wrote them, with their look, and clears everything that happened: chats, memories, their life, the feed, their circle and every timeline. Deleting removes {name} completely, so you can create someone new. Either way a full backup is saved first, and your settings and model connections stay.</p>
+        <p className="subtle">Starting over keeps {name} as you wrote them, with their look, and clears everything that happened: chats, memories, their life, their pictures, their circle and every timeline. Deleting removes {name} completely, so you can create someone new. Either way a full backup is saved first, and your settings and model connections stay.</p>
       </div>
       <div className="form-actions">
         <button type="button" className="button" onClick={() => setMode('reset')}><RotateCcw aria-hidden="true" />Start over…</button>
