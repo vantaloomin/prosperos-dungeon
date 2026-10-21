@@ -14,11 +14,12 @@ unneeded features removed.
 - **Fully remove the code Dungeon doesn't use before building** (Vanta, 2026-10-21: better that
   something breaks early than late). That covers the leftover unreachable code from the removals
   (big-day invitations, babysitting asks, knocks, companion-started calls, the Guests slider) and
-  the companion-relationship screens and routes the game won't use (companion chat, phone, steps
-  ladder and similar). It also drops the old database columns kept only for Companion
+  the companion-relationship screens and routes the game won't use (companion chat, phone and
+  similar). It also drops the old database columns kept only for Companion
   workspaces, since Dungeon has no existing saves to migrate. Keep what the slice reuses: Story
   mode, timelines and lineage, world data and townsfolk, the life engine and Life deck, memory,
-  model providers, the Study importer, LoRA training and voice. Every removal lands with the full
+  model providers, the Study importer, LoRA training, voice notes, and the steps ladder with rough
+  patches (all kept in the earlier removal list). Every removal lands with the full
   test suite and CI green.
 
 ## Milestone 1: Playable slice
