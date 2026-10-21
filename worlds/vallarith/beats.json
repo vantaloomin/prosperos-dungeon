@@ -7,7 +7,7 @@
       "name": "The Heartwood",
       "era": "post-reform",
       "tier": "local",
-      "summary": "The Milestone 1 slice quest: the Timber Guild's crews cross the treaty stones to fell the Heartwood on a deadline, and the wardens threaten to burn Cutters' Camp.",
+      "summary": "The Milestone 1 slice quest: the Timber Guild's crews cross the treaty stones to fell the Heartwood on a deadline, and the wardens threaten to burn Cutters' Camp. Underneath it lies an arm of Asmodeus (hidden truth under-the-heartwood); this is the first rung of the Eight Pieces.",
       "origin": "m1-slice",
       "authoritative": "Program/dungeon/world/data/cities/kingswood.json"
     },
@@ -61,7 +61,7 @@
       "tier": "world",
       "summary": "Hell's surface cults hunt for the buried pieces of Asmodeus. The campaign's world-tier spine, if the player climbs that far.",
       "beats": [
-        "A Mammon cult buys deep-mining rights through a front company.",
+        "Under the Heartwood at Kingswood: an arm, held down by the roots, and a Timber Guild buyer who is a Mammon cult front (see the-heartwood).",
         "A Hellfire cult preaches openly in an engineered city when the wards fail.",
         "A piece surfaces: an arm, in a Ley mine.",
         "Naamah's eyes and Mephistopheles's cult race each other for it.",

@@ -186,15 +186,24 @@
     },
     {
       "id": "under-the-heartwood",
-      "truth": "Whatever lies under the Heartwood's convergence, as the Milestone 1 slice defines it.",
+      "truth": "One of the eight pieces of Asmodeus, an arm, lies buried under the Heartwood's Ley convergence. The grove's roots grew around it and hold it down. The Cyrel Timber Guild's buyer for the cutting rights is secretly a front for a Mammon cult. Felling the Heartwood loosens the arm and draws Hell's attention.",
       "known_by": [
-        "ilse-rook"
+        "ilse-rook",
+        "the Brynwyr wardens (that something must stay buried, not what)",
+        "the Mammon cult behind the Guild's buyer"
       ],
       "eras": [
         "post-reform"
       ],
-      "origin": "m1-slice",
-      "authoritative": "Program/dungeon/world/data/cities/kingswood.json"
+      "origin": "source",
+      "authoritative": "Program/dungeon/world/data/cities/kingswood.json",
+      "believed": "The Heartwood is a sacred elven grove on a Ley convergence.",
+      "surfaces": [
+        "roots that bleed when cut",
+        "a contract for the cutting rights signed in old infernal ink",
+        "the wardens' threats"
+      ],
+      "stakes": "The Kingswood quest is the first rung of the Eight Pieces arc."
     },
     {
       "id": "unguruk-and-the-devil",
