@@ -19,8 +19,8 @@
 - **Why the Eternals can't breed** is tied to Ghondiir's death, well before the Brotherhood.
 - **The "pair of women" behind the fey courts** is dropped.
 - **Draft content stays and gets filled in.**
-- **Under the Heartwood** lies an arm of Asmodeus, held down by the roots; the Timber Guild's buyer
-  is a Mammon cult front.
+- **Under the Heartwood** lies an arm of Asmodeus, held down by the roots; the Timber Guild's buyer,
+  Gannet & Pryce, is a Mammon cult front.
 - **The Source Font** is in a pocket realm the Arbiter made after the Reformation, with a
   deliberate leak that keeps the world's Ley flowing. This draft puts the leak above Loch Torogh.
 

@@ -442,6 +442,22 @@
           "name": "The Felled Oak",
           "note": "Tavern kept by Corin Ashby, fence and informer.",
           "npc": "corin-ashby"
+        },
+        {
+          "name": "The Sawpit",
+          "note": "Mill Row alehouse."
+        },
+        {
+          "name": "Dunmore's kitchen",
+          "note": "Reeve Hill cookshop."
+        },
+        {
+          "name": "The tally hut",
+          "note": "On the Cutting Line, where the Guild counts every log."
+        },
+        {
+          "name": "The paupers' field",
+          "note": "The Low Ford burial ground."
         }
       ],
       "customs": [
@@ -459,7 +475,7 @@
         "bram-tolley"
       ],
       "hooks": [
-        "The Timber Guild's crews are crossing the stones to fell the Heartwood on a deadline; the wardens have threatened to burn Cutters' Camp."
+        "The Heartwood contract: the Timber Guild's crews have 7 days of story time to fell the Heartwood; miss it and the wardens burn Cutters' Camp."
       ],
       "map": {
         "x": 0.33,

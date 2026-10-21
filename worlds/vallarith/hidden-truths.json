@@ -186,11 +186,11 @@
     },
     {
       "id": "under-the-heartwood",
-      "truth": "One of the eight pieces of Asmodeus, an arm, lies buried under the Heartwood's Ley convergence. The grove's roots grew around it and hold it down. The Cyrel Timber Guild's buyer for the cutting rights is secretly a front for a Mammon cult. Felling the Heartwood loosens the arm and draws Hell's attention.",
+      "truth": "One of the eight pieces of Asmodeus, an arm, lies buried under the Heartwood's Ley convergence. The grove's roots grew around it and hold it down. Gannet & Pryce, the Cyrel timber house buying the cutting rights through the Guild, is a front for a Mammon cult. Felling the Heartwood loosens the arm and draws Hell's attention.",
       "known_by": [
         "ilse-rook",
         "the Brynwyr wardens (that something must stay buried, not what)",
-        "the Mammon cult behind the Guild's buyer"
+        "Gannet & Pryce (a Mammon cult front)"
       ],
       "eras": [
         "post-reform"
