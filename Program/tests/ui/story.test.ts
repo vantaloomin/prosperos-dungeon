@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { aroundText, branchLine, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats } from '../../src/features/story/storyText.ts'
+import { aroundText, branchLine, fightText, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -84,4 +84,15 @@ test('money, gear and slots read plainly', () => {
   assert.equal(gearLine({ name: 'Belt knife', qty: 1 }), 'Belt knife')
   assert.equal(slotsText({ used: 3.35, max: 13 }), '3.35 of 13 slots')
   assert.equal(slotsText({ used: 2.5, max: 10 }), '2.5 of 10 slots')
+})
+
+test('fightText says how the character is and who they are fighting', () => {
+  assert.equal(fightText({ condition: 'unhurt', dead: false, fight: null }), '')
+  assert.equal(fightText({ condition: 'hurt', dead: false, fight: null }), 'You are hurt.')
+  assert.equal(fightText({ condition: 'grazed', dead: false, fight: { round: 1, foes: [
+    { name: 'the bandit', state: 'hurt', wound: null }, { name: 'the lookout', state: 'broken', wound: null }] } }),
+  'You are grazed. Fighting: the bandit (hurt), the lookout (broken).')
+  assert.equal(fightText({ condition: 'unhurt', dead: false, fight: { round: 1, foes: [{ name: 'the boar', state: 'hurt', wound: 2 }] } }),
+    'Fighting: the boar (hurt, wound 2 of 5).')
+  assert.match(fightText({ condition: 'dying', dead: true, fight: null }), /dead/)
 })

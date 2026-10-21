@@ -231,7 +231,12 @@ export interface JournalQuest { id: string; title: string; hook: string; status:
 export interface Journal { entries: JournalEntry[]; quests: JournalQuest[] }
 /** One way the story went (dungeon/timeline.py); `playing` is the one on screen. */
 export interface StoryBranch { id: string; playing: boolean; turns: number; last_line: string; last_at: string; started_at: string }
-export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; branches: StoryBranch[] }
+/** The fight and the character's wounds (dungeon/combat.py); a foe's `wound` level only with the dice shown. */
+export interface StoryFight {
+  condition: string; dead: boolean
+  fight: { round: number; foes: { name: string; state: string; wound: number | null }[] } | null
+}
+export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; branches: StoryBranch[]; fight: StoryFight }
 /** The story after going back, with the line that was taken back to send again. */
 export interface StoryBack extends Story { draft: string }
 

@@ -138,6 +138,18 @@ def danger_action(city_id: str, place_id: str, rng: random.Random | None = None)
     found = danger(city_id, place_id)
     if found is None:
         return None
+    threat = (rng or random.SystemRandom()).choice(found['threats'])
     return {'action': found['action'], 'stat': DANGER_STAT, 'difficulty': found['difficulty'],
-            'threat': (rng or random.SystemRandom()).choice(found['threats'])}
+            'threat': threat_text(threat)}
+
+
+def threat_text(threat: str | dict) -> str:
+    return threat if isinstance(threat, str) else threat['text']
+
+
+def foe_for(city_id: str, place_id: str, text: str) -> dict | None:
+    """The foe a threat brings into a fight (dungeon/combat.py), if it brings one."""
+    found = danger(city_id, place_id)
+    return next((threat['foe'] for threat in (found or {}).get('threats', [])
+                 if isinstance(threat, dict) and threat['text'] == text), None)
 

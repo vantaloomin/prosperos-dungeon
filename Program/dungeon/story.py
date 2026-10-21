@@ -11,6 +11,7 @@ from datetime import datetime
 
 from dungeon import (
     authors_note,
+    combat,
     feelings,
     in_character,
     inventory,
@@ -331,7 +332,8 @@ def story(database) -> dict:
         view = scene(connection, story_clock.now(connection, database.clock))
         return {'scene': scene_view(view), 'messages': with_rolls(connection, messages(connection)),
                 'people': people(connection, view), 'ready': config_for(connection, JOB) is not None,
-                'dice_shown': dice_shown(connection), 'branches': timeline.branches(connection)}
+                'dice_shown': dice_shown(connection), 'branches': timeline.branches(connection),
+                'fight': combat.view(connection, dice_shown(connection))}
 
 
 def back(database, message_id: str) -> dict:
@@ -389,6 +391,7 @@ def move(database, city_id: str, place_id: str | None) -> dict:
         data = city_data(connection, city_id)
         place = catalog.find(data, place_id) if place_id else opening_place(data)
         require(place is not None and place in data['places'], 'No such place in this city.', 404)
+        require(combat.fight(connection) is None, "You're in a fight. Get away first.", 409)
         moving_from = scene_row(connection)['city_id']
         if scene_row(connection) != {'city_id': data['id'], 'place_id': place['id']}:
             connection.execute(
@@ -404,6 +407,7 @@ def move(database, city_id: str, place_id: str | None) -> dict:
 def pass_time(database, connection, minutes: int):
     """The story clock moves on, and any deadline it passes lands (dungeon/quests.py)."""
     story_clock.advance(connection, minutes)
+    combat.heal(connection, minutes)
     quests.check(connection, story_clock.now(connection, database.clock), database.now())
 
 
@@ -422,7 +426,8 @@ def clear(database) -> dict:
         connection.execute('DELETE FROM story_messages')
         connection.execute('DELETE FROM story_people')
         for table in ('ledger_entries', 'ledger_corrections', 'story_summary', 'story_clock', 'story_quests',
-                      'story_inventory', 'story_purse', 'story_stock', 'story_trades'):
+                      'story_inventory', 'story_purse', 'story_stock', 'story_trades', 'story_wounds', 'story_fight',
+                      'story_rounds'):
             connection.execute(f'DELETE FROM {table}')
         timeline.clear(connection)
     return story(database)
@@ -455,12 +460,15 @@ def steered(chat: list[dict], steer: str) -> list[dict]:
     return [*chat[:-1], {'role': 'user', 'content': f"{steer}\n{NOTE_CLOSE}\n{chat[-1]['content']}"}]
 
 
-def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list[dict] | None = None) -> dict:
+def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list[dict] | None = None,
+           fought: list[str] | None = None) -> dict:
     view = scene(connection, now)
     craft = narration_prompt.craft_for(config.get('context_tokens'), prompt_library.text(connection, 'narrator-craft'))
     who_text, name = persona_text(connection)
-    if carrying := inventory.prompt_text(connection, view['city']['id'], view['data']['currency']):
-        who_text = f'{who_text}\n{carrying}' if who_text else carrying
+    for extra in (combat.condition_text(connection),
+                  inventory.prompt_text(connection, view['city']['id'], view['data']['currency'])):
+        if extra:
+            who_text = f'{who_text}\n{extra}' if who_text else extra
     shop = shop_view(connection, view)
     memory = '\n\n'.join(part for part in (ledger.summary_text(connection), ledger.prompt_text(connection),
                                              quests.prompt_text(connection, now)) if part)
@@ -468,6 +476,8 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
     system = narration_prompt.system(prompt_library.text(connection, 'story-narrator'), craft, scene=place_text,
                                      persona=who_text, persona_name=name, memory=memory, narration=NARRATION,
                                      outcomes=outcomes, rolls_shown=dice_shown(connection))
+    if fight_text := combat.prompt_text(fought or [], connection):
+        system += '\n\n' + fight_text
     if in_character.out_of_character(latest['text']):
         system += '\n\n' + in_character.OUT_OF_CHARACTER_NOTE.format(name='the narrator', model=default_name(config))
     budget = (config['context_tokens'] - config['max_output_tokens']) * CHARS_PER_TOKEN - len(system)
@@ -500,6 +510,18 @@ async def complete(state, config: dict, system: str, messages: list[dict]) -> st
             config, key_for(state.vault, config), system, messages)])
 
 
+def fight_round(state, user: dict, rolls: list[dict]) -> list[str]:
+    """The fight's part of the turn (dungeon/combat.py): a fight the player starts or a danger brings, one round."""
+    database = state.database
+    with database.connect(write=True) as connection:
+        view = scene(connection, story_clock.now(connection, database.clock))
+        bitten = next((roll for roll in rolls if roll.get('threat') and roll['band'] in quests.BITES), None)
+        foe = quests.foe_for(user['city_id'], user['place_id'], bitten['threat']) if bitten else None
+        return combat.turn(connection, user['id'], view['people'], rolls, foe,
+                           inventory.carried(connection, view['city']['id']), getattr(state, 'dice', None),
+                           database.now())
+
+
 async def answer(state, user: dict) -> dict:
     """The narrator's reply to the user's message, saved complete or failed with the reason."""
     database = state.database
@@ -514,11 +536,13 @@ async def answer(state, user: dict) -> dict:
         if hazard := quests.danger_action(user['city_id'], user['place_id'], getattr(state, 'dice', None)):
             actions = [*actions, hazard]
         with database.connect(write=True) as connection:
-            actions = feelings.adjust(connection, actions)
+            actions = combat.adjust(connection, feelings.adjust(connection, actions))
             rolls = turn.saved(connection, user['id']) or turn.store(connection, user['id'], actions, database.now(),
                                                                        getattr(state, 'dice', None))
+    fought = fight_round(state, user, rolls) if in_story else []
     with database.connect() as connection:
-        packet = prompt(connection, story_clock.now(connection, database.clock), config, user, turn.outcomes(rolls) if in_story else None)
+        packet = prompt(connection, story_clock.now(connection, database.clock), config, user,
+                        turn.outcomes(rolls) if in_story else None, fought)
     try:
         text, error = await narrate(state, packet, config, in_story)
     except DomainError as failure:
@@ -555,6 +579,8 @@ def record(database, text: str, client_id: str) -> tuple[dict, dict | None]:
     with database.connect(write=True) as connection:
         user = optional(connection, 'SELECT * FROM story_messages WHERE client_id=?', (client_id,))
         if user is None:
+            require(not combat.condition(connection)['dead'],
+                    'Your character is dead. Go back to an earlier line to play on.', 409)
             user = add(connection, database.now(), 'user', text, scene_row(connection), client_id=client_id)
             timeline.save(connection, user['id'])
             # The time the line takes passes as it is sent: the narrator writes the scene after it.

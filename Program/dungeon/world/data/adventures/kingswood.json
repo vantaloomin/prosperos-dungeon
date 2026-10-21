@@ -48,8 +48,28 @@
       "difficulty": "hard",
       "threats": [
         "The ground hums, and for a moment they cannot remember which way the stones are.",
-        "Wardens close in among the trees, unseen, bows drawn.",
-        "A boar the size of a cart, ley-fat and mad, comes out of the undergrowth.",
+        {
+          "text": "Wardens close in among the trees, unseen, bows drawn.",
+          "foe": {
+            "name": "warden of Brynwyr",
+            "count": 2,
+            "vitality": 12,
+            "resolve": 12,
+            "weapon": 1,
+            "wants": "capture"
+          }
+        },
+        {
+          "text": "A boar the size of a cart, ley-fat and mad, comes out of the undergrowth.",
+          "foe": {
+            "name": "ley-mad boar",
+            "count": 1,
+            "vitality": 16,
+            "resolve": 16,
+            "weapon": 1,
+            "wants": "kill"
+          }
+        },
         "The trail they came by is gone; the trees stand where it was.",
         "A cut on the hand will not stop bleeding, and the blood smells of sap."
       ]

@@ -1,4 +1,4 @@
-import type { Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart } from '../../types'
+import type { Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -139,4 +139,12 @@ export function gearLine(item: { name: string; qty: number }): string {
 export function slotsText(slots: Gear['slots']): string {
   const round = (value: number) => Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0$/, '')
   return `${round(slots.used)} of ${round(slots.max)} slots`
+}
+
+/** "You are hurt. Fighting: the bandit (hurt), the lookout (broken)." or '' when unhurt and not fighting. */
+export function fightText(fight: StoryFight): string {
+  if (fight.dead) return 'Your character is dead. Go back to an earlier line to play on.'
+  const condition = fight.condition === 'unhurt' ? '' : `You are ${fight.condition}.`
+  const foes = fight.fight?.foes.map((foe) => `${foe.name} (${foe.state}${foe.wound === null ? '' : `, wound ${foe.wound} of 5`})`).join(', ')
+  return [condition, foes ? `Fighting: ${foes}.` : ''].filter(Boolean).join(' ')
 }
