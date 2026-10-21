@@ -39,3 +39,22 @@ def test_a_cli_without_app_server_falls_back_to_common_models(tmp_path, monkeypa
     models, reported = asyncio.run(codex.codex_models('codex'))
     assert not reported
     assert [model['id'] for model in models] == list(codex.FALLBACK_MODELS)
+
+
+def test_a_reply_carries_only_dungeons_instructions():
+    arguments = codex.codex_arguments('codex', {'model': 'gpt-5.5', 'reasoning_effort': 'low'}, '/tmp/work',
+                                      '/tmp/instructions.md')
+    settings = [arguments[index + 1] for index, value in enumerate(arguments) if value == '-c']
+    assert 'model_instructions_file="/tmp/instructions.md"' in settings
+    assert {'project_doc_max_bytes=0', 'include_environment_context=false', 'skills.include_instructions=false',
+            'mcp_servers={}', 'web_search="disabled"', 'features.shell_tool=false', 'features.apps=false',
+            'model_reasoning_effort="low"'} <= set(settings)
+    # `--disable name` stops an older or newer CLI at a name it does not know; `-c features.name=false` does not.
+    assert '--disable' not in arguments and '--enable' not in arguments
+    assert {'--ignore-user-config', '--ignore-rules', '--ephemeral'} <= set(arguments)
+    assert arguments[arguments.index('--sandbox') + 1] == 'read-only' and arguments[-1] == '-'
+
+
+def test_a_windows_instructions_path_stays_one_toml_string():
+    arguments = codex.codex_arguments('codex', {'model': 'gpt-5.5'}, 'C:\\work', 'C:\\Temp\\in.md')
+    assert 'model_instructions_file="C:\\\\Temp\\\\in.md"' in arguments

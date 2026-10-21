@@ -5,11 +5,19 @@ same way the Codex provider runs `codex exec`. It never reads, copies, stores, l
 (no credential files, tokens or sign-in flow of its own): the CLI handles all of that. If the CLI is not
 signed in, Test connection says to run `claude` once in a terminal.
 
-Each reply is one `claude -p` turn in an empty temporary folder: the system prompt from a file in that
-folder, the conversation as one transcript on stdin, every tool off, no MCP servers, no skills or slash
-commands, nothing saved as a session. `--bare` is never passed, because bare mode ignores the plan login.
+Each reply is one `claude -p` turn in an empty temporary folder, carrying only what Dungeon asked for: the
+system prompt from a file in that folder replaces Claude Code's own (`--system-prompt-file`), and the
+conversation is one transcript on stdin. Everything else the harness would add is switched off: every
+built-in tool, MCP servers (an explicitly empty config, strictly), skills and slash commands, the user's
+and project's settings files (so their hooks, plugins and permissions stay out), CLAUDE.md files, auto
+memory, git instructions and @-file attachments, and the session is not saved. `--safe-mode` and
+`--permission-prompts none` are added when the installed CLI lists them, since older versions reject flags
+they do not know. `--bare` is never passed, because bare mode ignores the plan login. What remains is
+outside any flag: a one-line Claude Code identity in the system prompt and a short environment note
+(working folder, platform, model, date), both checked against Claude Code 2.1.306 by capturing its request.
 ANTHROPIC_API_KEY is left out of the CLI's environment so a key set for the Anthropic provider never
-silently takes the place of the plan.
+silently takes the place of the plan, and so are the variables a parent Claude Code session sets for
+itself, so Dungeon started from a Claude Code terminal does not hand that session's context on.
 
 Claude follows Anthropic's usage policy, so this profile suits the non-explicit jobs only.
 """
@@ -34,7 +42,16 @@ LOGIN_STEP = 'Claude Code is not signed in. Run claude once in a terminal on thi
 # Words the CLI uses when its login is missing or expired.
 AUTH_SIGNS = ('/login', 'not logged in', 'authenticat', 'oauth', 'invalid api key')
 # Kept out of the CLI's environment so it uses the plan login, not an API key.
-DROPPED_ENV = ('ANTHROPIC_API_KEY',)
+DROPPED_ENV = ('ANTHROPIC_API_KEY', 'CLAUDECODE')
+# A parent Claude Code session's own CLAUDE_CODE_* variables are dropped too, apart from these, which a user
+# sets to choose how the CLI signs in or where it finds Git Bash on Windows.
+KEPT_PREFIXES = ('CLAUDE_CODE_USE_', 'CLAUDE_CODE_SKIP_', 'CLAUDE_CODE_CLIENT_')
+KEPT_ENV = ('CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_CODE_GIT_BASH_PATH', 'CLAUDE_CODE_API_KEY_HELPER_TTL_MS')
+# Context the CLI adds on its own, switched off for every reply (code.claude.com/docs/en/env-vars).
+QUIET_ENV = {'CLAUDE_CODE_DISABLE_CLAUDE_MDS': '1', 'CLAUDE_CODE_DISABLE_AUTO_MEMORY': '1',
+             'CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS': '1', 'CLAUDE_CODE_DISABLE_ATTACHMENTS': '1'}
+# Newer flags, passed only when `claude --help` lists them: an older CLI stops at a flag it does not know.
+OPTIONAL_FLAGS = (('--safe-mode',), ('--permission-prompts', 'none'))
 
 
 def executable_path(config: dict) -> str:
@@ -49,14 +66,48 @@ def executable_path(config: dict) -> str:
     return executable
 
 
+def inherited(name: str) -> bool:
+    if name in DROPPED_ENV:
+        return False
+    if name.startswith('CLAUDE_CODE_'):
+        return name in KEPT_ENV or name.startswith(KEPT_PREFIXES)
+    return True
+
+
 def cli_environment() -> dict:
-    return {name: value for name, value in os.environ.items() if name not in DROPPED_ENV}
+    return {**{name: value for name, value in os.environ.items() if inherited(name)}, **QUIET_ENV}
 
 
-def claude_arguments(executable: str, config: dict, system_file: str) -> list[str]:
+_help_texts: dict[tuple, str] = {}
+
+
+async def help_text(executable: str) -> str:
+    """`claude --help`, read once per installed CLI (its path and modification time) to see which flags it has."""
+    try:
+        key = (executable, Path(executable).stat().st_mtime)
+    except OSError:
+        key = (executable, None)
+    if key not in _help_texts:
+        process = await asyncio.create_subprocess_exec(executable, '--help', stdout=asyncio.subprocess.PIPE,
+                                                       stderr=asyncio.subprocess.DEVNULL, env=cli_environment())
+        try:
+            output, _ = await asyncio.wait_for(process.communicate(), 20)
+        except TimeoutError:
+            process.kill()
+            await process.wait()
+            output = b''
+        _help_texts[key] = output.decode('utf-8', 'replace')
+    return _help_texts[key]
+
+
+def claude_arguments(executable: str, config: dict, system_file: str, help_listing: str = '') -> list[str]:
     arguments = [executable, '-p', '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
                  '--model', config['model'], '--system-prompt-file', system_file, '--tools', '',
-                 '--strict-mcp-config', '--disable-slash-commands', '--no-session-persistence']
+                 '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--setting-sources', '',
+                 '--disable-slash-commands', '--no-session-persistence', '--max-turns', '1']
+    for flag in OPTIONAL_FLAGS:
+        if flag[0] in help_listing:
+            arguments.extend(flag)
     if config.get('reasoning_effort'):
         arguments.extend(['--effort', config['reasoning_effort']])
     return arguments
@@ -132,11 +183,12 @@ async def login_state(executable: str) -> dict:
 class ClaudeCodeProvider:
     async def stream(self, config: dict, _key: str | None, system: str, messages: list[dict]):
         executable = executable_path(config)
-        with tempfile.TemporaryDirectory(prefix='companion-claude-') as directory:
+        listing = await help_text(executable)
+        with tempfile.TemporaryDirectory(prefix='dungeon-claude-') as directory:
             system_file = Path(directory) / 'system.txt'
             system_file.write_text(system, encoding='utf-8')
             process = await asyncio.create_subprocess_exec(
-                *claude_arguments(executable, config, str(system_file)), stdin=asyncio.subprocess.PIPE,
+                *claude_arguments(executable, config, str(system_file), listing), stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL, cwd=directory,
                 env=cli_environment(), limit=2_000_000)
             try:
