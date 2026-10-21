@@ -213,6 +213,28 @@ Decided 2026-10-21. Code tracks every wound, treatment and condition; the narrat
   such as nightmares, a phobia, numbness or a compulsion. Conditions can ease with rest, support
   and time, and the narrator plays them consistently across the campaign.
 
+## Time and travel
+
+Decided 2026-10-21.
+
+- **World clock: story time, with a per-world option.** In-game time advances with what the player
+  does (a conversation takes minutes, a journey days), and the life sim, shops, NPC schedules and
+  deadlines all run on that clock. A world can opt into Companion-style real-time living instead,
+  so it keeps moving while the app is closed (a natural fit for Havenbrooke).
+- **Journeys: map crawl.** Each world has a travel map: a node graph of places joined by routes
+  (with distance, terrain and danger), plus optional hex regions for open wilderness. A map
+  widget shows it with fog of war, so unexplored places stay hidden until found. Every step costs
+  in-game time and supplies (or Ironsworn Supply) and rolls weather and events. Vallarith's maps
+  are the first candidates to digitize.
+- **Road encounters: region danger plus Life Cards.** Each region has a danger level and its own
+  encounter tables: monsters, bandits, patrols, travellers, merchants, strange sights. Life Cards
+  and world events shift them (a war brings patrols and deserters, a plague empties the roads).
+  Fights that follow use the Combat rules, including rolled ambushes.
+- **Resting is risky and the world moves.** Resting outside a safe place can be interrupted by a
+  roll weighted by region danger and precautions taken (watches, hidden camp, wards). While the
+  player rests, time passes: NPCs act, deadlines tick, rumors spread, shops restock, and wounds
+  and stress recover under the Injuries rules.
+
 ## World packages (proposed)
 
 The three bases arrive in three shapes: Mabry (canon / hidden / continuity markdown plus dice
