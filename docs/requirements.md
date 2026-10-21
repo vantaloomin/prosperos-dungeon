@@ -253,6 +253,18 @@ Decided 2026-10-21. Code owns every item; the narrator can't add, remove or inve
   built by code from who they were (a bandit's few coins, knife and stolen ring; a noble's signet
   and purse). Lairs, vaults and bosses use the ruleset's own treasure tables (5e SRD treasure,
   Ironsworn rewards), adapted to the world's currency.
+- **Appearance state (Vanta).** Code tracks how each character looks right now, and the narrator
+  describes it consistently:
+  - **Cleanliness:** clean, worn, grimy, filthy, plus specific marks (blood, mud, sweat, other
+    fluids, scent). Travel, fights, weather, work and sex raise it; washing, baths and laundry
+    clear it. Baths and laundry are priced services.
+  - **Clothing condition:** intact, rumpled, torn, ruined, per garment. Bad rolls, fights and
+    deliberate tearing damage clothes; tailors repair them.
+  - **State of dress:** per clothing layer (outer, under, accessories): worn, loosened, partly
+    off, removed, and where a removed item ended up.
+  - All of it is visible gear, so NPCs react to it. Companion's grooming data
+    (`world/data/grooming.json`) is the starting point for modern worlds. A world can switch the
+    detail level down (Vallarith might only track cleanliness and condition).
 
 ## World packages (proposed)
 
