@@ -150,6 +150,40 @@ seeded `price()` picker. Dungeon extends this rather than starting over.
 - **Ironsworn (decided):** keeps its abstract Supply track and buys with moves; the world's
   currency is color only.
 
+## Combat
+
+Decided 2026-10-21. Code runs the fight; the narrator writes it. Whatever the ruleset, every
+attack, save and morale check is rolled by code and mapped onto the shared outcome ladder.
+
+- **Positioning: zones, grid optional.** Every ruleset tracks range bands (engaged, near, far) and
+  named areas ("the bar", "the stairs") in code. An optional grid battle-map widget is available
+  for 5e fights.
+- **Pacing: one post is one round,** with a plan option. The player declares an action; code
+  resolves every combatant in initiative order and the narrator writes the whole round. A "fight
+  on my plan" option takes an intent ("hold the door, protect Kenzie") and auto-resolves rounds
+  until a turning point: someone falls, morale breaks, a new threat arrives, or the plan stops
+  making sense.
+- **Who decides enemy actions.** Code lists the legal actions each round. Ordinary enemies use
+  rule-based tactics per creature type; named enemies and autonomous allies have the Referee model
+  pick using their personality and goals. Code checks legality either way.
+- **Morale.** Code tracks morale per side. Losses, a fallen leader, fear and being outmatched
+  trigger morale rolls; a broken side flees, surrenders or begs. That leaves the player choices
+  like sparing, ransoming, interrogating or executing.
+- **Surprise and ambushes are rolled.** Before a fight, code rolls stealth against awareness for
+  both sides, including ambushes on the player while travelling or asleep. The surprised side
+  loses its first round or acts last.
+- **Damage per ruleset.** 5e keeps HP; Ironsworn keeps Health and harm. **MARVEL uses wound
+  levels:** a hit lands as Grazed, Hurt, Wounded, Maimed or Dying, set by the roll band and the
+  weapon, and each level carries penalties until treated.
+- **Enemy status visibility follows the roll toggle.** With rolls exposed, the combat widget shows
+  exact HP, wounds and conditions; with rolls hidden, only descriptive states ("bloodied",
+  "staggering", "won't last").
+- **Losing a fight: the defeat table.** The ruleset's own rules apply first (5e death saves,
+  Ironsworn's Face Death, MARVEL's Dying level). If those are lost, code rolls the outcome,
+  weighted by what the winners want: death, capture, robbed and left for dead, or rescued.
+  Slavers capture, bandits rob, beasts kill. Death stays possible, and the player can always
+  branch back.
+
 ## World packages (proposed)
 
 The three bases arrive in three shapes: Mabry (canon / hidden / continuity markdown plus dice
