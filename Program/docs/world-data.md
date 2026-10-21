@@ -47,7 +47,9 @@ city that keeps work by gender, townsfolk, circles and a companion's job changes
 (they/them people get any): `work_by_gender` turns it on or off, and left out the era decides (on for `victorian`,
 `medieval`, `steampunk` and `frontier`, off otherwise; Ellerbrück turns it on, Grandport and Oz leave it off).
 Each city also names its `currency` and `rent_period` (`month` or `week`); rents and climate
-are optional, so a setting without money (Oz) or without weather data still works.
+are optional, so a setting without money (Oz) or without weather data still works. A city may set its world's
+default `intensity`: a `preset` (`restrained`, `mature` or `unflinching`) and the narrator's `voice` there (Kingswood:
+unflinching and grim); left out, stories there are unflinching with no voice.
 
 ## Where the data lives
 

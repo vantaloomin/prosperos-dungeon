@@ -18,6 +18,7 @@ import { StoryStart } from './StoryStart'
 import { StoryBranches } from './StoryBranches'
 import { StoryJournal } from './StoryJournal'
 import { StoryGear } from './StoryGear'
+import { StoryIntensity } from './StoryIntensity'
 
 const STORY_KEY = ['story']
 /** Matches the stylesheet's breakpoint for the side panel. */
@@ -85,9 +86,9 @@ function StoryPanel({ story, change }: { story: StoryData; change: (request: () 
   const refresh = () => client.invalidateQueries({ queryKey: STORY_KEY })
   // Beside the story there is room to show the sheet, pack and journal open; above it they start folded.
   const [wide] = useState(() => window.matchMedia?.(WIDE).matches ?? false)
-  if (!story.messages.length && !story.people.length && story.branches.length < 2) return null
   return (
     <aside className="story-panel" aria-label="Your character and what you know">
+      <StoryIntensity intensity={story.intensity} onSaved={() => void refresh()} />
       {!!story.messages.length && <><StorySheet open={wide} /><StoryGear open={wide} onTrade={() => void refresh()} /><StoryJournal open={wide} /></>}
       <StoryPeople people={story.people} onFind={(key) => void change(() => api<StoryData>('/story/find', { key }))} />
       <StoryBranches branches={story.branches}

@@ -121,7 +121,9 @@ SINGLETONS = ('workspace_settings', 'builtin_recall')
 ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"), ('story_rolls', 'threat', 'TEXT'),
                  *(('story_people', axis, 'INTEGER NOT NULL DEFAULT 0')
                    for axis in ('trust', 'affection', 'respect', 'fear', 'desire')),
-                 ('story_people', 'impressions', "TEXT NOT NULL DEFAULT '[]'"))
+                 ('story_people', 'impressions', "TEXT NOT NULL DEFAULT '[]'"),
+                 ('workspace_settings', 'intensity', "TEXT NOT NULL DEFAULT 'world' CHECK (intensity IN "
+                                                     "('world', 'restrained', 'mature', 'unflinching'))"))
 
 
 def add_columns(connection):

@@ -1,4 +1,4 @@
-import type { Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight } from '../../types'
+import type { Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -147,4 +147,14 @@ export function fightText(fight: StoryFight): string {
   const condition = fight.condition === 'unhurt' ? '' : `You are ${fight.condition}.`
   const foes = fight.fight?.foes.map((foe) => `${foe.name} (${foe.state}${foe.wound === null ? '' : `, wound ${foe.wound} of 5`})`).join(', ')
   return [condition, foes ? `Fighting: ${foes}.` : ''].filter(Boolean).join(' ')
+}
+
+const PRESET_NAMES: Record<Exclude<IntensityPreset, 'world'>, string> = {
+  restrained: 'Restrained: implied, little detail', mature: 'Mature: shown plainly', unflinching: 'Unflinching: explicit, in full',
+}
+
+/** The choices for how far the story goes, the world's own first: "The world's own (Unflinching)". */
+export function intensityChoices(world: Exclude<IntensityPreset, 'world'>): [IntensityPreset, string][] {
+  return [['world', `The world's own (${PRESET_NAMES[world].split(':')[0]})`],
+    ...(Object.entries(PRESET_NAMES) as [IntensityPreset, string][])]
 }

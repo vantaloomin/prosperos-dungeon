@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **How far the story goes.** Each world sets its own intensity and narrator voice: Kingswood is unflinching and
+  grim. "How far the story goes" beside the story turns violence, sex, horror, cruelty and drugs down to mature or
+  restrained, or back to the world's own, at any time; the next line follows it.
 - **A fixed Story screen.** On a wide screen your character sheet, pack, the shop counter, what you know and the
   people you've met sit in a panel beside the story instead of piling up above it. On a narrow screen the panel
   folds above the story and scrolls on its own, so the story keeps its room.

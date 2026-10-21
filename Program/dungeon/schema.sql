@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS workspace_settings (
   record_model_calls INTEGER NOT NULL DEFAULT 0 CHECK (record_model_calls IN (0, 1)),
   -- Automatic backups of every world (dungeon/auto_backup.py).
   auto_backups TEXT NOT NULL DEFAULT 'daily' CHECK (auto_backups IN ('off', 'daily', 'weekly')),
+  -- How far the story goes on the page (dungeon/story.py intensity): the world's own preset, or one the player chose.
+  intensity TEXT NOT NULL DEFAULT 'world' CHECK (intensity IN ('world', 'restrained', 'mature', 'unflinching')),
   -- The first-run notice: the story is AI written, and the user is 18 or older.
   ai_notice_at TEXT,
   updated_at TEXT NOT NULL

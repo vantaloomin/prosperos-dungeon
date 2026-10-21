@@ -15,6 +15,10 @@
  "summary": "A logging town on the edge of Brynwyr forest, one of Cyrel's three sister towns. It lives on the sawmill and the Timber Guild, sits uneasily against the High Elves across the border stones, and stands on a rumoured convergence of the Ley that nobody in charge will talk about.",
  "lat": 52.012,
  "lon": -2.004,
+ "intensity": {
+  "preset": "unflinching",
+  "voice": "grim and earthy: a hard frontier where kindness costs something, power is bought, and nobody is safe because they deserve to be"
+ },
  "currency": {
   "code": "crown",
   "symbol": "cr.",
