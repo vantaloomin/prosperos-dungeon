@@ -226,6 +226,37 @@ CREATE TABLE IF NOT EXISTS story_messages (
   created_at TEXT NOT NULL
 );
 
+-- MARVEL stats per actor (dungeon/sheet.py); 'persona' is the player's character.
+CREATE TABLE IF NOT EXISTS character_stats (
+  actor TEXT NOT NULL,
+  stat TEXT NOT NULL CHECK (stat IN ('Mind', 'Allure', 'Resolve', 'Vitality', 'Essence', 'Luck')),
+  value INTEGER NOT NULL CHECK (value BETWEEN 1 AND 30),
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (actor, stat)
+);
+
+-- Every roll of a turn (dungeon/turn.py), made once per player message before the narrator writes; retelling
+-- keeps the dice. Shown to the player only while Settings > World > Show the dice is on.
+CREATE TABLE IF NOT EXISTS story_rolls (
+  id TEXT PRIMARY KEY,
+  message_id TEXT NOT NULL REFERENCES story_messages(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL,
+  actor TEXT NOT NULL,
+  action TEXT NOT NULL,
+  said INTEGER NOT NULL DEFAULT 0 CHECK (said IN (0, 1)),
+  stat TEXT NOT NULL,
+  difficulty TEXT NOT NULL,
+  die INTEGER,
+  natural INTEGER NOT NULL,
+  bonus INTEGER NOT NULL,
+  shift INTEGER NOT NULL,
+  total INTEGER NOT NULL,
+  band TEXT NOT NULL CHECK (band IN ('critical_failure', 'failure', 'failure_upside', 'success_cost', 'success',
+                                     'critical_success')),
+  created_at TEXT NOT NULL,
+  UNIQUE (message_id, position)
+);
+
 -- People the user has met in their story (dungeon/story_people.py): one meeting a local day, a few notes.
 CREATE TABLE IF NOT EXISTS story_people (
   key TEXT PRIMARY KEY,

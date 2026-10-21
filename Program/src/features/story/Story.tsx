@@ -9,10 +9,11 @@ import { ErrorNotice } from '../../components/ErrorNotice'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { InfoTip } from '../../components/InfoTip'
 import { AiFooter, CrisisNote } from '../../components/Safety'
-import { aroundText, placeGroups, sceneTime, spotsText, whereText } from './storyText'
+import { aroundText, placeGroups, rollText, sceneTime, spotsText, whereText } from './storyText'
 import { StoryPeople } from './StoryPeople'
 import { CityOptions } from '../world/CityOptions'
 import { AuthorsNote } from './AuthorsNote'
+import { StorySheet } from './StorySheet'
 
 const STORY_KEY = ['story']
 const OUT_OF_STORY = 'To step out of the story, start a message with OOC: or wrap it in ((double parentheses)).'
@@ -39,6 +40,7 @@ export function Story({ go }: { go: (view: View) => void }) {
         <h1 id="story-heading">Story</h1>
         <p className="subtle">Your own story around town, told by a narrator.</p>
         <SceneBar scene={story.data.scene} onMove={(body) => run(null, () => api<StoryData>('/story/scene', body, 'PUT').then(update))} />
+        <StorySheet />
         <StoryPeople people={story.data.people}
           onFind={(key) => void run(null, () => api<StoryData>('/story/find', { key }).then(update))} />
       </header>
@@ -111,7 +113,11 @@ function StoryLog({ messages, pending, onRetry }: { messages: StoryMessage[]; pe
 
 function StoryLine({ message }: { message: StoryMessage }) {
   if (message.role === 'scene') return <p className="story-move">{message.text}</p>
-  if (message.role === 'user') return <><p className="story-user">{message.text}</p>{message.crisis_help && <CrisisNote />}</>
+  if (message.role === 'user') return <>
+    <p className="story-user">{message.text}</p>
+    {!!message.rolls?.length && <ul className="story-rolls" aria-label="Rolls">{message.rolls.map((roll, index) => <li key={index} title={roll.action}>{rollText(roll)}</li>)}</ul>}
+    {message.crisis_help && <CrisisNote />}
+  </>
   if (message.status === 'failed') return <Notice tone="error">The narrator could not go on: {message.error}</Notice>
   return <div className="story-narration">{message.text.split(/\n{2,}/).map((part, index) => <p key={index}>{part}</p>)}</div>
 }

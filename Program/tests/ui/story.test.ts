@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { aroundText, personLine, placeGroups, sceneTime } from '../../src/features/story/storyText.ts'
+import { aroundText, personLine, placeGroups, rollText, sceneTime } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -39,4 +39,11 @@ test('a person met says how often and where they are now', () => {
   assert.equal(personLine(person), 'Met 3 times · now working as the barista at The Daily Grind')
   assert.equal(personLine({ ...person, meetings: 1, doing: 'at home', place: null }), 'Met once · now at home')
   assert.equal(personLine({ ...person, doing: 'at their usual spot at The Daily Grind' }), 'Met 3 times · now at their usual spot at The Daily Grind')
+})
+
+test('a shown roll reads as the sum it was', () => {
+  const roll = { action: 'x', stat: 'Allure', difficulty: 'very_hard', die: 8, natural: 62, bonus: 5, shift: 20, total: 47, band: 'failure_upside' as const, label: 'Fail with an upside' }
+  assert.equal(rollText(roll), 'Allure d8: 62 + 5, very hard (-20) = 47, Fail with an upside')
+  assert.equal(rollText({ ...roll, die: null, bonus: 0, shift: -10, difficulty: 'easy', total: 72, label: 'Success' }), 'Allure: 62, easy (+10) = 72, Success')
+  assert.equal(rollText({ ...roll, shift: 0, difficulty: 'normal', total: 67, label: 'Success at a cost' }), 'Allure d8: 62 + 5 = 67, Success at a cost')
 })

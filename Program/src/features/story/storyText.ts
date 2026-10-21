@@ -1,4 +1,4 @@
-import type { StoryPerson, StoryPlace, StoryScene } from '../../types'
+import type { StoryPerson, StoryPlace, StoryRoll, StoryScene } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -69,4 +69,12 @@ export function personLine(person: StoryPerson): string {
   const times = person.meetings === 1 ? 'once' : person.meetings === 2 ? 'twice' : `${person.meetings} times`
   const where = person.place && !person.doing.includes(person.place.name) ? ` at ${person.place.name}` : ''
   return `Met ${times} · now ${person.doing}${where}`
+}
+
+/** "Allure d8: 62 + 5, hard (-10) = 57, Success at a cost". */
+export function rollText(roll: StoryRoll): string {
+  const die = roll.die ? ` d${roll.die}` : ''
+  const sum = roll.die ? `${roll.natural} + ${roll.bonus}` : `${roll.natural}`
+  const shift = roll.shift ? `, ${roll.difficulty.replace('_', ' ')} (${roll.shift > 0 ? '-' : '+'}${Math.abs(roll.shift)})` : ''
+  return `${roll.stat}${die}: ${sum}${shift} = ${roll.total}, ${roll.label}`
 }
