@@ -267,6 +267,27 @@ Decided 2026-10-21. Code owns every item; the narrator can't add, remove or inve
     `world/data/grooming.json`) rounds out looks for modern worlds. A world can switch the
     detail level down (Vallarith might only track cleanliness and condition).
 
+## Quests and factions
+
+Decided 2026-10-21.
+
+- **Quests come from three places.** Authored arcs in the world package (Havenbrooke's seasons,
+  Mabry's Season events); jobs code generates from what NPCs and factions need right now (a debt,
+  a missing daughter, a rival to remove); and emergent quests from promises, threats and bargains
+  the player makes in play, which code records as obligations.
+- **The journal shows what the character believes.** Objectives, leads and suspicions are recorded
+  as the character understands them, which can be incomplete, wrong, or a lie someone told them.
+  The truth is stored separately as hidden fact and surfaces only when discovered in play; where
+  belief and truth differ, code keeps a wrong-footing record, as Mabry Curve does.
+- **Factions act on their own goals, with clocks.** Each faction (guild, church, gang, noble house,
+  campus society) has goals, resources, relationships with other factions, and progress clocks
+  that advance on the world clock. They scheme, ally, trade and go to war whether or not the player
+  is involved, and their needs feed generated quests. The player's standing with each is a
+  Reputation track.
+- **Quests have real deadlines.** Many quests carry a deadline on the story clock. If the player is
+  late, the hostage dies, the rival wins or the job goes to someone else, and the world remembers
+  it (reputation, NPC memory, follow-on consequences).
+
 ## World packages (proposed)
 
 The three bases arrive in three shapes: Mabry (canon / hidden / continuity markdown plus dice
