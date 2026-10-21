@@ -756,7 +756,7 @@
     },
     {
       "id": "source-font",
-      "name": "The Source Font",
+      "name": "The Source Font (the seam)",
       "region": "torogh-highlands",
       "kind": "site",
       "size": "hamlet",
@@ -765,12 +765,17 @@
       "ley": "rich",
       "ley_dependence": "none",
       "danger_tier": "mythic",
-      "summary": "Where creation began, and where the New Gods ascended. Tradition puts it in the peaks above Loch Torogh. In the Post-Reform era nobody can find it.",
+      "summary": "Where creation began, and where the New Gods ascended. Tradition puts it in the peaks above Loch Torogh, and that is where the Ley pours out strongest. In the Post-Reform era nobody can find the Font itself.",
       "map": {
         "x": 0.6,
         "y": 0.33
       },
-      "origin": "source"
+      "origin": "source",
+      "by_era": {
+        "pre-reform": "The Font itself, in the peaks; dwarves keep its location quiet.",
+        "brotherhood": "The Font itself, dammed and guarded by the Brotherhood.",
+        "post-reform": "Only the seam: the Font is gone from the world (hidden truth)."
+      }
     },
     {
       "id": "brynwyr",

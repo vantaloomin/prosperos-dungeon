@@ -19,6 +19,8 @@
 - **Why the Eternals can't breed** is tied to Ghondiir's death, well before the Brotherhood.
 - **The "pair of women" behind the fey courts** is dropped.
 - **Draft content stays and gets filled in.**
+- **The Source Font** is in a pocket realm the Arbiter made after the Reformation, with a
+  deliberate leak that keeps the world's Ley flowing. This draft puts the leak above Loch Torogh.
 
 ## Extrapolated in this draft, for Vanta to keep or change
 
@@ -45,7 +47,7 @@ Each of these is marked `"origin": "draft"` in its file.
 | Lady Zee's shop | Asania (lorebook) | Trein (deity doc) | Asania now, Trein before; she moves every generation or two |
 | The Creator Dragons | Sleeping, will wake at the end (lorebook) | Spent completely, no mind survives (ley doc) | Spent is true; sleeping is what mortals and Eternals believe (hidden truth) |
 | Where Ghondiir died | His lair at "the largest Ley Font" (deity doc) | The Source Font is near Loch Torogh (lorebook) | Two Fonts: Ghondiir's lair is the Badlands convergence, the Source Font is above Loch Torogh. Both match the Ley Line map |
-| Where the Font is now | Near Loch Torogh (lorebook) | Sara is trying to find "where they moved the Ley to" (deity doc) | Tradition says Loch Torogh; nobody can find it Post-Reform; whether it moved is open |
+| Where the Font is now | Near Loch Torogh (lorebook) | Sara is trying to find "where they moved the Ley to" (deity doc) | Vanta: in the Arbiter's pocket realm; the leak opens above Loch Torogh |
 | Asmodeus | Rules from Nessus and plots (lorebook, deity doc) | Torn into eight pieces and buried (timeline) | Rules in the older eras; buried Post-Reform, throne vacant, Hell keeping up the fiction |
 | Origin of humans and orcs | Gor'gel split his power among the Primordial Orcs (deity doc) | Grew from Ghondiir's blood and bones (lorebook) | Both told as in-world myths |
 | Age of Magic and Age of Man | Magic runs to 3000 | Man starts at 2984 | Kept as an overlap |
@@ -54,5 +56,4 @@ Each of these is marked `"origin": "draft"` in its file.
 
 ## Still open
 
-1. **Where the Source Font is now,** and whether the New Gods moved it or only hide it.
-2. **What lies under the Heartwood** (the Milestone 1 slice owns this).
+1. **What lies under the Heartwood** (decision card sent to Vanta; the Milestone 1 slice uses the answer).

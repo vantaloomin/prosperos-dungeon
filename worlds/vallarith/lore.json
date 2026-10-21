@@ -261,12 +261,12 @@
     },
     {
       "id": "place-source-font",
-      "title": "The Source Font",
+      "title": "The Source Font (the seam)",
       "category": "place",
       "keywords": [
-        "The Source Font"
+        "The Source Font (the seam)"
       ],
-      "text": "Where creation began, and where the New Gods ascended. Tradition puts it in the peaks above Loch Torogh. In the Post-Reform era nobody can find it.",
+      "text": "Where creation began, and where the New Gods ascended. Tradition puts it in the peaks above Loch Torogh, and that is where the Ley pours out strongest. In the Post-Reform era nobody can find the Font itself.",
       "refs": {
         "settlement": "source-font"
       }

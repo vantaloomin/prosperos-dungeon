@@ -13,7 +13,8 @@ and notes the difference.
 - **The Source Font** is where creation began, where sun and moon first collapsed into matter and
   time. Every line and Font is downstream of it. It cannot be drained. Damming it does not use it
   up; it stops the current reaching everyone else. Mortal tradition puts it in the mountains above
-  Loch Torogh.
+  Loch Torogh, where the Ley does rise strongest (see `hidden-truths.json` for where it really is
+  in the Post-Reform era).
 
 ## Casting
 

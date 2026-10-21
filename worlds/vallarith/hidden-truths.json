@@ -154,17 +154,22 @@
     },
     {
       "id": "the-font-is-hidden",
-      "truth": "Saradrosk believes the New Gods moved or hid the Source Font after the Reformation, and is hunting for it. Whether it moved or is simply guarded is open.",
-      "believed": "The Font is somewhere above Loch Torogh.",
+      "truth": "After the Reformation the Arbiter folded the Source Font into a pocket realm of its own making, out of reach of every mortal and dragon. The realm has a deliberate leak: a seam through which the Font's output still runs into the world and keeps the Ley flowing. The seam opens in the peaks above Loch Torogh, which is why the Ley rises there and why tradition puts the Font there. Saradrosk is hunting the Font, and has not yet worked out that it is no longer in the world at all.",
+      "believed": "The Source Font is somewhere in the peaks above Loch Torogh.",
       "known_by": [
-        "mistress-sara",
-        "the New Gods"
+        "the New Gods",
+        "the Arbiter"
       ],
       "eras": [
         "post-reform"
       ],
       "origin": "source",
-      "open": "Where it is now."
+      "surfaces": [
+        "a Ley storm on the heights that shows a sky that is not this one",
+        "Brotherhood surveyors whose measurements say the current comes from nowhere",
+        "a pilgrim who walked into the seam and came back wrong"
+      ],
+      "stakes": "Whoever controls the seam controls the world's magic; whoever closes it starves the world; and the Arbiter, whom mortals don't know exists, holds the key."
     },
     {
       "id": "convila-crystal",
