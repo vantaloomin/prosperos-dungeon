@@ -594,7 +594,8 @@ them. Code is `Program/dungeon/narration/`.
     question. Logged only, per the guide's "scrutinize, don't ban."
   - Phrases inside quoted dialogue are a character's own voice and are not flagged. Game windows
     in code blocks are left alone. A setting will skip the rewrite pass for slow local models
-    (the dash fix always runs). (Pending Vanta's answer on how strict the rewrite trigger is.)
+    (the dash fix always runs). Vanta chose this strictness (rewrite strong tells only) on
+    2026-10-21.
 - **Not yet wired:** the narration format, intensity and rewrite settings arrive with the player
   settings in Milestone 1; until then Story mode uses the defaults above.
 
