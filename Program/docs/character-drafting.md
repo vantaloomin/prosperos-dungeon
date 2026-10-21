@@ -93,7 +93,7 @@ character" proposal. The relationship, home city and emotional traits are never 
 
 ## Prompts
 
-The instructions sent to the model live in [`dungeon/prompts/`](../companion/prompts/) as
+The instructions sent to the model live in [`dungeon/prompts/`](../dungeon/prompts/) as
 plain files, so they can be read and tuned without touching code:
 
 - `character-rules.md` says what makes a character believable: an ordinary adult with a real

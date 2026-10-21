@@ -1100,7 +1100,7 @@ A post, as the image API and Our year read it:
 
 When the user asks the companion out ("Want to get dinner Friday?", "Drinks with me Thursday?",
 "Coffee Saturday?"), or the companion firmly proposes a plan in a reply, the app saves an outing
-([dungeon/life/outings.py](../companion/life/outings.py)). Rules decide everything; the model only
+([dungeon/life/outings.py](../dungeon/life/outings.py)). Rules decide everything; the model only
 talks about it:
 
 - **What**: dinner, lunch, coffee, drinks, a show, a museum, a walk or a market, from the words used.
@@ -1120,7 +1120,7 @@ the feed (when an image backend is set up), and the bill comes out of their mone
 
 Every few weeks a companion with money to spare may book a weekend, or a long weekend around a
 public holiday, in another real city of the same era within reach
-([dungeon/life/trips.py](../companion/life/trips.py)). It is with family who live there, a circle
+([dungeon/life/trips.py](../dungeon/life/trips.py)). It is with family who live there, a circle
 member, or alone. The trip blocks the waking slots of those days with places in the destination,
 ends with the trip home (and maybe a sunburn the next day after a sunny weekend), and takes its cost from the
 budget (`for: trip`).
