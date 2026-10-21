@@ -19,7 +19,7 @@ dungeon = ["schema.sql", "prompts/*.md", "prompts/*.json", "images/workflows/*.j
 [tool.ruff]
 target-version = "py312"
 line-length = 120
-include = ["companion/**/*.py", "tests/**/*.py", "scripts/**/*.py"]
+include = ["dungeon/**/*.py", "tests/**/*.py", "scripts/**/*.py"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I", "C901"]
