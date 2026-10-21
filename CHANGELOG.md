@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **People have feelings about you.** Everyone you meet keeps trust, affection, respect, fear and desire toward
+  your character. Charm, threats and fists aimed at someone move them, and so can the Continuity model, with a
+  short reason they remember. Warm people are easier to persuade, cold ones harder. Kingswood's named people chase
+  their own aims in every scene. With the dice shown, "People you've met" says how each feels.
 - **Kingswood, the first Vallarith town, and its first quest.** A Post-Reform logging town on the edge of Brynwyr,
   with 29 places, six named people and three premade characters. "The Heartwood contract" runs seven days of story
   time; miss it and the stakes land. The border stones and the Heartwood are dangerous: every turn there rolls Luck,

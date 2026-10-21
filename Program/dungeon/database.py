@@ -118,12 +118,16 @@ def schema_digest() -> str:
 SINGLETONS = ('workspace_settings', 'builtin_recall')
 # Columns added to a table after it shipped: (table, column, definition). CREATE TABLE IF NOT EXISTS leaves an
 # existing table as it was, so an upgraded workspace gains them here. schema.sql lists them too, for new workspaces.
-ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"), ('story_rolls', 'threat', 'TEXT'))
+ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"), ('story_rolls', 'threat', 'TEXT'),
+                 *(('story_people', axis, 'INTEGER NOT NULL DEFAULT 0')
+                   for axis in ('trust', 'affection', 'respect', 'fear', 'desire')),
+                 ('story_people', 'impressions', "TEXT NOT NULL DEFAULT '[]'"))
 
 
 def add_columns(connection):
     for table, column, definition in ADDED_COLUMNS:
-        if column not in {row[1] for row in connection.execute(f'PRAGMA table_info({table})')}:
+        columns = {row[1] for row in connection.execute(f'PRAGMA table_info({table})')}
+        if columns and column not in columns:
             connection.execute(f'ALTER TABLE {table} ADD COLUMN {column} {definition}')
 
 

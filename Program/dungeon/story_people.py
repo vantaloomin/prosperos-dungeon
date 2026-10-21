@@ -8,6 +8,7 @@ the story has been trimmed. Townsfolk keep no memories of their own; this is the
 import re
 from datetime import date
 
+from dungeon import feelings
 from dungeon.database import decode, encode, many, optional
 
 NOTES = 8
@@ -64,5 +65,8 @@ def remembered(row: dict | None) -> str:
         return ''
     times = 'once' if row['meetings'] == 1 else 'twice' if row['meetings'] == 2 else f"{row['meetings']} times"
     notes = ' '.join(row['notes'][-4:])
+    impressions = '; '.join(decode(row.get('impressions') or '[]'))
+    felt = feelings.text(row)
     return f" The user has met them {times} and knows their name; last on {row['last_day']}." + \
-        (f' From before: {notes}' if notes else '')
+        (f' From before: {notes}' if notes else '') + (f' {felt}' if felt else '') + \
+        (f' Their impressions of the character: {impressions}.' if impressions else '')

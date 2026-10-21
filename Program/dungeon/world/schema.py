@@ -324,6 +324,8 @@ class Notable(Record):
     # Works there (keeps shifts) or only turns up as a regular (keeps visits).
     staff: bool = False
     about: Text
+    # What they are after now, which they pursue in a scene unprompted; their drawn goals when left out.
+    wants: str = Field(default='', max_length=200)
     temperament: Id | None = None
     source: Id
     # Whether they can move away or retire like other townsfolk (dungeon/world/turnover.py). A setting's own

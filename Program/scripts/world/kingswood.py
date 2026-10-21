@@ -254,27 +254,27 @@ notables = [
     {'id': 'aldous-marr', 'name': 'Aldous Marr', 'given': 'Aldous', 'pronouns': 'he/him', 'age': 54,
      'place': 'reeves-hall', 'role': 'reeve', 'staff': True, 'about': "The King's reeve of Kingswood: soft-spoken, "
      'well-fed and deep in debt to the Timber Guild. He has quietly sold them the right to fell the Heartwood, past the '
-     'border stones, and needs the crews in before anyone in Cyrel asks why.', 'source': SRC},
+     'border stones, and needs the crews in before anyone in Cyrel asks why.', 'wants': 'to get the first crews past the stones before the week is out, and nobody asking questions', 'source': SRC},
     {'id': 'hesk-varro', 'name': 'Hesk Varro', 'given': 'Hesk', 'pronouns': 'she/her', 'age': 38, 'place': 'varro-mill',
      'role': 'mill foreman', 'staff': True, 'about': 'Runs the mill and the toughest crew on the line. Her younger '
      'brother died with an elf arrow in his throat two springs ago, and she wants the Heartwood cut more than she '
-     'wants the money.', 'source': SRC},
+     'wants the money.', 'wants': 'to sign every axe in town onto the Heartwood contract', 'source': SRC},
     {'id': 'ilse-rook', 'name': 'Ilse Rook', 'given': 'Mother Rook', 'pronouns': 'she/her', 'age': 67,
      'place': 'shrine-of-tidum', 'role': 'shrine keeper', 'staff': True, 'about': "Keeper of Tidum's shrine, healer "
      'and gravedigger. She knows the Heartwood stands on a Ley convergence and that cutting it will crack something '
-     'open under the village. She has told no one, because she once helped hide what is down there.', 'source': SRC},
+     'open under the village. She has told no one, because she once helped hide what is down there.', 'wants': 'to stop the felling without ever saying why', 'source': SRC},
     {'id': 'corin-ashby', 'name': 'Corin Ashby', 'given': 'Corin', 'pronouns': 'he/him', 'age': 31, 'place': 'felled-oak',
      'role': 'tavern keeper', 'staff': True, 'about': 'Keeps the Felled Oak, fences whatever the crews steal and sells '
-     'what he overhears to whoever pays: the reeve, the watch, and lately an elf.', 'source': SRC},
+     'what he overhears to whoever pays: the reeve, the watch, and lately an elf.', 'wants': 'to sell what he hears this week to the highest bidder', 'source': SRC},
     {'id': 'sereth', 'name': 'Sereth of the Ford', 'given': 'Sereth', 'pronouns': 'they/them', 'age': 142, 'kind': 'half-elf',
      'place': 'crossroads-market', 'role': 'herb seller', 'staff': False, 'about': 'A half-elf who sells herbs at the '
      'market and lives at the ford. In truth a Brynwyr warden\'s eyes in Kingswood. They have been told that if the '
      'crews cross the stones, the wardens will burn Cutters\' Camp, and they are not sure they will warn anyone first.',
-     'source': SRC},
+     'wants': 'the name of everyone who signs the contract, without being seen asking', 'source': SRC},
     {'id': 'bram-tolley', 'name': 'Bram Tolley', 'given': 'Sergeant Tolley', 'pronouns': 'he/him', 'age': 46,
      'place': 'watch-post', 'role': 'watch sergeant', 'staff': True, 'about': 'Sergeant of the Kingswood watch. Brutal, '
      'tired, and honest in the way of a man who has never been offered enough. He takes the stump-pit cut and '
-     'hangs elves when he can catch them.', 'source': SRC},
+     'hangs elves when he can catch them.', 'wants': 'to catch whoever is talking to the wardens', 'source': SRC},
 ]
 
 CITY = {
