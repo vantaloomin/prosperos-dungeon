@@ -319,6 +319,31 @@ state; the Referee and narrator read it and never contradict it.
   they are off-scene (Companion's townsfolk and life engine), so they are somewhere, doing
   something, when the player looks for them.
 
+## Memory and context
+
+Decided 2026-10-21 (round 1). A campaign runs far longer than any model can read at once, so code
+decides what the narrator sees each turn.
+
+- **Layered recall.** Each turn the narrator gets the recent turns word for word, older scenes as
+  chapter summaries, and facts pulled in by relevance: who is present, where the scene is, and
+  anything just mentioned (names, places, items, promises). This builds on Companion's and Study's
+  summarizing, and on Mabry's continuity file.
+- **A code-kept canon ledger is the source of truth.** Code records facts as structured entries:
+  deaths, items, injuries, promises, locations, secrets, relationships, clock states. After each
+  narration a cheap model extracts new facts the narrator introduced (a scar, a name, a rumor).
+  Code checks them against the ledger and stores them, and rejects any that contradict it.
+  Summaries are prose on top, and the ledger wins any conflict.
+- **Hidden truth and character knowledge are separate.** Each ledger entry is marked as world
+  truth, character belief, or both, which keeps the journal and wrong-footing rules from
+  "Quests and factions" and "NPC minds" intact.
+- **The player sees and edits what their character knows.** Corrections are logged, so a model
+  mistake is easy to fix. Hidden truth stays hidden by default. A settings toggle opens a full
+  GM view that shows and edits everything, secrets included.
+- **Context auto-fits each model, with a player cap.** Code knows each model's window and fills it
+  in a fixed priority order: ruleset and persona, the current scene and state, the NPCs present,
+  recent turns, recalled facts, then summaries. It trims from the bottom. A setting caps tokens
+  per turn to control cost and speed on paid models.
+
 ## World packages (proposed)
 
 The three bases arrive in three shapes: Mabry (canon / hidden / continuity markdown plus dice
