@@ -476,8 +476,7 @@ def once_a_day(meetings: list[dict]) -> list[dict]:
 #
 # Every companion lives their own days (dungeon/life/simulation.py, #216), so another companion is wherever
 # their own agenda puts them, not where the town's rules would: two companions who both go to the same gym on
-# Thursday evenings can run into each other there. A meeting goes in both diaries, and the first one is news
-# worth texting the user about (crossed_paths, used by dungeon/life/openers.py).
+# Thursday evenings can run into each other there. A meeting goes in both diaries.
 
 def cast_plans(connection, cast: dict, times_of_day: list[datetime]) -> dict[str, list[dict]]:
     """Where the other companions in town are on the days of these moments, from their own agendas:
@@ -542,19 +541,3 @@ def mirror(connection, companion: dict, data: dict, spots: list[dict], place: di
                        (row['timeline_id'], sheet['key'], row['slot_key'], place.get('name', ''), row['local_date'],
                         row['ends_at']))
 
-
-def crossed_paths(connection, companion: dict, now, within: timedelta) -> list[dict]:
-    """Other companions this one met for the first time in the last `within`, by their own diary:
-    [{key, companion_id, place, met_at}]."""
-    rows = many(connection, 'SELECT met.key, met.place, met.met_at, agenda.entry FROM townsfolk_encounters met '
-                'JOIN life_agenda agenda ON agenda.timeline_id=met.timeline_id AND agenda.slot_key=met.slot_key '
-                "AND agenda.subject='companion' WHERE met.timeline_id=? AND met.key LIKE 'cast:%' "
-                "AND agenda.status='happened' AND met.met_at>? AND met.met_at<=? ORDER BY met.met_at",
-                (companion['active_timeline_id'], stamp(now - within), stamp(now)))
-    result = []
-    for row in rows:
-        recorded = (decode(row['entry']) or {}).get('townsfolk') or {} if row['entry'] else {}
-        if recorded.get('key') == row['key'] and recorded.get('times') == 1:
-            result.append({'key': row['key'], 'companion_id': row['key'][5:], 'place': row['place'],
-                           'met_at': row['met_at']})
-    return result

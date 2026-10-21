@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { type QueryClient, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
 import type { View } from '../../companion'
 import type { Chat, ChatList, Companion } from '../../types'
@@ -7,6 +7,18 @@ import { refocus } from '../character/refocus'
 
 export const CHATS_KEY = ['chats']
 const EVERY_MS = 30_000
+
+/** Open a companion's chat by their id (a #chat/<id> link): they come into focus first, unless they are gone. */
+export async function reach(client: QueryClient, go: (view: 'conversation') => void, companionId: string) {
+  const focus = client.getQueryData<ChatList>(CHATS_KEY)?.chats.find((chat) => chat.focus)
+  if (focus?.id !== companionId) {
+    try {
+      await api('/companion/cast/focus', { companion_id: companionId })
+      await refocus(client)
+    } catch { /* They may be gone; the chat in focus opens instead. */ }
+  }
+  go('conversation')
+}
 
 /** Every chat with its unread count, kept fresh while the app is open. */
 export function useChats(enabled = true) {

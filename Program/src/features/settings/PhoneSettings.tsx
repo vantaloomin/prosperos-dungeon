@@ -112,7 +112,7 @@ function HomeWifi({ lan, busy, onChange }: { lan: PhoneAccess['lan']; busy: bool
       <h3>On your home Wi-Fi</h3>
       <Toggle label="Use on home Wi-Fi" checked={lan.enabled} disabled={busy} onChange={onChange}
         hint={`Lets a paired phone on the same network open the Dungeon without Tailscale, on port ${lan.port}. Off by default.`} />
-      <Notice tone="warning">Only turn this on at home, on a network you trust. The connection is not encrypted, so anyone else on the same Wi-Fi could read your chats or copy a phone’s sign-in. Phones still need to pair, and the PC-only settings stay on this PC. Notifications need Tailscale.</Notice>
+      <Notice tone="warning">Only turn this on at home, on a network you trust. The connection is not encrypted, so anyone else on the same Wi-Fi could read your chats or copy a phone’s sign-in. Phones still need to pair, and the PC-only settings stay on this PC.</Notice>
       {lan.enabled && (lan.addresses.length > 0
         ? <p>On your home Wi-Fi, the phone opens <strong>{lan.addresses[0]}</strong>{lan.addresses.length > 1 && <span className="subtle"> (or {lan.addresses.slice(1).join(', ')})</span>}. If your PC asks whether to let the Dungeon accept connections, allow it on private networks.</p>
         : <p>This PC does not seem to be on a home network right now. Connect it to your Wi-Fi or router, then check again.</p>)}
@@ -173,7 +173,7 @@ function PairingCode({ pairing }: { pairing: PhonePairing }) {
             <ol>
               <li>Open the Tailscale app on the phone and check it is switched on and signed in to the same account as this PC.</li>
               <li>The first visit can take up to a minute while Tailscale sets up the secure address. Wait, then reload the page.</li>
-              {pairing.backup_link && <li>Still nothing? Open <strong>{pairing.backup_link}</strong> on the phone instead. It skips the name lookup and works the same, except that phone notifications need the first address.</li>}
+              {pairing.backup_link && <li>Still nothing? Open <strong>{pairing.backup_link}</strong> on the phone instead. It skips the name lookup and works the same.</li>}
               <li>If only that backup address works, the phone looks up names without Tailscale. On Android, set Settings &gt; Network &amp; internet &gt; Private DNS to Automatic or Off. In the Tailscale app, keep Use Tailscale DNS on.</li>
               {pairing.lan_link && <li>At home, on the same Wi-Fi as this PC, the phone can also open <strong>{pairing.lan_link}</strong>.</li>}
             </ol>

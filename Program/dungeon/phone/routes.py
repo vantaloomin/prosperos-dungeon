@@ -6,7 +6,7 @@ from pydantic import Field
 
 from dungeon.errors import require
 from dungeon.models import Input
-from dungeon.phone import access, lan, push, tailscale
+from dungeon.phone import access, lan, tailscale
 
 router = APIRouter(prefix='/api/phone')
 
@@ -146,39 +146,3 @@ def remove_device(request: Request, device_id: str):
         return {'devices': access.devices(connection)}
 
 
-class PushKeys(Input):
-    p256dh: str = Field(min_length=10, max_length=200)
-    auth: str = Field(min_length=10, max_length=100)
-
-
-class PushSubscription(Input):
-    model_config = Input.model_config | {'extra': 'ignore'}
-    endpoint: str = Field(min_length=10, max_length=2000)
-    keys: PushKeys
-
-
-def this_phone(request: Request) -> dict:
-    device = request.state.device
-    require(device is not None, 'Turn on notifications from your paired phone.', 409)
-    return device
-
-
-@router.get('/push')
-def read_push(request: Request):
-    """The key the phone's browser needs to subscribe, and whether this phone already has."""
-    device = this_phone(request)
-    key = push.public_bytes(push.signing_key(request.app.state.vault))
-    return {'public_key': push.b64(key), 'subscribed': push.subscribed(request.app.state.database, device['id'])}
-
-
-@router.put('/push')
-def save_push(request: Request, body: PushSubscription):
-    device = this_phone(request)
-    push.subscribe(request.app.state.database, device['id'], body.endpoint, body.keys.p256dh, body.keys.auth)
-    return {'subscribed': True}
-
-
-@router.delete('/push')
-def remove_push(request: Request):
-    push.unsubscribe(request.app.state.database, this_phone(request)['id'])
-    return {'subscribed': False}

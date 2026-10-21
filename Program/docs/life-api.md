@@ -291,9 +291,7 @@ bank (`<kind>.json`, 100+ era-tagged lines at five levels), which becomes a feed
 - **Money.** Gear on taking one up and monthly fees go through `hobbies.purchases` into
   `money.household`.
 - **Chat.** The "Your pastimes" section lists each one (how long, how good in words, how often) and
-  the last three weeks of milestones. First texts: `hobby_news` shares a milestone from today, and
-  `hobby_invite` asks the user along a few days off, which saves an outing (`activity: hobby`).
-  When the user asks to go do one together, `outings.proposal` names it before other activities.
+  the last three weeks of milestones. When the user asks to go do one together, `outings.proposal` names it before other activities.
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
@@ -488,10 +486,9 @@ half the time (`encounters.FELLOW_CHANCE`). Whoever plans that day second sees t
 other's agenda doesn't reach yet finds them nowhere, and only a companion who has never lived a day is still
 placed by the townsfolk rules. The meeting goes in both diaries when the other's slot is still to come and
 holds no meeting of its own (`encounters.mirror`), and a day counts once however many diaries tell it. Their
-closeness with each other follows from these meetings (`dungeon/memory/pairs.py`). The first meeting
-is news: each of them may text the user about it (`crossed_paths` in First messages), with the usual holds. Start over and delete then touch only the main
+closeness with each other follows from these meetings (`dungeon/memory/pairs.py`). Start over and delete then touch only the main
 character's rows (`dungeon/start_over.py`); deleting brings back whoever stepped back most recently. They
-still text first and keep their chats (see First messages and Chats and unread messages).
+keep their chats (see Chats and unread messages).
 
 ```
 GET  /api/companion/cast                  # every companion: {id, name, main, from_town, stepped_back_at}
@@ -555,7 +552,7 @@ activity is on.
 
 ### Plans made in chat
 
-When a completed companion message (a reply or a first message) states a plan of their own for one
+When a completed companion reply states a plan of their own for one
 resolvable day, `dungeon/life/own_plans.py` pins it with no model: "my bout is Saturday the 24th,
 first whistle at 6", "I'm hosting a potluck at my place on Thanksgiving", "I'm going to my grandma's
 Sunday", "Christmas is just going to be me and Juniper on the couch". The day can be a weekday,
@@ -772,8 +769,7 @@ age goes up on each birthday. Rules only, no model.
 - Townsfolk stay stateless: their seeded age is their age on the day the town started getting older, plus a
   year on each seeded birthday since (`ages.town_age`). Around town shows it.
 - Milestone birthdays (30, 40, 50 ...) are bigger: the occasion reads "your 40th birthday, a big one" and
-  carries `turns`, Today says "It is Dana's 40th birthday today.", the first text is "Guess who's 40 today.",
-  the evening is a party, and the scrapbook's year page lists it ("Dana turned 40", "Dana's mom Ruth turned
+  carries `turns`, Today says "It is Dana's 40th birthday today.", the evening is a party, and the scrapbook's year page lists it ("Dana turned 40", "Dana's mom Ruth turned
   60").
 - Looks drift with age through Looks that change (`grooming.age_signs`, bank `world/data/ageing.json`): first
   grey hairs, laugh lines and reading glasses at seeded ages, settling in over the years after. Only ages they
@@ -823,11 +819,8 @@ they are 24 to 44.
   circle. Updates come from the parent's side (`own_baby`, `own_toddler`, `own_child`); they never babysit their own.
 - Their days change: weeks of parental leave (`Parental leave` in work days off), baby things a month before and
   their half of childcare each month until five (money purchases `baby`, `childcare`).
-- A naming day at home six to twelve weeks on (big day `naming`): a best friend is asked to be the godparent in a
-  first text (bank `godparent` in big_days.json). No photo, no buzz, called off with the adult side on.
-- Now and then (`babysitting` table) they ask the user, in a first text, to babysit for a Saturday evening while
-  they and their partner go out; a plain yes or no in the user's first reply answers it, and their evening out
-  takes the slot in their day.
+- A naming day at home six to twelve weeks on (big day `naming`). No photo, no buzz, called off with the adult
+  side on.
 - The chat context: "- Ivy (your daughter, a baby, 6 weeks old): yours and your boyfriend Tyler's." and lines for a
   babysitting evening asked, agreed, under way or done.
 
@@ -848,10 +841,6 @@ PUT /api/life/settings
 | `return_gap_hours` | 4 | 1–48 | Unsimulated time needed before a return batch runs. |
 | `background_interval_minutes` | 60 | 15–1440 | Gap between background batches. |
 | `background_daily_events` | 3 | 0–8 | Most background events in 24 hours; one per batch. |
-| `texts_first` | `true` | | The companion may send the first message (see First messages). Workspaces from before it was on by default are switched on once. |
-| `texts_daily` | 2 | 1–6 | Most first messages in 24 hours, for each companion. |
-| `away_daily` | 6 | 0–40 | Most first messages in 24 hours from all companions together (`dungeon/away.py`); 0 stops them all. |
-| `texts_gap_hours` | 3 | 1–24 | Hours since the last message before the companion writes first. |
 
 Background batches also need `background_activity: true` in `PUT /api/settings`. Pausing
 (`POST /api/pause`) stops new batches, and resuming skips the paused interval rather than
@@ -871,63 +860,6 @@ earlier batch). It is refused (409) while paused or for a pause that has not end
 `GET /api/life/pauses` lists pauses newest first with `started_at`, `ended_at`,
 `catch_up_requested_at` and `catch_up_run_id`.
 
-## First messages
-
-```http
-POST /api/life/texts/check   → {state, kind?, message: Message | null, companion_id?, focus?}
-```
-
-With `texts_first` on (the default), every companion can start a conversation
-(`dungeon/life/openers.py`), the one in focus and the ones you switched away from alike. Each check
-sends at most one message: the companion in focus is considered first, then the others, whoever texted
-first least recently ahead. Every gate below applies to each companion on their own, and all of them
-share one allowance, `away_daily` messages in any 24 hours (`dungeon/away.py`), so a day with the app
-left running has a bounded model cost. A sent message carries
-`companion_id` and whether that companion is in `focus`. When nobody writes, `state` is the focus
-companion's. The open app calls this about once a minute, and the server checks on
-its own tick whether or not background activity is on. Fixed triggers decide when, in this order,
-each at most once per timeline:
-
-| Kind | When | Needs a model |
-| --- | --- | --- |
-| `follow_up` | A plan the user mentioned ended between an hour and three days ago without an outcome | No (template: "Hey! How did the … go?") |
-| `follow_up` | One of the last four messages, from the companion in the last 18 hours, says they want to hear about something later ("I'd like to hear how the search is going later"), and they now have a free moment (below) | No (template: "Okay, free for a minute. How's … going?") |
-| `news` | An open thread in the companion's life settled in the last day | Yes |
-| `news` | They met another companion around town for the first time in the last day (Small world, above) | No (template: "You'll never guess who I ran into at …") |
-| `reminder` | An event committed in the last day shares a distinctive word with a user fact or shared experience | Yes |
-| `silence` | Only with an absence trait: no word from the user for two days | No (template by intensity) |
-| `usual_time` | The user usually starts a conversation around now (see below) and the companion is free, on a seeded 50% roll per day and stretch, at a seeded minute 0 to 25 minutes into it | No (template by time of the user's day, e.g. "Any lunch plans today?") |
-| `check_in` | A free moment, on a seeded roll per day and moment (lunch 50%, after work or class 70%, free evening 35%), at a seeded minute 5 to 50 minutes into it | No (template per moment) |
-
-A free moment is lunch (12:00 to 13:30 in the companion's timezone; a lunch break on a work or study
-day, plain midday on a day off, with the same chance), the 90
-minutes after a work or study block ends (by the precomputed agenda, so a holiday or sick day is not
-work) unless they are in another busy or social block, or a free evening (19:00 to 21:30). Never
-while asleep.
-
-The user's usual hours (`dungeon/life/usual_hours.py`) are worked out on the fly, by rules, from
-the user's own messages of the last four weeks in the user's timezone, weekdays and weekends apart.
-Only messages that start an exchange count: nothing in that conversation for 45 minutes before, and
-not an answer to a text the companion started. A half hour is usual when the user started a
-conversation in it on at least 3 days and on 30% of the days they wrote; neighbouring half hours join
-into one stretch. Nothing is stored and nothing is shown in the app. The companion reaches out in such
-a stretch only when their own day leaves them free (a break, or not asleep, working, studying or out
-with people), and every gate below still applies.
-
-The model gets the normal chat context plus the reason and its facts, and is told not to add events,
-places or people. A reply that is empty, cut off or longer than 600 characters falls back to the
-template, or to nothing for triggers without one, and so does one that repeats an earlier companion
-message (the same words, or the same first 80 characters ignoring case and punctuation). `state` says why
-nothing was sent: `off`,
-`paused`, `quiet_hours` (the notification quiet hours, in the user's timezone), `asleep` (a sleep
-block in the companion's routine), `recent_conversation`, `waiting_for_answer` (their last first
-message is still unanswered; an `occasion` such as the user's birthday still goes out), `daily_cap`, `away_cap`
-(the shared allowance is used up), `interrupted` or `nothing`. A sent message is an ordinary
-companion message with `reply_to: null`; the chat shows it before the user's next message and the
-next reply sees it. With notifications on it is announced (kind `message`) before any waiting
-posts, titled with the name of the companion who wrote it; tapping it opens their chat. A forked timeline
-keeps the triggers its parent already used.
-
 ## Chats and unread messages
 
 ```http
@@ -941,20 +873,6 @@ the user's own last message there; a held reply counts once its time has come. T
 read while the window is visible. The chat header's Chats button opens the list (full screen on a
 phone), with the count waiting in the other chats; the Profile tab shows the total. Nothing here says
 whether anyone is around: no presence, no read receipts.
-
-## While you were away
-
-```http
-GET  /api/conversation/recap        → {recap: {since, days, items: [str]} | null}
-POST /api/conversation/recap/read   {since} → {recap: null}
-```
-
-When the user's last message to the open companion is at least `life_settings.recap_after_days` old (3 by
-default; 0 turns it off, under Settings > Life), the chat opens with a short catch-up (`dungeon/recap.py`):
-new life chapters, storylines that moved on, the biggest things they did, how many townsfolk they ran into and
-the town paper issues that came out, at most six lines. It is built from what the world already decided, so it
-never calls a model, and shows only what the Today view would. Reading it folds it away (`away_recaps`) until the
-user is gone for a while again.
 
 ## Texting rhythm
 
@@ -979,8 +897,7 @@ chat shows nothing for it (or only the holding text) until then. A reply that sh
 shows every earlier one still held, and one held while another is waiting shows no sooner than it,
 so replies keep their order. The day that counts is the precomputed agenda's, so a holiday or a sick
 day is not work, and a shifted day (see Day disruptions) counts as it ended up. A held reply that
-shows while the app is in the background is announced like a first message, unless the user has
-written since.
+shows while the app is in the background just appears in the chat.
 
 ## Day disruptions
 
@@ -1095,7 +1012,7 @@ steps aside; a card that could give away a secret the companion keeps is never d
 Today is opened or in the background, and kept in `life_moments`.
 
 The companion is told today's moment in the chat context ("Something small from your day today"), On their mind can
-pick it, and a card with a `share` line can become a first message. With Hidden values > odds on, Today shows each
+pick it. With Hidden values > odds on, Today shows each
 card's source and odds, and the change endpoint makes it go another way: `another` draws a different card, and
 `nothing` makes the day a quiet one. Either returns the week as in `moments`.
 
@@ -1205,15 +1122,15 @@ Every few weeks a companion with money to spare may book a weekend, or a long we
 public holiday, in another real city of the same era within reach
 ([dungeon/life/trips.py](../companion/life/trips.py)). It is with family who live there, a circle
 member, or alone. The trip blocks the waking slots of those days with places in the destination,
-ends with the trip home (and maybe a sunburn the next day after a sunny weekend), sends the user a
-postcard picture on the first afternoon, and takes its cost from the budget (`for: trip`).
+ends with the trip home (and maybe a sunburn the next day after a sunny weekend), and takes its cost from the
+budget (`for: trip`).
 
 ### Endpoints
 
 - `GET /api/life/outings` returns `{outings, trips}` for the active timeline. Each item has a
   `state` of `planned`, `now`, `done` or `cancelled`; outings carry `place`, `named` (the user named
   the place), `asked_date` (when the day moved) and `cost_text`; trips carry `company`, `landmark`,
-  `cost_text` and `postcard_message_id`. Outings with the user show on Today under Out together;
+  `cost_text`. Outings with the user show on Today under Out together;
   trips show read-only under Trips.
 - `POST /api/life/outings/{id}/cancel`, `/elsewhere` (the companion picks another place),
   `/home` (end an outing under way now) and `/undo`. `undo` on an item says it can be taken back:

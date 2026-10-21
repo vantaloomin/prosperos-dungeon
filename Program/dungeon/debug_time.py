@@ -1,7 +1,7 @@
 """Debug time (Settings > Debug): check several days of a companion's life in minutes.
 
 Everything that reads the time reads the app clock (clock.AppClock on Database.clock): life batches,
-the agenda, first messages, paced replies, the feed, notifications, townsfolk and chat context. Debug
+the agenda, paced replies, the feed, townsfolk and chat context. Debug
 time moves that clock ahead and can run it faster, so all of them follow without special cases.
 
 Starting takes a verified backup (Settings > Backups, "Before debug time") and a plain copy of the
@@ -114,8 +114,8 @@ def target(database: Database, hours: float | None, local: str | None) -> dateti
 
 async def walk(database: Database, life, landing: datetime, progress: dict):
     """Step through to `landing` as if the app had stayed open, then look in as opening the app does.
-    Background batches run only when the user allows background activity; first messages follow their own
-    setting. Optional work (pre-phrasing) is skipped."""
+    Background batches run only when the user allows background activity. Optional work (pre-phrasing) is
+    skipped."""
     clock, start_at = database.clock, database.clock.now()
     total = max((landing - start_at).total_seconds(), 1)
     try:
@@ -123,7 +123,6 @@ async def walk(database: Database, life, landing: datetime, progress: dict):
             clock.shift(min(clock.now() + STEP, landing))
             progress['done'] = min(1.0, (clock.now() - start_at).total_seconds() / total)
             await life.quietly_life('background')
-            await life.quietly_text()
         await life.quietly_life('return')
     finally:
         save(database)

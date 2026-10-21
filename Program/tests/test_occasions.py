@@ -32,24 +32,6 @@ def test_milestones_count_from_the_first_conversation():
     assert occasions.on(date(2027, 2, 28), '02-29') and not occasions.on(date(2028, 2, 28), '02-29')
 
 
-def test_the_users_birthday_is_noticed_kept_and_wished(client, connected, clock, provider):
-    send(client, 'Fun fact: my birthday is October 7th.', 'client-bday-01')
-    assert client.get('/api/life/settings').json()['user_birthday'] == '10-07'
-    send(client, 'Actually my birthday is May 1', 'client-bday-02')
-    assert client.get('/api/life/settings').json()['user_birthday'] == '10-07'
-    system = client.get('/api/context/preview').json()['system']
-    assert 'Birthdays and anniversaries' in system and "In 2 days (Wednesday 7 October) is the user's birthday." in system
-    assert client.get('/api/today').json()['occasions'][0]['kind'] == 'user_birthday'
-    clock.advance(timedelta(days=2))
-    clock.instant = clock.now().replace(hour=13)
-    set_life(client, texts_first=True)
-    result = client.post('/api/life/texts/check').json()
-    assert result['kind'] == 'occasion'
-    assert "Today is the user's birthday" in provider.requests[-1]['messages'][-1]['content']
-    set_life(client, user_birthday='')
-    assert "the user's birthday" not in client.get('/api/context/preview').json()['system']
-
-
 def test_a_bad_birthday_is_refused(client, companion):
     assert client.put('/api/life/settings', json={'user_birthday': '13-01'}).status_code == 422
 
@@ -86,27 +68,6 @@ def test_talking_milestones_reach_the_context(client, connected, clock, relation
     clock.advance(timedelta(days=100))
     system = client.get('/api/context/preview').json()['system']
     assert words in system and '100 days' in system
-
-
-def test_circle_birthdays_reach_the_context_but_open_no_conversation(client, connected, clock, monkeypatch):
-    people = client.get('/api/life/circle').json()
-    first, second = people[0], people[1]
-    today = clock.now().astimezone(zone('Europe/Lisbon')).date()
-    dates = {first['id']: today, second['id']: today + timedelta(days=3)}
-    monkeypatch.setattr(occasions, 'SEEDED', True)
-    monkeypatch.setattr(occasions, 'own_birthday', lambda _companion: None)
-    monkeypatch.setattr(circle, 'birthday', lambda person_id: dates.get(
-        person_id, today + timedelta(days=30)).strftime('%m-%d'))
-    system = client.get('/api/context/preview').json()['system']
-    assert f"- Today is your {first['role']} {first['name']}'s birthday." in system
-    later = today + timedelta(days=3)
-    later = f'{later:%A} {later.day} {later:%B}'  # "Monday 5 October", not "Monday 05 October".
-    assert f"- In 3 days ({later}) is your {second['role']} {second['name']}'s birthday." in system
-    assert 'Wish them' not in system
-    found = [item for item in client.get('/api/today').json()['occasions'] if item['kind'] == 'circle_birthday']
-    assert [(item['person'], item['days']) for item in found] == [(first['name'], 0), (second['name'], 3)]
-    set_life(client, texts_first=True)
-    assert client.post('/api/life/texts/check').json()['state'] == 'nothing'
 
 
 def test_in_1895_a_birthday_is_their_mothers_on_today_and_in_the_context(client, clock, monkeypatch):

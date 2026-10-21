@@ -413,7 +413,7 @@ def context_lines(connection, companion: dict, now) -> list[tuple[str, str]]:
 
 
 def fresh(connection, companion: dict, now) -> list[dict]:
-    """Chapters from today or yesterday, for a first message."""
+    """Chapters from today or yesterday (status.big_events)."""
     today = storylines.local_today(companion, now)
     return many(connection, f'SELECT * FROM life_chapters WHERE timeline_id=? AND undone_at IS NULL AND {SINCE}>=? '
                 f'AND {SINCE}<=?', (companion['active_timeline_id'], (today - timedelta(days=FRESH_DAYS)).isoformat(),
@@ -426,8 +426,3 @@ def since(row: dict) -> str:
     """The local date a chapter's latest stage came, else the day it began."""
     return decode(row.get('details') or '{}').get('stage_on') or row['started_on']
 
-
-def stage_key(row: dict) -> str:
-    """':graduated' for a big turn's later stage, so each stage is news once; nothing for its first."""
-    found = decode(row.get('details') or '{}')
-    return f":{found['stage']}" if found.get('stage_on') else ''

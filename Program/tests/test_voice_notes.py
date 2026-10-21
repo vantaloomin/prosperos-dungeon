@@ -9,8 +9,6 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
-from conftest import set_life
-from test_openers import check, history, interview
 
 from dungeon.voice import hosted, kokoro, notes, voices
 
@@ -88,53 +86,13 @@ def test_british_voices_read_with_british_pronunciation(tmp_path):
     assert british[-1] == 'Hello' and '--sid=21' in british
 
 
-def test_a_first_text_goes_as_a_voice_note(client, connected, provider, speaker, always):
-    set_life(client, texts_first=True)
-    interview(client)
-    message = check(client)['message']
-    assert message['voice'] == {'url': f"/api/voice/notes/{message['id']}", 'duration_ms': 2000, 'engine': 'builtin'}
-    # The model was told it is a voice note; the transcript is the message text.
-    assert notes.INSTRUCTION in provider.requests[-1]['messages'][-1]['content']
-    assert history(client)[-1]['voice']['url'] == message['voice']['url']
-    audio = client.get(message['voice']['url'])
-    assert audio.status_code == 200 and audio.headers['content-type'] == 'audio/wav'
-    assert audio.content[:4] == b'RIFF'
-    assert speaker.calls[0][-1] == notes.spoken(message['text'])
-
-
-def test_a_note_that_cannot_be_recorded_goes_as_a_text(client, companion, speaker, always):
-    speaker.fail = True
-    set_life(client, texts_first=True)
-    interview(client)
-    message = check(client)['message']
-    assert message['text'] == 'Hey! How did the job interview go?' and message['voice'] is None
-
-
-def test_no_note_when_off_out_of_dice_or_over_the_daily_limit(app, client, companion, speaker, clock, monkeypatch):
+def test_a_call_is_read_aloud_only_while_voice_notes_are_on(app, client, companion, speaker):
     service = app.state.voice
-    with app.state.database.connect() as connection:
-        from dungeon.characters import current
-        mira = current(connection)
-    monkeypatch.setattr(notes, 'CHANCE', 1.0)
-    assert service.plan(mira, 'trigger', clock.now()) == 'builtin'
+    assert service.for_call() == 'builtin'
     client.put('/api/voice', json={'voice_notes': False})
-    assert service.plan(mira, 'trigger', clock.now()) is None
-    client.put('/api/voice', json={'voice_notes': True, 'daily_limit': 1})
-    monkeypatch.setattr(notes, 'sent_today', lambda *_: 1)
-    assert service.plan(mira, 'trigger', clock.now()) is None
-    monkeypatch.setattr(notes, 'CHANCE', 0.0)
-    monkeypatch.setattr(notes, 'sent_today', lambda *_: 0)
-    assert service.plan(mira, 'trigger', clock.now()) is None
+    assert service.for_call() is None
     assert not service.fits('Look at this https://example.com') and not service.fits('x' * 400)
     assert service.fits('How did it go?')
-
-
-def test_without_the_built_in_voice_first_texts_stay_texts(client, companion, always):
-    set_life(client, texts_first=True)
-    interview(client)
-    assert check(client)['message']['voice'] is None
-    view = client.get('/api/voice').json()
-    assert view['voice_notes'] is True and view['engine'] == 'builtin' and view['ready'] is False
 
 
 def test_keys_are_saved_in_the_vault_and_never_returned(app, client, companion, monkeypatch):
@@ -265,7 +223,7 @@ def test_the_built_in_voice_waits_for_a_press_to_download(app, monkeypatch):
     async def idle(*_args, **_kwargs):
         return None
 
-    for worker in (app.state.life, app.state.images, app.state.push):
+    for worker in (app.state.life, app.state.images):
         monkeypatch.setattr(worker, 'run_forever', idle)
     monkeypatch.setattr(auto_backup, 'run_forever', idle)
     monkeypatch.setattr(app.state.launcher, 'launch_all', idle)

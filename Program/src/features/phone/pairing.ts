@@ -18,17 +18,3 @@ export function linkParts(text: string): { text: string; link: boolean }[] {
   return text.split(/(https:\/\/[^\s]+[^\s.,)])/).filter(Boolean).map((part) => ({ text: part, link: /^https:\/\//.test(part) }))
 }
 
-/** The push key as the browser wants it (pushManager.subscribe's applicationServerKey). */
-export function keyBytes(base64url: string): Uint8Array<ArrayBuffer> {
-  const text = atob(base64url.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - base64url.length % 4) % 4))
-  return Uint8Array.from(text, (letter) => letter.charCodeAt(0))
-}
-
-/** iPhones only offer push to the Dungeon once it is opened from the home screen, and no browser offers it
- * to a plain http page (home Wi-Fi, or the Tailscale backup address). */
-export function pushHint(supported: boolean, userAgent: string, secure = true): string | null {
-  if (!secure) return 'Notifications only work when the phone opens the Dungeon at its Tailscale https address, not over home Wi-Fi or the backup address.'
-  if (supported) return null
-  if (/iPhone|iPad/.test(userAgent)) return 'On an iPhone, add the Dungeon to your home screen first (Share, then Add to Home Screen), and open it from there.'
-  return 'This browser cannot get notifications while the app is closed.'
-}

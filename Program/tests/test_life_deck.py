@@ -5,8 +5,7 @@ import pytest
 from conftest import set_life, show
 
 from dungeon.characters import require_current
-from dungeon.life import deck, openers, thoughts
-from dungeon.memory import context
+from dungeon.life import deck, thoughts
 
 
 @pytest.fixture
@@ -64,22 +63,6 @@ def test_a_day_draws_once_and_today_shows_it(client, dealt, monkeypatch):
     assert moments(client)[0]['odds'] == 1.0
 
 
-def test_the_companion_is_told_and_may_text_about_it(client, dealt, monkeypatch):
-    only(monkeypatch, 'old-pocket-cash')
-    moments(client)
-    database = client.app.state.database
-    with database.connect() as connection:
-        companion = require_current(connection)
-        packet = context.build(connection, companion, database.clock.now(), 6000)
-        triggers = openers.little_news(connection, companion, database.clock.now())
-    assert '- You found a forgotten twenty in an old coat pocket.' in packet['system']
-    assert triggers[0].template.startswith('Found twenty bucks')
-    with database.connect() as connection:
-        day = deck.storylines.local_today(companion, database.clock.now())
-        assert thoughts.little_things(connection, companion, day, database.clock.now())[0][1] == \
-            'moment:old-pocket-cash'
-
-
 def test_cards_that_need_a_circle_or_a_job_wait_for_one():
     found = [deck.draw(f'need:{index}', 3, set(), set())[0] for index in range(300)]
     assert all(not item['needs'] for item in found if item)
@@ -122,7 +105,6 @@ def test_quiet_drama_keeps_to_gentle_cards(client, dealt, monkeypatch):
 
 
 def test_the_days_moment_is_drawn_before_their_thoughts_are_written(client, dealt, monkeypatch):
-    from dungeon.life import thoughts
     only(monkeypatch, 'old-pocket-cash')
     database = client.app.state.database
     thoughts.view(database)

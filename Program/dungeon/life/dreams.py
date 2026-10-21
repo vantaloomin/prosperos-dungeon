@@ -7,9 +7,8 @@ the beach, except somehow it was on a ferry"), and money pressure or a plan they
 the same state that feeds On her mind (dungeon/life/thoughts.py). Rarely, someone they live with says they
 talked in their sleep.
 
-No model decides anything. The dream is told to the companion the morning after (it may come up, as a dream),
-listed on Today, and can become a morning text (dungeon/life/openers.py) phrased by the model only when model
-phrasing is allowed; otherwise the template text is used as written. A dream never gives away a secret they keep,
+No model decides anything. The dream is told to the companion the morning after (it may come up, as a dream)
+and listed on Today, in the template's words. A dream never gives away a secret they keep,
 is never a nightmare or sexual (whoever is in it), and uses no emotional trait they weren't given. A template is
 not dreamed again within `repeat_days`. A night is decided once (`dreams`).
 """
@@ -24,12 +23,12 @@ from dungeon.life import circle, deck, money, pronouns, storylines
 from dungeon.memory import closeness
 from dungeon.world import catalog
 
-# Off in tests unless a test turns it on: a seeded dream would add context lines and first messages.
+# Off in tests unless a test turns it on: a seeded dream would add context lines.
 ACTIVE = True
 WEEK = 7
 # The user turns up in dreams from this closeness stage on (memory/closeness.py: 3 is when talking feels easy).
 USER_LEVEL = 3
-# A dream becomes a morning text from this stage, before noon where they live.
+# A dream is one to share from this stage, before noon where they live.
 TEXT_LEVEL = 2
 MORNING_ENDS = time(12, 0)
 SLEEP_TALK = 6  # One dream night in this many, when someone lives with them.
@@ -248,7 +247,7 @@ def context_lines(connection, companion, now) -> list[tuple[str, str]]:
 
 
 def fresh(connection, companion, now) -> list[dict]:
-    """Last night's dream as a morning text: before noon where they live, once you are past strangers."""
+    """Last night's dream to share: before noon where they live, once you are past strangers."""
     row = last_night(connection, companion, now)
     local = now.astimezone(zone(companion['version']['timezone'])).time()
     if row is None or not row['share'] or local >= MORNING_ENDS or \

@@ -9,7 +9,7 @@ import type { SettingsTab } from './features/settings/sections'
 export type View = 'conversation' | 'chats' | 'story' | 'today' | 'memories' | 'character' | 'appearance' | 'portraits' | 'settings' | `settings/${SettingsTab}`
   /** Making a townsperson the main character: #cast/<their key>. */
   | `cast/${string}`
-  /** A companion's chat, opened from a notification: #chat/<their id>. */
+  /** A companion's chat, opened by a link: #chat/<their id>. */
   | `chat/${string}`
   /** Worlds and personas (src/features/worlds). */
   | 'worlds'

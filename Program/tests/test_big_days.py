@@ -5,11 +5,10 @@ import string
 from datetime import date, datetime, timedelta
 
 import pytest
-from conftest import send
 
 from dungeon.characters import current
 from dungeon.database import decode, encode, one, optional
-from dungeon.life import ages, big_days, circle, love_life, money, outings, steps
+from dungeon.life import ages, big_days, circle, money, outings
 from dungeon.memory import context
 from dungeon.providers.chat import Chunk
 
@@ -19,7 +18,6 @@ ROLES = ['mom', 'brother', 'close friend', 'friend', 'cousin']
 @pytest.fixture(autouse=True)
 def on(monkeypatch):
     monkeypatch.setattr(big_days, 'ACTIVE', True)
-    monkeypatch.setattr(big_days, 'FIRST_TEXTS', True)
 
 
 def make(client, relationship='romance', **values):
@@ -63,30 +61,6 @@ def add(client, clock, kind='wedding', role='brother', days=30, source='test:1',
         day = clock.now().date() + timedelta(days=days)
         found = big_days.candidate(kind, source, row, day, **details)
         return big_days.add(connection, companion, found, clock.now())
-
-
-def invite(client, clock, key='bigday-message', ask=True):
-    """The invitation due now, saved the way openers.py saves it (ask: the engine's roll came out as asking you)."""
-    from dungeon.life import openers
-    with client.app.state.database.connect(write=True) as connection:
-        companion = current(connection)
-        if ask:
-            connection.execute("UPDATE big_days SET invite=1 WHERE status='planned'")
-        found = [trigger for trigger in openers.candidates(connection, companion, clock.now())
-                 if trigger.kind == 'big_day']
-        if not found:
-            return None, None
-        trigger = found[0]
-        connection.execute("INSERT INTO messages (id, timeline_id, seq, role, text, status, active, character_version_id, "
-                           "memory_revision, created_at, completed_at) VALUES (?, ?, 99, 'companion', ?, 'complete', 1, ?, "
-                           '0, ?, ?)', (key, companion['active_timeline_id'], trigger.template,
-                                        companion['active_version_id'], clock.now().isoformat(), clock.now().isoformat()))
-        connection.execute("INSERT INTO openers (id, timeline_id, trigger_key, kind, facts, message_id, wording, "
-                           "created_at) VALUES (?, ?, ?, ?, '{}', ?, 'template', ?)",
-                           (f'opener-{key}', companion['active_timeline_id'], trigger.key, trigger.kind, key,
-                            clock.now().isoformat()))
-        outing = big_days.settle(connection, companion, {'id': key}, trigger, clock.now().isoformat())
-        return trigger, outing
 
 
 def advance(client, clock):
@@ -152,101 +126,6 @@ def test_a_big_day_gets_a_place_a_gift_an_outfit_and_the_engine_decides_whether_
     assert outcome['choice'] == big_days.INVITE and 'often' in outcome['options']
     [line] = lines(client, clock)
     assert "your brother" in line.lower() and "wedding is on" in line and "You're bringing" in line
-
-
-def test_with_guests_set_to_never_they_go_on_their_own(client, clock):
-    make(client)
-    guests(client, 0)
-    row = add(client, clock)
-    assert row['invite'] == 0
-    clock.advance(timedelta(days=20))
-    assert invite(client, clock, ask=False) == (None, None)
-    assert "You're going on your own." in lines(client, clock)[0]
-
-
-def test_the_invitation_books_the_day_with_you_as_their_plus_one(client, clock, provider):
-    make(client)
-    guests(client, 3)
-    row = add(client, clock)
-    at(clock, row['invite_on'], '12:00')
-    trigger, outing = invite(client, clock)
-    assert trigger and 'plus-one' in trigger.reason and row['place']['name'] in trigger.template
-    assert '{' not in trigger.template and 'my brother' in trigger.template.lower()
-    assert outing['activity'] == big_days.ACTIVITY and outing['place']['big_day'] == row['id']
-    assert outing['place']['title'].endswith("'s wedding") and outing['cost'] == 0
-    booked = row_of(client, row['id'])
-    assert booked['status'] == 'invited' and booked['outing_id'] == outing['id']
-    assert 'The user is coming with you as your plus-one.' in lines(client, clock)[0]
-    says(provider)
-    send(client, 'I would love to come!', 'client-bigday-1')
-    assert row_of(client, row['id'])['status'] == 'invited'
-    assert 'Big days in your circle' in prompt(provider)
-
-
-def test_saying_no_is_fine_and_remembered(client, clock, provider):
-    make(client)
-    guests(client, 3)
-    row = add(client, clock)
-    at(clock, row['invite_on'], '12:00')
-    _trigger, outing = invite(client, clock)
-    says(provider)
-    send(client, "No, sorry, I can't make it that day.", 'client-bigday-no')
-    found = row_of(client, row['id'])
-    assert found['status'] == 'declined' and found['answered_at']
-    with client.app.state.database.connect() as connection:
-        assert outings.get(connection, outing['id'])['status'] == 'cancelled'
-    assert "can't make it, and that's completely fine" in lines(client, clock)[0]
-    at(clock, row['local_date'], '12:00')
-    clock.advance(timedelta(days=1))
-    advance(client, clock)
-    done = row_of(client, row['id'])
-    assert done['status'] == 'done' and done['with_user'] == 0
-    assert "on your own; the user couldn't make it, and that was fine" in lines(client, clock)[0]
-    with client.app.state.database.connect() as connection:
-        assert decode(one(connection, 'SELECT details FROM circle_people WHERE id=?',
-                          (row['person_id'],))['details'])['married'] is True
-
-
-def test_calling_it_off_on_today_is_a_no_too(client, clock):
-    make(client)
-    guests(client, 3)
-    row = add(client, clock)
-    at(clock, row['invite_on'], '12:00')
-    _trigger, outing = invite(client, clock)
-    response = client.post(f"/api/life/outings/{outing['id']}/cancel", json={})
-    assert response.status_code == 200, response.text
-    advance(client, clock)
-    assert row_of(client, row['id'])['status'] == 'declined'
-    elsewhere = client.post(f"/api/life/outings/{outing['id']}/elsewhere", json={})
-    assert elsewhere.status_code == 409
-
-
-def test_the_day_itself_is_in_person_and_afterwards_it_is_kept(client, clock, provider):
-    make(client)
-    guests(client, 3)
-    row = add(client, clock, kind='retirement', role='mom')
-    at(clock, row['invite_on'], '12:00')
-    _trigger, outing = invite(client, clock)
-    at(clock, row['local_date'], '19:30')
-    says(provider)
-    send(client, 'this is such a nice party', 'client-bigday-there')
-    text = prompt(provider)
-    assert "your mom" in text.lower() and 'retirement party' in text and 'The user is here with you, your plus-one.' in text
-    with client.app.state.database.connect() as connection:
-        assert row['person_id'] in big_days.people_there(connection, row['timeline_id'], clock.now())
-    at(clock, row['local_date'], '23:00')
-    with client.app.state.database.connect(write=True) as connection:
-        outings.finish_due(connection, current(connection), clock.now())
-    advance(client, clock)
-    done = row_of(client, row['id'])
-    assert done['status'] == 'done' and done['with_user'] == 1
-    with client.app.state.database.connect() as connection:
-        details = decode(one(connection, 'SELECT details FROM circle_people WHERE id=?', (row['person_id'],))['details'])
-        memory = optional(connection, 'SELECT * FROM memories WHERE id=(SELECT memory_id FROM outings WHERE id=?)',
-                          (outing['id'],))
-    assert details['career'] == 'Retired'
-    assert memory and 'retirement party' in memory['subject']
-    assert 'you and the user went to' in lines(client, clock)[0]
 
 
 def test_the_gift_is_paid_from_their_money(client, clock):
@@ -336,43 +215,6 @@ def test_friends_marry_by_their_love_life(client, clock, monkeypatch):
     assert none == []
 
 
-def test_a_friends_own_wedding_has_you_standing_up_and_makes_them_married(client, clock, provider, monkeypatch):
-    make(client, relationship='friendship')
-    with client.app.state.database.connect(write=True) as connection:
-        companion = current(connection)
-        today = clock.now().date()
-        steps.insert_step(connection, companion['active_timeline_id'], 'friendship', 'best_friends', today, 'set',
-                          clock.now().isoformat())
-        partner_id = love_life.insert(connection, companion, 'Sam Reyes', {'pronouns': 'they/them'}, today,
-                                      clock.now())
-        for step in ('exclusive', 'love', 'their_people', 'key', 'moving_in', 'engaged'):
-            steps.insert_step(connection, companion['active_timeline_id'], 'romance', step, today, 'them',
-                              clock.now().isoformat(), other=f'love:{partner_id}')
-        partner = love_life.partner(connection, partner_id)
-        assert big_days.own_wedding(connection, companion, partner, today, clock.now())
-        assert big_days.waiting(connection, partner)
-        [row] = big_days.rows(connection, companion['active_timeline_id'])
-    assert row['kind'] == 'own_wedding' and row['invite'] == 1 and row['gift'] == ''
-    from dungeon.life import wedding_customs
-    assert row['outfit'] == wedding_customs.attire(companion['version']['definition'], 'us')  # Their own wedding's attire.
-    assert date.fromisoformat(row['local_date']) >= today + timedelta(days=30)
-    at(clock, row['invite_on'], '12:00')
-    trigger, outing = invite(client, clock)
-    assert 'stand up with you' in trigger.reason and 'Sam' in trigger.template
-    assert outing['place']['standing_up'] is True and outing['place']['title'] == "Mira's wedding"
-    at(clock, row['local_date'], '23:00')
-    with client.app.state.database.connect(write=True) as connection:
-        outings.finish_due(connection, current(connection), clock.now())
-    advance(client, clock)
-    with client.app.state.database.connect() as connection:
-        companion = current(connection)
-        reached = steps.reached(connection, companion['active_timeline_id'], 'romance', f'love:{partner_id}')
-        found = steps.state(connection, companion, clock.now(), write=False)
-        assert not big_days.waiting(connection, love_life.partner(connection, partner_id))
-    assert 'married' in {item['step'] for item in reached}
-    assert found['step'] == 'wedding_party'
-
-
 def test_the_users_romance_never_has_a_big_day_wedding_of_their_own(client, clock):
     make(client)
     with client.app.state.database.connect(write=True) as connection:
@@ -418,74 +260,6 @@ def test_their_own_graduation_and_retirement_party_come_from_their_life_chapters
     assert 'there with you' in big_days.reason_for(graduation, date.fromisoformat(graduation['local_date']))
 
 
-def test_taking_back_cant_make_it_on_today_means_you_are_coming_after_all(client, clock):
-    make(client)
-    guests(client, 3)
-    row = add(client, clock)
-    at(clock, row['invite_on'], '12:00')
-    _trigger, outing = invite(client, clock)
-    assert client.post(f"/api/life/outings/{outing['id']}/cancel", json={}).status_code == 200
-    assert row_of(client, row['id'])['status'] == 'declined'
-    assert client.post(f"/api/life/outings/{outing['id']}/undo", json={}).status_code == 200
-    advance(client, clock)
-    found = row_of(client, row['id'])
-    assert found['status'] == 'invited' and found['answered_at'] is None
-    # The circle's own big days may come first: find this one's line.
-    assert any(found['place']['name'] in line and 'The user is coming with you as your plus-one.' in line
-               for line in lines(client, clock))
-
-
-def branch_at(client, message_id, **body):
-    branch = client.post('/api/timelines', json={'message_id': message_id, **body}).json()
-    assert client.post(f"/api/timelines/{branch['id']}/activate").status_code == 200
-    with client.app.state.database.connect() as connection:
-        companion = current(connection)
-        return companion, big_days.rows(connection, branch['id'])
-
-
-def test_a_branch_keeps_whose_day_it_is_and_what_you_said_and_never_plans_it_twice(client, clock, provider):
-    from dungeon.life import openers
-    make(client)
-    guests(client, 3)
-    mom = person(client, 'mom')
-    row = add(client, clock, kind='birthday', role='mom', source=f"birthday:{mom['id']}:2099", age=60)
-    at(clock, row['invite_on'], '12:00')
-    _trigger, outing = invite(client, clock)
-    says(provider)
-    yes = send(client, 'Yes! I would love to come', 'client-bigday-branch-yes')
-    companion, copies = branch_at(client, yes['message']['id'] if 'message' in yes else yes['id'])
-    [copied] = [item for item in copies if item['local_date'] == row['local_date'] and item['kind'] == 'birthday']
-    with client.app.state.database.connect(write=True) as connection:
-        mine = optional(connection, "SELECT * FROM circle_people WHERE timeline_id=? AND role='mom'",
-                        (companion['active_timeline_id'],))
-        assert copied['person_id'] == mine['id'] and copied['source'] == f"birthday:{mine['id']}:2099"
-        assert copied['status'] == 'invited' and copied['outing_id'] == outing['id']
-        assert not [item for item in openers.candidates(connection, companion, clock.now()) if item.kind == 'big_day']
-        again = big_days.candidate('birthday', f"birthday:{mine['id']}:2099", mine, date.fromisoformat(row['local_date']))
-        assert big_days.add(connection, companion, again, clock.now()) is None
-
-
-def test_a_branch_from_before_your_no_has_you_coming(client, clock, provider):
-    make(client)
-    guests(client, 3)
-    row = add(client, clock)
-    at(clock, row['invite_on'], '12:00')
-    _trigger, outing = invite(client, clock)
-    says(provider)
-    no = send(client, "No, sorry, I can't make it that day.", 'client-bigday-branch-no')
-    assert row_of(client, row['id'])['status'] == 'declined'
-    companion, copies = branch_at(client, no['message']['id'] if 'message' in no else no['id'],
-                                  text='Yes! I would love to come')
-    [copied] = [item for item in copies if item['source'] == row['source']]
-    assert copied['status'] == 'invited' and copied['outing_id'] != outing['id']
-    advance(client, clock)
-    with client.app.state.database.connect() as connection:
-        mine = outings.get(connection, big_days.get(connection, copied['id'])['outing_id'])
-        assert big_days.get(connection, copied['id'])['status'] == 'invited' and mine['status'] == 'planned'
-        assert mine['place']['big_day'] == copied['id']
-        assert outings.get(connection, outing['id'])['status'] == 'cancelled'  # The parent keeps its no.
-
-
 def test_a_big_day_held_after_the_fork_is_still_to_come_on_the_copy():
     row = {'status': 'done', 'local_date': '2027-05-01', 'message_id': None, 'answered_at': None}
     assert big_days.copied_status(row, {}, '2027-04-20T10:00:00+00:00') == ('planned', None)
@@ -520,26 +294,6 @@ WORK = [{'key': 'work', 'label': 'Work', 'kind': 'work', 'start': '09:00', 'end'
         {'key': 'evening', 'label': 'Evening', 'kind': 'leisure', 'start': '17:00', 'end': '23:00'},
         {'key': 'night', 'label': 'Asleep', 'kind': 'sleep', 'start': '23:00', 'end': '07:00'},
         {'key': 'morning', 'label': 'Morning', 'kind': 'leisure', 'start': '07:00', 'end': '09:00'}]
-
-
-def test_a_big_day_in_working_hours_is_a_day_off_for_it(client, clock, monkeypatch):
-    from dungeon.life import body
-    monkeypatch.setattr(body, 'sick', lambda *args: False)  # A seeded cold (by the random timeline id) would keep them home.
-    make(client, schedule=WORK)
-    guests(client, 3)
-    row = add(client, clock)  # 15:00 to 22:00, in the middle of their shift.
-    party = add(client, clock, kind='birthday', role='mom', source='test:2', days=60, age=60)  # 19:00: after work.
-    with client.app.state.database.connect() as connection:
-        companion = current(connection)
-        off = big_days.days_off(connection, companion, clock.now().date(), clock.now().date() + timedelta(days=90))
-    assert off == {row['local_date']: big_days.title(row)}
-    at(clock, row['invite_on'], '12:00')
-    _trigger, outing = invite(client, clock)
-    at(clock, row['local_date'], '15:30')
-    block, entry = agenda_at(client, clock)
-    assert block['kind'] == 'leisure' and block['label'] == f"{big_days.title(row)} (day off)"
-    assert entry['outing']['id'] == outing['id']
-    assert party['local_date'] not in off
 
 
 def test_in_an_old_city_the_invitation_and_caption_have_no_cars_texts_or_photos(client, clock):
@@ -585,18 +339,6 @@ def test_next_saturday_starting_a_sentence_has_a_capital():
                    'details': {'name': 'James Hill', 'role': 'dad', 'age': 60}, 'title': "James's 60th birthday party"}
             line = big_days.invitation(row, 'next Saturday', '7')
             assert not re.search(r'(^|[.?!] )next Saturday', line), line
-
-
-def test_the_day_with_you_reads_with_you_last(client, clock):
-    make(client)
-    guests(client, 3)
-    row = add(client, clock, kind='retirement', role='mom')
-    at(clock, row['invite_on'], '12:00')
-    _trigger, outing = invite(client, clock)
-    outing = {**outing, 'place': {**outing['place'], 'neighborhood': 'Fells Point'}}
-    found = outings.entry({'outing': outing}, {}, {'name': 'Mira'})
-    assert found['summary'].startswith(f"Mira went to {outing['place']['title']} at {outing['place']['name']} with you")
-    assert 'Fells Point' not in found['summary']
 
 
 def test_in_1895_a_parent_is_mother_or_father(client, clock):
@@ -685,44 +427,6 @@ def test_an_out_of_town_relatives_wedding_is_a_trip_you_can_come_along_to(client
     assert f"It's out of town, in {details['city']}: you travel there for it." in line
     assert "It's out of town" in big_days.coming_line({**row, 'status': 'invited'}, clock.now().date())
     assert 'the two of you together' in big_days.coming_line({**row, 'status': 'invited'}, clock.now().date())
-
-
-def coffee(client, clock, day, key):
-    """An outing with the user booked for that day."""
-    from dungeon.life import together
-    place = {'id': 'cafe', 'name': 'Daily Grind', 'kind': 'cafe', 'neighborhood': ''}
-    with client.app.state.database.connect(write=True) as connection:
-        companion = current(connection)
-        connection.execute("INSERT INTO messages (id, timeline_id, seq, role, text, status, active, character_version_id, "
-                           "memory_revision, created_at, completed_at) VALUES (?, ?, ?, 'companion', 'Coffee?', "
-                           "'complete', 1, ?, 0, ?, ?)", (key, companion['active_timeline_id'], 90 + len(key),
-                                                          companion['active_version_id'], clock.now().isoformat(),
-                                                          clock.now().isoformat()))
-        together.insert(connection, companion, key, 'coffee', place, day, '11:00', '12:00', None,
-                        clock.now().isoformat())
-
-
-def test_a_big_day_moves_off_a_day_an_outing_with_you_has(client, clock):
-    make(client)
-    guests(client, 3)
-    day = clock.now().date() + timedelta(days=30)
-    coffee(client, clock, day, 'm-1')
-    party = add(client, clock, kind='birthday', role='mom', source='test:party', age=60)
-    assert party['local_date'] == (day + timedelta(days=7)).isoformat()  # The host picked the next weekend.
-    graduation = add(client, clock, kind='graduation', role='cousin', source='test:graduation')
-    assert graduation['local_date'] == day.isoformat()  # Its day is its own.
-    with client.app.state.database.connect(write=True) as connection:
-        connection.execute('UPDATE big_days SET invite=(id=?)', (graduation['id'],))
-    at(clock, graduation['invite_on'], '12:00')
-    with client.app.state.database.connect() as connection:
-        assert not big_days.invite_due(connection, current(connection), clock.now())  # Never to a day already taken.
-    later = add(client, clock, kind='wedding', role='brother', days=60, source='test:later')
-    with client.app.state.database.connect(write=True) as connection:
-        connection.execute('UPDATE big_days SET invite=1 WHERE id=?', (later['id'],))
-    coffee(client, clock, date.fromisoformat(later['local_date']), 'm-22')
-    advance(client, clock)
-    assert row_of(client, later['id'])['local_date'] == (date.fromisoformat(later['local_date']) +
-                                                          timedelta(days=7)).isoformat()
 
 
 def test_camelot_has_its_own_gifts_and_1895_keeps_the_timeless_ones(client, clock):

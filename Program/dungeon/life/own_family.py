@@ -19,13 +19,13 @@ Being a parent changes their days, seen from outside: parental leave from work a
 read by dungeon/life/work.py), baby things and then childcare out of their money (`purchases`,
 dungeon/life/money.py), a naming day at home where a best
 friend is asked to be the godparent (dungeon/life/big_days.py `naming`), and now and then an evening out with their
-partner while the user babysits (`babysitting`, asked in a first text, a plain yes or no in the user's first reply).
+partner while the user babysits (`babysitting`, a plain yes or no in the user's first reply).
 
 Children are words only, as in v0.14: never in pictures, and with the adult side of life on
 nothing about them reaches a chat prompt, the godparent day is called off and nobody is asked to babysit.
 """
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 from dungeon.clock import stamp, zone
 from dungeon.database import decode, identifier, many, optional
@@ -50,7 +50,6 @@ UPDATE = 1 / 3  # Each week's chance of an update about their own child, at the 
 # (from three months old until 13), for a Saturday about a week or two on.
 BABYSIT = 1 / 9
 BABYSIT_FROM, BABYSIT_HOURS = 90, ('19:00', '23:00')
-ASK_HOURS = (10, 21)
 TOLD_DAYS = 14
 STATUSES = ('planned', 'asked', 'yes', 'no', 'done', 'called_off')
 EX = 'ex'  # The partner's role once they split up (dungeon/life/love_life.py).
@@ -460,7 +459,7 @@ def own_custody(connection, companion: dict, child: dict) -> tuple[str, str] | N
 
 def plan_asks(connection, companion: dict, day: date, pace: float, now) -> int:
     """On a Monday, now and then: an evening the user could babysit one of their children, a Saturday about a week or
-    two on, while they and their partner go out. Asked later in a first text (`ask_due`)."""
+    two on, while they and their partner go out."""
     timeline_id = companion['active_timeline_id']
     if day.weekday() != 0 or not pace or families.withheld(connection) or not reachable(connection, companion) or \
             optional(connection, "SELECT id FROM babysitting WHERE timeline_id=? AND status IN ('planned', 'asked', "
@@ -523,32 +522,6 @@ def partner_first(connection, row: dict) -> str:
     return person['name'].split()[0] if person else ''
 
 
-def ask_due(connection, companion: dict, now: datetime) -> list:
-    """The ask, as a first text, from the day it was planned until two days before the evening."""
-    from dungeon.life.big_days import clock_text
-    from dungeon.life.openers import Trigger
-    if not families.ACTIVE or not companion.get('active_timeline_id') or families.withheld(connection):
-        return []
-    local = now.astimezone(zone(companion['version']['timezone']))
-    if not ASK_HOURS[0] <= local.hour < ASK_HOURS[1]:
-        return []
-    soonest = (local.date() + timedelta(days=2)).isoformat()
-    row = next((item for item in rows(connection, companion['active_timeline_id'], ('planned',))
-                if item['ask_on'] <= local.date().isoformat() and item['local_date'] >= soonest), None)
-    if row is None or not reachable(connection, companion):
-        return []
-    from dungeon.life import big_days
-    day, partner = date.fromisoformat(row['local_date']), partner_first(connection, row)
-    when, time = big_days.when_text(day, local.date()), clock_text(row['at_time'])
-    reason = (f"You and {partner} would love an evening out on {day:%A} {day.day} {day:%B}, and you want to ask the "
-              f"user, your close friend, to babysit {row['child']} at your place from {time}. Ask them in your own "
-              "words, naming the day and the time; make it easy to say no.")
-    template = generators.pick(f"babysit:{row['id']}", 'line', fitting_asks(connection, companion)).format(
-        child=row['child'], partner=partner, day=when, time=time)
-    template = big_days.on_next(template[:1].upper() + template[1:])
-    return [Trigger(f"babysit:{row['id']}", 'babysit_ask', reason, template, (row['id'],))]
-
-
 def fitting_asks(connection, companion: dict) -> list[str]:
     era = families.era_of(connection, companion['version']['definition'])
     unfit, wrong = families.UNFIT.get(era), 'modern' if families.older(era) else 'older'
@@ -557,13 +530,6 @@ def fitting_asks(connection, companion: dict) -> list[str]:
             wrong not in families.tags().get(line, ())] or lines
 
 
-SETTLES = ('babysit_ask',)
-
-
-def settle(connection, companion: dict, message: dict, trigger, timestamp: str) -> None:
-    """The ask went out: waiting on the user's answer."""
-    connection.execute("UPDATE babysitting SET status='asked', message_id=?, updated_at=? WHERE id=? AND "
-                       "status='planned'", (message['id'], timestamp, trigger.sources[0]))
 
 
 def note(connection, message: dict, companion: dict, timestamp: str) -> bool:

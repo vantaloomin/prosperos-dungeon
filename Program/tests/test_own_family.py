@@ -10,7 +10,6 @@ from conftest import intimate, reconcile, set_life
 from dungeon.characters import require_current
 from dungeon.database import decode, encode
 from dungeon.life import big_days, body, families, love_life, own_family, steps, storylines, work
-from dungeon.life.openers import Trigger
 
 WORKDAY = [{'key': 'work', 'label': 'Work', 'kind': 'work', 'start': '09:00', 'end': '17:00', 'days': [0, 1, 2, 3, 4]},
            {'key': 'evening', 'label': 'Evening', 'kind': 'social', 'start': '18:00', 'end': '22:00'},
@@ -227,45 +226,6 @@ def test_a_best_friend_is_asked_to_be_godparent_at_the_naming_day(client, mira, 
     assert 'to be the godparent' in prompt(client)
 
 
-def test_the_user_is_asked_to_babysit_now_and_then(client, mira, clock, monkeypatch):
-    sure(monkeypatch)
-    monkeypatch.setattr(own_family, 'BABYSIT', 10.0)
-    partnered(client, clock)
-    reconcile(client)
-    [child] = children(client)
-    born(client, clock, child)
-    monkeypatch.setattr(own_family, 'YEARLY', {key: 0.0 for key in own_family.YEARLY})
-    clock.advance(timedelta(days=100 + (7 - (clock.now().date() + timedelta(days=100)).weekday()) % 7))
-    clock.advance(timedelta(hours=12 - clock.now().hour))
-    reconcile(client)
-    database = client.app.state.database
-    with database.connect(write=True) as connection:
-        companion = current(client)
-        [trigger] = own_family.ask_due(connection, companion, clock.now())
-        assert trigger.kind == 'babysit_ask' and child['name'] in trigger.template
-        [row] = own_family.rows(connection, companion['active_timeline_id'])
-        connection.execute("INSERT INTO messages (id, timeline_id, seq, role, text, status, created_at) VALUES "
-                           "('m1', ?, 1, 'companion', ?, 'complete', ?)",
-                           (companion['active_timeline_id'], trigger.template, clock.now().isoformat()))
-        own_family.settle(connection, companion, {'id': 'm1'}, Trigger(trigger.key, trigger.kind, '', None,
-                                                                       trigger.sources), clock.now().isoformat())
-        assert own_family.ask_due(connection, companion, clock.now()) == []
-        reply = {'id': 'm2', 'timeline_id': companion['active_timeline_id'], 'seq': 2, 'role': 'user',
-                 'text': 'yes of course!', 'created_at': clock.now().isoformat()}
-        connection.execute("INSERT INTO messages (id, timeline_id, seq, role, text, status, created_at) VALUES "
-                           "(?, ?, 2, 'user', ?, 'complete', ?)", (reply['id'], reply['timeline_id'], reply['text'],
-                                                                   reply['created_at']))
-        assert own_family.note(connection, reply, companion, clock.now().isoformat())
-        [row] = own_family.rows(connection, companion['active_timeline_id'])
-        assert row['status'] == 'yes'
-    assert f"The user is babysitting {child['name']} at your place" in prompt(client)
-    clock.advance(date.fromisoformat(row['local_date']) - clock.now().date() + timedelta(days=1))
-    reconcile(client)
-    with database.connect() as connection:
-        [row] = own_family.rows(connection, current(client)['active_timeline_id'], ('done',))
-    assert f"the user babysat {child['name']}" in prompt(client)
-
-
 def test_growing_families_off_means_no_baby_of_their_own(client, mira, clock, monkeypatch):
     sure(monkeypatch)
     set_life(client, growing_families=0)
@@ -292,33 +252,6 @@ def test_split_up_with_a_child_the_ex_stays_as_the_other_parent(client, mira, cl
     assert f'- Since you and {first} split up, {child["name"].split()[0]} ' in prompt(client)
     with client.app.state.database.connect() as connection:
         assert connection.execute("SELECT id FROM consequences WHERE choice='kids:custody'").fetchone()
-
-
-def test_after_a_split_nobody_is_asked_to_babysit_for_an_evening_out_with_the_ex(client, mira, clock, monkeypatch):
-    sure(monkeypatch)
-    monkeypatch.setattr(own_family, 'BABYSIT', 10.0)
-    partnered(client, clock)
-    reconcile(client)
-    [child] = children(client)
-    born(client, clock, child)
-    monkeypatch.setattr(own_family, 'YEARLY', {key: 0.0 for key in own_family.YEARLY})
-    clock.advance(timedelta(days=100 + (7 - (clock.now().date() + timedelta(days=100)).weekday()) % 7))
-    clock.advance(timedelta(hours=12 - clock.now().hour))
-    reconcile(client)
-    companion = current(client)
-    with client.app.state.database.connect(write=True) as connection:
-        assert own_family.rows(connection, companion['active_timeline_id'], ('planned',))  # Asked while together.
-        found = love_life.partners(connection, companion['active_timeline_id'])[0]
-        love_life.end(connection, found, 'split', steps.local_today(companion, clock.now()))
-    reconcile(client)
-    with client.app.state.database.connect() as connection:
-        assert own_family.ask_due(connection, companion, clock.now()) == []
-        assert not own_family.rows(connection, companion['active_timeline_id'], ('planned', 'asked', 'yes'))
-    for _week in range(4):
-        clock.advance(timedelta(days=7))
-        reconcile(client)
-    with client.app.state.database.connect() as connection:
-        assert not own_family.rows(connection, companion['active_timeline_id'], ('planned', 'asked', 'yes'))
 
 
 def test_a_new_baby_of_their_own_means_broken_nights_now_and_then(client, mira, clock, monkeypatch):

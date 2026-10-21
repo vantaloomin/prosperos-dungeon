@@ -1,7 +1,7 @@
 """Record model calls (Settings > Debug): every chat model request and its response, in full, for debugging.
 
 Off by default (workspace `record_model_calls`), because the files hold the user's chats word for word. While it is
-on, each call the app makes to a chat model (one-on-one replies, groups, Story, first messages, life wording,
+on, each call the app makes to a chat model (one-on-one replies, groups, Story, life wording,
 memory suggestions, picture descriptions, the character helper) is appended as one JSON line to
 `logs/model-calls/YYYY-MM-DD.jsonl` in the data folder:
 

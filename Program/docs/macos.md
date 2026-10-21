@@ -90,5 +90,4 @@ by Homebrew), macOS may ask once whether `python` may use that keychain item; ch
 | Pictures with ComfyUI and Krea 2 | The app only talks to a ComfyUI address, so a ComfyUI on another computer works. ComfyUI does run on Apple Silicon, but whether Krea 2 (16 to 24 GB) runs well there is untested. |
 | Pictures with the Codex CLI or hosted services | Should work as on Windows; untested. The `codex` command must be one Terminal can find. |
 | Phone access (Tailscale) | Should work; untested. The app finds Tailscale's command line inside `/Applications/Tailscale.app` when it is not on PATH. |
-| Notifications | Your browser asks first, then macOS may ask whether the browser may show notifications (System Settings > Notifications). |
 | Timezone | Read from the Mac's setting (`/etc/localtime`), as on Linux. |

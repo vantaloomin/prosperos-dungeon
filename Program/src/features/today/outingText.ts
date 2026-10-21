@@ -19,7 +19,7 @@ export interface Outing {
 export interface Trip {
   id: string; start_date: string; end_date: string; city_id: string; city_name: string; kind: 'getaway' | 'family'
   company: { id: string; name: string; role: string } | null; landmark: { name: string; summary: string } | null
-  sunny: boolean; cost_text: string; state: OutingState; postcard_message_id: string | null
+  sunny: boolean; cost_text: string; state: OutingState
 }
 export interface Together { outings: Outing[]; trips: Trip[] }
 

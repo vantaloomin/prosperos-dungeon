@@ -7,7 +7,7 @@ typing the companion's name.
 Every table in the schema is in exactly one group below (tests/test_start_over.py checks this):
 
 - WORKSPACE stays through both: settings, model connections, image backends, lookup services,
-  cities and the user's changes to them, notification and phone setup, the user's own story (Story mode,
+  cities and the user's changes to them, phone setup, the user's own story (Story mode,
   apart from every companion).
   Deletion markers stay too, so a restore still honours them.
 - CHARACTER is who the companion is: the companion, every version of the character, and their
@@ -35,8 +35,8 @@ from dungeon.voice.notes import files_of as voice_files
 WORKSPACE = (
     'app_identity', 'workspace_settings', 'pauses', 'pause_catch_ups', 'connection', 'model_profiles',
     'model_routes', 'life_settings', 'world_cities', 'world_changes', 'world_change_dismissals', 'townsfolk_mix', 'townsfolk_personality', 'town_levels', 'image_settings',
-    'image_backends', 'lora_settings', 'notification_settings', 'notification_deliveries', 'prompt_overrides', 'phone_settings',
-    'phone_devices', 'phone_push', 'deletion_markers', 'debug_time', 'builtin_recall', 'voice_settings', 'story_scene', 'story_messages', 'story_people',
+    'image_backends', 'lora_settings', 'prompt_overrides', 'phone_settings',
+    'phone_devices', 'deletion_markers', 'debug_time', 'builtin_recall', 'voice_settings', 'story_scene', 'story_messages', 'story_people',
     'pair_backstories', 'authors_notes',
     'moods', 'local_programs', 'persona', 'lore_entries', 'lore_books',
     'sqlite_sequence',
@@ -51,13 +51,13 @@ CHARACTER = (
 # drawn from them (world_changes with origin 'real') goes with them by ON DELETE CASCADE; changes
 # the user made to a city stay.
 HISTORY = (
-    'away_recaps', 'notifications', 'chat_photos',
+    'chat_photos',
     'feed_post_events', 'image_jobs', 'feed_posts', 'memory_sources', 'memory_declines', 'memory_jobs',
     'memory_candidates', 'memory_vectors', 'memory_summaries', 'memory_proposals', 'memory_activity',
-    'birth_dates', 'closeness_jokes', 'closeness_settings', 'step_settings', 'big_days', 'losses', 'step_asks', 'relationship_steps', 'love_partners', 'openers', 'self_fact_jobs', 'self_facts', 'companion_plans', 'rough_patch_promises', 'rough_patches', 'calls', 'together_asks', 'outings', 'trips', 'recommendations', 'life_chapters', 'chapter_days', 'thoughts', 'life_moments', 'dreams', 'news_holders', 'news', 'marks', 'consequences', 'storylines',
+    'birth_dates', 'closeness_jokes', 'closeness_settings', 'step_settings', 'big_days', 'losses', 'step_asks', 'relationship_steps', 'love_partners', 'self_fact_jobs', 'self_facts', 'companion_plans', 'rough_patch_promises', 'rough_patches', 'calls', 'together_asks', 'outings', 'trips', 'recommendations', 'life_chapters', 'chapter_days', 'thoughts', 'life_moments', 'dreams', 'news_holders', 'news', 'marks', 'consequences', 'storylines',
     'storyline_days', 'babysitting', 'companion_kids', 'circle_children', 'family_traditions', 'scrapbook_seen', 'history_corrections', 'pet_log', 'pet_state', 'home_log', 'home_items', 'home_state', 'wardrobe_log', 'wardrobe_items', 'wardrobe_state', 'grooming_log', 'grooming_state', 'upkeep_days', 'upkeep_state', 'kitchen_state', 'media_items', 'media_state', 'hobby_log', 'hobbies', 'hobby_state', 'townsfolk_encounters', 'acquaintances', 'circle_people', 'life_admin', 'work_weeks', 'work_events', 'work_life', 'life_agenda',
     'agenda_cursors', 'relationship_moods', 'visits', 'life_runs', 'life_cursors', 'memories', 'life_events',
-    'user_people', 'voice_notes', 'message_pictures', 'message_edits', 'chat_reads', 'away_messages', 'messages', 'chat_imports', 'timelines',
+    'user_people', 'voice_notes', 'message_pictures', 'message_edits', 'chat_reads', 'messages', 'chat_imports', 'timelines',
 )
 # LoRA folders the backup does not carry: training runs and the test and prepared pictures.
 UNBACKED_LORA = ('runs', 'evaluations', 'generated')
@@ -79,7 +79,6 @@ PET_KEYS = ("pet_key IN (SELECT 'home:' || id FROM home_items WHERE timeline_id 
             "OR pet_key IN (SELECT 'circle:' || id || ':0' FROM circle_people WHERE timeline_id IN gone_timelines)")
 # How a table without its own timeline or companion column finds one companion's rows; None keeps them.
 OWN = {
-    'notifications': 'post_id IN gone_posts',
     'chat_photos': 'message_id IN gone_messages OR post_id IN gone_posts OR job_id IN gone_jobs',
     'feed_post_events': 'post_id IN gone_posts OR event_id IN gone_events',
     'memory_sources': 'message_id IN gone_messages OR memory_id IN gone_memories',
@@ -95,7 +94,6 @@ OWN = {
     'lora_eval_images': 'evaluation_id IN gone_evaluations',
     'lora_gen_images': 'generation_id IN gone_generations',
     'chat_reads': 'thread_id IN gone_timelines',
-    'away_messages': 'message_id IN gone_messages',
     'news_holders': "news_id IN (SELECT id FROM news WHERE timeline_id IN gone_timelines) "
                     "OR holder='companion:' || :companion",
     'companions': 'id=:companion',

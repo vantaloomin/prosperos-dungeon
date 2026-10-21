@@ -441,11 +441,6 @@ class LifeSettingsUpdate(Input):
     return_gap_hours: int | None = Field(default=None, ge=1, le=48)
     background_interval_minutes: int | None = Field(default=None, ge=15, le=1440)
     background_daily_events: int | None = Field(default=None, ge=0, le=8)
-    texts_first: bool | None = None
-    texts_daily: int | None = Field(default=None, ge=1, le=6)
-    texts_gap_hours: int | None = Field(default=None, ge=1, le=24)
-    # Messages sent while the user is away, from all companions together (dungeon/away.py); 0 for none.
-    away_daily: int | None = Field(default=None, ge=0, le=40)
     # 0 sizes the circle by how sociable the companion is (dungeon/life/circle.py).
     circle_size: int | None = Field(default=None, ge=0, le=12)
     # Storylines from quiet (0) through realistic and dramatic to soap opera (3).
@@ -492,25 +487,9 @@ class LifeSettingsUpdate(Input):
     # Pets with lives of their own (dungeon/life/pets.py): 0 off, 1 light, 2 true to life, 3 dramatic.
     pets_realism: int | None = Field(default=None, ge=0, le=3)
     pets_can_die: bool | None = None
-    # While you were away (dungeon/recap.py): days away before a catch-up shows; 0 turns it off.
-    recap_after_days: int | None = Field(default=None, ge=0, le=60)
     # Home upkeep (dungeon/life/upkeep.py): 0 off, 1 light, 2 true to life, 3 messy.
     upkeep_realism: int | None = Field(default=None, ge=0, le=3)
     user_birthday: str | None = Field(default=None, pattern=r'^(?:(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]))?$')
-
-
-class NotificationSettingsUpdate(Input):
-    """Desktop notifications (PRD compute and job control). The cap's ceiling is the tested maximum."""
-    enabled: bool | None = None
-    quiet_start: str | None = Field(default=None, max_length=5)
-    quiet_end: str | None = Field(default=None, max_length=5)
-    preview: Literal['full', 'name', 'private'] | None = None
-    daily_cap: int | None = Field(default=None, ge=1, le=6)
-    min_gap_minutes: int | None = Field(default=None, ge=30, le=720)
-
-
-class NotificationCheck(Input):
-    focused: bool = False
 
 
 class ToolArgument(Input):
@@ -624,11 +603,6 @@ class NewWorld(Input):
     persona_id: str | None = Field(None, min_length=1, max_length=100)
     name: str | None = Field(None, max_length=80)
     city_id: str | None = Field(None, min_length=1, max_length=120)
-
-
-class RecapRead(Input):
-    """The catch-up the user read, by the message it followed (dungeon/recap.py)."""
-    since: str = Field(min_length=1, max_length=40)
 
 
 class StatusUpdate(Input):

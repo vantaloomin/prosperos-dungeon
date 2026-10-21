@@ -11,8 +11,7 @@ The drama level (Settings > Life) sets how often a moment turns up and which car
 gentle ones. A card that needs someone from the circle or a job is left out for a companion without one, a card
 drawn in the last `repeat_days` steps aside so the weeks don't repeat, and a card that could give away a secret
 the companion keeps is never drawn. No model decides anything: the chat context tells the companion what happened
-("You found a forgotten twenty in an old coat pocket"), the model only puts it in their words, and a card with a
-`share` line may become a first message (dungeon/life/openers.py).
+("You found a forgotten twenty in an old coat pocket") and the model only puts it in their words.
 
 A day's draw is written once (`life_moments`), so the last week reads back as it was. Today lists it with its odds
 under "Why it went this way" (with Hidden values > odds on), where the user can make it go another way: another
@@ -28,7 +27,7 @@ from dungeon.errors import require
 from dungeon.life import chance, circle, love_life, pronouns, storylines
 from dungeon.world import catalog
 
-# Off in tests unless a test turns it on: a seeded moment would add context lines and first messages.
+# Off in tests unless a test turns it on: a seeded moment would add context lines.
 ACTIVE = True
 WEEK = 7
 # How many times a draw that would give a secret away is tried again before the day stays quiet.
@@ -245,7 +244,7 @@ def context_lines(connection, companion, now) -> list[tuple[str, str]]:
 
 
 def fresh(connection, companion, now) -> list[dict]:
-    """Today's moment when it has a first message to send about it: {key, told, share}."""
+    """Today's moment when its card has a `share` line: {key, told, share}."""
     found = on_day(connection, companion, storylines.local_today(companion, now))
     if not found or not card(found['card_id']).get('share'):
         return []

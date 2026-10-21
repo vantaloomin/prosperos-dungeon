@@ -9,9 +9,9 @@ a picture serial or a radio program.
 
 Nothing asks the user. Items are chained per kind: when one ends the next starts after a seeded gap, all decided
 when the item is first needed, with no model call; how long each takes follows how keen a reader or viewer they are.
-A finished book or show leaves a seeded verdict they bring up, and something they loved they sometimes recommend to
-the user (a first text, dungeon/life/openers.py). Something the user recommended (dungeon/life/recommendations.py)
-goes ahead of their own: while they are on it, their own book or show waits and picks up again after.
+A finished book or show leaves a seeded verdict they bring up. Something the user recommended
+(dungeon/life/recommendations.py) goes ahead of their own: while they are on it, their own book or show waits and
+picks up again after.
 
 The Realism tab's slider (life_settings.media_realism: 0 off, 1 light, 2 true to life, 3 dramatic) scales it: off,
 nothing is tracked; light, they finish everything and mostly like it; true to life, mixed verdicts and now and then
@@ -38,7 +38,6 @@ BANKS = Path(__file__).resolve().parents[1] / 'world' / 'data' / 'media'
 KINDS = ('book', 'show', 'music')
 # Woven into the companion's agenda entries; tests turn it off.
 WEAVE = True
-RECOMMENDS = True
 
 # Banks by era: real titles up to the era's year in our world, invented ones in made-up worlds.
 ERA_BANKS = {'modern': 'modern', 'other': 'modern', 'victorian': 'nineteenth', 'steampunk': 'nineteenth',
@@ -634,32 +633,6 @@ def bought_text(item: dict) -> str:
 
 
 # --- Telling the user ---
-
-def recommend_due(connection, companion: dict, now) -> list:
-    """Now and then, a first text recommending something they just finished and loved (dungeon/life/openers.py)."""
-    from dungeon.life.openers import Trigger
-    version = companion['version']
-    timeline_id = companion['active_timeline_id']
-    local = now.astimezone(zone(version['timezone']))
-    level = realism(connection)
-    if not RECOMMENDS or level == 0 or not 10 <= local.hour < 21:
-        return []
-    state = optional(connection, 'SELECT * FROM media_state WHERE timeline_id=?', (timeline_id,))
-    if not state:
-        return []
-    today = local.date()
-    for item in finished(items(connection, timeline_id), today, 1):
-        if item['verdict'] != VERDICTS[0] or item['source'] != 'bank' or \
-                generators.unit(state['seed'], 'recommend', item['id']) >= RECOMMEND[level]:
-            continue
-        verb = 'read' if item['kind'] == 'book' else 'watch' if item['format'] in HOME_FORMATS else 'see'
-        ended, region = ended_verb(item), decode(state['profile']).get('region', '')
-        reason = said_here(f"You just {ended} {item['title']}{by_line(item, item['kind'])} and loved it. Recommend it "
-                           'to the user in your own words: say what it did for you, not what happens in it. Never quote '
-                           'from it, and do not describe its plot or people.', region)
-        template = said_here(f"Just {ended} {item['title']} and I loved it. You should {verb} it.", region)
-        return [Trigger(f"media-rec:{item['id']}", 'media_recommendation', reason, template, (item['id'],))]
-    return []
 
 
 # --- View and edits ---

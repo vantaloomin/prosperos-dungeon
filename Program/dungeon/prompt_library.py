@@ -64,14 +64,6 @@ PROMPTS = {prompt.name: prompt for prompt in (
            'Opens the line-a-week (then a month, then a year) record of your whole time together in every chat reply. '
            'The lines come from what happened and your corrections in the scrapbook\'s "All of it" view.',
            constant('dungeon.memory.history', 'INTRO')),
-    Prompt('first-texts', CHAT, 'Texting first',
-           'Added when the companion writes to you first, such as a check-in. The app picks the reason.',
-           constant('dungeon.life.openers', 'INSTRUCTION'),
-           {'reason': 'why the companion is writing, from the life sim'}),
-    Prompt('voice-notes', CHAT, 'Voice notes',
-           'Added to a first text that the app decided to send as a voice note. The app picks when and the voice; '
-           'emoji, links and *actions* are left out of what is read aloud whatever this says.',
-           constant('dungeon.voice.notes', 'INSTRUCTION')),
     Prompt('life-phrasing', CHAT, 'Phrasing life events',
            'Turns a life sim moment into a sentence and a feed caption. A reply that changes the facts or '
            'breaks the JSON shape is thrown away and the template wording kept.',

@@ -1,4 +1,4 @@
-"""Trips and postcards (Hit List #12): now and then the companion gets out of town for a weekend.
+"""Trips (Hit List #12): now and then the companion gets out of town for a weekend.
 
 Rules decide, seeded by the weekend, with no model. Two to three weeks ahead the app looks at each coming weekend:
 a long weekend (a public holiday on the Friday or Monday) is likelier, there is a gap of several weeks between
@@ -12,8 +12,7 @@ a trip day is spent at a real place there, with a landmark or two among them, th
 last is heading home, which can leave them tired or, after a sunny beach weekend, sunburnt (dungeon/life/body.py).
 The trip's cost comes out of their budget on the day they leave (money.household). Their texts are a little slower
 while they are away (their blocks are out-and-about time, dungeon/life/pacing.py) and their status says where they
-are. On the first afternoon they send the user a postcard: a first text (dungeon/life/openers.py) with a picture
-postcard of the landmark when pictures in chat are on.
+are.
 """
 import re
 from datetime import date, datetime, timedelta
@@ -51,15 +50,8 @@ OUTING_SUMMARIES = ('{name} took the {place} in {city}{company} during the {part
 OUTING_NAME = re.compile(r'\b(?:ride|walk|cruise|tour|crossing|hike)$', re.IGNORECASE)
 CAPTIONS = ('Wish you were here.', 'Postcard weather.', 'Not ready to go home.', 'Walked about a hundred miles today.',
             'Tourist and proud.', 'Taking it all in.')
-POSTCARDS = ('Greetings from {city}! {sight} today. Wish you were here.',
-             'Hello from {city}! Saw {sight} and thought of you.',
-             'A postcard from {city}, just for you. {sight} was even better in person.')
-OUTING_POSTCARDS = ('Greetings from {city}! The {sight} today. Wish you were here.',
-                    'Hello from {city}! Took the {sight} and thought of you.',
-                    'A postcard from {city}, just for you. The {sight} was even better in person.')
 SUNNY_TAGS = {'beach', 'waterfront', 'boardwalk'}
 WARM_F = 75
-POSTCARD_HOUR = 15
 FAMILY = ('mom', 'dad', 'mother', 'father', 'parent', 'sister', 'brother', 'sibling', 'cousin', 'aunt', 'uncle',
           'grand')
 
@@ -453,88 +445,10 @@ def away_status(connection, block: dict, seed: str) -> dict | None:
     return {'text': generators.pick(seed, 'trip-away', list(lines)), 'glyph': 'pin'}
 
 
-# --- Postcards ---
-
-def postcard_due(connection, companion: dict, now: datetime) -> list:
-    """A first text with a postcard on the first afternoon away (dungeon/life/openers.py)."""
-    from dungeon.life.openers import Trigger
-    local = now.astimezone(zone(companion['version']['timezone']))
-    if local.hour < POSTCARD_HOUR:
-        return []
-    today = local.date().isoformat()
-    result = []
-    for trip in planned(connection, companion['active_timeline_id'], today):
-        if not trip['start_date'] <= today <= trip['end_date'] or not trip['landmark']:
-            continue
-        sight_name, city = trip['landmark']['name'], trip['city_name']
-        outing = bool(OUTING_NAME.search(sight_name))
-        template = generators.pick(f"postcard:{trip['id']}", 'postcard', list(OUTING_POSTCARDS if outing else POSTCARDS)
-                                   ).format(city=city, sight=outing_name(sight_name) if outing else sight_name)
-        result.append(Trigger(
-            f"postcard:{trip['id']}", 'postcard',
-            f"You are away in {city}{company_text(trip)} and you are sending the user a picture postcard of "
-            f"{sight_name}. Write the few lines on the back of it: short and warm, like a real postcard.",
-            template, (trip['id'],)))
-    return result
-
-
-def unpictured(connection, now: datetime) -> list[dict]:
-    """Postcards sent in the last day that have no picture yet."""
-    return many(connection, "SELECT openers.message_id, openers.trigger_key, openers.timeline_id FROM openers "
-                "LEFT JOIN chat_photos ON chat_photos.message_id=openers.message_id WHERE openers.kind='postcard' AND "
-                'chat_photos.message_id IS NULL AND openers.created_at>?',
-                ((now - timedelta(days=1)).isoformat(),))
-
-
-def postcard_inputs(connection, companion: dict, trip: dict, settings: dict) -> dict:
-    """A fixed template: a picture postcard of the landmark, nobody in it."""
-    from dungeon.images import prompts
-    from dungeon.lora.appearance import current_for_images
-    sight_item, city = trip['landmark'], trip['city_name']
-    prompt = (f"A vintage picture postcard of {sight_item['name']} in {city}. {sight_item['summary']} Bright printed "
-              f"colours and a white border, with 'Greetings from {city}' in bold retro lettering across the top. "
-              'Nobody in focus.')
-    return {**prompts.base_inputs(companion, companion['version']['definition'], settings), 'prompt': prompt,
-            'framing': 'view', 'captions': [f'A postcard from {city}', sight_item['name'], sight_item['summary']],
-            **current_for_images(connection), 'lora': None}
-
-
-def picture_postcards(database) -> None:
-    """With pictures in chat on, the postcard's picture on the postcard text. Called by the image runner each
-    tick; a postcard whose picture cannot be made anywhere stays a text."""
-    from dungeon.characters import current
-    from dungeon.images import jobs
-    from dungeon.life import feed
-    now = database.clock.now()
-    with database.connect(write=True) as connection:
-        companion = current(connection)
-        settings = jobs.image_settings(connection)
-        found = [row for row in unpictured(connection, now) if companion
-                 and row['timeline_id'] == companion['active_timeline_id']]
-        if not found or not settings['chat_photos']:
-            return
-        trip = optional(connection, 'SELECT * FROM trips WHERE id=?', (found[0]['trigger_key'].removeprefix(
-            'postcard:'),))
-        if not trip or not trip['landmark']:
-            return
-        trip = view(trip)
-        inputs = postcard_inputs(connection, companion, trip, settings)
-        post_id = feed.create(connection, trip['timeline_id'], 'event', f"postcard:{trip['id']}", [], now.isoformat(),
-                              now.isoformat())
-    if not jobs.routable(database, inputs):
-        return
-    job = jobs.enqueue(database, post_id, 'manual', inputs=inputs)
-    with database.connect(write=True) as connection:
-        connection.execute('INSERT OR IGNORE INTO chat_photos (message_id, post_id, job_id, kind, event_key, summary, '
-                           "unasked, created_at) VALUES (?, ?, ?, 'view', '', ?, 1, ?)",
-                           (found[0]['message_id'], post_id, job['id'], f"a postcard from {trip['city_name']}",
-                            now.isoformat()))
-
-
 # --- What Today shows ---
 
 def listing(connection, companion: dict, now: datetime) -> list[dict]:
-    """Trips from the last two weeks on, with their state and postcard message, for Today."""
+    """Trips from the last two weeks on, with their state, for Today."""
     today = now.astimezone(zone(companion['version']['timezone'])).date()
     rows = many(connection, 'SELECT * FROM trips WHERE timeline_id=? AND end_date>=? ORDER BY start_date',
                 (companion['active_timeline_id'], (today - timedelta(days=14)).isoformat()))
@@ -542,10 +456,7 @@ def listing(connection, companion: dict, now: datetime) -> list[dict]:
     for row in map(view, rows):
         found = 'cancelled' if row['status'] == 'cancelled' else 'done' if row['end_date'] < today.isoformat() else \
             'now' if row['start_date'] <= today.isoformat() else 'planned'
-        card = optional(connection, "SELECT message_id FROM openers WHERE timeline_id=? AND trigger_key=?",
-                        (row['timeline_id'], f"postcard:{row['id']}"))
         found_cost = money.profile(companion['version']['definition'])
         cost_text = money.amount(row['cost'], found_cost.city['currency']) if found_cost and row['cost'] else ''
-        result.append({**row, 'state': found, 'postcard_message_id': card['message_id'] if card else None,
-                       'cost_text': cost_text})
+        result.append({**row, 'state': found, 'cost_text': cost_text})
     return result

@@ -1,6 +1,6 @@
 /** Settings is split into tabs; this lists them, what each holds, and the words a search finds them by. */
 
-export type SettingsTab = 'general' | 'models' | 'life' | 'realism' | 'memory' | 'images' | 'notifications' | 'phone' | 'data' | 'debug' | 'advanced'
+export type SettingsTab = 'general' | 'models' | 'life' | 'realism' | 'memory' | 'images' | 'phone' | 'data' | 'debug' | 'advanced'
 
 export interface SettingsSection {
   /** The id of the section's heading, used to land on it from a search result. */
@@ -69,11 +69,6 @@ export const SETTINGS_TABS: SettingsTabInfo[] = [
     ],
   },
   {
-    id: 'notifications', label: 'Notifications', sections: [
-      { heading: 'notifications-heading', title: 'Notifications', keywords: 'notifications alerts desktop quiet hours' },
-    ],
-  },
-  {
     id: 'phone', label: 'Phone access', sections: [
       { heading: 'phone-heading', title: 'Phone access', keywords: 'phone mobile tailscale network remote away pair qr code device home screen install wifi wi-fi lan local network' },
     ],
@@ -93,7 +88,7 @@ export const SETTINGS_TABS: SettingsTabInfo[] = [
   {
     id: 'advanced', label: 'Advanced', withoutCompanion: true, advanced: true, sections: [
       { heading: 'story-mode-heading', title: 'Story mode', keywords: 'story mode narrator roleplay role play travel townsfolk meet people experimental' },
-      { heading: 'prompts-heading', title: 'Prompts', keywords: 'advanced prompt prompts system instructions wording chat character in character first texts check-ins life phrasing memory suggestions pictures describe drafting help me write quick start power user' },
+      { heading: 'prompts-heading', title: 'Prompts', keywords: 'advanced prompt prompts system instructions wording chat character in character life phrasing memory suggestions pictures describe drafting help me write quick start power user' },
     ],
   },
 ]

@@ -278,9 +278,6 @@ def unasked(monkeypatch):
     monkeypatch.setattr(photos, 'UNASKED_CHANCE', 1)
     monkeypatch.setattr(photos, 'UNASKED_MEME_CHANCE', 1)
     monkeypatch.setattr(photos, 'UNASKED_SELFIE_SHARE', 0)
-    monkeypatch.setattr(photos, 'SHARE_CHANCE', 1)
-    monkeypatch.setattr(photos, 'SHARE_SELFIE_SHARE', 0)
-    monkeypatch.setattr(photos, 'SHARE_KINDS', {'work', 'study', 'errand', 'social', 'leisure'})
     # A cold turns the slot into rest at home, which is never shared; the companion's seed decides it.
     monkeypatch.setattr('dungeon.life.body.COLD_CHANCE', {'winter': 0, 'other': 0})
     return photos
@@ -327,43 +324,6 @@ def test_no_chance_means_no_unasked_picture(client, life, unasked, monkeypatch):
     monkeypatch.setattr(unasked, 'UNASKED_CHANCE', 0)
     local_comfy(client)
     assert ask(client, 'Just got home.', 'say-0001')['photo'] is None
-
-
-def share(client):
-    return client.app.state.conversation.photos.share()
-
-
-def test_a_photo_text_waits_until_they_may_text_first(client, life, unasked):
-    local_comfy(client)
-    set_life(client, texts_first=False)
-    assert share(client) is None
-    set_life(client, texts_first=True)
-    sent = share(client)
-    assert sent and sent['role'] == 'companion' and sent['reply_to'] is None
-    assert sent['photo']['unasked'] is True and sent['text']
-    history = client.get('/api/conversation').json()['messages']
-    assert next(message for message in history if message['id'] == sent['id'])['photo']['post_id'] == \
-        sent['photo']['post_id']
-    # Once a day, and never twice without an answer.
-    assert share(client) is None
-
-
-def test_photo_texts_count_as_first_messages(client, life, unasked):
-    local_comfy(client)
-    set_life(client, texts_first=True)
-    sent = share(client)
-    with client.app.state.database.connect() as connection:
-        opener = connection.execute('SELECT kind, wording FROM openers WHERE message_id=?', (sent['id'],)).fetchone()
-    assert tuple(opener) == ('photo', 'template')
-
-
-def test_no_photo_text_without_a_backend_or_with_unasked_pictures_off(client, life, unasked):
-    set_life(client, texts_first=True)
-    assert share(client) is None
-    local_comfy(client)
-    client.put('/api/images/settings', json={'unprompted_photos': False})
-    assert share(client) is None
-    assert client.get('/api/conversation').json()['messages'] == []
 
 
 def test_a_photo_that_failed_can_be_tried_again_from_the_chat(client, life, adapters, monkeypatch):

@@ -7,11 +7,11 @@ the people in their circle and the other companions they know, and from a circle
 to the rest of that circle. Whether one person passes it to another is the consequence engine's call (choice
 `news:pass_on`, dungeon/consequences.py): likelier the closer the teller feels, from someone whose own news it is,
 or from a gossip. The dice are seeded by the news, the pair and the day, so a day never changes after the fact.
-So the sister hears Tuesday night, a coworker Wednesday, and a friend who is a companion too may text the user
-about it Thursday, before the companion has said a word.
+So the sister hears Tuesday night, a coworker Wednesday, and a friend who is a companion too may know by Thursday,
+before the companion has said a word.
 
-Everyone remembers who told them (`news_holders.told_by`). Openers (life/openers.py) pick from what each person
-has heard. Storylines that are secrets (dungeon/secrets.py) never travel this way.
+Everyone remembers who told them (`news_holders.told_by`). Storylines that are secrets (dungeon/secrets.py) never
+travel this way.
 
 Only life events travel, never anything from the user's chats, so no companion can seem to have read the user's
 chats with someone else; prompts also say they don't know whether the user has heard.

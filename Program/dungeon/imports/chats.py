@@ -10,9 +10,9 @@ swipe is taken and its date read (`send_date` in SillyTavern's several formats, 
 The world exists outside of the user, so an import asks nothing: the messages land before everything
 already in the chat (lower `seq`), dated from the file or, without dates, in made-up sittings ending an
 hour before the first message there. Each carries `import_id`, so it reads as history but never counts as
-new conversation: no reply, unread count, notification, mood, opener, recap, usual hours, closeness or
-consequence comes from it (each of those reads `import_id IS NULL`, and `records.from_old_chats` keeps what
-only an old chat said out of plans to follow up and shared moments). The user's lines go through the usual
+new conversation: no reply, unread count, mood, closeness or consequence comes from it (each of those reads
+`import_id IS NULL`, and `records.from_old_chats` keeps what only an old chat said out of plans to follow up
+and shared moments). The user's lines go through the usual
 rule-based memory pass (memory/formation.py) at once, in bounded batches and without a model call, so recall
 finds what was said back then; a fact stated there never ends or corrects one said later.
 """

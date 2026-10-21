@@ -9,13 +9,7 @@ Visits come from the chat. "Come over?", "I'm at your door" and "can I come to y
 rules as outings: the companion says yes when they are free and nearby, and otherwise the reply says why not (at work
 until five, asleep, out, too far away). A visit with no day named starts now and ends on its own at a time the rules
 pick (their bedtime, or early when they work the next morning), or when either side heads home.
-
-Companions come to the user too, as often as the Getting together slider says (life_settings.together_realism:
-0 never on their own, 1 light, 2 true to life, 3 often): they suggest meeting up or invite the user over (a first
-text, dungeon/life/openers.py), and a close companion in the user's city sometimes knocks unannounced, never in the
-user's quiet hours (openers.held) and never on an easy life (below level 2). "Not now" sends them home again.
 """
-import random
 import re
 from datetime import date, datetime, timedelta
 
@@ -24,22 +18,9 @@ from dungeon.database import encode, identifier, many, optional, settings
 from dungeon.life import outings, own_plans, pacing, routine, trips, where
 
 ACTIVE = True
-# Knocks and suggestions to meet up (first texts); off in most tests (tests/conftest.py).
-FIRST_TEXTS = True
-DEFAULT_LEVEL = 2
-# Knocking unannounced: from this level of the slider, and only for someone this close (dungeon/memory/closeness.py:
-# Close, or Close friends).
-KNOCK_FROM = 2
 CLOSE = 4
-# The chance a day brings a knock, and a suggestion to meet up, by the slider.
-KNOCK_CHANCE = {2: 1 / 14, 3: 1 / 5}
-SUGGEST_EVERY = 3  # days
-SUGGEST_CHANCE = {1: 0.12, 2: 0.3, 3: 0.55}
-KNOCK_HOURS = (10, 21)
-SUGGEST_HOURS = (10, 21)
 # How long a visit lasts at most, and the least time worth coming over for.
 VISIT_HOURS = 3.0
-KNOCK_HOURS_LONG = 2.0
 SHORTEST = timedelta(minutes=45)
 # Up early for work: a visit the night before ends by then.
 EARLY_START = '10:00'
@@ -82,17 +63,6 @@ LEAVING = re.compile(r"\b(?:i should (?:head|get going|go|get home)|i(?:'?m| am|
                      r"(?:me|you) to (?:go|head)|you should (?:head|go) home|i'?ll let you go)\b", re.IGNORECASE)
 NOT_NOW = re.compile(r"\b(?:not now|not a good time|bad time|not right now|can'?t (?:right )?now|another time|"
                      r"not today)\b", re.IGNORECASE)
-
-
-def level(connection) -> int:
-    row = optional(connection, 'SELECT together_realism FROM life_settings WHERE id=1')
-    return row['together_realism'] if row and row['together_realism'] in range(4) else DEFAULT_LEVEL
-
-
-def invites(connection, companion: dict) -> bool:
-    """Whether they may ask the user over or along on their own (kitchen.py, hobbies.py): the slider is not off, and
-    they live in the user's city."""
-    return bool(level(connection)) and not where.between(connection, companion['version']['definition']).long_distance
 
 
 # --- Places -----------------------------------------------------------------------------------------------------
@@ -502,129 +472,11 @@ def view(connection, companion: dict, now: datetime) -> dict:
     return found
 
 
-# --- They come to you (first texts, dungeon/life/openers.py) ------------------------------------------------
+# --- How close they are -------------------------------------------------------------------------------------
 
-def free_for(connection, companion: dict, now: datetime, hours: float) -> bool:
-    return why_not(connection, companion, now, hours) is None
 
 
 def close(connection, companion: dict, now: datetime) -> bool:
     from dungeon.memory import closeness
     return closeness.state(connection, companion, now)['level'] >= CLOSE
 
-
-def knock_due(connection, companion: dict, now: datetime) -> list:
-    """Now and then a close companion in the user's city turns up at their door unannounced, at a seeded minute on a
-    seeded day, when they are free for a while. Saving the text starts the visit (`settle`)."""
-    from dungeon.life.openers import Trigger
-    chance = KNOCK_CHANCE.get(level(connection)) if ACTIVE and FIRST_TEXTS else None
-    local = now.astimezone(zone(companion['version']['timezone']))
-    if not chance or not KNOCK_HOURS[0] <= local.hour < KNOCK_HOURS[1]:
-        return []
-    key = f'knock:{local.date().isoformat()}'
-    rng = random.Random(f"{companion['id']}:{key}")
-    if rng.random() >= chance or local.hour * 60 + local.minute < rng.randint(KNOCK_HOURS[0] * 60,
-                                                                              KNOCK_HOURS[1] * 60 - 30):
-        return []
-    found = where.your_home(connection)
-    if not found or not free_for(connection, companion, now, KNOCK_HOURS_LONG) or not close(connection, companion, now) \
-            or with_someone(connection, now):
-        return []
-    city, hood = found
-    area = hood['name'] if hood else city['name']
-    reason = (f"This is not a text. You are standing at the user's door right now, in person: you were out near "
-              f"{area} with some time free and dropped by their place without telling them first. Write what you say "
-              "when they open the door, spoken in person, short and warm, and leave them an easy way to say now isn't "
-              'a good time.')
-    template = rng.choice(KNOCKS)
-    return [Trigger(key, 'drop_in', reason, template, ())]
-
-
-def with_someone(connection, now: datetime) -> bool:
-    """The user is with a companion in person right now (out, at their place or at the user's, or staying with them):
-    nobody knocks at a door the user is not behind, or turns up in the middle of someone else's visit."""
-    from dungeon.characters import by_id
-    for row in many(connection, 'SELECT id FROM companions'):
-        other = by_id(connection, row['id'])
-        if other and in_person(connection, other, now):
-            return True
-    return False
-
-
-KNOCKS = ("Surprise! I was in the neighborhood and thought I'd knock. Is now okay, or is it a bad time?",
-          "Hi! I was passing by and couldn't not knock. Got a minute, or should I come back another time?",
-          "Knock knock. I was nearby and figured I'd say hi in person. Is this a good time?")
-
-
-def suggest_due(connection, companion: dict, now: datetime) -> list:
-    """Now and then, by the slider, a first text suggesting they get together: coming over to theirs tonight, or going
-    out somewhere in their city on a free day soon. Saving the text settles the plan (`settle`)."""
-    from dungeon.life.openers import Trigger
-    chance = SUGGEST_CHANCE.get(level(connection)) if ACTIVE and FIRST_TEXTS else None
-    version = companion['version']
-    local = now.astimezone(zone(version['timezone']))
-    if not chance or not SUGGEST_HOURS[0] <= local.hour < SUGGEST_HOURS[1]:
-        return []
-    window = local.date().toordinal() // SUGGEST_EVERY
-    key = f'get-together:{window}'
-    rng = random.Random(f"{companion['id']}:{key}")
-    if rng.random() >= chance or where.between(connection, version['definition']).long_distance:
-        return []
-    if local.hour < 17 and rng.random() < 0.4:
-        evening = local.replace(hour=19, minute=30, second=0, microsecond=0)
-        if why_not(connection, companion, evening) is None:
-            return [Trigger(key, 'get_together',
-                            "You'd like to have the user over at your place tonight around 7:30, just to hang out. "
-                            'Invite them in your own words.', 'Want to come over tonight? Nothing fancy, just hang out.',
-                            ('visit-in', local.date().isoformat(), '19:30'))]
-    return outing_suggestion(connection, companion, local, key, rng)
-
-
-SUGGESTIONS = ('coffee', 'drinks', 'walk', 'dinner', 'lunch-out')
-
-
-def outing_suggestion(connection, companion: dict, local: datetime, key: str, rng: random.Random) -> list:
-    from dungeon.life.openers import Trigger
-    definition = companion['version']['definition']
-    data = outings.city_data(connection, definition)
-    if not data:
-        return []
-    activity = rng.choice(SUGGESTIONS)
-    wanted = {'activity': activity, 'day': local.date() + timedelta(days=rng.randint(1, 4)), 'at': None, 'firm': False}
-    found = outings.when_free(connection, companion, wanted, local)
-    if not found:
-        return []
-    day, at = found
-    place = outings.pick_place(data, activity, day, at, definition, key, False)
-    if not place:
-        return []
-    thing = outings.ACTIVITIES[activity][5]
-    return [Trigger(key, 'get_together',
-                    f"You'd like to see the user: suggest {thing} at {place['name']} on {day:%A} at {at}. Suggest it in "
-                    'your own words, naming the place and the day.',
-                    f"Want to {'go for' if activity == 'walk' else 'get'} {thing} at {place['name']} {day:%A}?",
-                    (activity, day.isoformat(), at, place['id']))]
-
-
-def settle(connection, companion: dict, message: dict, trigger, timestamp: str) -> dict | None:
-    """The time together a first text started: a knock (a visit at the user's place from now), an invitation over
-    tonight, or an outing it suggested."""
-    now = parse(timestamp)
-    if trigger.kind == 'drop_in':
-        return visit_now(connection, companion, message['id'], 'visit-yours', now, timestamp, KNOCK_HOURS_LONG, True)
-    activity, day, at = trigger.sources[0], date.fromisoformat(trigger.sources[1]), trigger.sources[2]
-    if activity == 'visit-in':
-        return insert(connection, companion, message['id'], activity, their_place(connection, companion), day, at,
-                      outings.until(at, activity), None, timestamp)
-    data = outings.city_data(connection, companion['version']['definition'])
-    item = next((place for place in (data or {}).get('places', ()) if place['id'] == trigger.sources[3]), None)
-    if not item or outings.taken(connection, companion, day):
-        return None
-    wanted = {'activity': activity, 'day': day, 'at': at, 'place': item, 'word': '', 'waterside': False}
-    found = outings.save(connection, companion, message, wanted, data, day, at, timestamp)
-    if found:
-        connection.execute('UPDATE outings SET named=0 WHERE id=?', (found['id'],))
-    return found
-
-
-SETTLES = ('drop_in', 'get_together')

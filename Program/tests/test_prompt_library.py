@@ -1,19 +1,11 @@
 from conftest import send
 
 from dungeon import prompt_library
-from dungeon.life import openers, synthesis
 from dungeon.memory import context
 from dungeon.providers.chat import Chunk
 
 CUSTOM = ('You are {{name}}, a retired lighthouse keeper at heart, whatever your job. Relationship: '
           '{{relationship}}.')
-
-
-def test_shipped_wording_fills_exactly_as_the_code_did():
-    assert prompt_library.text(None, 'chat-character', name='Mira', relationship='friendship') == \
-        context.GUIDANCE.format(name='Mira', relationship='friendship')
-    assert prompt_library.text(None, 'life-phrasing', name='Mira') == synthesis.RULES.format(name='Mira')
-    assert prompt_library.text(None, 'first-texts', reason='a test.') == openers.INSTRUCTION.format(reason='a test.')
 
 
 def test_every_prompt_is_listed_with_its_default_and_placeholder_help(client):
@@ -64,8 +56,8 @@ def test_placeholder_typos_are_refused_before_they_reach_a_reply(client):
 
 
 def test_saving_the_default_wording_is_the_same_as_resetting(client):
-    default = prompt_library.PROMPTS['first-texts'].default()
-    assert not client.put('/api/prompts/first-texts', json={'text': default}).json()['customized']
+    default = prompt_library.PROMPTS['life-phrasing'].default()
+    assert not client.put('/api/prompts/life-phrasing', json={'text': default}).json()['customized']
 
 
 def test_an_update_to_the_default_keeps_the_users_wording_and_says_so(client, monkeypatch):
@@ -80,11 +72,11 @@ def test_an_update_to_the_default_keeps_the_users_wording_and_says_so(client, mo
 
 
 def test_other_prompts_use_the_users_wording(client):
-    client.put('/api/prompts/first-texts', json={'text': 'Text them first, briefly. Reason: {{reason}}'})
+    client.put('/api/prompts/life-phrasing', json={'text': 'Say what {{name}} did, briefly.'})
     client.put('/api/prompts/memory-suggestions', json={'text': 'List facts as JSON. Reply [] when none.'})
     database = client.app.state.database
     with database.connect() as connection:
-        assert prompt_library.text(connection, 'first-texts', reason='x.') == 'Text them first, briefly. Reason: x.'
+        assert prompt_library.text(connection, 'life-phrasing', name='Mira') == 'Say what Mira did, briefly.'
         assert prompt_library.text(connection, 'memory-suggestions') == 'List facts as JSON. Reply [] when none.'
         assert prompt_library.text(connection, 'picture-description') == prompt_library.PROMPTS[
             'picture-description'].default()

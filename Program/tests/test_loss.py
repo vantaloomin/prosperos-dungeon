@@ -6,10 +6,10 @@ from datetime import date, timedelta
 
 import pytest
 
-from dungeon import consequences, moods
+from dungeon import consequences
 from dungeon.characters import current
 from dungeon.database import decode, encode, one, optional
-from dungeon.life import big_days, circle, loss, openers, outings
+from dungeon.life import big_days, circle, loss, outings
 from dungeon.world import paper, turnover
 
 ROLES = ['dad', 'sister', 'close friend', 'friend', 'cousin']
@@ -18,7 +18,6 @@ ROLES = ['dad', 'sister', 'close friend', 'friend', 'cousin']
 @pytest.fixture(autouse=True)
 def on(monkeypatch):
     monkeypatch.setattr(big_days, 'ACTIVE', True)
-    monkeypatch.setattr(big_days, 'FIRST_TEXTS', True)
 
 
 def make(client):
@@ -158,44 +157,6 @@ def test_who_is_spared_the_young_partners_and_people_the_sheet_names(client, clo
     # Spared again: the death to come is gone.
     client.post(f"/api/life/circle/{sister['id']}/spared", json={'spared': True})
     assert sister['id'] not in {row['person_id'] for row in losses(client)}
-
-
-def test_a_death_on_its_day_grief_the_news_and_fewer_plans(client, clock, monkeypatch):
-    make(client)
-    switch(client)
-    dad = person(client, 'dad')
-    dies(monkeypatch, dad['id'])  # Only the dad, so no one else's news falls on the same day.
-    advance(client, clock)
-    row = next(row for row in losses(client) if row['person_id'] == dad['id'])
-    assert row['happened'] == 0 and row['details']['depth'] == 3
-    assert date.fromisoformat(row['died_on']) >= clock.now().date() + timedelta(days=loss.SOONEST)
-    clock.advance(date.fromisoformat(row['died_on']) - clock.now().date() + timedelta(hours=2))
-    advance(client, clock)
-    late = person(client, 'dad', everyone=True)
-    assert late['status'] == 'removed' and decode(late['details'])['late'] == row['died_on']
-    shown = next(item for item in client.get('/api/life/circle').json() if item['id'] == dad['id'])
-    assert shown['loss']['died_on'] == row['died_on']
-    found = lines(client, clock)
-    assert any(text.startswith(f"- Your dad {dad['name'].split()[0]} died on") and "it's still raw" in text
-               for text in found), found
-    with client.app.state.database.connect() as connection:
-        companion = current(connection)
-        mood = moods.current(connection, f"companion:{companion['id']}", clock.now())
-        assert mood['feeling'] == 'sad' and mood['intensity'] == 2
-        assert mood['reason'].endswith(f"'s dad {dad['name'].split()[0]} died"), mood['reason']
-        news = loss.news_due(connection, companion, clock.now())
-        assert len(news) == 1 and 'died today' in news[0].reason
-        assert loss.holds_back(connection, companion, clock.now())
-        held = [trigger for trigger in openers.candidates(connection, companion, clock.now())
-                if trigger.kind in ('together', 'kitchen')]
-        assert held == []
-    # Weeks on it lifts, and after that a plain line keeps the fact.
-    clock.advance(timedelta(days=60))
-    assert any("it's lifting slowly" in text for text in lines(client, clock))
-    clock.advance(timedelta(days=60))
-    assert any('You still miss' in text for text in lines(client, clock))
-    with client.app.state.database.connect() as connection:
-        assert not loss.holds_back(connection, current(connection), clock.now())
 
 
 def test_the_funeral_is_a_quiet_big_day_by_the_citys_customs(client, clock, monkeypatch):
@@ -399,25 +360,6 @@ def test_the_news_the_memories_and_the_invitation_fit_the_era():
         assert not re.search(r'\bcall\b|coffee', line), line
 
 
-def test_the_news_of_a_death_goes_out_before_the_funeral_invitation(client, clock, monkeypatch):
-    make(client)
-    switch(client)
-    dies(monkeypatch, person(client, 'cousin')['id'])
-    monkeypatch.setattr(loss, 'FIRST_TEXTS', True)
-    advance(client, clock)
-    row = next(row for row in losses(client) if row['role'] == 'cousin')
-    clock.advance(date.fromisoformat(row['died_on']) - clock.now().date() + timedelta(hours=2))
-    advance(client, clock)
-    with client.app.state.database.connect(write=True) as connection:
-        connection.execute("UPDATE big_days SET invite=1, invite_on=? WHERE kind='funeral'",
-                           (clock.now().date().isoformat(),))
-        # The circle's own big days are random; one asked to near the funeral would hold its invitation back.
-        connection.execute("UPDATE big_days SET invite=0 WHERE kind!='funeral'")
-        kinds = [trigger.key.split(':')[0] for trigger in openers.candidates(connection, current(connection),
-                                                                            clock.now())]
-    assert 'bigday' in kinds and kinds.index('loss') < kinds.index('bigday'), kinds
-
-
 def test_a_funeral_in_1895_is_for_their_mother_not_their_mom(client, clock, monkeypatch):
     response = client.post('/api/companion', json={'name': 'Eliza Thorne', 'timezone': 'Europe/London',
                                                      'home_city': 'london-1895', 'relationship': 'romance'})
@@ -525,31 +467,6 @@ def test_the_settings_hide_the_upgrade_marker(client):
     assert 'loss_by_preset' not in client.get('/api/life/settings').json()
 
 
-def test_a_death_anniversary_is_an_occasion_on_its_day_and_no_first_text(client, clock):
-    from dungeon.life import occasions
-    make(client)
-    today = clock.now().date()
-    found = late(client, 'dad', today.replace(year=today.year - 1))
-    with client.app.state.database.connect() as connection:
-        companion = current(connection)
-        items = [item for item in occasions.occasions(connection, companion, clock.now())
-                 if item['kind'] == 'death_anniversary']
-        assert len(items) == 1 and items[0]['days'] == 0 and items[0]['span'] == 'a year', items
-        first = found['name'].split()[0]
-        assert items[0]['person'] == first and items[0]['relation'] == 'dad'
-        assert items[0]['text'].startswith(f'- Today it has been a year since your dad {first} died (')
-        assert "You're thinking of her today" in items[0]['text']
-        assert not [item for item in openers.occasion(connection, companion, clock.now())
-                    if 'death_anniversary' in item.key]
-    # The loss section leaves the day to the occasion, and keeps the plain fact on other days.
-    assert not any('died in' in text for text in lines(client, clock))
-    clock.advance(timedelta(days=1))
-    assert any('You still miss' in text for text in lines(client, clock))
-    with client.app.state.database.connect() as connection:
-        assert not [item for item in occasions.occasions(connection, current(connection), clock.now())
-                    if item['kind'] == 'death_anniversary']
-
-
 def test_a_family_funeral_is_asked_even_with_another_big_day_near(client, clock):
     from dungeon.database import identifier
     make(client)
@@ -592,15 +509,3 @@ def test_an_ordinary_funeral_is_at_a_parish_church_and_never_at_a_shrine(monkeyp
     monkeypatch.setattr(loss, 'customs', lambda connection, companion: loss.bank()['customs']['uk'])
     assert loss.venue_for(None, {}, catalog.city('london'), 's', day)['name'] == 'the crematorium chapel'
 
-
-def test_the_news_says_an_illness_with_none_on_record_was_short(client, clock, monkeypatch):
-    make(client)
-    today = clock.now().date()
-    late(client, 'dad', today, cause='illness')
-    assert loss.CAUSES['illness'] == 'after a short illness' and loss.CAUSES['long illness'] == 'after a long illness'
-    monkeypatch.setattr(loss, 'FIRST_TEXTS', True)
-    with client.app.state.database.connect() as connection:
-        companion = current(connection)
-        [news] = loss.news_due(connection, companion, clock.now())
-        assert 'after a short illness' in news.reason
-    assert any(', after a short illness.' in text for text in lines(client, clock))

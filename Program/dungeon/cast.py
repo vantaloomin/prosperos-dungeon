@@ -5,7 +5,7 @@ townsperson the companion has met the main character instead: the townsperson ge
 definition, drafted from their rule sheet (or fleshed out by the text model), and from then on the model
 plays them. The companion who steps back keeps every chat, memory and timeline, and goes on living in
 the same city by the townsfolk's rules (dungeon/life/encounters.py), where the new main character can
-run into them. They still text first and keep their chat (dungeon/chats.py), so switching is like opening
+run into them. They keep their chat (dungeon/chats.py), so switching is like opening
 another chat: it puts them in slot 1 again, history intact.
 """
 from datetime import date

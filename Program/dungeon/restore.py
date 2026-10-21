@@ -25,7 +25,7 @@ from dungeon.memory import records
 MOVED = ('images', 'lora')
 # What "settings" means for a restore, parents before the tables that refer to them.
 KEPT_SETTINGS = ('workspace_settings', 'connection', 'model_profiles', 'model_routes', 'life_settings',
-                 'image_settings', 'image_backends', 'lora_settings', 'notification_settings', 'phone_settings', 'phone_devices', 'phone_push',
+                 'image_settings', 'image_backends', 'lora_settings', 'phone_settings', 'phone_devices',
                  'builtin_recall', 'voice_settings', 'prompt_overrides', 'debug_time', 'local_programs')
 
 

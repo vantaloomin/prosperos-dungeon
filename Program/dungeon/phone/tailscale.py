@@ -4,7 +4,7 @@ private https address on the user's tailnet to the Dungeon (`tailscale serve`).
 It also forwards plain http on the PC's tailnet address (http://100.x.y.z:<port>) as a backup. That one needs
 neither the tailnet's name lookup (MagicDNS), which a phone's private DNS setting can bypass, nor an https
 certificate, which Tailscale fetches on the first visit. Tailscale encrypts the traffic between devices either
-way; only phone notifications need the https address."""
+way."""
 import json
 import os
 import re

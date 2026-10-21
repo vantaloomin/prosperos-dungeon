@@ -3,8 +3,7 @@
 A companion who isn't the user's romance (a friend, a mentor, family, anyone else) can meet someone: a life chapter
 of the kind `relationship` (dungeon/life/chapters.py), picked by the consequence engine like a new job or a pet. The
 new partner is a seeded new person who joins their circle (dungeon/life/circle.py) with a job, a weekly routine and a
-diary of their own, so they turn up in the feed and in the companion's days like anyone else in their life. They tell
-the user as a friend would: the chapter's first text, and later the steps and a breakup as news (`news_due`).
+diary of their own, so they turn up in the feed and in the companion's days like anyone else in their life.
 
 From there the pair moves up the same steps ladder as the user and a companion (dungeon/life/steps.py, `other` is
 the partner's key 'love:<id>'): once enough time has passed at a step, the engine rolls how things go (choice
@@ -39,15 +38,14 @@ from datetime import date, timedelta
 from functools import cache
 
 from dungeon import consequences
-from dungeon.clock import parse, stamp, zone
+from dungeon.clock import stamp
 from dungeon.database import decode, encode, identifier, many, one, optional
 from dungeon.errors import require
 from dungeon.life import ages, circle, pronouns, steps
 from dungeon.world import catalog, lifespans
 
-# Off in tests unless a test turns it on (tests/conftest.py): a seeded partner adds circle people and first texts.
+# Off in tests unless a test turns it on (tests/conftest.py): a seeded partner adds circle people.
 ACTIVE = True
-FIRST_TEXTS = True
 DEFAULT_LEVEL = 2
 NEXT = 'love:next'
 SECRET = 'love:secret'
@@ -576,7 +574,7 @@ def rough_patch(connection, companion: dict, found: dict, now) -> dict | None:
                                   shown=f"over you finding out they'd been seeing {name} behind your back")
 
 
-# Words: the chat context, news and first texts ----------------------------------------------------------------------------
+# Words: the chat context and news -----------------------------------------------------------------------------------------
 
 def describe(found: dict) -> str:
     details = found['details']
@@ -764,99 +762,8 @@ def news_items(connection, companion: dict, since: str, today: str) -> list[dict
             for item in events(connection, companion, since, today)]
 
 
-def news_since(connection, companion: dict, now, today: date) -> date:
-    """Yesterday, or the day of the user's last visit when that was longer ago, at most CATCH_UP_DAYS back."""
-    from dungeon.life.mood import last_presence
-    since = today - timedelta(days=1)
-    last = last_presence(connection, companion['active_timeline_id'])
-    if last:
-        seen = parse(last).astimezone(zone(companion['version']['timezone'])).date()
-        since = max(min(since, seen), today - timedelta(days=CATCH_UP_DAYS))
-    return since
-
-
-def latest_each(items: list[dict]) -> list[dict]:
-    """The newest news about each partner: after days away, "we got engaged" and not also the "I love you" before it,
-    nor the engagement once they have broken up."""
-    newest = {item['partner']['id']: item for item in items}  # `events` is in date order.
-    return [item for item in items if newest[item['partner']['id']] is item]
-
-
-def news_reason(item: dict, today: date) -> tuple[str, list[str]]:
-    """What the model is told, and the template lines for when no model writes it. News from before yesterday
-    came out in a catch-up: it says when (A/B, followups/ab-e.md)."""
-    them = first(item['partner']['name'])
-    did = 'broke up' if item['kind'] == 'split' else steps.step_of(LADDER, item['step']).did
-    if (today - date.fromisoformat(item['on'])).days > 1:
-        return (f'Since you last talked with the user, you and {them} {did} {on(item["on"], today)}. Tell the user, '
-                'the way you would text a friend catching them up.', [CATCH_UP[item['kind']].format(did=did)])
-    if item['kind'] == 'split':
-        return (f'You and {them} broke up. Tell the user, the way you would tell a friend; say as much as you like.',
-                bank()['splits'])
-    return (f'Something big just happened in your love life: you and {them} {did}. Tell the user, the way you would '
-            'text a friend.', bank()['milestones'].get(item['step']) or bank()['dates'])
-
-
 CATCH_UP = {'step': 'So much to catch you up on: {{partner}} and I {did}!',
             'split': "Catching you up: {{partner}} and I broke up while we weren't talking. I'm okay, mostly."}
-
-
-def news_due(connection, companion: dict, now) -> list:
-    """A step reached or a breakup since yesterday, or since the user's last visit (`news_since`), as a first text to
-    the user (dungeon/life/openers.py)."""
-    from dungeon.life.openers import Trigger
-    if not ACTIVE or not FIRST_TEXTS or not companion.get('active_timeline_id'):
-        return []
-    today = steps.local_today(companion, now)
-    since, data = news_since(connection, companion, now, today), city_of(connection, companion)
-    result = []
-    for item in latest_each(events(connection, companion, since.isoformat(), today.isoformat())):
-        reason, lines = news_reason(item, today)
-        lines = fitting(lines, data, date.fromisoformat(item['on']))
-        template = told(random.Random(f"{item['key']}:line").choice(lines), item['partner'])
-        result.append(Trigger(item['key'], 'storyline', reason, template))
-    return result
-
-
-def spotted_due(connection, companion: dict, now) -> list:
-    """Small world: the companion who saw someone the user is seeing out with their secret partner tells the user,
-    gently, as a friend would."""
-    from dungeon.life.openers import Trigger
-    if not ACTIVE or not FIRST_TEXTS:
-        return []
-    today = steps.local_today(companion, now)
-    rows = witnessed(connection, companion, today - timedelta(days=FRESH_DAYS))
-    result = []
-    for row in rows:
-        other = optional(connection, 'SELECT v.name FROM companions c JOIN character_versions v ON '
-                         'v.id=c.active_version_id WHERE c.id=?', (row['companion_id'],))
-        if other:
-            name = first(other['name'])
-            template = random.Random(f"{row['id']}:spotted").choice(bank()['spotted']).format(name=name,
-                                                                                            place=row['place'])
-            result.append(Trigger(f"love-spotted:{row['id']}", 'storyline',
-                                  f'You saw {name}, who is seeing the user, at {row["place"]} with someone else, looking '
-                                  'close. Tell the user gently, as a friend giving them a heads-up. You only know what '
-                                  'you saw; do not guess more.', template))
-    return result
-
-
-def came_out_due(connection, companion: dict, now) -> list:
-    """When word got around: they text first to own up (with Small world, the friend who saw them tells the user)."""
-    from dungeon.life.openers import Trigger
-    if not ACTIVE or not FIRST_TEXTS or not companion.get('active_timeline_id'):
-        return []
-    today = steps.local_today(companion, now)
-    rows = many(connection, "SELECT * FROM love_partners WHERE timeline_id=? AND ended_how='came_out' AND "
-                "out_via='news' AND ended_on>=?", (companion['active_timeline_id'],
-                                                    (today - timedelta(days=FRESH_DAYS)).isoformat()))
-    # An open rough patch over it sends its own apology (rough_patches.apology_due); one text, not two.
-    rows = [row for row in rows if not optional(connection, 'SELECT id FROM rough_patches WHERE subject=? AND '
-                                                'mended_at IS NULL', (f"hidden-partner:{row['id']}",))]
-    return [Trigger(f"love-out:{row['id']}", 'storyline',
-                    f"Word has got around, and the user now knows you were seeing {first(row['name'])} behind their "
-                    "back. You've ended it. Text them first: own up and say you're sorry, in your own words, without "
-                    'excuses.') for row in rows]
 
 
 # The Character page's circle, and changing how it went ----------------------------------------------------------------------

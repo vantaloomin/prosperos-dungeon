@@ -306,7 +306,7 @@ def note(connection, message: dict, timestamp: str) -> list[dict]:
     The message also waits for the memory model to read (dungeon/memory/self_suggest.py)."""
     if message['role'] != 'companion' or message['status'] != 'complete':
         return []
-    # A companion out of focus may text first too (dungeon/life/openers.py); the message says whose it is.
+    # The message says whose companion it is, which may not be the one in focus.
     companion = for_timeline(connection, message['timeline_id']) or require_current(connection)
     from dungeon.memory import self_suggest
     self_suggest.queue(connection, message, timestamp)

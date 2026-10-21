@@ -12,7 +12,6 @@ import { KITCHEN_LEVELS } from '../character/kitchenText'
 import { WORK_LEVELS } from '../character/workText'
 import { MEDIA_LEVELS } from '../character/mediaText'
 import { HOBBY_LEVELS } from '../character/hobbiesText'
-import { TOGETHER_LEVELS } from '../conversation/whereText'
 import { ROUGH_PATCH_LEVELS } from '../profile/roughPatchText'
 import { PACE_LEVELS } from '../character/stepsText'
 import { LOVE_LIFE_LEVELS } from '../character/loveLifeText'
@@ -62,7 +61,6 @@ export function PaceSettings() {
   const guests = step(GUEST_LEVELS, data.guests_realism, 2)
   const media = step(MEDIA_LEVELS, data.media_realism, 2)
   const pastimes = step(HOBBY_LEVELS, data.hobbies_realism, 2)
-  const together = step(TOGETHER_LEVELS, data.together_realism, 2)
   const families = step(FAMILY_LEVELS, data.growing_families, 2)
   const familyLife = step(FAMILY_LIFE_LEVELS, data.family_life, 2)
   const turns = step(TURN_LEVELS, data.life_turns, 2)
@@ -98,10 +96,6 @@ export function PaceSettings() {
         {(id, describedBy) => <StepSlider id={id} describedBy={describedBy} value={data.hobbies_realism} label={pastimes.label}
           onChange={(hobbies_realism) => void save({ hobbies_realism })} />}
       </Field>
-      <Field label={`Getting together: ${together.label}`} hint={together.hint} tip="You can always ask them over or out yourself, and say not now when someone knocks.">
-        {(id, describedBy) => <StepSlider id={id} describedBy={describedBy} value={data.together_realism} label={together.label}
-          onChange={(together_realism) => void save({ together_realism })} />}
-      </Field>
       <LoveLifeSlider value={data.love_life} onChange={(love_life) => void save({ love_life })} />
       <Field label={`Growing families: ${families.label}`} hint={families.hint} tip="Babies and children are only ever mentioned in words, never pictured. Town babies show up in the paper.">
         {(id, describedBy) => <StepSlider id={id} describedBy={describedBy} value={data.growing_families} label={families.label}
@@ -120,7 +114,7 @@ export function PaceSettings() {
           onChange={(media_realism) => void save({ media_realism })} />}
       </Field>
       <Toggle label="Reply at their own pace" checked={data.paced_replies} onChange={(value) => void save({ paced_replies: value })}
-        hint={`When a companion is busy they decide how to answer: later, a quick holding text first, or a short note now. Asleep, they answer when they wake. In group chats, each reply shows after the time it would take to read and type it, one after another. Turn off for replies right away.`} />
+        hint={`When a companion is busy they decide how to answer: later, a quick holding text first, or a short note now. Asleep, they answer when they wake. Turn off for replies right away.`} />
       <Toggle label="Let their days go off plan" checked={data.day_shifts} onChange={(value) => void save({ day_shifts: value })}
         hint={`Now and then they run late, stay late, have plans fall through, have something come up or get a surprise visit. Rolled with fixed dice, so a day never changes after the fact. Off: every day goes as planned.`} />
       {result && <Notice tone={result.tone}>{result.text}</Notice>}

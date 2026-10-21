@@ -48,12 +48,6 @@ def test_a_companion_out_of_focus_lives_her_days_in_template_wording(app, client
     # Only the companion in focus is phrased by the model; Billy's days cost no model calls.
     assert len(phrasing_requests(life)) == 3
     assert all('Phrased' not in event['summary'] and 'Billy' in event['summary'] for event in theirs)
-    # His posts wait on his Feed; desktop notices stay for the one in focus.
-    with app.state.database.connect() as connection:
-        queued = connection.execute('SELECT COUNT(*) FROM notifications n JOIN feed_posts p ON p.id=n.post_id '
-                                    'JOIN companions c ON c.active_timeline_id=p.timeline_id WHERE c.id=?',
-                                    (billy,)).fetchone()[0]
-    assert queued == 0
 
     # Switching to him shows the day he had, as his own account.
     ok(client.post('/api/companion/cast/focus', json={'companion_id': billy}))

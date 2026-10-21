@@ -9,7 +9,7 @@ model is involved, seeded by the recommendation and leaning on their interests a
 The title is the user's text and the only fact about it the companion has: the chat context tells
 the companion not to invent plot, people or details. Sessions become part of the companion's account
 like any other agenda entry, through the capped, reviewed events; the context shows the progress
-that is committed, and a finished one can open a conversation (dungeon/life/openers.py).
+that is committed.
 """
 import random
 import re
@@ -220,8 +220,3 @@ def drop(database, rec_id) -> list[dict]:
         rebuild_upcoming(connection, rec['timeline_id'], database.now())
         return progress(connection, require_current(connection)['active_timeline_id'])
 
-
-def finished_recently(connection, timeline_id, since) -> list[dict]:
-    """Committed final sessions since an instant, for a first message about them."""
-    return many(connection, "SELECT * FROM life_events WHERE timeline_id=? AND status='committed' AND decided_at>? "
-                "AND json_extract(details, '$.recommendation.verdict') IS NOT NULL", (timeline_id, since))

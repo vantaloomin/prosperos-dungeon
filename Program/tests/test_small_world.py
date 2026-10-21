@@ -5,9 +5,8 @@ import pytest
 from test_social_circle import WORKDAY, make
 
 from dungeon.characters import by_id, insert_version
-from dungeon.clock import parse
 from dungeon.database import decode, identifier
-from dungeon.life import agenda, body, encounters, openers
+from dungeon.life import agenda, body, encounters
 from dungeon.models import CharacterDefinition
 from dungeon.world.source import CatalogWorld
 
@@ -129,25 +128,3 @@ def test_another_companion_is_only_where_their_own_days_put_them(client, clock):
     assert plans == {f'cast:{sam}': []} and f'cast:{dana}' in cast['sheets']
     assert encounters.planned(plans[f'cast:{sam}'], later)['place'] is None
 
-
-def test_meeting_another_companion_is_news_for_the_user(client, clock, fellows, one_haunt):
-    mira = make(client, 'Warm and curious.', home_city='baltimore')
-    sam = neighbor(client, 'Sam Ortiz')
-    live(client, clock, [mira['id'], sam], 4)
-    database = client.app.state.database
-    # Their seeded weeks decide when they first cross paths; live on a little when it is later than usual.
-    for _week in range(4):
-        with database.connect() as connection:
-            if any(meeting['companion_id'] == mira['id'] for meeting in cast_meetings(connection)):
-                break
-        live(client, clock, [mira['id'], sam], 1)
-    with database.connect(write=True) as connection:
-        first = next(meeting for meeting in cast_meetings(connection) if meeting['companion_id'] == mira['id'])
-        connection.execute("UPDATE life_agenda SET status='happened' WHERE timeline_id=? AND slot_key=?",
-                           (first['timeline_id'], first['slot_key']))
-        when = parse(first['met_at']) + timedelta(hours=1)
-        triggers = openers.crossed_paths(connection, by_id(connection, mira['id']), when)
-        later = openers.crossed_paths(connection, by_id(connection, mira['id']), when + timedelta(days=3))
-    assert [trigger.key for trigger in triggers] == [f'crossed:cast:{sam}']
-    assert 'Sam' in triggers[0].template and first['place'] in triggers[0].template
-    assert 'Sam Ortiz' in triggers[0].reason and later == []

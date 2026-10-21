@@ -126,10 +126,3 @@ export function notTexting(where: WhereState | undefined): boolean {
   return inPerson(where) || onCall(where)
 }
 
-/** The Getting together slider's steps (Settings > Realism, dungeon/life/together.py). */
-export const TOGETHER_LEVELS = [
-  { label: 'Only when you ask', hint: 'They never suggest meeting up, ask you over or call on their own. Ask them and they still come or pick up when they can.' },
-  { label: 'Now and then', hint: 'Once in a while they suggest meeting up, ask you over or call. Nobody turns up at your door unannounced.' },
-  { label: 'True to life', hint: 'They suggest meeting up, ask you over and call about as often as real friends do (more when they live far away), and someone close who lives nearby sometimes knocks unannounced. Never in your quiet hours.' },
-  { label: 'Often', hint: 'They want to see and hear from you a lot: plans most weeks, invitations over, calls, and close companions in your city dropping by more often. Never in your quiet hours.' },
-]

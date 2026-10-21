@@ -214,9 +214,6 @@ def test_the_chat_lines_speak_to_them_in_their_own_words():
     us = {'country': 'United States'}
     assert hobbies.pastime_line(row, date(2026, 10, 5), us) == '- Theater: you gave it up in September.'
     assert hobbies.pastime_line({**row, 'reason': ''}, date(2026, 10, 5), None).endswith('after a dry spell.')
-    invite = hobbies.invite_reason({'name': 'baseball', 'skill': 30, 'started_on': '2025-01-01'},
-                                   hobbies.by_id()['baseball'], date(2026, 10, 10), '14:00')
-    assert 'your baseball game' in invite and 'their' not in invite.split('.')[0]
     assert money.SPENT_ON['hobby'] == 'on your pastimes'
     assert outings.ASKING.search('Could I come climbing with you Saturday?')
 

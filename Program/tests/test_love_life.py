@@ -8,7 +8,7 @@ from test_chapters import arrange, current, mira  # noqa: F401 - the fixture is 
 from test_consequences import change
 
 from dungeon import consequences
-from dungeon.life import chapters, circle, love_life, rough_patches, steps
+from dungeon.life import chapters, circle, love_life, steps
 from dungeon.world import catalog, couples, paper, townsfolk
 
 
@@ -56,27 +56,6 @@ def test_every_bank_line_says_the_partner_with_their_own_pronouns():
 
 
 
-def test_their_news_and_how_they_met_use_the_partners_pronouns(client, mira, clock, monkeypatch):  # noqa: F811
-    real = love_life.bank()
-    monkeypatch.setattr(love_life, 'bank', lambda: {
-        **real, 'met': ['when {they} returned the scarf you left on a bench'],
-        'share_new': ["It's {partner}, and I'm seeing {them}."],
-        'milestones': {**real['milestones'], 'exclusive': ['{partner} is mine and I am {theirs}.']}})
-    monkeypatch.setattr(love_life, 'FIRST_TEXTS', True)
-    world = client.app.state.life.world
-    with client.app.state.database.connect() as connection:
-        companion = current(client)
-        day = steps.local_today(companion, clock.now())
-        planned = love_life.plan(connection, companion, world, day, 'test-seed')
-    name, pronouns = planned['person']['name'].split()[0], planned['person']['details']['pronouns']
-    forms = {'she/her': ('she', 'her', 'hers'), 'he/him': ('he', 'him', 'his'), 'they/them': ('they', 'them', 'theirs')}
-    they, them, theirs = forms[pronouns]
-    assert planned['share'] == f"It's {name}, and I'm seeing {them}."
-    assert planned['told'].startswith(f"You started seeing {planned['person']['name']}; you met when {they} returned")
-    found = begin_partner(client, clock)
-    assert found['details']['met'] == f'when {they} returned the scarf you left on a bench'
-
-
 # Lines where "they" or "them" is someone else (friends, jars, keys, a saying), not the partner.
 THEY_ABOUT_OTHERS = {
     "Supper with {partner}'s friends tonight. They're loud and lovely.",
@@ -121,32 +100,6 @@ def partner_row(client):
         return love_life.partners(connection, current(client)['active_timeline_id'], active=False)
 
 
-def test_a_friend_meets_someone_who_joins_their_circle(client, mira, clock, monkeypatch):  # noqa: F811
-    monkeypatch.setattr(love_life, 'FIRST_TEXTS', True)
-    arrange(client, monkeypatch, clock, 'relationship')
-    reconcile(client)
-    listed = client.get('/api/life/chapters').json()
-    assert [item['kind'] for item in listed] == ['relationship'] and listed[0]['title'].startswith('Mira started seeing ')
-    [found] = partner_row(client)
-    assert not found['secret'] and found['ended_on'] is None
-    people = {person['id']: person for person in client.get('/api/life/circle').json()}
-    person = people[found['person_id']]
-    assert person['role'] in love_life.PARTNER_ROLES and person['love'].startswith('Dating')
-    assert person['age'] >= 18
-    prompt = client.get('/api/context/preview').json()['prompt']
-    assert f"You are seeing {found['name']}" in prompt and 'dating' in prompt
-    # The chapter's first text tells the user, from the bank.
-    with client.app.state.database.connect() as connection:
-        row = chapters.fresh(connection, current(client), clock.now())[0]
-    assert found['name'].split()[0] in row['share']
-
-    client.post(f"/api/life/chapters/{listed[0]['id']}/undo")
-    [found] = partner_row(client)
-    assert found['ended_how'] == 'undone'
-    assert found['person_id'] not in {person['id'] for person in client.get('/api/life/circle').json()}
-    assert 'You are seeing' not in client.get('/api/context/preview').json()['prompt']
-
-
 def force(monkeypatch, picked: int):
     """Every love:* roll lands on `picked`; anything else takes its likeliest option."""
     real = consequences.roll
@@ -166,47 +119,6 @@ def begin_partner(client, clock):
         found = love_life.plan(connection, companion, world, day, 'test-seed')
         love_life.begin(connection, companion, world, day, found, clock.now())
     return partner_row(client)[0]
-
-
-def test_they_move_up_the_steps_and_can_split_up(client, mira, clock, monkeypatch):  # noqa: F811
-    monkeypatch.setattr(love_life, 'FIRST_TEXTS', True)
-    found = begin_partner(client, clock)
-    force(monkeypatch, 0)
-    clock.advance(timedelta(days=40))
-    with client.app.state.database.connect(write=True) as connection:
-        love_life.advance(connection, current(client), client.app.state.life.world, clock.now())
-        reached = [row['step'] for row in steps.reached(connection, found['timeline_id'], 'romance',
-                                                        love_life.key_of(found))]
-    assert reached[:2] == ['dating', 'exclusive']
-    # A step is news, and a first text to the user.
-    with client.app.state.database.connect() as connection:
-        items = love_life.news_items(connection, current(client), '2000-01-01', '2100-01-01')
-        assert any(item['text'].startswith(f"Mira and {found['name'].split()[0]} became exclusive") for item in items)
-
-    clock.advance(timedelta(days=900))
-    with client.app.state.database.connect(write=True) as connection:
-        love_life.advance(connection, current(client), client.app.state.life.world, clock.now())
-        person = circle.person(connection, found['person_id'])
-        reached = [row['step'] for row in steps.reached(connection, found['timeline_id'], 'romance',
-                                                        love_life.key_of(found))]
-    assert reached[-1] == 'married' and person['role'] in ('wife', 'husband', 'spouse')
-    with client.app.state.database.connect() as connection:  # The line names the life they share, not only the top.
-        line = dict(love_life.context_lines(connection, current(client), clock.now()))[f"love:{found['id']}"]
-    assert ': living together, married.' in line
-
-    force(monkeypatch, 2)
-    clock.advance(timedelta(days=400))
-    with client.app.state.database.connect(write=True) as connection:
-        love_life.advance(connection, current(client), client.app.state.life.world, clock.now())
-        person = circle.person(connection, found['person_id'])
-    [after] = partner_row(client)
-    assert after['ended_how'] == 'split' and person['role'] == 'ex' and person['status'] == 'removed'
-    with client.app.state.database.connect() as connection:
-        items = love_life.news_items(connection, current(client), '2000-01-01', '2100-01-01')
-    assert any(item['text'].startswith(f"Mira and {found['name'].split()[0]} broke up") for item in items)
-    with client.app.state.database.connect() as connection:
-        had = love_life.had_text(connection, current(client), after)
-    assert had == '; you had been living together and married'  # Said in the split line: "broke up on ...; you had been"
 
 
 def test_the_user_can_make_it_go_another_way(client, mira, clock, monkeypatch):  # noqa: F811
@@ -247,45 +159,6 @@ def romance(client, clock, monkeypatch):
     assert response.status_code == 200, response.text
     client.put('/api/life/steps', json={'step': 'exclusive'})
     return response.json()
-
-
-def test_on_drama_a_secret_stays_hidden_until_it_comes_out(client, romance, clock, monkeypatch):
-    monkeypatch.setattr(love_life, 'FIRST_TEXTS', True)
-    with client.app.state.database.connect() as connection:
-        assert love_life.mode(connection, current(client)) is None
-    set_life(client, drama=3)
-    force(monkeypatch, 1)
-    monkeypatch.setattr(love_life, 'OUT_CHANCE', 0)
-    monkeypatch.setattr(love_life, 'FIZZLE_CHANCE', 0)
-    client.get('/api/life/circle')  # Their circle is there first, as in the app, so the two never share a name.
-    with client.app.state.database.connect(write=True) as connection:
-        companion = current(client)
-        assert love_life.mode(connection, companion) == 'secret'
-        found = love_life.maybe_secret(connection, companion, client.app.state.life.world, clock.now())
-    assert found['secret'] and found['person_id'] is None
-    assert found['name'] not in {person['name'] for person in client.get('/api/life/circle').json()}
-    prompt = client.get('/api/context/preview').json()['prompt']
-    assert f"secretly seeing {found['name']}" in prompt and 'The user does not know' in prompt
-    with client.app.state.database.connect() as connection:
-        assert love_life.news_items(connection, current(client), '2000-01-01', '2100-01-01') == []
-
-    monkeypatch.setattr(love_life, 'OUT_CHANCE', 1)
-    monkeypatch.setattr(rough_patches, 'ACTIVE', True)
-    monkeypatch.setattr(rough_patches, 'FIRST_TEXTS', True)
-    clock.advance(timedelta(days=8))
-    with client.app.state.database.connect(write=True) as connection:
-        love_life.advance(connection, current(client), client.app.state.life.world, clock.now())
-        [after] = love_life.partners(connection, current(client)['active_timeline_id'], active=False)
-        patch = rough_patches.current(connection, current(client), clock.now())
-        triggers = love_life.came_out_due(connection, current(client), clock.now()) + \
-            rough_patches.apology_due(connection, current(client), clock.now())
-    # With no other companion in town to see them, word got around; they own up first, in one text, and a rough
-    # patch opens over it (dungeon/life/rough_patches.py).
-    assert after['ended_how'] == 'came_out' and after['out_via'] == 'news'
-    assert patch and patch['cause'] == 'hidden_partner' and patch['fault'] == 'companion'
-    assert len(triggers) == 1 and found['name'].split()[0] in triggers[0].reason
-    prompt = client.get('/api/context/preview').json()['prompt']
-    assert 'behind their back (word got around and reached them)' in prompt
 
 
 def test_on_drama_a_secret_starts_in_about_one_month_in_fifty():
@@ -346,45 +219,6 @@ def test_a_new_partner_never_shares_a_first_name_with_someone_already_in_their_l
     assert not [name for name in found if name.split()[0] in used]
 
 
-def test_what_a_friend_saw_comes_only_from_the_branch_being_lived(client, mira, clock, monkeypatch):  # noqa: F811
-    # A fork copies a secret that came out (love_life.copy); the timeline left behind keeps its own row. The friend
-    # who saw them hears about it once, from the companion's active timeline only.
-    monkeypatch.setattr(love_life, 'FIRST_TEXTS', True)
-    companion = current(client)
-    today = steps.local_today(companion, clock.now()).isoformat()
-    with client.app.state.database.connect(write=True) as connection:
-        connection.execute("INSERT INTO timelines (id, companion_id, status, created_at) VALUES ('left', ?, "
-                           "'frozen', ?)", (companion['id'], clock.now().isoformat()))
-        for timeline_id in ('left', companion['active_timeline_id']):
-            connection.execute(
-                "INSERT INTO love_partners (id, timeline_id, companion_id, name, secret, met_on, ended_on, ended_how, "
-                "out_via, witness_id, place, created_at) VALUES (?, ?, ?, 'Jonathan Hale', 1, ?, ?, 'came_out', "
-                "'small_world', ?, 'the market', ?)",
-                (f'secret-{timeline_id}', timeline_id, companion['id'], today, today, companion['id'],
-                 clock.now().isoformat()))
-        assert len(love_life.saw_lines(connection, companion, steps.local_today(companion, clock.now()))) == 1
-        assert len(love_life.spotted_due(connection, companion, clock.now())) == 1
-
-
-def test_a_secret_that_came_out_while_the_user_was_away_still_reaches_them(client, romance, clock, monkeypatch):
-    # The weekly roll that brings it out is in the past when the app catches up after days away; it comes out the
-    # day the app notices (when the rough patch opens too), so the owning-up text is not already stale.
-    monkeypatch.setattr(love_life, 'FIRST_TEXTS', True)
-    set_life(client, drama=3)
-    force(monkeypatch, 1)
-    monkeypatch.setattr(love_life, 'OUT_CHANCE', 0)
-    with client.app.state.database.connect(write=True) as connection:
-        love_life.maybe_secret(connection, current(client), client.app.state.life.world, clock.now())
-    monkeypatch.setattr(love_life, 'OUT_CHANCE', 1)
-    clock.advance(timedelta(days=12))
-    with client.app.state.database.connect(write=True) as connection:
-        companion = current(client)
-        love_life.advance(connection, companion, client.app.state.life.world, clock.now())
-        [after] = love_life.partners(connection, companion['active_timeline_id'], active=False)
-        assert after['ended_how'] == 'came_out' and after['ended_on'] == steps.local_today(companion, clock.now()).isoformat()
-        assert len(love_life.came_out_due(connection, companion, clock.now())) == 1
-
-
 def test_a_fork_keeps_how_their_rolls_went_before_it(client, mira, clock, monkeypatch, provider):  # noqa: F811
     from conftest import send
     client.put('/api/connection', json={'base_url': 'http://127.0.0.1:1234/v1', 'model': 'local-model',
@@ -424,55 +258,6 @@ def test_undoing_the_chapter_on_a_fork_takes_back_only_its_own_partner(client, m
         [kept] = love_life.partners(connection, parent, active=False)
         [taken] = love_life.partners(connection, fork, active=False)
     assert kept['ended_how'] is None and taken['ended_how'] == 'undone'
-
-
-def test_after_a_secret_comes_out_they_hold_back_casual_texts(client, romance, clock, monkeypatch):
-    # Hours after owning up to seeing someone behind the user's back, a breezy "how's your afternoon going?" check-in
-    # went out (seen with the real model). While that rough patch is open they give the user room.
-    set_life(client, drama=3)
-    force(monkeypatch, 1)
-    monkeypatch.setattr(rough_patches, 'ACTIVE', True)
-    monkeypatch.setattr(love_life, 'OUT_CHANCE', 0)
-    with client.app.state.database.connect(write=True) as connection:
-        love_life.maybe_secret(connection, current(client), client.app.state.life.world, clock.now())
-    monkeypatch.setattr(love_life, 'OUT_CHANCE', 1)
-    clock.advance(timedelta(days=8))
-    with client.app.state.database.connect(write=True) as connection:
-        love_life.advance(connection, current(client), client.app.state.life.world, clock.now())
-        assert rough_patches.current(connection, current(client), clock.now())['cause'] == 'hidden_partner'
-        assert rough_patches.cool(connection, current(client), clock.now())
-
-
-def test_news_from_days_away_is_still_texted_once_and_says_when(client, mira, clock, monkeypatch):  # noqa: F811
-    """E2E v0.13: a step reached in a catch-up after days away was never texted (only yesterday and today were
-    looked at). Now the news since the user's last visit goes out, up to two weeks back, newest per partner."""
-    from dungeon.life import mood
-    monkeypatch.setattr(love_life, 'FIRST_TEXTS', True)
-    found = begin_partner(client, clock)
-    them = found['name'].split()[0]
-    force(monkeypatch, 0)
-    start = clock.now()
-    clock.advance(timedelta(days=40))  # Exclusive on day 35 and nothing since: five days ago.
-    with client.app.state.database.connect(write=True) as connection:
-        love_life.advance(connection, current(client), client.app.state.life.world, clock.now())
-
-    def due(last_seen):
-        monkeypatch.setattr(mood, 'last_presence', lambda *_args: last_seen.isoformat())
-        with client.app.state.database.connect() as connection:
-            return love_life.news_due(connection, current(client), clock.now())
-    [trigger] = due(start)
-    assert trigger.reason.startswith(f'Since you last talked with the user, you and {them} became exclusive on ')
-    assert '5 days ago' in trigger.reason and 'catching them up' in trigger.reason
-    assert trigger.template == f'So much to catch you up on: {them} and I became exclusive!'
-    # The user was here three days ago: they were told then, or it waited for them; nothing from before.
-    assert due(clock.now() - timedelta(days=3)) == []
-    # Nothing from further back than two weeks.
-    clock.advance(timedelta(days=10))
-    assert due(start) == []
-    # Several things in one jump: only the newest about each partner goes out.
-    sam, ali = {'id': 'sam'}, {'id': 'ali'}
-    items = [{'key': 'a', 'partner': sam}, {'key': 'b', 'partner': ali}, {'key': 'c', 'partner': sam}]
-    assert [item['key'] for item in love_life.latest_each(items)] == ['b', 'c']
 
 
 def test_after_a_split_they_wait_about_two_months_before_someone_new(client, mira, clock, monkeypatch):  # noqa: F811
@@ -525,31 +310,6 @@ def test_an_open_relationship_partner_never_becomes_exclusive(client, clock, mon
     # Where things stand with the user never says "you only see each other" (no other romance of the user's here).
     prompt = client.get('/api/context/preview').json()['prompt']
     assert steps.OPEN_ALONE in prompt and 'only see each other' not in prompt
-
-
-def test_a_friend_who_becomes_the_users_romance_breaks_up_with_their_partner_first(client, mira, clock,  # noqa: F811
-                                                                                    monkeypatch):
-    monkeypatch.setattr(love_life, 'FIRST_TEXTS', True)
-    found = begin_partner(client, clock)
-    clock.advance(timedelta(days=3))
-    with client.app.state.database.connect(write=True) as connection:
-        companion = current(client)
-        steps.become_romance(connection, companion, None, steps.local_today(companion, clock.now()),
-                             clock.now().isoformat())
-    # Before the day's catch-up, the chat already hears it is over.
-    prompt = client.get('/api/context/preview').json()['prompt']
-    assert f"You are seeing {found['name']}" not in prompt
-    assert f"You and {found['name']} broke up today" in prompt and 'because you wanted to be with the user' in prompt
-    with client.app.state.database.connect(write=True) as connection:
-        love_life.advance(connection, current(client), client.app.state.life.world, clock.now())
-        person = circle.person(connection, found['person_id'])
-        [after] = love_life.partners(connection, found['timeline_id'], active=False)
-        # Not news to the user: they are the reason.
-        assert love_life.news_items(connection, current(client), '2000-01-01', '2100-01-01') == []
-        assert love_life.news_due(connection, current(client), clock.now()) == []
-    assert after['ended_how'] == 'split' and after['details']['for_user']
-    assert person['role'] == 'ex' and person['status'] == 'removed'
-    assert 'because you wanted to be with the user' in client.get('/api/context/preview').json()['prompt']
 
 
 def test_an_open_romance_keeps_their_partner(client, clock, monkeypatch):

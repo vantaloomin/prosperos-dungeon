@@ -1,17 +1,11 @@
-"""On a call (Hit List #59, v0.12 Where you are): talking on the phone, started by either side.
+"""On a call (Hit List #59, v0.12 Where you are): talking on the phone, started by the user.
 
 A call is the third state a companion can be in with the user, beside apart and together (dungeon/life/together.py).
 Rules start and end it; the model never decides it.
 
 The user calls them: the Call button in the chat header, or words like "can I call you?" and "call me?". They pick up
 when they are free (not at work, out, or asleep); otherwise they don't, and the reply to those words says why, or for
-the button, they text back once they are free ("sorry, missed your call, I was at work").
-
-They call the user: now and then, as often as the Getting together slider says (more for someone far away, since calls
-carry long distance), a companion who is comfortable with the user rings. The strip shows it for a few minutes with
-Answer and Decline; writing in the chat answers it too. A call nobody answered becomes a first text later ("tried
-calling you!"). Rings come with first texts (dungeon/life/openers.py), so quiet hours, their sleep and the gap after
-the last message all hold them back.
+the button, it is a missed call.
 
 On a call the same chat is the call: replies are written as spoken words, texting habits stop (no held replies, bursts
 or typos) and, when a voice is set up for voice notes (dungeon/voice/notes.py), each reply is also read aloud. It
@@ -25,11 +19,9 @@ from datetime import datetime, timedelta
 from dungeon.clock import parse, stamp, zone
 from dungeon.database import decode, encode, identifier, many, one, optional
 from dungeon.errors import require
-from dungeon.life import own_plans, pacing, together, where
+from dungeon.life import own_plans, pacing, together
 
 ACTIVE = True
-# Rings and the texts after a missed call (first texts); off in most tests (tests/conftest.py).
-FIRST_TEXTS = True
 # How long a call rings, how long a quiet line stays open, and the shortest call worth picking up for.
 RING = timedelta(minutes=5)
 IDLE = timedelta(minutes=10)
@@ -41,17 +33,7 @@ HOURS = (0.5, 1.25)
 WRAP_UP = timedelta(minutes=5)
 SHOWN_FOR = timedelta(minutes=2)
 TOLD_FOR = timedelta(hours=2)
-# Ringing the user: the chance a day brings a call, by the slider; more for someone in another city. Only someone at
-# least Comfortable (Friends) with the user rings (dungeon/memory/closeness.py).
-RING_CHANCE = {1: 0.06, 2: 0.15, 3: 0.3}
-# Living in different cities: twice as often within a trip's reach, three times beyond it.
-FAR_TIMES = 2
-BEYOND_TIMES = 3
-RING_HOURS = (10, 22)
 CLOSE = 3
-# A call they missed from the user is answered with a text when they are next free, within this long.
-CALL_BACK_WITHIN = timedelta(hours=12)
-MISSED_TEXT_WITHIN = timedelta(hours=3)
 
 # Asking to talk on the phone now: "can I call you?", "call me?", "facetime?", "I'm calling you".
 ASKS = re.compile(r"\b(?:call me(?:\s+(?:now|rn|right now|back|asap|please|pls|plz))*(?!\s+[a-z'])|"
@@ -81,11 +63,6 @@ ON_CALL = ('This is a voice call, not texting: write only the words you say out 
            'in short turns. No emoji, no *actions*, no typos. You can hear each other but not see each other.')
 WHY = ('you just finished your day and wanted to talk it through', 'you wanted to hear their voice',
        'you were bored and thought of them', 'you had a quiet moment and missed talking to them properly')
-WHY_FAR = ('you miss them and texting is not the same', 'you wanted to hear their voice, from so far away')
-
-
-def level(connection) -> int:
-    return together.level(connection)
 
 
 # --- Reading the chat -------------------------------------------------------------------------------------------
@@ -155,14 +132,6 @@ def now_for(connection, companion: dict, now: datetime) -> dict | None:
     if found and found['status'] == 'on' and together.in_person(connection, companion, now):
         return {**found, 'status': 'ended', 'ended_at': stamp(now)}
     return found
-
-
-def line_busy(connection, companion: dict, now: datetime) -> bool:
-    """Whether the user is on the phone with someone else, or someone else is ringing them: one call at a time."""
-    rows = many(connection, "SELECT c.* FROM calls c JOIN companions p ON p.active_timeline_id=c.timeline_id "
-                "WHERE c.status IN ('on', 'ringing') AND c.companion_id<>?", (companion['id'],))
-    return any(effective(connection, {**row, 'reason': decode(row['reason'])}, now)['status'] in ('on', 'ringing')
-               for row in rows)
 
 
 def hang_up_others(connection, companion: dict, now: datetime):
@@ -242,7 +211,7 @@ def blocked(connection, companion: dict, now: datetime) -> str | None:
 
 
 def call(connection, companion: dict, now: datetime) -> dict:
-    """The user calls them (the Call button): they pick up when free, else it is a missed call they text back about."""
+    """The user calls them (the Call button): they pick up when free, else it is a missed call."""
     require(blocked(connection, companion, now) is None, 'You are already together or on a call.', 409)
     hang_up_others(connection, companion, now)
     reason = why_not(connection, companion, now)
@@ -392,78 +361,10 @@ def view(connection, companion: dict, now: datetime) -> dict | None:
             'started_at': found['started_at'], 'until_at': found['until_at'], 'ended_at': found['ended_at']}
 
 
-# --- They call the user (with first texts, dungeon/life/openers.py) ---------------------------------------------
-
-def ring_due(connection, companion: dict, now: datetime) -> list:
-    """Now and then, at a seeded minute on a seeded day, a companion who is comfortable with the user rings them,
-    when they are free to talk. Saving it (`ring`) starts the ring; no text is written."""
-    from dungeon.life.openers import Trigger
-    chance = RING_CHANCE.get(level(connection)) if ACTIVE and FIRST_TEXTS else None
-    version = companion['version']
-    local = now.astimezone(zone(version['timezone']))
-    if not chance or not RING_HOURS[0] <= local.hour < RING_HOURS[1]:
-        return []
-    key = f'call:{local.date().isoformat()}'
-    if optional(connection, 'SELECT id FROM calls WHERE timeline_id=? AND trigger_key=?',
-                (companion['active_timeline_id'], key)):
-        return []
-    between = where.between(connection, version['definition'])
-    far = between.long_distance
-    times = (FAR_TIMES if between.within_reach else BEYOND_TIMES) if far else 1
-    rng = random.Random(f"{companion['id']}:{key}")
-    if rng.random() >= chance * times or \
-            local.hour * 60 + local.minute < rng.randint(RING_HOURS[0] * 60, RING_HOURS[1] * 60 - 30):
-        return []
-    if blocked(connection, companion, now) or line_busy(connection, companion, now) or \
-            why_not(connection, companion, now) or not close(connection, companion, now):
-        return []
-    return [Trigger(key, 'call', rng.choice(WHY_FAR if far else WHY))]
+# --- How close they are -----------------------------------------------------------------------------------------
 
 
 def close(connection, companion: dict, now: datetime) -> bool:
     from dungeon.memory import closeness
     return closeness.state(connection, companion, now)['level'] >= CLOSE
 
-
-def ring(connection, companion: dict, trigger, now: datetime) -> dict | None:
-    """Start the ring a first-text check found; None when it can't ring after all."""
-    if blocked(connection, companion, now) or line_busy(connection, companion, now) or optional(
-            connection, 'SELECT id FROM calls WHERE timeline_id=? AND trigger_key=?',
-            (companion['active_timeline_id'], trigger.key)):
-        return None
-    return insert(connection, companion, 'them', 'ringing', now, reason={'why_called': trigger.reason},
-                  trigger_key=trigger.key)
-
-
-def missed_due(connection, companion: dict, now: datetime) -> list:
-    """After a call: a text about one they missed from the user, once they are free again ("sorry, I was at work"),
-    or about one the user didn't pick up ("tried calling you!")."""
-    from dungeon.life.openers import Trigger
-    if not ACTIVE or not FIRST_TEXTS:
-        return []
-    timeline_id = companion['active_timeline_id']
-    rows = many(connection, "SELECT * FROM calls WHERE timeline_id=? AND created_at>=? AND status IN "
-                "('missed', 'ringing', 'declined') ORDER BY created_at DESC LIMIT 1",
-                (timeline_id, stamp(now - CALL_BACK_WITHIN)))
-    found = effective(connection, {**rows[0], 'reason': decode(rows[0]['reason'])}, now) if rows else None
-    if not found or found['status'] not in ('missed', 'declined') or later_call(connection, found):
-        return []
-    at = parse(found['created_at']).astimezone(zone(companion['version']['timezone'])).strftime('%H:%M')
-    key = f"call-back:{found['id']}"
-    if found['direction'] == 'you':
-        if why_not(connection, companion, now):
-            return []
-        why = together.reason_text(found['reason']) if found['reason'] else 'you were busy'
-        return [Trigger(key, 'call_back', f"The user tried to call you at {at} and you couldn't pick up because {why}. "
-                        "You are free now: say sorry you missed it and ask what's up, or offer to call back.",
-                        'Sorry I missed your call! What’s up?')]
-    if now - parse(found['ended_at']) > MISSED_TEXT_WITHIN or found['status'] == 'declined':
-        return []
-    return [Trigger(key, 'call_back', f"You tried to call the user at {at} and they didn't pick up. Text them about it "
-                    'lightly, no guilt: they can call you back when they are free.',
-                    'Tried calling you! Call me back when you’re free?')]
-
-
-def later_call(connection, found: dict) -> bool:
-    return bool(optional(connection, 'SELECT id FROM calls WHERE timeline_id=? AND created_at>? LIMIT 1',
-                         (found['timeline_id'], found['created_at'])))

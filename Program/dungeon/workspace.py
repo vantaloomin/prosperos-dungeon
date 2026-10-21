@@ -1,7 +1,7 @@
 """Workspace settings, permission revisions and pause (PRD T6, M7)."""
 import json
 
-from dungeon import local_zone, notifications
+from dungeon import local_zone
 from dungeon.clock import zone
 from dungeon.database import identifier, optional, settings
 from dungeon.errors import require
@@ -87,9 +87,6 @@ def update(database, body) -> dict:
             assignments['memory_revision'] = row['memory_revision'] + 1
         columns = ', '.join(f'{key}=?' for key in assignments)
         connection.execute(f'UPDATE workspace_settings SET {columns} WHERE id=1', tuple(assignments.values()))
-        if changed.get('background_activity') is False:
-            # Revoking background permission applies to queued notifications as well.
-            notifications.cancel_queued(connection, assignments['updated_at'], 'Background activity was turned off.')
         return view(settings(connection))
 
 

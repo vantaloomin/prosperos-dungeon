@@ -198,7 +198,7 @@ until the app restarts (`look_back.Rates`); that is logged, never shown.
 
 ### Voice notes
 
-`voice/` sends some first texts as voice notes by rules and reads them aloud with the built-in Kokoro voice (a
+`voice/` reads a companion's replies aloud on a call with the built-in Kokoro voice (a
 pinned sherpa-onnx program run per note in its own process) or a hosted engine with the user's key. See
 [voice-notes.md](voice-notes.md).
 
@@ -411,7 +411,7 @@ fits the conversation.
 ## What the companion said about themselves
 
 `dungeon/self_facts.py` keeps an LLM from flipping its own facts. After each completed companion
-message (a reply or a first message), fixed patterns pick out first-person statements about
+message, fixed patterns pick out first-person statements about
 the character: likes and dislikes, a favorite, a named relative or pet, something they have never
 done, where they grew up, an allergy, their team ("my team, the X", "i play for the X"), a sport,
 instrument or position they play ("i play blocker"), and where they work ("i work at X"). When the
@@ -549,28 +549,6 @@ beat newer than it, and an empty line lets the app write it again. `GET /api/com
 in `GET /api/chats` carry `status: {text, set_by, away}`. It shows under the name in the Retro IM buddy
 list, on the profile card (where it is edited) and in the chat header, and in a chat list row before any
 message.
-
-## Notifications
-
-`dungeon/notifications.py` implements the PRD's notification rules. They are off by default.
-While they are on, each post a background batch publishes queues one notification. The open
-interface asks `POST /api/notifications/next` once a minute and shows what comes back as a
-browser notification, which Windows displays as a desktop notification. The backend decides
-everything else:
-
-- Nothing is shown in quiet hours (in the user's timezone; they may cross midnight), while paused,
-  past the daily cap (rolling 24 hours, 1 to 6, default 3), within the minimum gap since the last
-  one (30 to 720 minutes, default 120), or while the app has focus.
-- When more than one is waiting, they are delivered as one digest, so a quiet night never becomes
-  a burst. Posts read, hidden or removed meanwhile, or from another timeline, are dropped, and so
-  is one whose events never became visible within 48 hours.
-- Preview privacy: `name` (the default) shows only that the companion shared something; `full`
-  adds the post's caption; `private` names neither the companion nor the content.
-- Turning notifications off, revoking background activity, or the browser withdrawing permission
-  cancels everything queued. A restored workspace has them off and nothing queued.
-- When the character has an absence trait (C6) and the user has been away a day, the message opens
-  with a fixed in-character line at the trait's intensity. Traits change only the wording: the
-  cap, gap, quiet hours, settings and permission prompts never depend on them.
 
 ## Images (F3–F9)
 

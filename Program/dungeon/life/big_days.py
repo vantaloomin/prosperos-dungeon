@@ -17,8 +17,8 @@ The app decides, the user overrides ("the world exists outside of User", Vanta 2
   family or not, a romance), under Hidden values ("Why it went this way"). Asked or not, they go: a gift bought from
   their own money a week before (the bank's gifts for the kind, priced by their pay, through money.household), an
   outfit from their wardrobe (dungeon/life/wardrobe.py), and the day itself.
-- The invitation is a first text (dungeon/life/openers.py) naming whose day it is, the day, the time and the place;
-  sending it books the day as an outing (dungeon/life/outings.py, activity 'big-day'), in person with the circle
+- The invitation (`invitation`) names whose day it is, the day, the time and the place; a day the user comes to
+  is an outing (dungeon/life/outings.py, activity 'big-day'), in person with the circle
   there. Living in different cities, the user can't come and they go on their own. An out-of-town relative's
   day is in the city they live in (trips.hometown): the user comes along when a trip from the city they share
   reaches it, and either way the companion travels there (the fare from their money, a line saying so).
@@ -50,8 +50,6 @@ from dungeon.life.upkeep import days_ago
 from dungeon.world import catalog, generators
 
 ACTIVE = True
-# The invitation as a first text; off in most tests (tests/conftest.py).
-FIRST_TEXTS = True
 ACTIVITY = 'big-day'
 # The photo of their own wedding (images/prompts.py PICTURES): them in wedding clothes, not a guest at a celebration.
 PICTURED = 'own-wedding-day'
@@ -62,7 +60,6 @@ SOONEST = 3
 # The invitation goes out this many days before (seeded), the gift is bought this many days before.
 INVITE_BEFORE = (14, 28)
 GIFT_BEFORE = 7
-INVITE_HOURS = (10, 21)
 # No two big days the user is asked to within this many days of each other: only days the user said yes to (or is
 # still to answer) count, so a no to one doesn't hide the next.
 INVITE_GAP = 14
@@ -825,29 +822,7 @@ def finish(connection, companion: dict, row: dict, with_user: bool, now: datetim
         AFTER[row['kind']](connection, companion, row, with_user, now)
 
 
-# The invitation (a first text, dungeon/life/openers.py) ----------------------------------------------------------
-
-def invite_due(connection, companion: dict, now: datetime) -> list:
-    """A big day they will ask the user to: on its day, the invitation naming whose, when and where."""
-    from dungeon.life.openers import Trigger
-    if not ACTIVE or not FIRST_TEXTS or not companion.get('active_timeline_id'):
-        return []
-    local = now.astimezone(zone(companion['version']['timezone']))
-    if not INVITE_HOURS[0] <= local.hour < INVITE_HOURS[1]:
-        return []
-    today = local.date().isoformat()
-    soonest = (local.date() + timedelta(days=2)).isoformat()
-    hidden = CHILDS if withheld(connection) else ()  # Called off at the next pass; never asked to meanwhile.
-    row = next((item for item in rows(connection, companion['active_timeline_id'], ('planned',))
-                if item['invite'] and item['invite_on'] <= today and item['local_date'] >= soonest
-                and item['kind'] not in hidden and invitable(connection, companion, item)
-                and not with_user_on(connection, companion, date.fromisoformat(item['local_date']))), None)
-    if row is None:
-        return []
-    day = date.fromisoformat(row['local_date'])
-    from dungeon.life import loss
-    template = invitation(row, when_text(day, local.date()), clock_text(row['at_time']), loss.era_of(connection, companion))
-    return [Trigger(f"bigday:{row['id']}", 'big_day', reason_for(row, day), template, (row['id'],))]
+# The invitation --------------------------------------------------------------------------------------------------
 
 
 def when_text(day: date, today: date) -> str:
@@ -904,27 +879,6 @@ def on_next(text: str) -> str:
     return re.sub(r'\b[Oo]n (next \w+day)\b', r'\1', text)
 
 
-SETTLES = ('big_day',)
-
-
-def settle(connection, companion: dict, message: dict, trigger, timestamp: str) -> dict | None:
-    """The invitation went out: the day is booked as an outing with the user (and, long distance, the user's stay
-    with them around it)."""
-    from dungeon.life import together
-    row = get(connection, trigger.sources[0])
-    if row is None or row['status'] != 'planned':
-        return None
-    day = date.fromisoformat(row['local_date'])
-    place = {**row['place'], 'big_day': row['id'], 'title': title(row, companion['version']['definition']['name']),
-             'event': row['kind'], 'gift': row['gift'], 'standing_up': row['kind'] == 'own_wedding',
-             'godparent': row['kind'] == 'naming',
-             'own': row['kind'] in OWN, 'no_photo': row['kind'] in CHILDS, 'quiet': row['kind'] in QUIET,
-             'people': [host(row)] if row['person_id'] else []}
-    outing = together.insert(connection, companion, message['id'], ACTIVITY, place, day, row['at_time'],
-                             row['until_time'], None, timestamp)
-    connection.execute("UPDATE big_days SET status='invited', message_id=?, outing_id=?, updated_at=? "
-                       'WHERE id=?', (message['id'], outing['id'], timestamp, row['id']))
-    return outings.get(connection, outing['id'])
 
 
 def host(row: dict) -> dict:

@@ -46,7 +46,7 @@ async function playPreview(companionId: string, engine: Engine, voice: string) {
   await audio.play()
 }
 
-/** Settings > Models: companions now and then send a short voice note instead of a text (dungeon/voice/). */
+/** Settings > Models: on a call, a companion's replies are read aloud (dungeon/voice/). */
 export function VoiceSettings() {
   const client = useQueryClient()
   const query = useQuery({ queryKey: KEY, queryFn: () => api<VoiceView>('/voice'), refetchInterval: (state) => state.state.data?.builtin.downloading ? 3000 : false })
@@ -60,9 +60,9 @@ export function VoiceSettings() {
   return <section className="settings-section form-stack" aria-labelledby="voice-heading">
     <div>
       <h2 id="voice-heading">Voice notes</h2>
-      <p className="subtle">Now and then a companion sends a short voice note instead of a text, a few a day at most, in a voice the app picks to suit them. The model writes the words as usual; a voice engine only reads them aloud.</p>
+      <p className="subtle">On a call, a companion's replies are read aloud in a voice the app picks to suit them. The model writes the words as usual; a voice engine only reads them aloud.</p>
     </div>
-    <Toggle label="Send voice notes now and then" checked={data.voice_notes} onChange={(on) => void save({ voice_notes: on })} hint={data.voice_notes && !data.ready ? 'Messages stay texts until the voice below is ready.' : undefined} />
+    <Toggle label="Read replies aloud on a call" checked={data.voice_notes} onChange={(on) => void save({ voice_notes: on })} hint={data.voice_notes && !data.ready ? 'Calls stay in text until the voice below is ready.' : undefined} />
     <Field label="Voice engine">{(id) => (
       <select id={id} value={data.engine} onChange={(event) => void save({ engine: event.target.value as Engine })}>
         {(Object.keys(ENGINES) as Engine[]).map((engine) => <option key={engine} value={engine}>{ENGINES[engine]}</option>)}

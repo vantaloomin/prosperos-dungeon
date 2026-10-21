@@ -21,7 +21,7 @@ rough patch already open (or one that started that day) is less likely, a half f
 (`stacked_on`).
 
 The companion can be the one at fault: on Real life and Drama they now and then call off an outing with you at the
-last minute (`stand_ups`), and then apologise first, in a first text.
+last minute (`stand_ups`), and then apologise first.
 
 It lasts until mended: an apology the app recognises from fixed phrases (data/rough_patches/apologies.json), a
 make-up gesture (a gift or kind act in the chat, data/rough_patches/gestures.json; or an outing or visit with you
@@ -30,9 +30,9 @@ it, or a few calm days; on drama it lingers for two weeks unless you make up, an
 with someone else) needs both an apology and a gesture. When they were at fault, it mends when you accept their
 apology (data/rough_patches/accepting.json), when the next plan together happens, or after a calm day or two.
 
-While one is open, rules make them cooler: no check-ins, invitations, knocks or calls of their own (openers.py), and
-one line in the chat notes ('patch') says what it is about and how it colors their replies. The Character page says
-"Things are a bit tense"; with Hidden values > moods it also says what about, and offers Let it go.
+While one is open, one line in the chat notes ('patch') says what it is about and how it colors their replies. The
+Character page says "Things are a bit tense"; with Hidden values > moods it also says what about, and offers Let it
+go.
 """
 import json
 import random
@@ -49,7 +49,6 @@ from dungeon.world import catalog
 
 # Off in unrelated tests (tests/conftest.py); tests/test_rough_patches.py turns it on.
 ACTIVE = True
-FIRST_TEXTS = True
 DEFAULT_LEVEL = 2
 CHOICE = 'user:rough_patch'
 OPENS = 1  # The option in the odds table that starts one.
@@ -611,13 +610,6 @@ def current(connection, companion: dict, now: datetime) -> dict | None:
                default=None)
 
 
-def cool(connection, companion: dict, now: datetime) -> bool:
-    """Whether they hold back on reaching out (check-ins, invitations, knocks, calls): a big one of yours is open, or
-    you found out they were seeing someone behind your back (they give you room; their apology still goes)."""
-    row = current(connection, companion, now)
-    return bool(row) and row['size'] == 'big' and (row['fault'] == 'user' or row['cause'] == 'hidden_partner')
-
-
 # The chat notes ------------------------------------------------------------------------------------------------
 
 LINES = {
@@ -687,35 +679,6 @@ def context_lines(connection, companion: dict, now: datetime) -> list[tuple[str,
         return [(f"patch:{row['id']}:halfway", LINES['halfway'].format(done=done, about=row['about'],
                                                                        missing=missing))]
     return [(f"patch:{row['id']}:open", LINES['open'].format(about=row['about']))]
-
-
-# The apology first text ------------------------------------------------------------------------------------------
-
-def apology_due(connection, companion: dict, now: datetime) -> list:
-    """They called off a plan with the user, or were found seeing someone behind their back: they text first to apologise (a first text, dungeon/life/openers.py)."""
-    if not ACTIVE or not FIRST_TEXTS:
-        return []
-    from dungeon.life.openers import Trigger
-    row = current(connection, companion, now)
-    if row is None or row['fault'] != 'companion' or apologised(connection, row):
-        return []
-    seed = random.Random(f"apology:{row['id']}")
-    if row['cause'] == 'hidden_partner':
-        return [Trigger(f"patch:{row['id']}", 'apology',
-                        f"You let the user down: {row['about']}. You have ended it, and you feel terrible. Apologise "
-                        'to the user in your own words and mean it, without excuses; give them room.',
-                        seed.choice(bank('companion_confessions')))]
-    # The written-out text, used when the model's can't be: the plan as the user names it ("the visit", not "a visit
-    # to the user's place"), and the reason in the last brackets (a place can have its own: "Tengu (kushikatsu ...)").
-    from dungeon.life import outings
-    found = optional(connection, 'SELECT id FROM outings WHERE id=?', (row['outing_id'] or '',))
-    plan = plan_name(outings.get(connection, found['id'])) if found else 'our plans'
-    reason = row['about'].rpartition(' (')[2].removesuffix(')')
-    template = seed.choice(bank('companion_apologies'))
-    return [Trigger(f"patch:{row['id']}", 'apology',
-                    f'You called off {row["about"]} at the last minute, and you feel bad. Apologise to the user in your '
-                    'own words, say briefly what happened, and offer to make it up to them if it fits.',
-                    template.format(plan=plan, reason=reason))]
 
 
 # Showing it -----------------------------------------------------------------------------------------------------

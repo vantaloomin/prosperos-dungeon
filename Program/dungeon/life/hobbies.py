@@ -19,8 +19,8 @@ days ahead are walked again from the last mark (`rewind`). The Realism tab's sli
 0 off, 1 light, 2 true to life, 3 dramatic) scales stalls, drops and new starts; off, nothing moves.
 
 Other modules read it through `touch` (a practice session takes a free slot of their day), `context_lines` (the chat's
-"hobbies" section), `purchases` (money), `news_due` and `invite_due` (first texts: a milestone, or asking the user
-along), `patterns` and `outing_place` (the user suggesting one as a Go somewhere together plan, outings.py).
+"hobbies" section), `purchases` (money), `patterns` and `outing_place` (the user suggesting one as a Go somewhere
+together plan, outings.py).
 """
 import hashlib
 import json
@@ -41,8 +41,6 @@ MODERN = {'modern', 'future'}
 # Practice sessions are woven into the companion's agenda, and now and then a milestone or an invitation opens a
 # conversation; tests turn these off.
 WEAVE = True
-NEWS = True
-INVITES = True
 
 MAX_ACTIVE = 3
 # The reason kept on a pastime the user gave up for them (not a dry spell).
@@ -71,10 +69,6 @@ GAVE_UP_DAYS = 120
 SESSION_LINE = 0.45
 CAPTIONS = ('Practice.', 'Another session in.', 'Slowly, then all at once.', 'Getting there.', 'Kept at it.',
             'The good kind of tired.', 'An hour well spent.', 'Showed up. That counts.')
-NEWS_SHARE = 0.5
-INVITE_EVERY = 21
-INVITE_CHANCE = (0.0, 0.25, 0.35, 0.45)
-INVITE_AHEAD = (2, 7)
 USUAL = {'morning': ('09:30', '09:30'), 'evening': ('18:30', '14:00'), 'any': ('18:30', '14:00')}
 CADENCE = {1: 'about once a week', 2: 'twice a week', 3: 'three times a week'}
 
@@ -814,88 +808,12 @@ def purchases(connection, timeline_id: str, start: date, end: date) -> list[dict
     return [{'date': row['local_date'], 'text': row['text'], 'spend': row['spend'], 'for': 'hobby'} for row in rows]
 
 
-# --- First texts ---
-
-def news_due(connection, companion: dict, now: datetime) -> list:
-    """Now and then a milestone from today opens a conversation: they tell the user, as they would a friend."""
-    from dungeon.life.openers import Trigger
-    version = companion['version']
-    local = now.astimezone(zone(version['timezone']))
-    if not NEWS or not 9 <= local.hour < 22:
-        return []
-    found = optional(connection, "SELECT l.*, h.name FROM hobby_log l JOIN hobbies h ON h.id=l.hobby_id WHERE "
-                     "l.timeline_id=? AND l.kind='milestone' AND l.local_date=? ORDER BY l.created_at LIMIT 1",
-                     (companion['active_timeline_id'], local.date().isoformat()))
-    if not found or generators.unit(found['id'], 'news?') >= NEWS_SHARE:
-        return []
-    reason = (f"Something you are proud of happened with {found['name']} today: "
-              f"you {yours(found['text'])}. "
-              'Tell the user about it in your own words, the way you would tell a friend.')
-    return [Trigger(f"hobby-news:{found['id']}", 'hobby_news', reason, found['post'], (found['id'],))]
+# --- Usual times ---
 
 
 def usual_time(item: dict, day: date) -> str:
     weekday, weekend = USUAL[item.get('when') or 'any']
     return weekend if day.weekday() >= 5 else weekday
-
-
-def invite_due(connection, companion: dict, now: datetime) -> list:
-    """Now and then a first text asking the user along to a pastime (a climbing session, their open mic night) a few
-    days off, on a free day. Saving the text settles the plan (`settle_invite`)."""
-    from dungeon.life import outings, together
-    from dungeon.life.openers import Trigger
-    version = companion['version']
-    definition, timeline_id = version['definition'], companion['active_timeline_id']
-    local = now.astimezone(zone(version['timezone']))
-    state = optional(connection, 'SELECT * FROM hobby_state WHERE timeline_id=?', (timeline_id,))
-    level = realism(connection)
-    if not INVITES or not state or not 10 <= local.hour < 21 or not together.invites(connection, companion):
-        return []  # Getting together off, or long distance (dungeon/life/together.py): no invitations over.
-    window = local.date().toordinal() // INVITE_EVERY
-    if generators.unit(state['seed'], 'invite?', window) >= INVITE_CHANCE[level]:
-        return []
-    choices = [row for row in rows_of(connection, timeline_id) if row['status'] == 'active' and
-               entry_of(row).get('together')]
-    row = generators.pick(state['seed'], f'invite:{window}', choices)
-    if not row:
-        return []
-    item, schedule = entry_of(row), routine.blocks(definition)[0]
-    for ahead in range(*INVITE_AHEAD):
-        day = local.date() + timedelta(days=ahead)
-        at = usual_time(item, day)
-        if outings.busy_at(schedule, day, at) or outings.cut_short(schedule, day, at, outings.until(at, 'hobby')) or \
-                outings.taken(connection, companion, day):
-            continue
-        return [Trigger(f'hobby-invite:{timeline_id}:{window}', 'hobby_invite', invite_reason(row, item, day, at),
-                        invite_template(item, day), (day.isoformat(), at, row['id']))]
-    return []
-
-
-def invite_reason(row: dict, item: dict, day: date, at: str) -> str:
-    when = f'{day:%A, %B} {day.day} at {datetime.strptime(at, "%H:%M"):%I:%M %p}'.replace(' 0', ' ')
-    since = since_text(row, day)
-    if item.get('event'):
-        return (f"You have {yours(item['event'])} on {when}, and you want the user to come and watch. You have been doing "
-                f"{row['name']} for {since}. Invite them in your own words, naming the day.")
-    return (f"You want the user to come along to {yours(item['together'])} with you on {when}. You have been doing "
-            f"{row['name']} for {since} and are {LEVEL_TEXT[level_of(row['skill'])]}, so it is fine if they are new "
-            'to it. Invite them in your own words, naming the day.')
-
-
-def invite_template(item: dict, day: date) -> str:
-    if item.get('ask'):
-        return f"Want to {item['ask']} {day:%A}?"
-    return f"Want to come along to {item['together']} {day:%A}?"
-
-
-def settle_invite(connection, companion: dict, message: dict, trigger, timestamp: str) -> dict | None:
-    """The invitation a first text made, as a plan for that day (the user can call it off on Today)."""
-    from dungeon.life import outings
-    day, at, row_id = date.fromisoformat(trigger.sources[0]), trigger.sources[1], trigger.sources[2]
-    wanted = {'activity': 'hobby', 'day': day, 'at': at, 'place': None, 'word': '', 'waterside': False,
-              'hobby': row_id}
-    return outings.save(connection, companion, message, wanted, outings.city_data(
-        connection, companion['version']['definition']), day, at, timestamp)
 
 
 # --- Going together (outings.py) ---

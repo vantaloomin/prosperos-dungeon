@@ -7,7 +7,7 @@ import pytest
 from conftest import reconcile, send, set_life, show
 
 from dungeon.database import decode
-from dungeon.life import body, composer, kitchen, money, openers, outings
+from dungeon.life import body, composer, kitchen, money, outings
 from dungeon.providers.chat import Chunk
 from dungeon.world import catalog
 from dungeon.world.source import CatalogWorld
@@ -223,31 +223,6 @@ def test_the_user_comes_over_and_they_cook(client, kim, provider, clock):
         assert found.meal(date(2026, 10, 7))['kind'] == 'hosting'
         assert kitchen.cooked(found.connection, found.timeline_id, date(2026, 10, 7), found.definition, None,
                               None) == (1 if menu['takeout'] else 2)
-
-
-def test_now_and_then_they_ask_the_user_over(client, kim, monkeypatch, clock):
-    reconcile(client)
-    monkeypatch.setattr(kitchen, 'INVITES', True)
-    monkeypatch.setattr(kitchen, 'INVITE_CHANCE', 1.0)
-    clock.advance(timedelta(hours=2))  # Monday 14:00.
-    with client.app.state.database.connect(write=True) as connection:
-        from dungeon.characters import current
-        companion = current(connection)
-        [trigger] = kitchen.invite_due(connection, companion, clock.now())
-        assert trigger.kind == 'dinner_invite' and trigger.template.startswith('Come over for dinner')
-        assert 'You plan to ' in trigger.reason and 'You ordered' not in trigger.reason
-        assert trigger in openers.candidates(connection, companion, clock.now())
-        # It goes ahead of the daily news that would otherwise take each day's text.
-        assert openers.FINDERS.index(kitchen.invite_due) < min(openers.FINDERS.index(openers.dream_news),
-                                                               openers.FINDERS.index(openers.little_news))
-        message = {'id': 'invite-message'}
-        connection.execute("INSERT INTO messages (id, timeline_id, seq, role, text, status, active, character_version_id, "
-                           "memory_revision, created_at, completed_at) VALUES ('invite-message', ?, 99, 'companion', ?, "
-                           "'complete', 1, ?, 0, ?, ?)", (companion['active_timeline_id'], trigger.template,
-                                                         companion['active_version_id'], clock.now().isoformat(),
-                                                         clock.now().isoformat()))
-        outing = kitchen.settle_invite(connection, companion, message, trigger, clock.now().isoformat())
-        assert outing['activity'] == 'dinner-in' and outing['local_date'] == trigger.sources[0]
 
 
 def test_a_shopping_trip_is_named_for_its_era():

@@ -15,5 +15,5 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode><QueryClientProvider client={client}><PhoneGate><App /></PhoneGate></QueryClientProvider></React.StrictMode>,
 )
 
-// Lets a phone install the app and show notifications (public/sw.js). It caches nothing.
+// Lets a phone install the app (public/sw.js). It caches nothing.
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => undefined)

@@ -1,29 +1,18 @@
-"""Voice notes: now and then a companion's first text is a short voice note instead (docs/voice-notes.md).
+"""Voice notes: on a call with the user, each reply is read aloud (docs/voice-notes.md).
 
-Rules decide everything; the model writes the words as it does for any first text and an engine only reads them
-aloud. A note is sent only for a first text (dungeon/life/openers.py), so quiet hours, her sleep, the daily cap
-on first texts and the away allowance all apply before this is asked. Then, by rules:
-
-- Voice notes are on (the default) and the chosen engine can speak: the built-in voice is downloaded, or the hosted
-  engine has a key.
-- Seeded dice on the trigger: about one first text in three, so it stays a small surprise and a retry rolls the
-  same.
-- At most `daily_limit` notes (3 by default) per companion in 24 hours.
-- The message is short and has no link (a link should stay something you can tap).
-
-If reading it aloud fails, the message goes as a plain text instead; a voice note is never the reason a message
-is lost. The transcript is the message text itself, so memory, search and replies read it like any other.
+Rules decide everything; the model writes the words as it does for any reply and an engine only reads them aloud,
+while voice notes are on and the chosen engine can speak (the built-in voice is downloaded, or the hosted engine has
+a key). If reading it aloud fails, the reply stays a plain text; a voice note is never the reason a message is lost.
+The transcript is the message text itself, so memory, search and replies read it like any other.
 """
 import hashlib
 import logging
 import os
 import re
 import wave
-from datetime import timedelta
 from pathlib import Path
 
 from dungeon.characters import by_id
-from dungeon.clock import stamp
 from dungeon.database import identifier, many, one, optional
 from dungeon.errors import DomainError, require
 from dungeon.providers.vault import credential_for
@@ -33,7 +22,6 @@ from dungeon.voice.kokoro import Kokoro
 FOLDER = 'voice-notes'
 ENGINES = ('builtin', 'openai', 'elevenlabs', 'google')
 HOSTED = ('openai', 'elevenlabs', 'google')
-CHANCE = 0.3
 MAX_CHARACTERS = 320
 # A reply on a call (dungeon/life/calls.py) is read aloud whole, up to this long.
 CALL_CHARACTERS = 1500
@@ -43,9 +31,6 @@ ACTION = re.compile(r'\*[^*\n]{1,200}\*')
 EMOJI = re.compile('[\U0001F000-\U0001FAFF☀-➿️‍⬀-⯿]')
 ENV = {'openai': 'OPENAI_API_KEY', 'elevenlabs': 'ELEVENLABS_API_KEY', 'google': 'GOOGLE_TTS_API_KEY'}
 PREVIEW = "Hey, it's {name}. This is what I sound like when I send you a voice note."
-INSTRUCTION = ('This message is a voice note: you say it out loud instead of typing it. Write only the words you '
-               'say, the way people talk in a quick voice message, with no emoji, links or actions, in under 50 '
-               'words.')
 log = logging.getLogger('companion')
 
 
@@ -61,18 +46,6 @@ def read(connection) -> dict:
 def spoken(text: str) -> str:
     """The words to read aloud: no emoji, *actions* or links, and plain spacing."""
     return ' '.join(EMOJI.sub('', URL.sub('', ACTION.sub('', text))).split())
-
-
-def rolled(key: str) -> bool:
-    return int(hashlib.sha256(f'voice-note:{key}'.encode('utf-8')).hexdigest()[:8], 16) / 0xFFFFFFFF < CHANCE
-
-
-def sent_today(connection, companion_id: str, now) -> int:
-    """Voice notes sent as first texts in the last day; replies read aloud on a call don't count."""
-    return one(connection, 'SELECT COUNT(*) AS n FROM voice_notes v JOIN messages m ON m.id=v.message_id '
-               'JOIN timelines t ON t.id=m.timeline_id WHERE t.companion_id=? AND v.created_at>=? '
-               'AND v.message_id IN (SELECT message_id FROM openers)',
-               (companion_id, stamp(now - timedelta(hours=24))))['n']
 
 
 def files_of(connection, companion_id: str | None = None) -> list[str]:
@@ -180,19 +153,9 @@ class VoiceNotes:
 
     # --- deciding ------------------------------------------------------------------------------
 
-    def plan(self, companion: dict, trigger_key: str, now) -> str | None:
-        """The engine to send this first text as a voice note with, or None for a plain text."""
-        with self.database.connect() as connection:
-            current = read(connection)
-            if not current['voice_notes'] or not rolled(f"{companion['id']}:{trigger_key}"):
-                return None
-            if sent_today(connection, companion['id'], now) >= current['daily_limit']:
-                return None
-        return current['engine'] if self.can_speak(current['engine']) else None
-
     def for_call(self) -> str | None:
         """The engine a reply on a call is read aloud with: voice notes are on and the chosen engine can speak, else
-        None and the call stays in text. No dice and no daily cap: on a call every reply is heard."""
+        None and the call stays in text."""
         with self.database.connect() as connection:
             current = read(connection)
         return current['engine'] if current['voice_notes'] and self.can_speak(current['engine']) else None
@@ -216,7 +179,7 @@ class VoiceNotes:
         return path, 'audio/mpeg'
 
     async def record(self, companion: dict, engine: str, text: str, limit: int = MAX_CHARACTERS) -> dict | None:
-        """A voice note for a first text about to be sent (or a reply on a call), or None to send it as text."""
+        """A voice note for a reply on a call, or None to send it as text."""
         if not self.fits(text, limit):
             return None
         try:

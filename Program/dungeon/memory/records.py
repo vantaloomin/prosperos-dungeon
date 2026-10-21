@@ -372,7 +372,7 @@ def eligible(connection, companion, timeline_id, now) -> list[dict]:
 
 
 def told(memories: list[dict], companion: dict) -> list[dict]:
-    """Memories as the companion reads them in the chat context and first texts (`as_told`)."""
+    """Memories as the companion reads them in the chat context (`as_told`)."""
     name = ((companion.get('version') or {}).get('definition') or {}).get('name', '').split(' ')[0]
     return [as_told(memory, name) for memory in memories]
 

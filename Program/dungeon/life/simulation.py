@@ -21,7 +21,7 @@ import logging
 import random
 from datetime import date, timedelta
 
-from dungeon import events, logs, news, notifications, troubleshoot
+from dungeon import events, logs, news, troubleshoot
 from dungeon.characters import by_id, current, for_timeline
 from dungeon.clock import parse, stamp
 from dungeon.database import decode, encode, identifier, many, one, optional, settings
@@ -56,8 +56,8 @@ MAX_ATTEMPTS = 3
 # Companions out of focus looked at per turn (each tick, and after each return to the app).
 CAST_PER_TURN = 3
 # Columns that record a one-time switch to a new default, not settings.
-MARKERS = ('texts_first_on_by_default', 'events_on_by_default', 'loss_by_preset')
-FLAGS = ('automatic_events', 'catch_up_on_return', 'phrase_with_model', 'texts_first', 'paced_replies', 'day_shifts',
+MARKERS = ('events_on_by_default', 'loss_by_preset')
+FLAGS = ('automatic_events', 'catch_up_on_return', 'phrase_with_model', 'paced_replies', 'day_shifts',
          'on_her_mind', 'pets_can_die', 'friends_fall', 'breakups', 'people_pass_away')
 NEWS_EVERY = timedelta(minutes=10)
 UNFINISHED = ('planned', 'running', 'interrupted')
@@ -434,8 +434,6 @@ class LifeEngine:
         # Where the next round of companions out of focus starts, and the round running after a return.
         self.cast_offset = 0
         self.casting = None
-        # First messages (dungeon/life/openers.py); set by the app.
-        self.openers = None
         # When news last travelled (dungeon/news.py).
         self.news_at = None
 
@@ -543,11 +541,7 @@ class LifeEngine:
                                               stamp(self.now() + LEASE), finished, run_id))
             if status == 'completed':
                 run = one(connection, 'SELECT * FROM life_runs WHERE id=?', (run_id,))
-                posts = feed.publish_run(connection, run, list(results.values()), stamp(self.now()))
-                focus = current(connection)
-                # Posts from a companion out of focus wait on her Feed; desktop notices are for the one in focus.
-                if focus and focus['active_timeline_id'] == run['timeline_id']:
-                    notifications.enqueue_posts(connection, posts, stamp(self.now()))
+                feed.publish_run(connection, run, list(results.values()), stamp(self.now()))
 
     async def simulate(self, run, slot) -> dict:
         """One routine slot: compose it, record it as a proposal, and commit it if permitted."""
@@ -800,17 +794,6 @@ class LifeEngine:
         if background:
             await self.quietly_prepare()
             await self.quietly_think()
-        # First messages have their own setting (texts_first), so the companion can text while the
-        # app is closed even when background activity is off; the open app also asks each minute.
-        await self.quietly_text()
-
-    async def quietly_text(self):
-        """A first message from one companion: one a tick."""
-        if self.openers is not None:
-            try:
-                await self.openers.check()
-            except Exception:  # noqa: BLE001 - a first message can wait for the next tick.
-                pass
 
     async def quietly_prepare(self):
         try:

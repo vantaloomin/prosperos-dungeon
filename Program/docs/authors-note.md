@@ -18,7 +18,7 @@ conversation.
 - **Never part of the story:** not shown in the transcript, not saved as a message, never read for memories or
   self-facts, not exported, and the character never quotes it. An out-of-character message (`OOC:` or
   `((...))`) is answered without it. A group member starting a conversation on their own does not get it, and
-  neither does a companion's first text: it steers replies.
+  it steers replies.
 - **Stays until changed:** cleared, edited or switched off by the user. Switching it off keeps the text.
   Starting over with a companion keeps their note (it is the user's own steering, a workspace setting, not
   history); a world has its own notes.

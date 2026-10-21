@@ -3,11 +3,11 @@ from datetime import timedelta
 
 import pytest
 from companions import by_speaker, companion_named, ok
-from conftest import reconcile, show
+from conftest import reconcile
 
 from dungeon import consequences, news
 from dungeon.characters import by_id
-from dungeon.life import circle, openers
+from dungeon.life import circle
 from dungeon.memory import pairs
 
 TEXT = 'Mira took up pottery for real'
@@ -93,24 +93,6 @@ def test_it_stops_travelling_after_a_few_days(client, cast, clock, monkeypatch):
     clock.advance(timedelta(days=3))
     sync(client)
     assert list(holders(client)) == [key(cast['Mira'])]
-
-
-def test_who_heard_shows_on_today_and_in_their_chats(client, cast, clock, monkeypatch):
-    monkeypatch.setattr(news, 'passes', lambda *_args: True)
-    evening(clock)
-    assert ok(client.get('/api/life/news')) == []  # Hidden values: unseen unless turned on; word still travels.
-    show(client, show_news=True)
-    listed = ok(client.get('/api/life/news'))
-    assert listed[0]['text'] == TEXT
-    billy = next(item for item in listed[0]['heard'] if item['companion_id'] == cast['Billy'])
-    assert billy['name'] == 'Billy Hart' and billy['from'] is None
-
-    with client.app.state.database.connect() as connection:
-        lines = news.context_lines(connection, by_id(connection, cast['Billy']), clock.now())
-        assert lines == [(lines[0][0], f'- Heard on {clock.now().date()} (Mira told you): {TEXT}.')]
-        assert news.context_lines(connection, by_id(connection, cast['Mira']), clock.now()) == []
-        trigger = openers.heard_news(connection, by_id(connection, cast['Billy']), clock.now())[0]
-    assert trigger.template == f'Did you hear about Mira?? {TEXT}!' and "don't say how" in trigger.reason
 
 
 def test_a_new_chapter_is_news_until_it_is_undone(client, clock, monkeypatch):

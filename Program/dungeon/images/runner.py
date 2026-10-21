@@ -59,9 +59,7 @@ class ImageRunner:
         # Other runners that send to the same backends (LoRA reference generation) report what
         # they are running, so backend limits and the single Codex slot hold across both.
         self.sharing: list = []
-        # Set by the app: maybe text the user a photo of the companion's moment (images/photos.py).
-        self.share = lambda: None
-        # Other image queues started on the same tick (an outing's photo, a trip's postcard).
+        # Other image queues started on the same tick (an outing's photo).
         self.others: list = []
 
     def wake(self):
@@ -75,7 +73,6 @@ class ImageRunner:
             # switched worlds is stored in its own world (dungeon/database.py PINNED).
             with contextlib.suppress(Exception), self.database.pin():
                 self.automatic()
-                self.share()
                 self.dispatch()
                 for other in self.others:
                     other()

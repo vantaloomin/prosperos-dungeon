@@ -89,32 +89,18 @@ def no_storylines(monkeypatch):
     monkeypatch.setattr('dungeon.life.network.ACTIVE', False)
     # And townsfolk met around the city (dungeon/life/encounters.py), likewise by chance.
     monkeypatch.setattr('dungeon.life.encounters.ACTIVE', False)
-    # And check-ins at breaks in the companion's day (dungeon/life/openers.py), a seeded chance.
-    monkeypatch.setattr('dungeon.life.openers.CHECK_INS', False)
     # And new clothes woven into the companion's day (dungeon/life/wardrobe.py), on seeded days.
     monkeypatch.setattr('dungeon.life.wardrobe.WEAVE', False)
     # And haircuts, nails and bold looks changes woven into the companion's day (dungeon/life/grooming.py).
     monkeypatch.setattr('dungeon.life.grooming.WEAVE', False)
-    # And dinners and grocery runs woven into the day, and dinner invitations (dungeon/life/kitchen.py).
+    # And dinners and grocery runs woven into the day (dungeon/life/kitchen.py).
     monkeypatch.setattr('dungeon.life.kitchen.WEAVE', False)
-    monkeypatch.setattr('dungeon.life.kitchen.INVITES', False)
-    # And books, shows and songs woven into the day, and recommendations to the user (dungeon/life/media.py).
+    # And books, shows and songs woven into the day (dungeon/life/media.py).
     monkeypatch.setattr('dungeon.life.media.WEAVE', False)
-    monkeypatch.setattr('dungeon.life.media.RECOMMENDS', False)
-    # And pastimes' practice sessions, milestone news and invitations (dungeon/life/hobbies.py).
+    # And pastimes' practice sessions (dungeon/life/hobbies.py).
     monkeypatch.setattr('dungeon.life.hobbies.WEAVE', False)
-    monkeypatch.setattr('dungeon.life.hobbies.NEWS', False)
-    monkeypatch.setattr('dungeon.life.hobbies.INVITES', False)
-    # Getting together (dungeon/life/together.py): no knocks or suggestions to meet up in unrelated tests.
-    monkeypatch.setattr('dungeon.life.together.FIRST_TEXTS', False)
-    # Nor calls ringing, or texts after a missed one (dungeon/life/calls.py).
-    monkeypatch.setattr('dungeon.life.calls.FIRST_TEXTS', False)
     # Nor rough patches opening from what the user says or misses (dungeon/life/rough_patches.py).
     monkeypatch.setattr('dungeon.life.rough_patches.ACTIVE', False)
-    # Nor a next step or a confession brought up in a first text (dungeon/life/steps.py).
-    monkeypatch.setattr('dungeon.life.steps.FIRST_TEXTS', False)
-    # Nor news from their own love life, or a friend who saw someone out with another (dungeon/life/love_life.py).
-    monkeypatch.setattr('dungeon.life.love_life.FIRST_TEXTS', False)
     # And the Life deck's small moments (dungeon/life/deck.py), drawn on seeded days.
     monkeypatch.setattr('dungeon.life.deck.ACTIVE', False)
     # And dreams (dungeon/life/dreams.py), on seeded nights.
@@ -154,7 +140,6 @@ def no_big_days(monkeypatch):
     """Big days in the circle (dungeon/life/big_days.py) would plan weddings and parties, and their invitations,
     as unrelated tests' clocks move on; tests/test_big_days.py turns them on."""
     monkeypatch.setattr('dungeon.life.big_days.ACTIVE', False)
-    monkeypatch.setattr('dungeon.life.big_days.FIRST_TEXTS', False)
 
 
 @pytest.fixture(autouse=True)

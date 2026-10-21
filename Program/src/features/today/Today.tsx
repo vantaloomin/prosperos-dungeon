@@ -109,7 +109,7 @@ export function Today({ companion, go }: { companion: Companion; go: (view: View
       </Section>
       <OutTogether name={name} />
       <Plans data={data} name={name} go={go} />
-      <Trips name={name} />
+      <Trips />
       <Recommendations name={name} />
       <Chapters name={name} />
       <WordGetsAround name={name} />

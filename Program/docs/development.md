@@ -254,7 +254,7 @@ logs message text. An unexpected error returns `{"code": "server_error"}` with a
 full path, and the page shows "Open the log folder" under it on the PC (`POST /api/logs/open-folder`).
 
 **Record model calls** (Settings > Debug, PC only, off by default; `dungeon/model_calls.py`) is the one
-exception: while it is on, every chat model call (one-on-one, groups, Story, first messages, life wording, memory
+exception: while it is on, every chat model call (one-on-one, Story, life wording, memory
 suggestions, picture descriptions, the character helper) is appended in full to
 `logs/model-calls/YYYY-MM-DD.jsonl`: which part of the app asked, provider, model, address without its query
 string, the system prompt, messages and exact request body, and the streamed text, thinking, finish reason, usage

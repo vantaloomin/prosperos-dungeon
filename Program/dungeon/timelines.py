@@ -212,10 +212,6 @@ def copy_history(connection, parent_id, new_id, through_seq, cutoff) -> dict:
     shifts.copy(connection, parent_id, new_id, cutoff)
     traditions.copy(connection, parent_id, new_id, ids)
     copy_posts(connection, posts, ids, new_id)
-    # Triggers already used before the fork stay used, so the copy is not texted about them again.
-    insert(connection, 'openers', [{**row, 'id': identifier(), 'timeline_id': new_id, 'message_id': ids[row['message_id']],
-                                    'notify': None} for row in many(connection, 'SELECT * FROM openers WHERE timeline_id=?',
-                                                                    (parent_id,)) if row['message_id'] in ids])
     insert(connection, 'recommendations', [{**row, 'id': ids[row['id']], 'timeline_id': new_id,
                                             'message_id': ids[row['message_id']]} for row in recommended])
     copy_storylines(connection, parent_id, new_id, ids, cutoff[:10])

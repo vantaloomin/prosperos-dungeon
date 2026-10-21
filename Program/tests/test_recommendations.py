@@ -61,20 +61,6 @@ def test_a_recommendation_gets_sessions_a_verdict_and_reaches_the_chat(client, m
     assert 'never invent plot' in system
 
 
-def test_finishing_one_can_open_a_conversation(client, mira, clock, provider):
-    set_life(client, texts_first=True)
-    send(client, 'You should read Piranesi', 'client-rec-02')
-    clock.advance(timedelta(days=7))
-    reconcile(client)
-    events = client.get('/api/events').json()
-    finished = [event for event in events if (event['details'].get('recommendation') or {}).get('verdict')]
-    assert finished
-    clock.instant = clock.now().replace(hour=13)
-    result = client.post('/api/life/texts/check').json()
-    assert result['kind'] == 'recommendation' and 'Piranesi' in provider.requests[-1]['messages'][-1]['content']
-    assert 'do not describe plot' in provider.requests[-1]['messages'][-1]['content']
-
-
 def test_taking_it_back_clears_upcoming_sessions(client, mira, clock):
     send(client, 'You should play Hades', 'client-rec-03')
     clock.advance(timedelta(hours=13))

@@ -10,7 +10,7 @@ consenting adults.
   anything the user set on the form (`definition['intimacy']`) winning field by field. A romance companion
   has no rolled orientation: they are drawn to the user.
 - It only ever goes in the person's own chat prompt (dungeon/memory/context.py), as private lines. Never
-  in picture prompts, the town paper, the feed, notifications or what other people see.
+  in picture prompts, the town paper, the feed or what other people see.
 
 Nobody under 18 ever gets it: every roll checks the age itself, and a companion whose sheet reads as younger
 than 18 gets nothing. No model is involved.

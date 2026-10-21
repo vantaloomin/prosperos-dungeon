@@ -10,7 +10,7 @@ const outing: Outing = {
 const trip: Trip = {
   id: 't1', start_date: '2026-10-17', end_date: '2026-10-18', city_id: 'new-york', city_name: 'New York', kind: 'getaway',
   company: { id: 'p1', name: 'Dana', role: 'sister' }, landmark: { name: 'The High Line', summary: '' }, sunny: false,
-  cost_text: '$520', state: 'planned', postcard_message_id: null,
+  cost_text: '$520', state: 'planned',
 }
 
 test('an outing reads as what, where and when, with who picked the place', () => {

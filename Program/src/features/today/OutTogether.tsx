@@ -84,20 +84,20 @@ function Planned({ outing, act }: { outing: Outing; act: (path: string) => Promi
 }
 
 /** The companion's own trips: their life, so there is nothing to override. */
-export function Trips({ name }: { name: string }) {
+export function Trips() {
   const trips = shown(useTogether().data?.trips ?? [])
   if (!trips.length) return null
   return (
     <section className="today-section" aria-labelledby="trips-heading">
       <h2 id="trips-heading">Trips</h2>
       <ul className="event-list together-list">
-        {trips.map((trip) => <TripItem key={trip.id} trip={trip} name={name} />)}
+        {trips.map((trip) => <TripItem key={trip.id} trip={trip} />)}
       </ul>
     </section>
   )
 }
 
-function TripItem({ trip, name }: { trip: Trip; name: string }) {
+function TripItem({ trip }: { trip: Trip }) {
   if (trip.state === 'cancelled') return (
     <li className="together-item">
       <p><strong>{tripTitle(trip)}</strong> <span className="subtle">Called off.</span></p>
@@ -110,7 +110,6 @@ function TripItem({ trip, name }: { trip: Trip; name: string }) {
         <span className="badge">{trip.state === 'now' ? 'Away now' : OUTING_STATES[trip.state]}</span>
       </div>
       <p className="subtle">{tripDays(trip)}{trip.cost_text ? ` · about ${trip.cost_text}` : ''}</p>
-      {trip.postcard_message_id && <p className="subtle">{name} sent you a postcard{trip.landmark ? ` of ${trip.landmark.name}` : ''}.</p>}
     </li>
   )
 }

@@ -5,8 +5,6 @@ import { useCompanion, useFollowPcTimezone, useWorkspaceSettings, type View } fr
 import { Conversation } from './features/conversation/Conversation'
 import type { SettingsTab } from './features/settings/sections'
 import { useReconcile } from './features/today/useReconcile'
-import { useNotifications } from './features/notifications/useNotifications'
-import { useTexts } from './features/conversation/useTexts'
 import { Loading, Notice } from './components/Feedback'
 import { ErrorNotice } from './components/ErrorNotice'
 import { DebugBanner } from './features/settings/DebugBanner'
@@ -16,8 +14,7 @@ import { profileTab } from './features/profile/profileText'
 import { Welcome } from './features/character/Welcome'
 import { AiNotice } from './features/character/AiNotice'
 import { useSidecarMode, useSidecarOpen, useSidecarWaiting } from './features/sidecar/store'
-import { useChats } from './features/chats/useChats'
-import { reach } from './features/notifications/useNotifications'
+import { reach, useChats } from './features/chats/useChats'
 import { unreadOf } from './features/chats/chatText'
 import { AppNav } from './features/nav/AppNav'
 import { RAIL_IDS, fromToday } from './features/nav/navText'
@@ -62,8 +59,6 @@ export default function App() {
   const go = useCallback((next: View) => { window.history.pushState(null, '', `#${next}`); setView(next) }, [])
   // Switching Settings tabs keeps the address deep-linkable without filling the back button with tabs.
   const openTab = useCallback((tab: SettingsTab) => { window.history.replaceState(null, '', `#settings/${tab}`); setView(`settings/${tab}`) }, [])
-  useNotifications(!!companion.data, go)
-  useTexts(!!companion.data)
   useChatLink(view, setView)
   const chats = useChats(!!companion.data).data?.chats ?? []
   // Unread chats count on Profile and on the phone's Chats.
@@ -101,14 +96,14 @@ function SidecarHost({ view, go }: { view: View; go: (view: View) => void }) {
   )
 }
 
-/** #chat/<id>, from a notification tapped while the app was closed: open that companion's chat. */
+/** #chat/<id> (Who knows who's "Open chat"): open that companion's chat. */
 function useChatLink(view: View, setView: (view: View) => void) {
   const client = useQueryClient()
   useEffect(() => {
     if (!view.startsWith('chat/')) return
     // The chat takes this address's place, so Back does not open it again.
     const open = (next: View) => { window.history.replaceState(null, '', `#${next}`); setView(next) }
-    void reach(client, open, 'conversation', decodeURIComponent(view.slice(5)))
+    void reach(client, open, decodeURIComponent(view.slice(5)))
   }, [view, client, setView])
 }
 

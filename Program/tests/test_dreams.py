@@ -5,8 +5,7 @@ from datetime import timedelta
 import pytest
 
 from dungeon.characters import require_current
-from dungeon.life import dreams, openers
-from dungeon.memory import context
+from dungeon.life import dreams
 
 DAY = {'people': ['Ana', 'Theo'], 'places': ['Harbor Cafe'], 'user': False}
 
@@ -71,30 +70,6 @@ def test_dreams_stay_rare(client, dreamer, clock, monkeypatch):
     monkeypatch.setitem(dreams.data(), 'chance', 100)
     morning(clock, days=8)
     assert len(today(client)) == dreams.data()['per_week']
-
-
-def test_the_companion_remembers_it_and_may_text_about_it(client, dreamer, clock, monkeypatch):
-    morning(clock)
-    today(client)
-    monkeypatch.setattr(dreams, 'TEXT_LEVEL', 1)
-    database = client.app.state.database
-    with database.connect() as connection:
-        companion = require_current(connection)
-        packet = context.build(connection, companion, database.clock.now(), 6000)
-        triggers = openers.dream_news(connection, companion, database.clock.now())
-    assert '## Last night (a dream you had' in packet['system'] and '- Last night you dreamed' in packet['system']
-    assert len(triggers) == 1 and triggers[0].key.startswith('dream:')
-    clock.advance(timedelta(hours=6))  # After noon: no more morning text.
-    with database.connect() as connection:
-        assert openers.dream_news(connection, require_current(connection), database.clock.now()) == []
-
-
-def test_strangers_get_no_dream_texts(client, dreamer, clock):
-    morning(clock)
-    today(client)
-    database = client.app.state.database
-    with database.connect() as connection:
-        assert openers.dream_news(connection, require_current(connection), database.clock.now()) == []
 
 
 def test_a_dream_is_not_dreamed_again_for_weeks(client, dreamer, clock, monkeypatch):

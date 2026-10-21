@@ -108,12 +108,6 @@ def drop_recommendation(request: Request, rec_id: str):
     return recommendations.drop(request.app.state.database, rec_id)
 
 
-@router.post('/texts/check')
-async def check_texts(request: Request):
-    """Asked by the open app about once a minute: the companion may send a first message now."""
-    return await request.app.state.openers.check()
-
-
 @router.post('/prepare')
 async def prepare(request: Request):
     """Hint that the user is typing or idle: prepare likely work in the background and return at once."""
@@ -340,7 +334,7 @@ def read_where(request: Request):
 @router.post('/calls')
 def start_call(request: Request):
     """The user calls the companion in focus (the chat header's Call button, dungeon/life/calls.py): they pick up
-    when they are free, otherwise it is a missed call they text back about."""
+    when they are free, otherwise it is a missed call."""
     database = db(request)
     with database.connect(write=True) as connection:
         companion = require_current(connection)

@@ -1,7 +1,7 @@
 """Local HTTP API for the Dungeon backbone."""
 import json
 
-from fastapi import APIRouter, BackgroundTasks, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, StreamingResponse
 
 from dungeon import (
@@ -17,10 +17,8 @@ from dungeon import (
     events,
     logs,
     message_edits,
-    notifications,
     pictures,
     prompt_library,
-    recap,
     restore,
     self_facts,
     sidecar,
@@ -57,12 +55,9 @@ from dungeon.models import (
     MemoryDelete,
     MessageCreate,
     MessageEdit,
-    NotificationCheck,
-    NotificationSettingsUpdate,
     PerceptionRequest,
     PersonalityRequest,
     PromptUpdate,
-    RecapRead,
     SettingsUpdate,
     SidecarRequest,
     StartOverConfirm,
@@ -395,17 +390,6 @@ def read_conversation(request: Request, before_seq: int | None = None, limit: in
     return conversation.history(db(request), before_seq, min(max(limit, 1), 500))
 
 
-@router.get('/conversation/recap')
-def read_recap(request: Request):
-    """While you were away: a catch-up after a few days without a message, or null (dungeon/recap.py)."""
-    return recap.read(db(request))
-
-
-@router.post('/conversation/recap/read')
-def dismiss_recap(request: Request, body: RecapRead):
-    return recap.dismiss(db(request), body.since)
-
-
 @router.get('/conversation/search')
 def search_conversation(request: Request, q: str = ''):
     return conversation.search(db(request), q)
@@ -649,26 +633,3 @@ def cancel_data_move(request: Request):
 def open_data_folder(request: Request):
     return data_folder.open_folder(db(request).root)
 
-
-@router.get('/notifications/settings')
-def read_notification_settings(request: Request):
-    return notifications.read(db(request))
-
-
-@router.put('/notifications/settings')
-def update_notification_settings(request: Request, body: NotificationSettingsUpdate):
-    return notifications.update(db(request), body)
-
-
-@router.post('/notifications/next')
-def next_notification(request: Request, background: BackgroundTasks, body: NotificationCheck | None = None):
-    """The open interface asks for what to show; the answer respects quiet hours and the cap. Whatever it
-    shows also goes to phones subscribed to notifications (dungeon/phone/push.py)."""
-    focused = (body or NotificationCheck()).focused
-    pusher = request.app.state.push
-    if request.state.device is None:
-        pusher.pc_checked(focused)
-    result = notifications.deliver(db(request), focused)
-    if result['notification']:
-        background.add_task(pusher.send, result['notification'])
-    return result

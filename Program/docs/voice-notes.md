@@ -1,25 +1,17 @@
 # Voice notes
 
-Now and then a companion sends a short voice note instead of a text, in a voice the app picks to suit them. The
-chat shows it as a bubble with a play button, its length, and the words underneath. The words are the message
-itself, so memory, search and the next reply read it like any other text.
+On a call with a companion, each of their replies is read aloud, in a voice the app picks to suit them. The chat
+shows it as a bubble with a play button, its length, and the words underneath. The words are the message itself, so
+memory, search and the next reply read it like any other text.
 
-## When a note is sent
+Companions no longer send voice notes on their own: those were first texts, which the Dungeon removed.
 
-Rules decide, in `dungeon/voice/notes.py`. Only a first text can be a voice note (a message the companion sends
-without being asked, `dungeon/life/openers.py`), so everything that holds a first text back holds a note back
-too: quiet hours, the companion's sleep, the daily cap on first texts and the shared allowance while you are away.
-Then:
+## When a reply is read aloud
 
-- Voice notes are on (the default) and the chosen engine can speak: the built-in voice is downloaded, or the
-  hosted engine has a key. Until then every first text stays a text.
-- Seeded dice on the trigger send about one first text in three as a note (`CHANCE`).
-- At most 3 notes per companion in 24 hours (Settings can change this, 1 to 20).
-- The message is short (320 characters at most) and has no link, which should stay something you can tap.
-
-When a note is planned, the model is told the message is a voice note (the **Voice notes** prompt in Settings >
-Advanced), so it writes spoken words. Emoji, `*actions*` and links are left out of what is read aloud whatever it
-writes. If recording fails, the message goes as a plain text; a voice note is never the reason a message is lost.
+Rules decide, in `dungeon/voice/notes.py` (`for_call`): voice notes are on (the default, Settings > Models > Voice
+notes) and the chosen engine can speak, which means the built-in voice is downloaded or the hosted engine has a key.
+Until then a call stays in text. Emoji, `*actions*` and links are left out of what is read aloud. If recording
+fails, the reply stays a plain text; a voice note is never the reason a message is lost.
 
 ## Which voice
 
@@ -54,7 +46,7 @@ sherpa-onnx's ready-made `sherpa-onnx-offline-tts` program (Apache 2.0), so the 
 packages. Both come from sherpa-onnx's GitHub releases, pinned (sherpa-onnx 1.13.8, `kokoro-multi-lang-v1_0`) and
 checked against their SHA-256: about 378 MB in all, into the workspace's `voice/` folder, which backups leave out.
 Big downloads wait for a press: voice notes are on by default, but the built-in voice downloads only when you press
-Download in Settings > Models > Voice notes. Until then every first text stays a text.
+Download in Settings > Models > Voice notes. Until then a call stays in text.
 
 The program runs once per note in its own process, on the processor with at most four threads, one note at a time.
 A note takes a few seconds. British voices read with British pronunciation. `DUNGEON_SHERPA_TTS` and
@@ -62,7 +54,7 @@ A note takes a few seconds. British voices read with British pronunciation. `DUN
 
 ## Storage
 
-- `voice_settings`: on or off, the engine and the daily limit. Kept by a restore, like other settings.
+- `voice_settings`: on or off and the engine (`daily_limit` is left from first-text voice notes and unused). Kept by a restore, like other settings.
 - `companion_voices`: a voice the user picked for a companion on one engine. Goes with the character.
 - `voice_notes`: the message a note belongs to, its file in the workspace's `voice-notes/` folder, its length,
   engine and voice. Goes with the history; backups carry the files. A branched timeline's copy shares the file.

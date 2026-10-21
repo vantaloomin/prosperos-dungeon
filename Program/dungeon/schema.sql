@@ -750,39 +750,6 @@ CREATE TABLE IF NOT EXISTS lora_gen_images (
 );
 CREATE INDEX IF NOT EXISTS lora_gen_images_generation ON lora_gen_images(generation_id, position);
 
--- Desktop notifications (PRD compute and job control): off by default; quiet hours, preview
--- privacy and a frequency cap. Settings never depend on the character's traits.
-CREATE TABLE IF NOT EXISTS notification_settings (
-  id INTEGER PRIMARY KEY CHECK (id = 1),
-  enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)),
-  quiet_start TEXT NOT NULL DEFAULT '22:00',
-  quiet_end TEXT NOT NULL DEFAULT '08:00',
-  preview TEXT NOT NULL DEFAULT 'name' CHECK (preview IN ('full', 'name', 'private')),
-  daily_cap INTEGER NOT NULL DEFAULT 3,
-  min_gap_minutes INTEGER NOT NULL DEFAULT 120,
-  updated_at TEXT NOT NULL
-);
-
--- One per post a background batch published while notifications were on. Several waiting at
--- delivery collapse into one digest delivery.
-CREATE TABLE IF NOT EXISTS notifications (
-  id TEXT PRIMARY KEY,
-  post_id TEXT NOT NULL UNIQUE REFERENCES feed_posts(id),
-  status TEXT NOT NULL CHECK (status IN ('queued', 'delivered', 'digested', 'dropped', 'cancelled')),
-  delivery_id TEXT,
-  reason TEXT,
-  created_at TEXT NOT NULL,
-  settled_at TEXT
-);
-CREATE INDEX IF NOT EXISTS notifications_status ON notifications(status, created_at);
-
-CREATE TABLE IF NOT EXISTS notification_deliveries (
-  id TEXT PRIMARY KEY,
-  kind TEXT NOT NULL CHECK (kind IN ('post', 'digest', 'message')),
-  post_count INTEGER NOT NULL,
-  delivered_at TEXT NOT NULL
-);
-
 -- Where an imported companion came from: a reviewed copy of one Prospero's Study character
 -- version. Study ids are kept only as attribution; every local row has a new id.
 CREATE TABLE IF NOT EXISTS study_imports (
@@ -830,22 +797,6 @@ CREATE TABLE IF NOT EXISTS closeness_jokes (
   created_at TEXT NOT NULL,
   PRIMARY KEY (timeline_id, memory_id)
 );
-
--- A message the companion sent first (dungeon/life/openers.py). Each trigger fires once per
--- timeline; `notify` follows its desktop notification like `notifications` does for posts.
-CREATE TABLE IF NOT EXISTS openers (
-  id TEXT PRIMARY KEY,
-  timeline_id TEXT NOT NULL REFERENCES timelines(id),
-  trigger_key TEXT NOT NULL,
-  kind TEXT NOT NULL,
-  facts TEXT NOT NULL,
-  message_id TEXT NOT NULL REFERENCES messages(id),
-  wording TEXT NOT NULL CHECK (wording IN ('model', 'template')),
-  notify TEXT CHECK (notify IN ('queued', 'delivered', 'dropped', 'cancelled')),
-  created_at TEXT NOT NULL,
-  UNIQUE (timeline_id, trigger_key)
-);
-CREATE INDEX IF NOT EXISTS openers_message ON openers(message_id);
 
 -- What the companion said about themselves (dungeon/self_facts.py): fiction about the character,
 -- tied to the message it came from, noted automatically and kept or removed by the user.
@@ -1035,16 +986,6 @@ CREATE TABLE IF NOT EXISTS phone_devices (
   revoked_at TEXT
 );
 
--- Where to send a paired phone's notifications while the app is closed (dungeon/phone/push.py).
-CREATE TABLE IF NOT EXISTS phone_push (
-  id TEXT PRIMARY KEY,
-  device_id TEXT NOT NULL REFERENCES phone_devices(id),
-  endpoint TEXT NOT NULL UNIQUE,
-  p256dh TEXT NOT NULL,
-  auth TEXT NOT NULL,
-  created_at TEXT NOT NULL
-);
-
 -- Townsfolk the companion ran into around the city (dungeon/life/encounters.py). The people are seeded
 -- from the city data (dungeon/world/townsfolk.py) and rebuilt from `key`; only the meeting is kept. A
 -- meeting counts once its agenda slot has happened and the slot's entry still records it.
@@ -1224,17 +1165,6 @@ CREATE TABLE IF NOT EXISTS chat_reads (
   read_seq INTEGER NOT NULL,
   read_at TEXT NOT NULL
 );
-
--- Messages sent while the user is away, from any companion or chat (dungeon/away.py), counted against one
--- shared daily allowance (life_settings.away_daily) so a day left running has a bounded cost.
-CREATE TABLE IF NOT EXISTS away_messages (
-  id TEXT PRIMARY KEY,
-  kind TEXT NOT NULL,
-  thread_id TEXT NOT NULL,
-  message_id TEXT NOT NULL,
-  created_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS away_messages_created ON away_messages(created_at);
 
 -- How two companions know each other, written once by the user when they are first put together (a new group,
 -- adding someone, or becoming a companion): the stage they start at and a line of backstory. Everything else
@@ -1423,13 +1353,6 @@ CREATE TABLE IF NOT EXISTS persona (
   age INTEGER,
   about TEXT NOT NULL DEFAULT '',
   updated_at TEXT NOT NULL
-);
-
--- While you were away (dungeon/recap.py): the catch-up the user has read, by the last message it followed.
-CREATE TABLE IF NOT EXISTS away_recaps (
-  timeline_id TEXT PRIMARY KEY REFERENCES timelines(id),
-  since TEXT NOT NULL,
-  dismissed_at TEXT NOT NULL
 );
 
 -- Lore from imported lorebooks (dungeon/lore.py, dungeon/imports/characters.py): a book belongs to one

@@ -101,7 +101,7 @@ def create(connection, timeline_id, kind, key, event_ids, occurs_at, timestamp, 
 def publish_run(connection, run, results, timestamp) -> list[str]:
     """One digest for a return batch, one post per event for a background batch (T5). An event
     photographed in chat while it was happening joins its photo's post instead. Returns the
-    background batch's posts, which may be announced as notifications."""
+    background batch's posts."""
     event_ids = [result['event_id'] for result in results
                  if result.get('event_id') and result['outcome'] in {'proposed', 'committed'}]
     photographed = {event_id: post_id for event_id in event_ids if (post_id := photo_post(connection, event_id))}

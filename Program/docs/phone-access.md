@@ -32,7 +32,6 @@ opens on the phone** walks through the rest:
 - The **backup address** is the PC's tailnet address over plain http, such as `http://100.90.1.2:8785`. It needs
   neither MagicDNS nor a certificate, and Tailscale still encrypts the traffic between the devices. Pairing works
   there the same way (the device cookie is then not marked Secure, since the browser would drop it over http).
-  Phone notifications need the https address, as browsers only offer push to secure pages.
 - If only the backup address works, the phone looks names up without Tailscale: on Android, Private DNS set to a
   provider name does this; in the Tailscale app, Use Tailscale DNS should stay on.
 
@@ -48,8 +47,7 @@ Every request through that listener counts as a phone's, whatever headers it car
 paired device (the same pairing codes), and the PC-only list below applies. Only requests from, and naming, a
 private home address (10/8, 172.16/12, 192.168/16, link-local, fc00::/7) are answered, so a forwarded port or a
 renamed host is refused. It is plain http: anyone else on the same network could read what passes or copy a phone's
-sign-in cookie, so the switch warns to use it only on a trusted home network. Notifications need the Tailscale https
-address. Routers with client (AP) isolation keep phones from reaching the PC; Tailscale works there.
+sign-in cookie, so the switch warns to use it only on a trusted home network. Routers with client (AP) isolation keep phones from reaching the PC; Tailscale works there.
 
 ## What a phone may do
 
@@ -73,15 +71,7 @@ Restoring a backup turns phone access off and unpairs every phone.
 The interface has a bottom tab bar on narrow screens, leaves room for a notch and home bar, keeps the keyboard
 from covering the message box, and opens a message's actions in a sheet from the bottom of the screen when the message is pressed and held (Copy, Edit, Branch from here and the rest), as phone messaging apps do.
 
-## Notifications on a phone
+## Adding it to the home screen
 
-In Settings > Notifications on a paired phone, **Notify this phone** subscribes it to Web Push (RFC 8030). The PC
-encrypts each notification for that phone (RFC 8291) and sends it to the phone's push service (Apple's or
-Google's), signed with a key kept in the OS credential vault (VAPID, RFC 8292). The push service carries it but
-cannot read it. On an iPhone this needs iOS 16.4 or later and the Dungeon opened from the home screen.
-
-What a notification says and when it comes are decided as on the PC: quiet hours, the daily cap, the gap
-between notifications and the preview setting all apply. Every notification the PC shows also goes to subscribed
-phones. When no window is asking, the Dungeon checks once a minute and sends to phones itself, but holds off
-while the Dungeon is open and focused on the PC. The PC has to be on. Removing a phone, or a push service
-saying a subscription is gone, stops its notifications. The service worker (`public/sw.js`) caches nothing.
+The service worker (`public/sw.js`) only lets a phone add the Dungeon to its home screen; it caches nothing. The
+Dungeon sends no notifications.

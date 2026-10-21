@@ -1,5 +1,4 @@
 """What the companion says about themselves is noted, stays consistent and is the user's to keep or remove."""
-from datetime import timedelta
 
 from conftest import send
 
@@ -136,16 +135,6 @@ def test_stated_dislikes_steer_the_companions_plans():
         event = composer.compose(slot, definition, EmptyWorld(), f'seed-{index}')
         assert event is None or event['activity'] not in {'workout', 'coffee'}
     assert 'reading' in composer.leanings({'self_tastes': {'likes': ['reading novels']}})
-
-
-def test_a_first_message_is_read_for_facts_too(client, companion, clock):
-    client.put('/api/life/settings', json={'texts_first': True})
-    client.post('/api/memories', json={'layer': 'plan', 'subject': 'Exam', 'value': 'Exam Monday',
-                                       'plan_status': 'agreed',
-                                       'applies_from': (clock.now() - timedelta(hours=8)).isoformat(),
-                                       'applies_until': (clock.now() - timedelta(hours=2)).isoformat()})
-    assert client.post('/api/life/texts/check').json()['state'] == 'sent'
-    assert client.get('/api/self-facts').json() == {'facts': []}
 
 
 def test_a_reply_echoing_a_forgotten_message_takes_its_facts_with_it(client, connected, provider):

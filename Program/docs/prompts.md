@@ -10,11 +10,9 @@ for comparison.
 
 | Prompt | Used for | Default lives in |
 | --- | --- | --- |
-| Who the companion is | The opening of every chat reply and first text, before the character sheet | `GUIDANCE` in `dungeon/memory/context.py` |
+| Who the companion is | The opening of every chat reply, before the character sheet | `GUIDANCE` in `dungeon/memory/context.py` |
 | How the companion acts | After the character sheet: one behaviour line per personality slider away from the middle ([character-drafting.md](character-drafting.md#personality-sliders)) | `PERSONALITY` in `dungeon/memory/context.py` |
 | Your history together | Opens the line-a-week (then month, then year) record of the whole relationship in every chat reply, built from what happened and the user's corrections in the scrapbook's "All of it" view | `INTRO` in `dungeon/memory/history.py` |
-| Texting first | Added when the companion writes first | `INSTRUCTION` in `dungeon/life/openers.py` |
-| Voice notes | Added to a first text the app sends as a voice note ([voice-notes.md](voice-notes.md)) | `INSTRUCTION` in `dungeon/voice/notes.py` |
 | Phrasing life events | Life sim moments into a sentence and a caption | `RULES` in `dungeon/life/synthesis.py` |
 | Suggesting memories | The memory model's fact suggestions | `RULES` in `dungeon/memory/suggest.py` |
 | Noting the companion's own facts | The memory model reading its replies for their people, team, work | `RULES` in `dungeon/memory/self_suggest.py` |
@@ -29,7 +27,7 @@ the library shows and fills them in the `{{placeholder}}` form the drafting file
 
 ## How a chat reply's prompt is laid out
 
-Every chat reply and first text is built so that most of it is the same as the request
+Every chat reply is built so that most of it is the same as the request
 before it. Local servers (llama.cpp, LM Studio, Ollama, KoboldCpp) and hosted providers can then reuse the work
 they already did on that part (prompt caching), so a reply starts sooner and costs less. It is also easier on
 small local models, which follow facts best when they sit right next to the message they answer.

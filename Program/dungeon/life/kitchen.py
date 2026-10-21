@@ -23,12 +23,12 @@ and a dinner rarely goes wrong; higher settings make staples run out sooner and 
 
 Other modules read it through `touch` (the agenda), `context_lines` (the chat's "kitchen" section), `purchases`
 (takeout counts as spending in money.household), `cooked` (Home upkeep's dishes), `grocery_runs` (Life admin's
-Today), `hosting` (dinner at their place) and `invite_due` (they ask the user over). The user can change the diet,
+Today) and `hosting` (dinner at their place). The user can change the diet,
 what they avoid, the skill, baking and favourite dishes on the Character page; the days ahead follow.
 """
 import json
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from functools import lru_cache
 from pathlib import Path
 
@@ -48,7 +48,6 @@ YOUR_SKILLS = ("you can't really cook", 'you keep it simple', 'you are a good ho
 # New dinners and grocery runs are woven into the companion's agenda entries, and now and then they ask the user over;
 # tests turn these off.
 WEAVE = True
-INVITES = True
 
 # Diets and things avoided named in who they are; first match wins for the diet.
 DIET_WORDS = (('vegan', re.compile(r'\bvegan\b', re.I)),
@@ -100,10 +99,7 @@ RUN_DAYS = 28
 CUISINE_WORDS = {'mexican': ('mexican', 'tex mex', 'tacos'), 'burgers': ('burger', 'diner'),
                  'chophouse': ('chop',), 'eel-pie': ('eel',), 'fried-fish': ('fried fish', 'fish and chips'),
                  'pie-shop': ('pie',), 'cookshop': ('cookshop', 'dining', 'dinners'), 'coffee-stall': ('coffee',)}
-INVITE_EVERY = 14
 RUNS_A_WEEK = 2
-INVITE_CHANCE = 0.45
-INVITE_AHEAD = (2, 5)
 
 
 # --- Banks ---
@@ -935,51 +931,6 @@ def planned_menu(menu: dict, era_modern: bool = True) -> str:
         item, verb = menu['takeout'], 'order' if era_modern else 'pick up'
         return f"You plan to {verb} {item['dish']} from {item['source']} and set the table."
     return hosting_text(menu, era_modern).replace('You are cooking', 'You plan to cook')
-
-
-def invite_due(connection, companion: dict, now: datetime) -> list:
-    """Now and then, a first text asking the user over for dinner on a free evening a few days off, with what they
-    will make (dungeon/life/openers.py). Saving the text settles the plan (`settle_invite`)."""
-    from dungeon.life import outings, together
-    from dungeon.life.openers import Trigger
-    version = companion['version']
-    definition, timeline_id = version['definition'], companion['active_timeline_id']
-    local = now.astimezone(zone(version['timezone']))
-    if not INVITES or not 10 <= local.hour < 21 or not together.invites(connection, companion):
-        return []  # Getting together off, or long distance (dungeon/life/together.py): no invitations over.
-    state = optional(connection, 'SELECT * FROM kitchen_state WHERE timeline_id=?', (timeline_id,))
-    if not state:
-        return []
-    window = local.date().toordinal() // INVITE_EVERY
-    if generators.unit(state['seed'], 'invite?', window) >= INVITE_CHANCE:
-        return []
-    key = f'dinner-invite:{timeline_id}:{window}'
-    schedule = routine.blocks(definition)[0]
-    for ahead in range(*INVITE_AHEAD):
-        day = local.date() + timedelta(days=ahead)
-        if outings.busy_at(schedule, day, DINNER_AT) or outings.cut_short(schedule, day, DINNER_AT, '22:00') or \
-                outings.taken(connection, companion, day):
-            continue
-        menu = hosting(connection, timeline_id, definition, None, now, day)
-        era_modern = modern_bank(settled(state)['bank'])
-        dish = menu['dish'] or (menu['takeout'] or {}).get('dish') or 'dinner'
-        when = f'{day:%A}'
-        what = f"I'll make {dish}" if menu['dish'] else f"I'll get {dish} from {menu['takeout']['source']}"
-        reason = (f'You want to have the user over for dinner at your place on {day:%A, %B} {day.day} at 7 PM. '
-                  f'{planned_menu(menu, era_modern)} '
-                  f"Invite them in your own words, naming the day and what you will {'make' if menu['dish'] else 'get'}.")
-        return [Trigger(key, 'dinner_invite', reason, f'Come over for dinner {when}? {what}.',
-                        (day.isoformat(),))]
-    return []
-
-
-def settle_invite(connection, companion: dict, message: dict, trigger, timestamp: str) -> dict | None:
-    """The invitation a first text made, as a dinner-in plan on its day (the user can call it off on Today)."""
-    from dungeon.life import outings
-    day = date.fromisoformat(trigger.sources[0])
-    wanted = {'activity': 'dinner-in', 'day': day, 'at': DINNER_AT, 'place': None, 'word': '', 'waterside': False}
-    return outings.save(connection, companion, message, wanted, outings.city_data(
-        connection, companion['version']['definition']), day, DINNER_AT, timestamp)
 
 
 # --- View and edits ---

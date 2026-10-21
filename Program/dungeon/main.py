@@ -51,13 +51,11 @@ from dungeon.life import (
     status,
     steps_routes,
     traditions_routes,
-    trips,
     upkeep_routes,
     wardrobe_routes,
     work_routes,
 )
 from dungeon.life import routes as life_routes
-from dungeon.life.openers import Openers
 from dungeon.life.simulation import LifeEngine
 from dungeon.lora import evaluation as lora_evaluation
 from dungeon.lora import generation as lora_generation
@@ -68,7 +66,6 @@ from dungeon.memory import closeness_routes, history_routes, people_routes
 from dungeon.memory.worker import MemoryWorker
 from dungeon.phone import access as phone_access
 from dungeon.phone import lan as phone_lan
-from dungeon.phone import push as phone_push
 from dungeon.phone import routes as phone_routes
 from dungeon.providers.builtin_chat import BuiltinChat
 from dungeon.providers.builtin_recall import BuiltinRecall
@@ -146,7 +143,6 @@ async def lifespan(app):
     lora_generation.recover(app.state.database)
     tasks = [asyncio.create_task(app.state.life.run_forever()),
              asyncio.create_task(app.state.images.run_forever()),
-             asyncio.create_task(app.state.push.run_forever()),
              asyncio.create_task(auto_backup.run_forever(app.state))] if app.state.life_tasks else []
     if app.state.life_tasks:
         # Built-in recall loads its model now, so the first reply does not wait for it; so does the built-in chat
@@ -171,7 +167,7 @@ async def lifespan(app):
 
 def create_app(database_path: str | Path | None = None, *, clock=None, vault=None, provider=None,
                life_tasks=True, world=None, embedder=None, image_adapters=None,
-               trainer_spawn=None, push_transport=None,
+               trainer_spawn=None,
                lora_maker=None, builtin_spawn=None, builtin_transport=None, hardware=None, voice_transport=None,
                voice_runner=None, launcher=None) -> FastAPI:
     app = FastAPI(title=APP_NAME, version=VERSION, lifespan=lifespan)
@@ -195,21 +191,14 @@ def create_app(database_path: str | Path | None = None, *, clock=None, vault=Non
                                     provider=app.state.conversation.provider)
     app.state.life = LifeEngine(app.state.database, app.state.vault, app.state.conversation.provider,
                                 app.state.conversation.scheduler, world)
-    app.state.openers = Openers(app.state.database, app.state.vault, app.state.conversation.provider,
-                                app.state.conversation.scheduler)
-    app.state.life.openers = app.state.openers
     app.state.voice = VoiceNotes(app.state.database, app.state.vault, voice_transport, voice_runner)
-    app.state.openers.voice = app.state.voice
     app.state.conversation.voice = app.state.voice
     app.state.debug_time = DebugTime(app.state.database, app.state.life)
     app.state.images = ImageRunner(app.state.database, app.state.vault, image_adapters,
                                    app.state.conversation.scheduler)
-    app.state.conversation.photos = ChatPhotos(app.state.database, app.state.images, app.state.life,
-                                               app.state.openers)
-    app.state.images.share = app.state.conversation.photos.share
-    # The photo of a finished outing with the user and the picture on a postcard from a trip.
-    app.state.images.others += [lambda: outings.photograph(app.state.database),
-                                lambda: trips.picture_postcards(app.state.database)]
+    app.state.conversation.photos = ChatPhotos(app.state.database, app.state.images, app.state.life)
+    # The photo of a finished outing with the user.
+    app.state.images.others += [lambda: outings.photograph(app.state.database)]
 
     def after_turn():
         # A local image waits while a reply is written (compute and job control); a finished turn lets it start.
@@ -229,7 +218,6 @@ def create_app(database_path: str | Path | None = None, *, clock=None, vault=Non
     app.middleware('http')(guard_writes)
     # Outermost: only this PC, or a paired phone through Tailscale, gets further (dungeon/phone/access.py).
     app.state.phone = phone_access.Gate(app.state.database)
-    app.state.push = phone_push.Pusher(app.state.database, app.state.vault, push_transport)
     app.middleware('http')(app.state.phone)
     app.state.lan = phone_lan.LanServer(app)
     app.add_exception_handler(DomainError, domain_error)

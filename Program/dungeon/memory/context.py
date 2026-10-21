@@ -226,7 +226,7 @@ NOW = {
                   'never explain it unless asked)',
        # Rough patches and making up (dungeon/life/rough_patches.py): a falling-out with the user, or making up.
        'patch': 'How things are between you and the user (decided by the app; keep to it)',
-       # Go somewhere together and Trips and postcards (dungeon/life/outings.py, trips.py).
+       # Go somewhere together and Trips (dungeon/life/outings.py, trips.py).
        # Together or apart (dungeon/life/together.py): a visit turned down, or time together that just ended; and
        # On a call (dungeon/life/calls.py): the call under way, or one that just ended or was missed.
        'where': 'Where you are with the user (decided by the app; keep to it)',

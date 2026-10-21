@@ -88,28 +88,6 @@ def close(client, level):
     assert response.status_code == 200, response.text
 
 
-def first_text(client, clock, key='step-message'):
-    """The first text a step due today would send, saved the way openers.py saves it."""
-    from dungeon.life import openers
-    with client.app.state.database.connect(write=True) as connection:
-        companion = current(connection)
-        found = [trigger for trigger in openers.candidates(connection, companion, clock.now())
-                 if trigger.kind == 'next_step']
-        if not found:
-            return None
-        trigger = found[0]
-        connection.execute("INSERT INTO messages (id, timeline_id, seq, role, text, status, active, character_version_id, "
-                           "memory_revision, created_at, completed_at) VALUES (?, ?, 99, 'companion', ?, 'complete', 1, ?, "
-                           '0, ?, ?)', (key, companion['active_timeline_id'], trigger.template,
-                                        companion['active_version_id'], clock.now().isoformat(), clock.now().isoformat()))
-        connection.execute("INSERT INTO openers (id, timeline_id, trigger_key, kind, facts, message_id, wording, "
-                           "created_at) VALUES (?, ?, ?, ?, '{}', ?, 'template', ?)",
-                           (f'opener-{key}', companion['active_timeline_id'], trigger.key, trigger.kind, key,
-                            clock.now().isoformat()))
-        steps.settle(connection, companion, {'id': key}, trigger, clock.now().isoformat())
-        return trigger
-
-
 @pytest.fixture
 def always(monkeypatch):
     """The engine lands on the first option every time."""
@@ -176,48 +154,6 @@ def test_mentors_and_family_have_no_ladder(client, provider, monkeypatch):
     assert 'Where things stand between you' not in prompt(provider)
 
 
-def test_they_bring_up_the_next_step_and_yes_moves_it(client, provider, clock, monkeypatch, always):
-    make(client, monkeypatch)
-    monkeypatch.setattr(steps, 'FIRST_TEXTS', True)
-    view(client)
-    close(client, 3)
-    clock.advance(timedelta(days=36))
-    reconcile(client)
-    found = client.get('/api/life/steps').json()
-    assert found['step'] == 'dating'
-    with client.app.state.database.connect() as connection:
-        [planned] = steps.asks(connection, current(connection)['active_timeline_id'], ('planned',))
-    assert planned['step'] == 'exclusive'
-    clock.advance(timedelta(days=8))  # Soon is within a week.
-    trigger = first_text(client, clock)
-    assert trigger and 'exclusive' in trigger.reason and trigger.template in steps.bank()['exclusive']
-    says(provider)
-    send(client, 'yes!! of course I want that', 'client-steps-3')
-    assert 'The user just said yes to being exclusive.' in prompt(provider)
-    found = view(client)
-    assert found['step'] == 'exclusive' and found['steps'][-1]['how'] == 'them'
-    assert found['text'].startswith('Together ') and found['text'].endswith(', exclusive')
-
-
-def test_not_yet_waits_and_no_answer_lapses(client, provider, clock, monkeypatch, always):
-    make(client, monkeypatch)
-    monkeypatch.setattr(steps, 'FIRST_TEXTS', True)
-    view(client)
-    close(client, 3)
-    clock.advance(timedelta(days=36))
-    reconcile(client)
-    clock.advance(timedelta(days=8))
-    assert first_text(client, clock)
-    says(provider)
-    send(client, "I'm not ready yet, can we take it slow?", 'client-steps-4')
-    assert "The user just said they aren't ready for being exclusive yet." in prompt(provider)
-    assert view(client)['step'] == 'dating'
-    clock.advance(timedelta(days=10))
-    reconcile(client)
-    with client.app.state.database.connect() as connection:
-        assert steps.asks(connection, current(connection)['active_timeline_id'], ('planned',)) == []
-
-
 def test_you_bring_it_up_and_the_engine_answers(client, provider, clock, monkeypatch, always):
     make(client, monkeypatch)
     view(client)
@@ -246,28 +182,6 @@ def test_too_soon_they_are_not_ready(client, provider, monkeypatch):
     assert view(client)['step'] == 'dating'
 
 
-def test_a_friend_falls_for_you_and_yes_makes_it_a_romance(client, provider, clock, monkeypatch):
-    make(client, monkeypatch, relationship='friendship')
-    monkeypatch.setattr(steps, 'FIRST_TEXTS', True)
-    monkeypatch.setattr(consequences, 'roll', lambda _seed, found: found[-1]['option'])
-    view(client)
-    close(client, 4)
-    clock.advance(timedelta(days=95))
-    reconcile(client)
-    clock.advance(timedelta(days=28))
-    reconcile(client)
-    clock.advance(timedelta(days=13))
-    trigger = first_text(client, clock)
-    assert trigger and trigger.key.startswith('step-ask:') and 'fallen for the user' in trigger.reason
-    says(provider)
-    send(client, 'honestly? I feel the same', 'client-steps-7')
-    companion = client.get('/api/companion').json()['companion']
-    assert companion['version']['definition']['relationship'] == 'romance'
-    assert 'they just said they feel the same' in prompt(provider)
-    found = view(client)
-    assert found['ladder'] == 'romance' and found['steps'][0]['how'] == 'confession'
-
-
 def test_making_a_friend_fall_for_you_puts_a_smaller_step_off(client, clock, monkeypatch, always):
     # E2E v0.13: "Make it go this way" on a month they stayed a friend planned the confession for the same day as the
     # first trip they were about to bring up.
@@ -284,26 +198,6 @@ def test_making_a_friend_fall_for_you_puts_a_smaller_step_off(client, clock, mon
     assert client.post(f'/api/life/consequences/{falls}/change', json={'option': 1}).status_code == 200
     with client.app.state.database.connect() as connection:
         assert [row['step'] for row in steps.asks(connection, timeline_id, ('planned',))] == ['confession']
-
-
-def test_a_friend_told_no_stays_a_friend_after_an_awkward_spell(client, provider, clock, monkeypatch):
-    make(client, monkeypatch, relationship='friendship')
-    monkeypatch.setattr(steps, 'FIRST_TEXTS', True)
-    monkeypatch.setattr(consequences, 'roll', lambda _seed, found: found[-1]['option'])
-    view(client)
-    close(client, 4)
-    clock.advance(timedelta(days=95))
-    reconcile(client)
-    clock.advance(timedelta(days=28))
-    reconcile(client)
-    clock.advance(timedelta(days=13))
-    assert first_text(client, clock)
-    says(provider)
-    send(client, "I'm sorry, I only see you as a friend", 'client-steps-8')
-    assert client.get('/api/companion').json()['companion']['version']['definition']['relationship'] == 'friendship'
-    says(provider)
-    send(client, 'are we okay?', 'client-steps-9')
-    assert 'Things have felt a little awkward' in prompt(provider)
 
 
 def test_the_lock_and_the_switch_keep_a_friend_a_friend(client, clock, monkeypatch):
@@ -483,116 +377,6 @@ def test_an_open_relationship_and_an_easy_life(client, monkeypatch, minds):
 # Which message is the answer (Vanta 2026-10-17): only the user's first reply after an ask is read whatever it says; a
 # later one counts only when it plainly answers.
 
-def asked(client, provider, clock, monkeypatch, relationship='romance'):
-    """Mira brings up the next step (being exclusive; a confession for a friend) in a first text: open now."""
-    make(client, monkeypatch, relationship=relationship)
-    monkeypatch.setattr(steps, 'FIRST_TEXTS', True)
-    view(client)
-    if relationship == 'romance':
-        close(client, 3)
-        clock.advance(timedelta(days=36))
-        reconcile(client)
-        clock.advance(timedelta(days=8))
-    else:
-        monkeypatch.setattr(consequences, 'roll', lambda _seed, found: found[-1]['option'])
-        close(client, 4)
-        for days in (95, 28, 13):
-            clock.advance(timedelta(days=days))
-            if days != 13:
-                reconcile(client)
-    assert first_text(client, clock)
-
-
-def open_asks(client):
-    with client.app.state.database.connect() as connection:
-        return [row['step'] for row in steps.asks(connection, current(connection)['active_timeline_id'], ('open',))]
-
-
-def test_an_ok_about_something_else_later_is_not_a_yes(client, provider, clock, monkeypatch, always):
-    asked(client, provider, clock, monkeypatch)
-    says(provider)
-    send(client, 'ugh my day was awful, my boss yelled at me', 'client-answer-1')
-    says(provider, 'Oh no, that sounds rough. Want to talk about it?')
-    send(client, 'lol ok so basically he hates my slides', 'client-answer-2')
-    says(provider)
-    send(client, "sure, I'll make pasta tonight", 'client-answer-3')
-    assert view(client)['step'] == 'dating' and open_asks(client) == ['exclusive']
-    assert 'they have not answered yet' in prompt(provider)
-    says(provider)
-    send(client, 'oh and about being exclusive: yes, I want that', 'client-answer-4')  # Names the step.
-    assert 'The user just said yes to being exclusive.' in prompt(provider)
-    assert view(client)['step'] == 'exclusive' and open_asks(client) == []
-
-
-def test_the_whole_first_reply_counts_even_in_two_messages(client, provider, clock, monkeypatch, always):
-    asked(client, provider, clock, monkeypatch)
-    with client.app.state.database.connect(write=True) as connection:  # "omg", sent before Mira wrote back.
-        companion = current(connection)
-        connection.execute("INSERT INTO messages (id, timeline_id, seq, role, text, status, active, created_at, "
-                           "completed_at) VALUES ('omg', ?, 100, 'user', 'omg', 'complete', 1, ?, ?)",
-                           (companion['active_timeline_id'], clock.now().isoformat(), clock.now().isoformat()))
-    says(provider)
-    send(client, 'yes!!', 'client-answer-5')
-    assert view(client)['step'] == 'exclusive'
-
-
-def test_a_clear_not_yet_right_after_they_bring_it_up_again(client, provider, clock, monkeypatch, always):
-    asked(client, provider, clock, monkeypatch)
-    says(provider, 'Sorry, that was a lot. So... how do you feel about being exclusive?')
-    send(client, 'haha wait, what are you having for dinner?', 'client-answer-6')
-    says(provider)
-    send(client, 'not yet, sorry. I need a little more time', 'client-answer-7')
-    assert "The user just said they aren't ready for being exclusive yet." in prompt(provider)
-    assert view(client)['step'] == 'dating' and open_asks(client) == []
-
-
-def test_a_later_no_counts_when_it_names_the_step_and_a_nah_about_lunch_does_not(client, provider, clock, monkeypatch,
-                                                                                 always):
-    asked(client, provider, clock, monkeypatch)
-    says(provider, 'Ha, good morning to you too.')
-    send(client, 'good morning!', 'client-answer-8')
-    says(provider, 'Want to get lunch?')
-    send(client, 'nah, I ate already', 'client-answer-9')  # A clear no, but to lunch.
-    assert open_asks(client) == ['exclusive']
-    says(provider)
-    send(client, "I've thought about it and no, I don't want to be exclusive", 'client-answer-10')
-    assert 'The user just said no to being exclusive.' in prompt(provider)
-    assert view(client)['step'] == 'dating' and open_asks(client) == []
-
-
-def test_bringing_up_the_step_they_asked_about_says_yes_to_it(client, provider, clock, monkeypatch, always):
-    asked(client, provider, clock, monkeypatch)
-    says(provider)
-    send(client, 'how was work?', 'client-answer-11')
-    says(provider)
-    send(client, 'can we make it official? be my girlfriend?', 'client-answer-12')
-    found = view(client)
-    assert found['step'] == 'exclusive' and found['steps'][-1]['how'] == 'them' and open_asks(client) == []
-    assert 'The user just said yes to being exclusive.' in prompt(provider)
-
-
-def test_bringing_up_a_further_step_settles_the_one_waiting(client, provider, clock, monkeypatch, always):
-    asked(client, provider, clock, monkeypatch)
-    says(provider)
-    send(client, 'how was work?', 'client-answer-13')
-    says(provider)
-    send(client, 'I just wanted to say I love you', 'client-answer-14')
-    found = view(client)
-    assert [item['step'] for item in found['steps']] == ['dating', 'exclusive', 'love'] and open_asks(client) == []
-
-
-def test_a_friends_confession_is_answered_by_the_first_reply_or_a_plain_answer(client, provider, clock, monkeypatch):
-    asked(client, provider, clock, monkeypatch, relationship='friendship')
-    says(provider, 'Haha, sorry, forget I said anything.')
-    send(client, 'wait what time is lunch tomorrow?', 'client-answer-15')
-    says(provider, 'Noon at the usual place?')
-    send(client, 'sure, noon works', 'client-answer-16')  # A yes to lunch, not to them.
-    assert client.get('/api/companion').json()['companion']['version']['definition']['relationship'] == 'friendship'
-    assert open_asks(client) == ['confession']
-    says(provider)
-    send(client, "about what you said the other day... I feel the same", 'client-answer-17')
-    assert client.get('/api/companion').json()['companion']['version']['definition']['relationship'] == 'romance'
-    assert 'they just said they feel the same' in prompt(provider)
 
 
 def test_a_clear_answer_opens_the_message():

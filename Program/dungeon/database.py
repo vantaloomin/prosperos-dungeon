@@ -134,9 +134,6 @@ ADDED_COLUMNS = (
     ('workspace_settings', 'chat_style',
      "TEXT NOT NULL DEFAULT 'feed' CHECK (chat_style IN ('feed', 'bubbles', 'community', 'retro', 'novel'))"),
     ('workspace_settings', 'chat_sounds', 'INTEGER NOT NULL DEFAULT 0 CHECK (chat_sounds IN (0, 1))'),
-    ('life_settings', 'texts_first', 'INTEGER NOT NULL DEFAULT 1 CHECK (texts_first IN (0, 1))'),
-    ('life_settings', 'texts_daily', 'INTEGER NOT NULL DEFAULT 2'),
-    ('life_settings', 'texts_gap_hours', 'INTEGER NOT NULL DEFAULT 3'),
     ('life_settings', 'circle_size', 'INTEGER NOT NULL DEFAULT 0'),
     ('life_settings', 'drama', 'INTEGER NOT NULL DEFAULT 1'),
     ('life_settings', 'user_birthday', "TEXT NOT NULL DEFAULT ''"),
@@ -166,8 +163,6 @@ ADDED_COLUMNS = (
     ('lora_generations', 'kind', "TEXT NOT NULL DEFAULT 'dataset' CHECK (kind IN ('dataset', 'portraits'))"),
     ('lora_gen_images', 'follows', 'INTEGER'),
     ('companions', 'portrait_reference_id', 'TEXT'),
-    # Texts first became on by default; a workspace from before that is switched on once (see initialize).
-    ('life_settings', 'texts_first_on_by_default', 'INTEGER NOT NULL DEFAULT 0'),
     # Memory is opt-out: every workspace gets automatic, sensitive and model memory turned on once (Vanta,
     # 2026-10-07: users can't be relied on to approve suggestions); turning them off afterwards sticks.
     ('workspace_settings', 'memory_on_by_default', 'INTEGER NOT NULL DEFAULT 0'),
@@ -189,8 +184,6 @@ ADDED_COLUMNS = (
     ('closeness_settings', 'ceiling_level', 'INTEGER CHECK (ceiling_level BETWEEN 1 AND 5)'),
     ('closeness_settings', 'cooling_since', 'TEXT'),
     ('phone_settings', 'lan_enabled', 'INTEGER NOT NULL DEFAULT 0 CHECK (lan_enabled IN (0, 1))'),
-    # One shared allowance for messages sent while the user is away, across every companion (dungeon/away.py).
-    ('life_settings', 'away_daily', 'INTEGER NOT NULL DEFAULT 6'),
     # Hidden values: moods and who heard the news stay unseen unless the user turns them on.
     ('workspace_settings', 'show_moods', 'INTEGER NOT NULL DEFAULT 0 CHECK (show_moods IN (0, 1))'),
     ('workspace_settings', 'show_news', 'INTEGER NOT NULL DEFAULT 0 CHECK (show_news IN (0, 1))'),
@@ -216,7 +209,7 @@ ADDED_COLUMNS = (
     # Automatic backups of every world (dungeon/auto_backup.py): on by default, once a day.
     ('workspace_settings', 'auto_backups',
      "TEXT NOT NULL DEFAULT 'daily' CHECK (auto_backups IN ('off', 'daily', 'weekly'))"),
-    # While you were away (dungeon/recap.py): days without a message before a catch-up shows; 0 is off.
+    # Days without a message before a catch-up showed: no longer read, kept so workspaces' columns stay as they are.
     ('life_settings', 'recap_after_days', 'INTEGER NOT NULL DEFAULT 3'),
     # Become a townsperson (dungeon/worlds.py): the townsperson the user is in this world, and their town.
     ('persona', 'townsfolk_key', "TEXT NOT NULL DEFAULT ''"),
@@ -270,8 +263,8 @@ ADDED_COLUMNS = (
     # Where you live in this world (dungeon/life/where.py): a city id and a neighbourhood id in it.
     ('persona', 'home_city_id', "TEXT NOT NULL DEFAULT ''"),
     ('persona', 'home_neighbourhood', "TEXT NOT NULL DEFAULT ''"),
-    # Getting together (dungeon/life/together.py, Settings > Realism): how often companions suggest meeting up,
-    # invite the user over and drop by, 0 never on their own, 1 light, 2 true to life, 3 often.
+    # Getting together (dungeon/life/together.py, Settings > Realism): 0 never on their own, 1 light, 2 true to life,
+    # 3 often.
     ('life_settings', 'together_realism', 'INTEGER NOT NULL DEFAULT 2 CHECK (together_realism BETWEEN 0 AND 3)'),
     # A trip that was a weekend visit with the user (v0.12 long distance, removed): kept so older rows still read; new
     # trips leave `visit` empty. The message that asked for a trip, the memory it left, and when it was called off.
@@ -327,7 +320,6 @@ ADDED_COLUMNS = (
 # CHECK constraints widened after a table first shipped, as (table, text the current definition
 # contains). SQLite cannot alter a CHECK, so an older table is copied into the current definition.
 WIDENED_CHECKS = (
-    ('notification_deliveries', "'message')"),
     ('memory_vectors', "'storyline'))"),
     # Work life's late nights on the shared calendar (dungeon/life/work.py).
     ('life_admin', "'looks', 'work'"),
@@ -364,11 +356,9 @@ def initialize(connection, timestamp: str):
     from dungeon.text_models import adopt_legacy, split_recall
     adopt_legacy(connection, timestamp)
     split_recall(connection, timestamp)
-    for table in ('workspace_settings', 'life_settings', 'image_settings', 'lora_settings',
-                  'notification_settings', 'phone_settings', 'builtin_recall', 'voice_settings'):
+    for table in ('workspace_settings', 'life_settings', 'image_settings', 'lora_settings', 'phone_settings',
+                  'builtin_recall', 'voice_settings'):
         connection.execute(f'INSERT OR IGNORE INTO {table} (id, updated_at) VALUES (1, ?)', (timestamp,))
-    connection.execute('UPDATE life_settings SET texts_first=1, texts_first_on_by_default=1 '
-                       'WHERE texts_first_on_by_default=0')
     connection.execute('UPDATE life_settings SET automatic_events=1, events_on_by_default=1 WHERE events_on_by_default=0')
     connection.execute('UPDATE workspace_settings SET automatic_memory=1, sensitive_memory=1, '
                        'model_memory_suggestions=1, memory_on_by_default=1 WHERE memory_on_by_default=0')

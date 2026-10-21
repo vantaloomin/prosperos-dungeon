@@ -1,4 +1,4 @@
-"""Trips and postcards: now and then a weekend away in another city, with a postcard for the user."""
+"""Trips: now and then a weekend away in another city."""
 from datetime import date, timedelta
 
 import pytest
@@ -91,20 +91,6 @@ def test_a_weekend_away_fills_their_days_in_the_other_city(client, mira, clock):
     assert f"Right now you are away in {trip['city_name']}" in preview
     status = client.get('/api/chats').json()
     assert trip['city_name'] in str(status)
-
-
-def test_the_postcard_comes_on_the_first_afternoon(client, mira, clock):
-    from dungeon.characters import current
-    reconcile(client)
-    [trip] = listing(client)
-    clock.advance(timedelta(days=12))  # Saturday noon: too early.
-    with client.app.state.database.connect() as connection:
-        companion = current(connection)
-        assert trips.postcard_due(connection, companion, clock.now()) == []
-        later = clock.now() + timedelta(hours=4)
-        [card] = trips.postcard_due(connection, companion, later)
-    assert card.key == f"postcard:{trip['id']}" and card.kind == 'postcard'
-    assert trip['city_name'] in card.template and trip['landmark']['name'] in card.template
 
 
 def test_a_sunny_weekend_can_leave_them_sunburnt():

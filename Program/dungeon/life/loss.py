@@ -15,12 +15,12 @@ User", Vanta 2026-10-08):
   (the parent_health storyline) gets a decision of their own, with much higher odds. A death decided goes on a seeded
   day in that year.
 - Then: they are 'late' (their circle row is removed with details `late`, so they leave every upcoming day), a caring
-  turn for them ends, the companion tells the user in a first text, a funeral comes up as a big day
+  turn for them ends, a funeral comes up as a big day
   (dungeon/life/big_days.py, kind 'funeral') with customs by culture and era (world/data/loss.json `customs`), the
   paper runs an obituary for someone local, and the date is an anniversary from then on.
 - Grief, by rules: how deep follows who they were (a parent or sibling deepest, a friend less, someone from town
-  least). Raw, then heavy, then lifting over weeks: a sad mood (dungeon/moods.py), fewer plans of their own (first
-  texts that suggest plans hold back, dungeon/life/openers.py), the odd memory, and one context line while it lasts.
+  least). Raw, then heavy, then lifting over weeks: a sad mood (dungeon/moods.py), fewer plans of their own, the odd
+  memory, and one context line while it lasts.
   Grief is sadness and missing someone: its lines never read as self-harm, and the crisis check (dungeon/safety.py)
   is unchanged.
 - Undo: "Bring them back" on the circle list, or changing how it went under Hidden values, undoes a death; turning the
@@ -29,7 +29,6 @@ User", Vanta 2026-10-08):
 No model decides anything; the model only puts it into words.
 """
 import json
-import random
 import re
 from datetime import date, datetime, timedelta
 from functools import cache
@@ -41,8 +40,6 @@ from dungeon.life import ages, circle, pronouns
 from dungeon.world import catalog, generators
 
 ACTIVE = True
-# The news as a first text; off in most tests (tests/conftest.py), like the other first texts.
-FIRST_TEXTS = True
 CHOICE = 'loss:passes'
 YEAR = 365
 # A death decided today comes no sooner than this.
@@ -517,38 +514,6 @@ def moods(connection, companion: dict, now) -> list[tuple[tuple[str, int], str]]
     return [(feeling, f"{first(companion['version']['name'])}'s {said} "
                       f"{first(row['name'])} died" if row['kind'] == 'circle' else
              f"{first(row['name'])} from town died")]
-
-
-def holds_back(connection, companion: dict, now) -> bool:
-    """Fewer plans of their own while grief is raw (none) or heavy (about half the days)."""
-    found = grieving(connection, companion, now)
-    if not found or found[1] == 'lifting':
-        return False
-    return found[1] == 'raw' or generators.unit(found[0]['id'], 'plans', local_today(companion, now).isoformat()) < 0.5
-
-
-# The news (a first text, dungeon/life/openers.py) -----------------------------------------------------------------
-
-def news_due(connection, companion: dict, now) -> list:
-    """Someone in their circle died today or yesterday: they tell the user."""
-    from dungeon.life.openers import Trigger
-    if not ACTIVE or not FIRST_TEXTS or not companion.get('active_timeline_id'):
-        return []
-    today, definition = local_today(companion, now), companion['version']['definition']
-    result, lines = [], fitting(bank()['news'], era_of(connection, companion))
-    for row in rows(connection, companion['active_timeline_id']):
-        gap = (today - date.fromisoformat(row['died_on'])).days
-        if row['kind'] != 'circle' or not 0 <= gap < TOLD_DAYS:
-            continue
-        when = 'today' if gap == 0 else 'yesterday'
-        cause = f", {CAUSES[row['details']['cause']]}" if row['details'].get('cause') in CAUSES else ''
-        line = random.Random(f"{row['id']}:news").choice(lines).format(
-            who=who(row, definition).replace('your ', 'my ', 1), when=when)
-        result.append(Trigger(f"loss:{row['id']}", 'storyline',
-                              f"Something sad just happened: {who(row, definition)} died {when}{cause}. Tell the user, "
-                              "the way you would text someone close. You're sad and you miss them; keep it simple.",
-                              line[:1].upper() + line[1:]))
-    return result
 
 
 # Funerals (big days, dungeon/life/big_days.py) --------------------------------------------------------------------

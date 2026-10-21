@@ -11,8 +11,7 @@ that reply is dropped unseen and the answer to the new message becomes the full 
 time, so it takes in everything they said meanwhile. Asleep, the reply shows
 when they wake. A reply that shows at once also shows any earlier one still held, and a reply held
 while an earlier one is waiting shows no sooner than it. What counts is the companion's precomputed
-day (a holiday or a sick day is not work), else their routine. A held reply that shows while the app
-is in the background is announced like a first message.
+day (a holiday or a sick day is not work), else their routine.
 """
 import random
 from datetime import timedelta

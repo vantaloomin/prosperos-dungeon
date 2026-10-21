@@ -13,35 +13,6 @@ def remember(client, subject, value):
     return response.json()
 
 
-def test_restore_sets_the_current_workspace_aside_and_keeps_later_deletions(client, app, companion, clock):
-    kept = remember(client, 'Pet', 'Biscuit')
-    forgotten = remember(client, 'Old job', 'Night shifts at the bakery')
-    archive = Path(client.post('/api/backups').json()['path'])
-    assert client.post(f"/api/memories/{forgotten['id']}/delete", json={}).status_code == 200
-    # A setting changed after the backup is kept, not rolled back.
-    assert client.put('/api/life/settings', json={'texts_first': False}).status_code == 200
-    path = app.state.database.path
-    client.close()
-
-    result = restore.replace_workspace(archive, path, clock)
-
-    assert result['deletions']['memories_deleted'] == 1
-    previous = Path(result['previous'])
-    assert (previous / 'dungeon.sqlite3').exists() and previous.parent == path.parent
-    restored = app.state.database.__class__(path, clock)
-    with restored.connect() as connection:
-        ids = {row[0] for row in connection.execute('SELECT id FROM memories')}
-        marker = connection.execute('SELECT kind FROM deletion_markers WHERE target_id=?',
-                                    (forgotten['id'],)).fetchone()
-        review = connection.execute('SELECT review_required, paused_at, automatic_memory FROM workspace_settings').fetchone()
-        texts_first = connection.execute('SELECT texts_first FROM life_settings').fetchone()[0]
-        open_pauses = connection.execute('SELECT COUNT(*) FROM pauses WHERE ended_at IS NULL').fetchone()[0]
-    assert kept['id'] in ids and forgotten['id'] not in ids
-    assert marker[0] == 'memory'
-    # The current settings carry over: nothing is switched off, paused or held for review.
-    assert tuple(review) == (0, None, 1) and texts_first == 0 and open_pauses == 0
-
-
 def test_a_refused_restore_leaves_the_current_workspace_in_place(client, app, companion, tmp_path, clock):
     remember(client, 'Pet', 'Biscuit')
     damaged = tmp_path / 'damaged.zip'

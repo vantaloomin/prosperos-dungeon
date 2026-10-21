@@ -145,18 +145,6 @@ def test_someone_leaving_after_a_storyline_settled_keeps_it(client, social, cloc
     assert [row['status'] for row in stored(client) if row['id'] == item['id']] == ['running']
 
 
-def test_a_new_beat_can_open_a_conversation(client, social, clock, monkeypatch):
-    monkeypatch.setattr(storylines, 'START', (1, 1, 1, 1))
-    monkeypatch.setattr(storylines, 'STORIES', (storylines.find_story('work_creep'),))
-    set_life(client, texts_first=True)
-    reconcile(client)
-    clock.instant = clock.now().replace(hour=19)
-    result = client.post('/api/life/texts/check').json()
-    assert result['kind'] == 'storyline'
-    messages = client.get('/api/conversation').json()['messages']
-    assert messages[-1]['text'] == 'I hate the new guy at work. He keeps hitting on me.'
-
-
 def test_a_fork_keeps_storylines_that_had_started(client, social, clock, monkeypatch, provider):
     monkeypatch.setattr(storylines, 'START', (1, 1, 1, 1))
     client.put('/api/connection', json={'base_url': 'http://127.0.0.1:1234/v1', 'model': 'local-model',

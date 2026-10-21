@@ -129,20 +129,6 @@ def test_a_reply_shown_at_once_shows_earlier_held_ones(client, office, provider,
     assert parse(first['held_until']) <= clock.now()
 
 
-def test_a_held_reply_is_announced_when_it_shows(client, office, provider, clock, monkeypatch):
-    way(monkeypatch, 'later')
-    client.put('/api/notifications/settings', json={'enabled': True, 'preview': 'full', 'quiet_start': '00:00',
-                                                    'quiet_end': '00:00'})
-    clock.instant = clock.now().replace(hour=10)
-    says(provider, 'Sorry, here now.')
-    send(client, 'Ping', 'client-text-09')
-    assert client.post('/api/notifications/next', json={'focused': False}).json()['notification'] is None
-    clock.advance(timedelta(hours=1))
-    shown = client.post('/api/notifications/next', json={'focused': False}).json()['notification']
-    assert shown['kind'] == 'message' and shown['body'] == 'sorry, here now.'
-    assert client.post('/api/notifications/next', json={'focused': False}).json()['notification'] is None
-
-
 def test_paced_replies_are_on_by_default_and_can_be_turned_off(client, office, provider, clock):
     assert client.get('/api/life/settings').json()['paced_replies'] is True
     set_life(client, paced_replies=False)

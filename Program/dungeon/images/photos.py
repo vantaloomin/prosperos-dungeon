@@ -9,10 +9,8 @@ same picture and the event exists once. Until then the post has no event and sta
 A meme is a joke, not an event: its captions come from templates (`memes.py`) and its picture is
 made on a post of its own that never reaches the feed.
 
-The companion also sends pictures nobody asked for, like a person would: now and then with a reply
-(a seeded chance, a meme more likely when the user sounds bored or down), and, when they may text
-first, a photo text of something they are out doing (`share`). Both go through the same rules and
-are capped, and the first-message rules (`openers.held`) decide when a photo text may go out.
+The companion also sends pictures nobody asked for with a reply now and then, like a person would (a seeded
+chance, a meme more likely when the user sounds bored or down). They are capped.
 
 Every picture goes through the same classification and routing as any other image (F6): NSFW only
 to a backend that accepts it, the prohibited tier nowhere, and anything uncertain counts as NSFW. A request
@@ -29,7 +27,6 @@ from dungeon.database import decode, many, one, optional, settings
 from dungeon.errors import DomainError, require
 from dungeon.images import jobs, memes, prompts
 from dungeon.life import agenda, composer, families, feed, routine, simulation
-from dungeon.life.openers import Trigger, held
 from dungeon.life.synthesis import PROMPT_VERSION as WORDING_VERSION
 from dungeon.text_models import config_for
 from dungeon.workspace import overlapping_pause
@@ -62,10 +59,6 @@ UNASKED_SELFIE_SHARE = 1 / 3
 UNASKED_DAILY = 3
 UNASKED_GAP = timedelta(hours=2)
 # Photo texts: only of something the companion is out doing, a seeded chance per moment, one a day.
-SHARE_KINDS = {'social', 'leisure', 'errand'}
-SHARE_CHANCE = 0.35
-SHARE_SELFIE_SHARE = 0.4
-SHARE_DAILY = 1
 
 
 def asked_kind(text: str) -> str | None:
@@ -108,12 +101,10 @@ def place_area(place) -> str | None:
 
 
 class ChatPhotos:
-    def __init__(self, database, images, life, openers=None):
+    def __init__(self, database, images, life):
         self.database = database
         self.images = images
         self.life = life
-        # Writes photo texts as first messages (dungeon/life/openers.py); set by the app.
-        self.openers = openers
 
     def for_message(self, user, attempt_id) -> dict | None:
         """The picture this reply sends, recorded against the reply, or None. Never raises."""
@@ -178,38 +169,6 @@ class ChatPhotos:
     def in_chat(self, event_key) -> bool:
         with self.database.connect() as connection:
             return optional(connection, 'SELECT message_id FROM chat_photos WHERE event_key=?', (event_key,)) is not None
-
-    def share(self) -> dict | None:
-        """Maybe text the user a photo of what the companion is out doing, unasked. Never raises."""
-        try:
-            return self.share_now(self.database.clock.now())
-        except Exception:  # noqa: BLE001 - checked again on the next tick.
-            return None
-
-    def share_now(self, now) -> dict | None:
-        with self.database.connect() as connection:
-            companion = current(connection)
-            if not UNASKED or self.openers is None or companion is None or not may_share(connection, companion, now):
-                return None
-        self.life.extend_agenda('background')
-        with self.database.connect() as connection:
-            moment = self.moment(connection, companion, now)
-        if not moment or moment['kind'] not in SHARE_KINDS or self.in_chat(moment['event_key']) or \
-                random.Random(moment['event_key']).random() >= SHARE_CHANCE:
-            return None
-        kind = 'selfie' if random.Random(moment['event_key'] + ':selfie').random() < SHARE_SELFIE_SHARE else 'moment'
-        post_id, job_id = self.picture(moment, kind)
-        if job_id is None:
-            return None
-        trigger = Trigger(feed.PHOTO_KEY + moment['event_key'], 'photo',
-                          f"You texted the user a photo you took: {yours(moment)}", moment['caption'],
-                          (moment['event_key'],))
-        sent = self.openers.save(companion, trigger, moment['caption'], 'template', now)
-        if sent['message'] is None:
-            return None
-        self.record(sent['message']['id'], post_id, job_id, kind, moment['event_key'], moment['summary'],
-                    unasked=True)
-        return {**sent['message'], 'photo': get(self.database, sent['message']['id'])}
 
     def send_meme(self, attempt_id, moment, meme, timeline_id, unasked=False) -> dict | None:
         with self.database.connect() as connection:
@@ -297,19 +256,6 @@ def unasked_room(connection, timeline_id, now) -> bool:
                 'message.id=photo.message_id WHERE photo.unasked=1 AND message.timeline_id=? AND photo.created_at>? '
                 'ORDER BY photo.created_at DESC', (timeline_id, stamp(now - timedelta(days=1))))
     return len(rows) < UNASKED_DAILY and (not rows or now - parse(rows[0]['created_at']) >= UNASKED_GAP)
-
-
-def may_share(connection, companion, now) -> bool:
-    """A photo text needs pictures on, unasked ones allowed, and the companion free to text first."""
-    image = jobs.image_settings(connection)
-    if not image['chat_photos'] or not image['unprompted_photos']:
-        return False
-    timeline_id = companion['active_timeline_id']
-    if held(connection, companion, one(connection, 'SELECT * FROM life_settings WHERE id=1'), now):
-        return False
-    shared = one(connection, "SELECT COUNT(*) AS n FROM openers WHERE timeline_id=? AND kind='photo' AND created_at>?",
-                 (timeline_id, stamp(now - timedelta(days=1))))['n']
-    return shared < SHARE_DAILY and unasked_room(connection, timeline_id, now)
 
 
 def recent_memes(connection, timeline_id, limit=6) -> list[str]:

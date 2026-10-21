@@ -14,12 +14,11 @@ Three kinds of day, all from saved state and the calendar, never from a model:
   on the day the companion may celebrate with them (dungeon/life/composer.py).
 - a family tradition (dungeon/life/traditions.py): a holiday their family keeps, with how they keep it.
 - a step in the relationship (dungeon/life/steps.py): a year since they became exclusive, two since moving in.
-- the day someone in their circle died, a year or more on (dungeon/life/loss.py): on the day only, with no first text.
+- the day someone in their circle died, a year or more on (dungeon/life/loss.py): on the day only.
 - how long the two have been talking: a month, three months, six months, a hundred days, then each
   year, counted from the timeline's first message. For a romance it is their anniversary.
 
-The chat context gets the day itself and what is coming within a week; on the day, the companion
-can open the conversation with it (dungeon/life/openers.py).
+The chat context gets the day itself and what is coming within a week.
 """
 import re
 from calendar import monthrange
@@ -218,7 +217,7 @@ def occasion(kind, day: date, ahead: int, what: str, hint: str, span: str = '', 
                   'teaser': tradition['short']}
     if did:
         found |= {'did': did, 'step': step}  # Today says which step it is (src/features/today/storyText.ts).
-    if turns:  # A milestone birthday: Today and the first text say which.
+    if turns:  # A milestone birthday: Today says which.
         found['turns'] = turns
         if found['template'] and kind == 'own_birthday':
             found['template'] = MILESTONE_TEMPLATE.format(age=turns)

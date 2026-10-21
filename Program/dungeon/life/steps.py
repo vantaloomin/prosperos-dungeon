@@ -13,11 +13,11 @@ The app decides, the user overrides ("the world exists outside of User", Vanta 2
   ("married for ten years" starts at married), else from closeness and the days talked (`start`).
 - Once enough time has passed at a step and closeness is high enough, the consequence engine decides when they bring
   up the next one (choice `steps:when`: soon, in a few weeks or in a couple of months, from the Relationship pace slider,
-  their description, their personality sliders and their mood lately). On that day they bring it up in a first text
-  (dungeon/life/openers.py). The user's answer is read from the chat with fixed phrases: yes moves up, "not yet" waits
-  and they ask again weeks later, no keeps it where it is for a long while. Only the user's first reply after the ask is
-  read whatever it says; a later message counts when it names the step, or is a clear yes or no right after they
-  brought it up again (`answer_to`). No answer in a few days counts as not yet.
+  their description, their personality sliders and their mood lately). The user's answer is read from the chat with
+  fixed phrases: yes moves up, "not yet" waits and they ask again weeks later, no keeps it where it is for a long
+  while. Only the user's first reply after the ask is read whatever it says; a later message counts when it names the
+  step, or is a clear yes or no right after they brought it up again (`answer_to`). No answer in a few days counts as
+  not yet.
 - The user can raise the next step themselves ("can we be exclusive?", "I love you"), caught from the chat with fixed
   phrases the way recommendations are; the engine decides their answer (`steps:answer`) before the reply is written,
   and the reply says it.
@@ -47,8 +47,6 @@ from dungeon.life import own_plans
 from dungeon.world import catalog
 
 ACTIVE = True
-# Asks and confessions as first texts; off in most tests (tests/conftest.py).
-FIRST_TEXTS = True
 DEFAULT_PACE = 2
 USER = 'user'
 # An ask still open after this many days lapses: the user let it pass, which counts as not yet.
@@ -122,26 +120,6 @@ LADDERS = {'romance': ROMANCE, 'friendship': FRIENDSHIP}
 CONFESSION = 'confession'
 HOW = ('start', 'history', 'them', 'you', 'set', 'confession')
 
-# How the companion brings each step up, for the first text (the model writes it; a line from the bank stands in).
-REASONS = {
-    'exclusive': "You want to make things official with the user: you'd like the two of you to be exclusive and only "
-                 'see each other. Ask them, simply and honestly, in your own words, and leave them room to say they '
-                 "aren't ready.",
-    'love': "You've realised you love the user, and you are telling them for the first time. Say it in your own words, "
-            "simply. Don't ask them to say it back.",
-    'their_people': "You'd like the user to meet your family and friends sometime soon. Ask them in your own words; no "
-                    'day or place is set yet.',
-    'key': "You'd like to give the user a key to your place. Offer it in your own words.",
-    'moving_in': "You'd like the two of you to live together. Ask the user in your own words, simply, and leave them "
-                 "room to say they aren't ready. Don't settle whose place or who moves yet.",
-    'engaged': "You'd like to marry the user. Ask them in your own words, simply and sincerely, and leave them room to "
-               "say they aren't ready. Don't plan the wedding yet.",
-    'best_friends': 'The user has become your best friend, and you want them to know. Say so in your own words.',
-    'trip': "You'd love to take a first trip away with the user sometime, just the two of you. Suggest it in your own "
-            'words; nothing is booked and no dates are set.',
-    CONFESSION: "You've fallen for the user, your close friend, and you have decided to tell them. Say it in your own "
-                'words, nervous or brave as fits you, and make it easy for them to say they only see you as a friend.',
-}
 
 # The user's answer to something the companion brought up. "Not yet" is read first: "not ready" is no no.
 NOT_YET = re.compile(r"\b(?:not yet|not ready|too (?:soon|early|fast)|slow (?:down|things down)|take (?:it|things|this) "
@@ -708,33 +686,8 @@ def drawn_to_user(connection, companion: dict) -> bool:
     return same if orientation in ('gay', 'lesbian') else not same
 
 
-# First texts (dungeon/life/openers.py) ------------------------------------------------------------------------------
+# Planned asks -------------------------------------------------------------------------------------------------------
 
-SETTLES = ('next_step',)
-
-
-def ask_due(connection, companion: dict, now) -> list:
-    """A step they planned to bring up, once its day has come and they are not low (they wait out a bad spell)."""
-    from dungeon.life.openers import Trigger
-    from dungeon.memory import pairs
-    if not ACTIVE or not FIRST_TEXTS or not companion.get('active_timeline_id'):
-        return []
-    timeline_id = companion['active_timeline_id']
-    today = local_today(companion, now)
-    found = state(connection, companion, now, write=False)
-    result = []
-    for row in asks(connection, timeline_id, ('planned',)):
-        if not row['due_on'] or row['due_on'] > today.isoformat():
-            continue
-        if not still_next(found, row):
-            continue  # Moved on meanwhile; the daily check drops it (`lapse`).
-        if consequences.total(connection, timeline_id, pairs.companion_key(companion['id']), 'mood', today.isoformat()) < 0:
-            continue
-        lines = bank().get(row['step'])  # Getting engaged is only ever written by the model.
-        template = random.Random(f"{row['id']}:line").choice(lines) if lines else None
-        result.append(Trigger(f"step-ask:{row['id']}", 'next_step', REASONS[row['step']],
-                              template, (row['id'],)))
-    return result
 
 
 def still_next(found: dict | None, row: dict) -> bool:
@@ -743,12 +696,6 @@ def still_next(found: dict | None, row: dict) -> bool:
     if row['step'] == CONFESSION:
         return found['ladder'] == 'friendship'
     return found['ladder'] == row['ladder'] and found['next'] == row['step']
-
-
-def settle(connection, companion: dict, message: dict, trigger, timestamp: str) -> None:
-    """The first text that brought the step up went out: the ask is open for the user's answer."""
-    connection.execute("UPDATE step_asks SET status='open', message_id=?, created_at=? WHERE id=? AND status='planned'",
-                       (message['id'], timestamp, trigger.sources[0]))
 
 
 # Reading the chat ----------------------------------------------------------------------------------------------------------

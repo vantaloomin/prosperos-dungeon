@@ -15,8 +15,7 @@ storyline about their own love life, and one seeing someone (a partner in their 
 
 Beats reach the chat context told to the companion as "you" (decided, never contradicted, the ending
 never guessed); a settled one stays pinned for two months by its outcome, then goes to memory search.
-They can open a conversation (dungeon/life/openers.py) and are listed in Today, where the user can
-end one.
+They are listed in Today, where the user can end one.
 Text names people as they are named now, so renaming someone carries over; removing someone ends
 the storylines they are in.
 """
@@ -504,7 +503,7 @@ def recall_items(connection, companion, now) -> list[dict]:
 
 
 def fresh_beats(connection, companion, now) -> list[tuple[str, dict]]:
-    """Beats that happened today or yesterday, for a first message: (trigger key, beat)."""
+    """Beats that happened today or yesterday (status.big_events): (trigger key, beat)."""
     yesterday = (local_today(companion, now) - timedelta(days=1)).isoformat()
     result = []
     for item in visible(connection, companion, now, you=True):

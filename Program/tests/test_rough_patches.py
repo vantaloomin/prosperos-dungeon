@@ -6,13 +6,12 @@ from pathlib import Path
 
 import pytest
 from conftest import reconcile, send, set_life, show
-from test_openers import check, history
 from test_together import mira, notes, says
 
 from dungeon import consequences, moods
 from dungeon.characters import current, insert_version
 from dungeon.database import identifier
-from dungeon.life import love_life, openers, rough_patches
+from dungeon.life import rough_patches
 from dungeon.models import CharacterDefinition
 
 BANKS = Path(__file__).resolve().parents[1] / 'dungeon' / 'world' / 'data' / 'rough_patches'
@@ -59,22 +58,6 @@ def test_apologies_gestures_and_words_are_read_from_the_message():
     assert rough_patches.stings("you're so annoying lol") is None
     assert rough_patches.stings('this game is annoying') is None
     assert rough_patches.stings("I'd never say you're useless") is None
-
-
-def test_words_that_sting_start_one_and_an_apology_mends_it(client, patches, provider):
-    says(provider)
-    send(client, "you're so annoying. go away", 'client-patch-1')
-    found = patch(client)
-    assert found['open'] and found['text'] == 'Things are a bit tense' and found['about'] is None
-    says(provider)
-    send(client, 'so what are you up to?', 'client-patch-2')
-    assert 'Things are tense between you and the user right now. What happened: the user said to you: "you' in notes(provider)
-    with client.app.state.database.connect() as connection:
-        assert rough_patches.cool(connection, current(connection), client.app.state.database.clock.now())
-    says(provider)
-    send(client, "I'm really sorry, I shouldn't have said that", 'client-patch-3')
-    assert 'They just apologised, and that is enough for you' in notes(provider)
-    assert not patch(client)['open']
 
 
 def test_it_shows_what_about_with_moods_shown_and_can_be_let_go(client, patches, provider):
@@ -211,32 +194,6 @@ def test_calling_off_on_the_day_is_small_friction(client, patches, provider, clo
     assert 'A small thing' not in notes(provider)
 
 
-def test_they_can_stand_you_up_and_apologise_first(client, patches, provider, clock, monkeypatch):
-    monkeypatch.setattr(rough_patches, 'STAND_UP', {2: 1.0, 3: 1.0})
-    says(provider)
-    send(client, 'come over tonight?', 'client-patch-20')  # A visit at 19:00.
-    clock.advance(timedelta(hours=5))  # 17:00.
-    reconcile(client)
-    [visit] = client.get('/api/life/outings').json()['outings']
-    assert visit['state'] == 'cancelled' and visit['undo']
-    assert patch(client)['open']
-    with client.app.state.database.connect() as connection:
-        companion = current(connection)
-        [trigger] = rough_patches.apology_due(connection, companion, clock.now())
-        assert trigger.kind == 'apology' and 'You called off' in trigger.reason
-        assert 'the visit' in trigger.template and 'the user' not in trigger.template and ')' not in trigger.template
-        assert not rough_patches.cool(connection, companion, clock.now())
-        assert trigger.key in {item.key for item in openers.candidates(connection, companion, clock.now())}
-    says(provider, "I'm so sorry about tonight, work ran late.")
-    check(client)
-    assert history(client)[-1]['text'] == "I'm so sorry about tonight, work ran late."
-    says(provider)
-    send(client, "it's okay, these things happen", 'client-patch-21')
-    assert not patch(client)['open']
-    assert 'The user forgave you for calling off a visit to the user' in notes(provider)
-    assert 'What kept you (' in notes(provider) and 'nice surprise' in notes(provider)
-
-
 def test_once_exclusive_they_mind_another_romance(client, monkeypatch):
     monkeypatch.setattr(rough_patches, 'ACTIVE', True)
     monkeypatch.setattr(consequences, 'roll', lambda seed, found: found[-1]['option'])
@@ -291,26 +248,6 @@ def test_a_pair_the_app_started_out_exclusive_only_minds_romances_that_came_late
     with database.connect(write=True) as connection:
         rough_patches.seen_with_others(connection, current(connection), database.clock.now())
     assert patch(client)['about'] == "over Mira finding out you're seeing Zed too"
-
-
-def test_their_secret_partner_coming_out_is_theirs_to_apologise_for(client, patches, provider, clock):
-    with client.app.state.database.connect(write=True) as connection:
-        companion = current(connection)
-        love_life.rough_patch(connection, companion, {'id': 'p1', 'name': 'Jordan Lee'}, clock.now())
-        [trigger] = rough_patches.apology_due(connection, companion, clock.now())
-        assert trigger.template in rough_patches.bank('companion_confessions')
-    assert patch(client)['open']
-    says(provider)
-    send(client, 'hey', 'client-patch-30')
-    assert 'You let the user down: the user found out you had been seeing Jordan behind their back.' in notes(provider)
-    says(provider)
-    send(client, 'I need some time to think.', 'client-patch-30b')
-    # Owned up: room, not "be a little extra warm".
-    assert 'you have owned up and apologised' in notes(provider) and 'extra warm' not in notes(provider)
-    says(provider)
-    send(client, "I forgive you", 'client-patch-31')
-    assert not patch(client)['open']
-    assert 'The user forgave you for seeing someone behind their back' in notes(provider)
 
 
 def test_reasons_for_calling_off_fit_the_era(client):

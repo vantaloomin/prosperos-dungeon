@@ -444,12 +444,7 @@ export interface LifeSettings {
   background_interval_minutes: number
   background_daily_events: number
   /** The companion may send the first message (dungeon/life/openers.py). */
-  texts_first: boolean
-  texts_daily: number
   /** First messages from all companions together in a day (dungeon/away.py); 0 for none. */
-  away_daily: number
-  recap_after_days: number
-  texts_gap_hours: number
   /** 0 sizes the circle by how sociable the companion is. */
   circle_size: number
   /** "MM-DD" or empty; filled in when the user says it in chat. */
@@ -985,20 +980,6 @@ export interface Evaluation {
   install?: { installed: boolean; note: string }
 }
 
-export type NotificationPreview = 'full' | 'name' | 'private'
-
-export interface NotificationSettings {
-  enabled: boolean
-  quiet_start: string
-  quiet_end: string
-  preview: NotificationPreview
-  daily_cap: number
-  min_gap_minutes: number
-  queued: number
-}
-
-export interface DesktopNotification { id: string; kind: 'post' | 'digest' | 'message'; post_ids: string[]; message_id?: string; companion_id?: string; title: string; body: string }
-
 export interface TextCheck { state: string; kind?: string; message: Message | null; companion_id?: string; focus?: boolean }
 
 /** One chat in the chat list (dungeon/chats.py): a companion's. Never says who is online; a
@@ -1019,8 +1000,6 @@ export interface Chat {
   portrait_reference_id?: string | null
 }
 export interface ChatList { chats: Chat[]; unread: number }
-
-export interface NotificationCheck { notification: DesktopNotification | null; held: string | null }
 
 export type ShotAspect = 'square' | 'landscape' | 'portrait'
 
@@ -1617,9 +1596,6 @@ export interface Persona {
 export interface Worlds {
   active_world_id: string; active_persona_id: string; world: World; persona: Persona; personas: Persona[]
 }
-
-/** While you were away (dungeon/recap.py): a catch-up after a few days without a message. */
-export interface AwayRecap { since: string; days: number; items: string[] }
 
 /** Settings > Debug > Townsfolk mix (dungeon/world/mix.py): the shares the townsfolk rolls use. */
 export interface MixValues {

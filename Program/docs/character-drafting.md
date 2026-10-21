@@ -147,7 +147,7 @@ a Markdown fence or a sentence around the JSON is ignored. Then it is shaped:
   place ("Works 12-hour shifts Wednesday, Friday and Sunday, 07:00-19:30." and the shorter recurring blocks).
   Prose that already agrees is left alone.
 - A voice that avoids capitals ("rarely uses capital letters", "texts in lowercase") turns on lowercase
-  texting (`texting.lowercase`), the same wording first messages read (`dungeon/texting.py`).
+  texting (`texting.lowercase`), the same wording replies read (`dungeon/texting.py`).
 - Emotional traits and a reaction to time apart are kept only when the user turned on emotional
   edges or their idea or vibe asks for one (jealous, possessive, guilt, missing you and similar
   words). Otherwise they are dropped whatever the model wrote, so a drafted companion is neutral

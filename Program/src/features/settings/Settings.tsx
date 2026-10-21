@@ -13,7 +13,6 @@ import { ChatStyleSettings } from './ChatStyleSettings'
 import { ImageSettings } from './ImageSettings'
 import { LifeSettings } from './LifeSettings'
 import { AdultSideSettings, ClosenessSettings, HomeLifeSettings, LoveSettings, PaceSettings, RealismIntro } from './RealismSettings'
-import { NotificationSettings } from './NotificationSettings'
 import { PhoneSettings } from './PhoneSettings'
 import { PromptSettings } from './PromptSettings'
 import { Toggle } from '../../components/Fields'
@@ -99,7 +98,6 @@ function TabContent({ tab, companion }: { tab: SettingsTab; companion: Companion
     realism: <><RealismIntro /><PaceSettings /><LoveSettings /><HomeLifeSettings /><ClosenessSettings name={name} /><AdultSideSettings /><HiddenValues name="" /></>,
     memory: <MemorySettings />,
     images: <ImageSettings />,
-    notifications: <NotificationSettings />,
     phone: <PhoneSettings />,
     data: <>{!remote && <DataFolder />}<Backups /></>,
     debug: <><DebugSettings name={name} />{!remote && <><ModelCalls /><TownsfolkMix /></>}</>,

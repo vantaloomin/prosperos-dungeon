@@ -1,18 +1,14 @@
 """Bring your old chats (dungeon/imports/chats.py): SillyTavern and role/content files as older history."""
 import base64
 import json
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 
 import pytest
 from conftest import START, send
 
-from dungeon import recap
-from dungeon.characters import require_current
 from dungeon.clock import parse
 from dungeon.imports import chats
-from dungeon.life import occasions, openers, reactions, usual_hours
 from dungeon.life.mood import last_presence
-from dungeon.memory.records import from_old_chats
 
 HEADER = {'user_name': 'Sam', 'character_name': 'Mira', 'create_date': '2024-3-1 @14h 00m 00s 000ms',
           'chat_metadata': {'note_prompt': ''}}
@@ -187,36 +183,8 @@ def companion_activation(connection):
     return connection.execute('SELECT activated_at FROM timelines').fetchone()[0]
 
 
-def test_an_undated_old_chat_just_before_now_leaves_every_sign_of_the_user_untouched(client, companion):
-    rows = [{'role': 'user' if index % 2 == 0 else 'assistant', 'content': f'Hello {index}, happy birthday!'}
-            for index in range(20)]
-    bring(client, json.dumps(rows).encode(), filename='recent.json')
-    listed = client.get('/api/chats').json()
-    assert listed['unread'] == 0
-    timeline_id = companion['active_timeline_id']
-    with client.app.state.database.connect() as connection:
-        assert usual_hours.starts(connection, START) == []
-        assert recap.last_from_user(connection, timeline_id) is None
-        assert occasions.first_talk(connection, timeline_id, UTC) is None
-        assert reactions.user_messages(connection, timeline_id, START.date(), UTC) == []
-        assert openers.held(connection, require_current(connection), life_settings(connection), START) \
-            != 'recent_conversation'
-
-
 def life_settings(connection):
     return dict(connection.execute('SELECT * FROM life_settings').fetchone())
-
-
-def test_a_plan_only_an_old_chat_mentioned_is_never_followed_up_or_missed(client, connected):
-    remember_automatically(client)
-    bring(client, tavern(line('My sister Jo is visiting tomorrow.', date='2026-10-3 @09h 00m 00s')))
-    with client.app.state.database.connect() as connection:
-        companion = require_current(connection)
-        plans = connection.execute("SELECT id, plan_status, applies_from FROM memories WHERE layer='plan'").fetchall()
-        assert [(row[1], row[2][:10]) for row in plans] == [('agreed', '2026-10-04')]
-        assert {row[0] for row in plans} <= from_old_chats(connection, companion['active_timeline_id'])
-        assert openers.plan_follow_ups(connection, companion, START) == []
-        assert reactions.agreed_plans(connection, companion, date(2026, 10, 4)) == []
 
 
 def test_an_old_chat_never_corrects_what_the_user_said_since(client, connected):
