@@ -363,6 +363,17 @@ Round 2, decided 2026-10-21:
   a death, a debt) stay. Memories tied to strong feelings (fear, hatred, love) stay sharp
   regardless of age. A roll can recall a faded detail.
 
+Added 2026-10-21 from the competitive research (Vanta: "do all 3"):
+
+- **Fact extraction is schema-first.** The cheap model that pulls new facts out of each narration
+  fills a JSON Schema of ledger entry types (death, item, wound, promise, location, secret,
+  relationship, clock), not free text. Where the backend supports it, the schema constrains the
+  output directly (grammar sampling on llama.cpp-style servers, structured output on hosted APIs,
+  `--json-schema` / `--output-schema` on the CLIs). Weak local models fall back to asking one
+  field at a time. Code still checks every fact against the ledger before storing it. In the GM
+  view, a single extracted fact can be regenerated or cleared without redoing the whole turn.
+  (Pattern from the zTracker SillyTavern extension.)
+
 ## Campaign management
 
 Decided 2026-10-21.
@@ -631,6 +642,34 @@ requests (Claude Code 2.1.306, Codex CLI 0.163.0):
 5. **Narrator** writes the turn from the results; never contradicts a roll.
 6. **Code** updates continuity (what the player character knows vs what is true), hidden records,
    character sheets and relationships; off-page characters get rolled beats on a cadence.
+
+### Decide before describing
+
+Decided 2026-10-21 (from the competitive research). Whenever the player looks into something the
+ledger doesn't yet cover (a chest, a room, a body, a stranger's purse, what's behind a door), code
+decides and stores what is there before the narrator writes a word about it: rolled from the
+place's or NPC's tables, or drawn from the world data. The narrator gets it as a fact and
+describes only that. Nothing is decided at the moment the player checks for it, so a trap exists
+or doesn't before anyone looks. (Hidden Door's design review names the lack of this as its main
+flaw.)
+
+### Turn speed
+
+Decided 2026-10-21 (from the competitive research). A turn can chain the action splitter, the
+Referee, the narrator, fact extraction and a contradiction rewrite, so speed is a requirement:
+
+- **Each turn has a time budget,** a setting with a sensible default per model type (local or
+  hosted). How long each step took is logged with the turn and shown in the dice log once it
+  ships, so slow steps are visible.
+- **The narration streams** as it is written.
+- **Fact extraction runs after the text is on screen,** not before. Its results land in the ledger
+  before the next turn starts.
+- **The contradiction check runs only when it is needed:** when the narration names a ledger
+  entity that is dead, spent, held elsewhere or somewhere else. A clean turn costs no extra call.
+- **Obvious actions skip the model.** The keyword Referee handles clear cases (walking, looking,
+  plain talk) with no model call.
+- **Over budget, the optional steps give way first:** the prose rewrite pass, then the
+  contradiction rewrite (logged for the GM view instead). Dice and the ledger are never skipped.
 
 ## Referee model (proposed)
 
