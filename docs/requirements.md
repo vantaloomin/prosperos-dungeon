@@ -79,7 +79,9 @@ pluggable module that supplies:
 ### Candidate systems and licenses
 
 Dungeon is public, AGPL software, so a ruleset ships only if its license covers software. Licenses
-marked "unverified" were checked from memory or secondary coverage, not the license text.
+marked "unverified" were checked from memory or secondary coverage, not the license text. Checked
+2026-10-21; this is not legal advice. CC-BY 3.0 and 4.0 cover any medium, including software, and
+allow commercial use and adult content; they require attribution and no DRM on the licensed text.
 
 | System | License | Fit | Notes |
 | --- | --- | --- | --- |
@@ -89,12 +91,12 @@ marked "unverified" were checked from memory or secondary coverage, not the lice
 | **Basic Roleplaying (Chaosium)** | ORC (2023 Universal Game Engine) | Strong | d100 percentile skills, close kin to MARVEL. |
 | **Pathfinder 2e Remaster** | ORC (Archives of Nethys is the official SRD) | Medium | Very crunchy; big lift to do well. |
 | **Ironsworn / Starforged** | CC-BY-4.0 for SRD, moves, assets, oracles | Strong | Built for solo play with oracles; fits an AI GM. |
-| **Fate Core** | CC-BY-3.0 (unverified) | Medium | Narrative; aspects map well to LLM play. |
-| **Blades in the Dark / Forged in the Dark** | CC-BY-3.0 (unverified) | Medium | Position and effect, clocks. |
-| **PbtA** | Per game, not one license | Varies | Apocalypse World isn't open; Dungeon World is CC-BY-3.0 (unverified). |
+| **Fate Core / Accelerated / Condensed** | CC-BY-3.0 Unported (verified; OGL route also offered) | Medium | Narrative; aspects map well to LLM play. Use the official CC-BY SRD ZIP, not the website text. Attribution: "This work is based on Fate Core System and Fate Accelerated Edition, products of Evil Hat Productions, LLC..." (Condensed has its own line). "Powered by Fate" logo and Fate font optional, with their own notices. Source: fate-srd.com/official-licensing-fate |
+| **Blades in the Dark / Forged in the Dark** | CC-BY-3.0 Unported, SRD only (verified) | Medium | Position and effect, clocks. Attribution: "This work is based on Blades in the Dark (found at http://www.bladesinthedark.com/), product of One Seven Design, developed and authored by John Harper...". Excluded: Doskvol/Duskwall setting, NPCs, art, maps. Don't use "Blades in the Dark" in a product title, don't imply endorsement. The licensing page also asks that nothing be "prejudicial to One Seven Design's honor or reputation" (vague; low risk for rules-only use). Source: bladesinthedark.com/licensing |
+| **PbtA** | Per game, not one license | Varies | Apocalypse World isn't open. **Dungeon World** (2012 text) is CC-BY-3.0 Unported (verified, LICENSE in github.com/Sagelt/Dungeon-World); credit Sage LaTorra and Adam Koebel; art not included; it also contains SRD 5.1 text (CC-BY-4.0, needs that attribution too). Dungeon World 2 (new owners, Kickstarter Jan 2027) has no announced license; only the 2012 text is covered. |
 | **Cairn** | CC-BY-SA-4.0 (unverified) | Medium | Share-alike applies to derived text. |
-| **Year Zero Engine** | Free League Free Tabletop License | Risky | Written for tabletop games; software use unclear. |
-| **Cypher System** | Cypher System Open License | Risky | Written for tabletop games; software use unclear. |
+| **Year Zero Engine** | Free League Free Tabletop License | Not usable | Allows virtual tabletop modules but excludes video games (per third-party copies of the license text; official page blocked our fetch). An AI game app is likely outside it. |
+| **Cypher System** | Cypher System Open License | Not usable | Grant covers "tabletop roleplaying game materials" only, and bans "rape or other acts of criminal perversion; or other obscene material", which conflicts with Dungeon's adult content. Breach terminates the license. Source: csol.montecookgames.com/license |
 | **The Black Hack** | OGL 1.0a (unverified) | Low | OGL obligations; low priority. |
 
 ## Shops and economy
@@ -565,6 +567,5 @@ Decided 2026-10-21:
 
 ## Open questions
 
-
-- Exact licenses for Fate, Blades in the Dark and Dungeon World before they are added.
+- None. Ruleset licenses were checked 2026-10-21 (see "Candidate systems and licenses").
 
