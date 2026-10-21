@@ -1,6 +1,6 @@
 """Diagnostic log for the installed app (PRD persistence section).
 
-The server writes to its window and to `logs/companion.log` in the data directory (1 MB, three
+The server writes to its window and to `logs/dungeon.log` in the data directory (1 MB, three
 older files kept), so a problem can be described after the window closes. Default logs never
 include message bodies or keys: request logging is off, because a URL can carry a search query,
 and anything shaped like a credential is masked before a line is written.
@@ -44,7 +44,7 @@ def config(directory: Path | None = None) -> dict:
         'console': {'class': 'logging.StreamHandler', 'formatter': 'plain', 'filters': ['redact'],
                     'stream': 'ext://sys.stderr'},
         'file': {'class': 'logging.handlers.RotatingFileHandler', 'formatter': 'stamped', 'filters': ['redact'],
-                 'filename': str(folder / 'companion.log'), 'maxBytes': 1 << 20, 'backupCount': 3,
+                 'filename': str(folder / 'dungeon.log'), 'maxBytes': 1 << 20, 'backupCount': 3,
                  'encoding': 'utf-8'},
     }
     logger = {'handlers': ['console', 'file'], 'level': 'INFO', 'propagate': False}
@@ -56,16 +56,16 @@ def config(directory: Path | None = None) -> dict:
                        'stamped': {'format': '%(asctime)s %(levelname)s %(name)s: %(message)s'}},
         'handlers': handlers,
         'loggers': {'uvicorn': logger, 'uvicorn.error': {**logger, 'propagate': False},
-                    'companion': logger},
+                    'dungeon': logger},
     }
 
 
 def file_path() -> Path:
     """Where the log is being written: the file the running app's handler opened, else the default place."""
-    for handler in logging.getLogger('companion').handlers:
+    for handler in logging.getLogger('dungeon').handlers:
         if isinstance(handler, logging.FileHandler):
             return Path(handler.baseFilename)
-    return data_dir() / 'logs' / 'companion.log'
+    return data_dir() / 'logs' / 'dungeon.log'
 
 
 def open_folder(folder: Path) -> None:

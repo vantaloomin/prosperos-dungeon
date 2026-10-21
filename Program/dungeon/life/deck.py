@@ -1,37 +1,21 @@
-"""The Life deck and random tables: small moments in the companion's days (Feature Hit List #33 and #35).
+"""Life Cards: the Life deck and random tables, the game's small random events (from Companion, Hit List #33 and #35).
 
-Their days pick up small surprises: a changed habit, an old joke coming back, a favor for a neighbor, a late bus.
-Each of their days, the seeded dice (dungeon/life/chance.py, from Prospero's Study) decide whether something
-small happens and, if so, which card it is. The cards come from two places that share one picker: the Life deck
-(world/data/life_deck.json), and Study's d100 random tables reworded for everyday life
-(world/data/random_tables.json), whose rows join the deck as extra cards weighted by their dice ranges. This adapts
-the idea of Study's Inspiration decks, not its code: there is no deck editor, versions or packs.
+A day, a road or a rest can pick up a surprise: a changed habit, an old joke coming back, a favor for a neighbour, a
+late bus. The seeded dice (dungeon/life/chance.py, from Prospero's Study) decide whether something happens and, if
+so, which card it is. The cards come from two places that share one picker: the Life deck
+(world/data/life_deck.json), and Study's d100 random tables (world/data/random_tables.json), whose rows join the deck
+as extra cards weighted by their dice ranges.
 
-The drama level (Settings > Life) sets how often a moment turns up and which cards can: quiet keeps to the
-gentle ones. A card that needs someone from the circle or a job is left out for a companion without one, a card
-drawn in the last `repeat_days` steps aside so the weeks don't repeat, and a card that could give away a secret
-the companion keeps is never drawn. No model decides anything: the chat context tells the companion what happened
-("You found a forgotten twenty in an old coat pocket") and the model only puts it in their words.
-
-A day's draw is written once (`life_moments`), so the last week reads back as it was. Today lists it with its odds
-under "Why it went this way" (with Hidden values > odds on), where the user can make it go another way: another
-card, or nothing at all. Names are filled in when shown, so renaming someone carries over.
+The drama level sets how often a card turns up and which cards can: quiet keeps to the gentle ones. A card whose
+`needs` aren't met is left out, and a card drawn lately steps aside so the weeks don't repeat. No model decides
+anything. Companion drew one card a day for the companion; Dungeon draws them for road encounters, rest
+interruptions and the drama level (docs/requirements.md), wired up from Milestone 2.
 """
 import json
-from datetime import date, timedelta
 from functools import cache
 
-from dungeon.clock import stamp
-from dungeon.database import many, optional
-from dungeon.errors import require
-from dungeon.life import chance, circle, love_life, pronouns, storylines
+from dungeon.life import chance
 from dungeon.world import catalog
-
-# Off in tests unless a test turns it on: a seeded moment would add context lines.
-ACTIVE = True
-WEEK = 7
-# How many times a draw that would give a secret away is tried again before the day stays quiet.
-TRIES = 4
 
 
 @cache
@@ -103,179 +87,3 @@ def draw(seed: str, level: int, has: set[str], recent: set[str], forced: bool = 
     found = pick(pool, draws)
     share = found['weight'] / sum(item['weight'] for item in pool)
     return found, round(share if forced else happens / 100 * share, 3)
-
-
-def friends(connection, timeline_id: str) -> list[dict]:
-    return circle.people(connection, timeline_id)
-
-
-def needs_met(connection, companion) -> set[str]:
-    has = set()
-    if friends(connection, companion['active_timeline_id']):
-        has.add('friend')
-    if circle.work_blocks(companion['version']['definition']):
-        has.add('work')
-    if love_life.may_catch_eye(connection, companion):
-        has.add('love')
-    return has
-
-
-def friend_for(connection, timeline_id: str, seed: str) -> str | None:
-    people = friends(connection, timeline_id)
-    return people[chance.Draws(seed).die(len(people), 'deck', 'friend') - 1]['id'] if people else None
-
-
-def recent_cards(connection, timeline_id: str, day: date) -> set[str]:
-    since = (day - timedelta(days=deck()['repeat_days'])).isoformat()
-    return {row['card_id'] for row in many(connection, 'SELECT card_id FROM life_moments WHERE timeline_id=? AND day>=? '
-                                           'AND day<? AND card_id IS NOT NULL', (timeline_id, since, day.isoformat()))}
-
-
-def decide(connection, companion, day: date, attempt: int = 0, avoid: frozenset = frozenset()) -> dict:
-    """The day's moment: {card_id, friend_id, odds}. `attempt` above 0 is the user asking for another card."""
-    timeline_id = companion['active_timeline_id']
-    if not ACTIVE:
-        return {'card_id': None, 'friend_id': None, 'odds': 1.0}
-    level, has = storylines.drama(connection), needs_met(connection, companion)
-    recent = recent_cards(connection, timeline_id, day) | set(avoid)
-    seed = f'{timeline_id}:{day.isoformat()}:{attempt}:0'
-    found, odds = draw(seed, level, has, recent, forced=attempt > 0)
-    if found is None:
-        return {'card_id': None, 'friend_id': None, 'odds': odds}
-    friend_id = friend_for(connection, timeline_id, seed) if 'friend' in found['needs'] else None
-    return {'card_id': found['id'], 'friend_id': friend_id, 'odds': odds}
-
-
-def save(connection, timeline_id: str, day: date, moment: dict, picked_by: str, timestamp: str):
-    connection.execute(
-        'INSERT INTO life_moments (timeline_id, day, card_id, friend_id, odds, picked_by, created_at) '
-        'VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(timeline_id, day) DO UPDATE SET card_id=excluded.card_id, '
-        'friend_id=excluded.friend_id, odds=excluded.odds, picked_by=excluded.picked_by, attempts=attempts+1',
-        (timeline_id, day.isoformat(), moment['card_id'], moment['friend_id'], moment['odds'], picked_by, timestamp))
-
-
-def began(connection, companion) -> date:
-    from dungeon.life import thoughts
-    return thoughts.began(connection, companion)
-
-
-def catch_up(connection, companion, now) -> int:
-    """Draw the moments of the last week that are not drawn yet, oldest first. Returns how many were drawn."""
-    timeline_id, today = companion['active_timeline_id'], storylines.local_today(companion, now)
-    kept = {row['day'] for row in many(connection, 'SELECT day FROM life_moments WHERE timeline_id=? AND day>=?',
-                                       (timeline_id, (today - timedelta(days=WEEK - 1)).isoformat()))}
-    day, written = max(today - timedelta(days=WEEK - 1), began(connection, companion)), 0
-    while day <= today:
-        if day.isoformat() not in kept:
-            save(connection, timeline_id, day, decide(connection, companion, day), 'dice', stamp(now))
-            written += 1
-        day += timedelta(days=1)
-    return written
-
-
-def sync(connection, now) -> int:
-    """Catch up every companion with a life, in the world this runs in (a background tick)."""
-    from dungeon.characters import by_id
-    written = 0
-    for row in many(connection, 'SELECT id FROM companions WHERE active_version_id IS NOT NULL AND '
-                    'active_timeline_id IS NOT NULL'):
-        if (companion := by_id(connection, row['id'])) is not None:
-            written += catch_up(connection, companion, now)
-    return written
-
-
-# Reading ---------------------------------------------------------------------------------------------------
-
-def first_name(name: str) -> str:
-    return name.split()[0] if name.split() else name
-
-
-# Phrases about the companion in the cards' `text` (Today; the random tables' rows too), said with their own pronouns when those are known
-# (dungeon/life/pronouns.py). A "they" about someone else stays ("{friend} admitted they have a crush").
-OWN = (("a chore they'd", "a chore {they}'d"), ("something small they'd", "something small {they}'d"),
-       ("something they'd lost", "something {they}'d lost"), ("shop they'd never", "shop {they}'d never"),
-       ('teacher of theirs', 'teacher of {theirs}'), ('down their shirt', 'down {their} shirt'),
-       ('in their hand', 'in {their} hand'), ('a fee they forgot', 'a fee {they} forgot'),
-       ('lost their wallet', 'lost {their} wallet'), ('missed their train', 'missed {their} train'),
-       ("realized they'd promised", "realized {they}'d promised"), ('swore them to secrecy', 'swore {them} to secrecy'),
-       ('nice about them', 'nice about {them}'), ('something they actually know', 'something {they} actually know{s}'),
-       ('and they had to explain', 'and {they} had to explain'), ('and they walked them', 'and {they} walked them'),
-       ('save them a lot', 'save {them} a lot'))
-
-
-def worded(connection, moment: dict, companion, field: str) -> str:
-    """A card's `text`, `told` or `share` with today's names filled in, and the companion's pronouns in `text`."""
-    found = card(moment['card_id'])
-    template = (found or {}).get(field) or ''
-    friend = optional(connection, "SELECT name FROM circle_people WHERE id=? AND status='active'",
-                      (moment['friend_id'],)) if moment.get('friend_id') else None
-    definition = companion['version']['definition']
-    text = template.format(first=first_name(definition['name']), friend=first_name(friend['name']) if friend else 'a friend')
-    return pronouns.said(text, OWN, definition) if field == 'text' else text
-
-
-def on_day(connection, companion, day: date) -> dict | None:
-    row = optional(connection, 'SELECT * FROM life_moments WHERE timeline_id=? AND day=? AND card_id IS NOT NULL',
-                   (companion['active_timeline_id'], day.isoformat()))
-    return dict(row) if row and card(row['card_id']) else None
-
-
-def item_view(connection, companion, row: dict, odds: bool) -> dict:
-    found = card(row['card_id'])
-    item = {'day': row['day'], 'title': found['title'], 'text': worded(connection, row, companion, 'text'),
-            'source': found['source'], 'picked_by': row['picked_by']}
-    if odds:
-        item['odds'] = row['odds']
-    return item
-
-
-def week(connection, companion, now, odds: bool = False) -> list[dict]:
-    """The last week's moments, newest first."""
-    since = (storylines.local_today(companion, now) - timedelta(days=WEEK - 1)).isoformat()
-    rows = many(connection, 'SELECT * FROM life_moments WHERE timeline_id=? AND day>=? AND card_id IS NOT NULL '
-                'ORDER BY day DESC', (companion['active_timeline_id'], since))
-    return [item_view(connection, companion, dict(row), odds) for row in rows if card(row['card_id'])]
-
-
-def context_lines(connection, companion, now) -> list[tuple[str, str]]:
-    """Today's moment for the chat context, told to the companion as "you"."""
-    found = on_day(connection, companion, storylines.local_today(companion, now))
-    return [(f"moment:{found['day']}", f"- {worded(connection, found, companion, 'told')}")] if found else []
-
-
-def fresh(connection, companion, now) -> list[dict]:
-    """Today's moment when its card has a `share` line: {key, told, share}."""
-    found = on_day(connection, companion, storylines.local_today(companion, now))
-    if not found or not card(found['card_id']).get('share'):
-        return []
-    return [{'key': f"moment:{found['day']}:{found['card_id']}", 'told': worded(connection, found, companion, 'told'),
-             'share': worded(connection, found, companion, 'share')}]
-
-
-def view(database) -> list[dict]:
-    """For Today: the week's moments, drawn first where due, with their odds when Hidden values > odds is on."""
-    from dungeon.characters import require_current
-    from dungeon.database import settings
-    now = database.clock.now()
-    with database.connect(write=True) as connection:
-        companion = require_current(connection)
-        catch_up(connection, companion, now)
-        return week(connection, companion, now, odds=bool(settings(connection)['show_odds']))
-
-
-# Making it go another way -----------------------------------------------------------------------------------
-
-def change(connection, companion, day: date, way: str, now) -> list[dict]:
-    """The user makes a day's moment go another way: `another` card, or `nothing` at all. Returns the week."""
-    timeline_id = companion['active_timeline_id']
-    row = optional(connection, 'SELECT * FROM life_moments WHERE timeline_id=? AND day=?',
-                   (timeline_id, day.isoformat()))
-    require(row is not None, 'Nothing was drawn for that day yet.', 404)
-    if way == 'nothing':
-        moment = {'card_id': None, 'friend_id': None, 'odds': row['odds']}
-    else:
-        moment = decide(connection, companion, day, attempt=row['attempts'] + 1,
-                        avoid=frozenset({row['card_id']} - {None}))
-    save(connection, timeline_id, day, moment, 'user', stamp(now))
-    from dungeon.database import settings
-    return week(connection, companion, now, odds=bool(settings(connection)['show_odds']))

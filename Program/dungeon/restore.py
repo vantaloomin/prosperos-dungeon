@@ -1,12 +1,9 @@
-"""Replace the active workspace with a backup (PRD persistence section and M5).
+"""Replace the active workspace with a backup (PRD persistence section).
 
-The current workspace is never overwritten: its database, images and adapters move to
-`replaced-<time>/` beside it first, and move back if the restore fails. A backup can be older
-than deletions made since, so the deletion records the current workspace keeps are applied to
-the restored one: deleted memories stay deleted and redacted messages stay redacted. Settings are not rolled
-back either (Vanta, 2026-10-08): the current workspace's settings, model connections, image backends and
-paired phones carry over, so nothing is switched off or paused. Restoring with no current workspace (a new
-computer) still holds the restored one for review, since its connections belonged to another machine
+The current workspace is never overwritten: its database moves to `replaced-<time>/` beside it first, and moves
+back if the restore fails. Settings are not rolled back (from Companion, Vanta, 2026-10-08): the current workspace's
+settings, model connections and image backends carry over. Restoring with no current workspace (a new computer)
+drops the restored one's saved credentials, since its connections belonged to another machine
 (backup.hold_for_review).
 """
 import json
@@ -18,15 +15,13 @@ from pathlib import Path
 
 from dungeon import backup
 from dungeon.clock import Clock, stamp
-from dungeon.database import Database, many
+from dungeon.database import Database
 from dungeon.errors import DomainError, require
-from dungeon.memory import records
 
-MOVED = ('images', 'lora')
+MOVED = ('images',)
 # What "settings" means for a restore, parents before the tables that refer to them.
-KEPT_SETTINGS = ('workspace_settings', 'connection', 'model_profiles', 'model_routes', 'life_settings',
-                 'image_settings', 'image_backends', 'lora_settings', 'phone_settings', 'phone_devices',
-                 'builtin_recall', 'voice_settings', 'prompt_overrides', 'debug_time', 'local_programs')
+KEPT_SETTINGS = ('workspace_settings', 'model_profiles', 'model_routes', 'image_backends',
+                 'builtin_recall', 'prompt_overrides', 'debug_time', 'local_programs')
 
 
 def database_files(path: Path) -> list[Path]:
@@ -62,40 +57,6 @@ def put_back(moves: list[tuple[Path, Path]]):
         shutil.move(target, source)
 
 
-def retained_deletions(previous: Path) -> dict:
-    connection = sqlite3.connect(f'{previous.resolve().as_uri()}?mode=ro', uri=True)
-    connection.row_factory = sqlite3.Row
-    try:
-        return {'markers': [dict(row) for row in connection.execute('SELECT * FROM deletion_markers')],
-                'declines': [dict(row) for row in connection.execute('SELECT * FROM memory_declines')]}
-    finally:
-        connection.close()
-
-
-def apply_deletions(database: Database, retained: dict) -> dict:
-    """Deletions made after the backup was taken still apply to what it brings back."""
-    memories = sorted({item['target_id'] for item in retained['markers'] if item['kind'] == 'memory'})
-    messages = sorted({item['target_id'] for item in retained['markers'] if item['kind'] == 'message'})
-    with database.connect() as connection:
-        present = {row['id'] for row in many(connection, 'SELECT id FROM memories')}
-    deleted = []
-    for memory_id in memories:
-        if memory_id in present:
-            deleted += records.delete(database, memory_id)['deleted_memory_ids']
-            present -= set(deleted)
-    with database.connect(write=True) as connection:
-        timestamp = database.now()
-        known = {row['id'] for row in many(connection, 'SELECT id FROM messages')}
-        redacted = [identity for identity in messages if identity in known]
-        records.redact_messages(connection, redacted, timestamp)
-        connection.executemany('INSERT OR IGNORE INTO deletion_markers (target_id, kind, deleted_at) VALUES (?, ?, ?)',
-                               [(item['target_id'], item['kind'], item['deleted_at']) for item in retained['markers']])
-        connection.executemany('INSERT OR IGNORE INTO memory_declines (message_id, created_at) VALUES (?, ?)',
-                               [(item['message_id'], item['created_at']) for item in retained['declines']
-                                if item['message_id'] in known])
-    return {'memories_deleted': len(set(deleted)), 'messages_redacted': len(redacted)}
-
-
 def keep_settings(database: Database, previous: Path):
     """The settings of the workspace being replaced, instead of the backup's (or the hold a restore starts with)."""
     copy_settings(database.path, previous, KEPT_SETTINGS, database.now())
@@ -117,8 +78,6 @@ def copy_settings(target: Path, source: Path, tables: tuple[str, ...], timestamp
                                 if row[1] in ours)
             if columns:
                 connection.execute(f'INSERT INTO main.{table} ({columns}) SELECT {columns} FROM kept.{table}')
-        if connection.execute('SELECT paused_at FROM main.workspace_settings').fetchone()[0] is None:
-            connection.execute('UPDATE main.pauses SET ended_at=? WHERE ended_at IS NULL', (timestamp,))
         connection.execute('COMMIT')
     except BaseException:
         if connection.in_transaction:
@@ -146,12 +105,9 @@ def replace_workspace(archive: Path, database_path: Path, clock=None) -> dict:
         if previous:
             previous.parent.rmdir()
         raise
-    applied = apply_deletions(restored, retained_deletions(previous)) if previous else \
-        {'memories_deleted': 0, 'messages_redacted': 0}
     if previous:
         keep_settings(restored, previous)
-    return {'restored': str(database_path), 'previous': str(previous.parent) if previous else None,
-            'assets': restored.restored_assets, 'deletions': applied}
+    return {'restored': str(database_path), 'previous': str(previous.parent) if previous else None}
 
 
 # Restoring from the interface: the running app cannot replace its own open workspace, so it
@@ -171,7 +127,7 @@ def archive_path(workspace: Path, name: str) -> Path:
     return path
 
 
-# Backups the app makes on its own, named for what they came before (dungeon/start_over.py, upgrade.py), and
+# Backups the app makes on its own, named for what they came before (dungeon/upgrade.py, worlds.py), and
 # the automatic ones (dungeon/auto_backup.py).
 KINDS = ('pre-upgrade', 'before-reset', 'before-delete', 'before-debug', 'auto')
 
@@ -191,9 +147,7 @@ def listing(workspace: Path) -> dict:
             with zipfile.ZipFile(path) as handle:
                 manifest = json.loads(handle.read(backup.MANIFEST_ENTRY))
             entry.update(readable=manifest.get('format') == backup.ARCHIVE_FORMAT,
-                         created_at=manifest.get('created_at'), app_version=manifest.get('app_version'),
-                         files=len(manifest.get('files', [])),
-                         datasets_included=bool(manifest.get('datasets_included')))
+                         created_at=manifest.get('created_at'), app_version=manifest.get('app_version'))
         except (OSError, zipfile.BadZipFile, KeyError, ValueError):
             pass
         items.append(entry)

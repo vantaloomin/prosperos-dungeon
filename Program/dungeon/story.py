@@ -1,25 +1,24 @@
-"""Story mode: free-form roleplay with a narrator around the cities, apart from every companion (docs/story.md).
+"""Story mode: free-form roleplay with a narrator around the cities (docs/story.md).
 
 The story has its own scene (`story_scene`: the city and place the user is at) and its own history
-(`story_messages`). No companion prompt reads either, so nothing said here reaches the companion.
+(`story_messages`).
 
 The app decides the scene from the city data and the townsfolk rules: the place, the local time and
-weather, and who is there at that hour, the same people the companion's world has. The narrator model
-only voices it. Moving somewhere else is the user's choice in the place picker, not the model's.
+weather, and who is there at that hour. The narrator model only voices it. Moving somewhere else is the
+user's choice in the place picker, not the model's.
 """
 from datetime import datetime
 
 from dungeon import authors_note, in_character, prompt_library, safety, story_people
-from dungeon.characters import current
+from dungeon.authors_note import NOTE_CLOSE
 from dungeon.clock import zone
 from dungeon.database import identifier, many, one, optional
 from dungeon.errors import DomainError, require
-from dungeon.life import agenda, ages, encounters, network
-from dungeon.memory.context import NOTE_CLOSE
+from dungeon.life import ages
 from dungeon.providers.chat import INCOMPLETE
 from dungeon.providers.scheduling import CONVERSATION
 from dungeon.text_models import config_for, default_name, key_for
-from dungeon.world import catalog, changes, custom, generators, inside, life_details, newcomers, townsfolk
+from dungeon.world import catalog, changes, custom, generators, inside, life_details, townsfolk
 
 JOB = 'story'
 DEFAULT_CITY = 'haddon-harbor'
@@ -60,23 +59,30 @@ def no_model() -> DomainError:
 # The scene ----------------------------------------------------------------------------------------
 
 def city_data(connection, city_id: str) -> dict:
-    """The city as the companion's world has it: with the companion's own town and family names when the
-    companion lives there, so the story meets the same people the companion does."""
-    companion = current(connection)
-    if companion and newcomers.city_for(connection, companion['version']['definition'])['id'] == city_id:
-        return network.city(connection, companion)
-    data = changes.resolve(city_id, custom.all_cities(connection))
-    if data is None:
-        raise DomainError(f'No world data for city {city_id!r}.', 404, 'unknown_city')
-    town = companion.get('town_seed') or '' if companion else ''
-    return data | {'kin': [], 'town': town, 'you': network.you(connection, town), 'kept': network.kept(connection, town)}
+    """The city as the story has it, in this world's town."""
+    return city_for(connection, city_id, town_seed(connection))
+
+
+def town_seed(connection) -> str:
+    """The seed of this world's town (dungeon/worlds.py build): '' before the world has a persona."""
+    row = optional(connection, 'SELECT town_seed FROM persona WHERE id=1')
+    return row['town_seed'] or '' if row else ''
 
 
 def city_for(connection, city_id: str, town: str) -> dict:
-    """The city as the story has it, with the town the person was met in: a different main character's town
-    would make a different person of the same key."""
-    data = city_data(connection, city_id)
-    return data if data.get('town', '') == town else         data | {'town': town, 'you': network.you(connection, town), 'kept': network.kept(connection, town)}
+    """The city with the town `town` seeds (`data['town']`, dungeon/world/townsfolk.py): another town makes another
+    person of the same key. `you` is the townsperson the user became there, who is no longer one of its people."""
+    data = changes.resolve(city_id, custom.all_cities(connection))
+    if data is None:
+        raise DomainError(f'No world data for city {city_id!r}.', 404, 'unknown_city')
+    return data | {'kin': [], 'town': town, 'you': you(connection, town), 'kept': ()}
+
+
+def you(connection, town: str) -> str:
+    """The townsperson the user became in this world (dungeon/worlds.py, Become a townsperson), when this town is
+    theirs."""
+    row = optional(connection, 'SELECT townsfolk_key, town_seed FROM persona WHERE id=1')
+    return row['townsfolk_key'] if row and row['townsfolk_key'] and row['town_seed'] == town else ''
 
 
 def opening_place(data: dict) -> dict:
@@ -86,18 +92,12 @@ def opening_place(data: dict) -> dict:
     return data['places'][0]
 
 
-def default_city(connection) -> str:
-    """The companion's city, else Haddon Harbor, the shipped city."""
-    companion = current(connection)
-    return (newcomers.city_for(connection, companion['version']['definition'])['id'] if companion else '') or DEFAULT_CITY
-
-
 def scene_row(connection) -> dict:
-    """Where the story is; a new story starts in the companion's city (or the default one) at a cafe. A place
-    or city that has since gone falls back the same way."""
+    """Where the story is; a new story starts in Haddon Harbor, the shipped city, at a cafe. A place or city that
+    has since gone falls back the same way."""
     row = optional(connection, 'SELECT city_id, place_id FROM story_scene WHERE id=1')
     known = row and changes.resolve(row['city_id'], custom.all_cities(connection))
-    data = city_data(connection, row['city_id'] if known else default_city(connection))
+    data = city_data(connection, row['city_id'] if known else DEFAULT_CITY)
     if known and catalog.find(data, row['place_id']) in data['places']:
         return {'city_id': row['city_id'], 'place_id': row['place_id']}
     return {'city_id': data['id'], 'place_id': opening_place(data)['id']}
@@ -108,18 +108,37 @@ def local_moment(data: dict, now: datetime) -> datetime:
 
 
 def present(connection, data: dict, place_id: str, moment: datetime) -> list[dict]:
-    """Who the townsfolk rules put at the place now, never a companion: the story is apart from them."""
-    companion = current(connection)
-    cast = encounters.town_cast(connection, companion, data) if companion else encounters.NO_CAST
-    found = encounters.present(data, place_id, [moment], {}, cast)
-    people = []
-    for key in found[1] if found else ():
-        sheet = encounters.resolve(data, key, cast)
-        if sheet and not key.startswith('cast:') and key not in cast['aliases']:
-            # How old they are now (dungeon/life/ages.py), as Around town says.
-            people.append({'sheet': {**sheet, 'age': ages.town_age(connection, sheet, moment.date())},
-                           **townsfolk.whereabouts(sheet, data, moment)})
+    """Who the townsfolk rules put at the place now: the people seeded there and residents whose rules bring them."""
+    day = moment.date()
+    seeded = [] if place_id.startswith('~') else townsfolk.at_place(data, place_id, day)
+    people, seen = [], set()
+    for sheet in [*seeded, *townsfolk.reaching(data, place_id, day)]:
+        if sheet['key'] in seen:
+            continue
+        seen.add(sheet['key'])
+        found = townsfolk.whereabouts(sheet, data, moment)
+        if found['place'] and found['place']['id'] == place_id:
+            # How old they are now (dungeon/life/ages.py).
+            people.append({'sheet': {**sheet, 'age': ages.town_age(connection, sheet, day)}, **found})
     return people
+
+
+def who(sheet: dict, place: dict, data: dict, doing: str = '') -> str:
+    """'the barista there', 'a regular at Daily Grind', 'a local from Canton waiting for the bus'."""
+    if sheet['kind'] == 'resident':
+        local = f"a local from {townsfolk.neighborhood_name(data, sheet['home'])}"
+        return f'{local} {doing}' if doing.startswith('waiting for') else local
+    if sheet['place']['id'] == place.get('id'):
+        return "a regular there" if not sheet['staff'] else f"the {sheet['role']} there"
+    return f"a regular at {sheet['place']['name']}" if not sheet['staff'] else \
+        f"the {sheet['role']} from {sheet['place']['name']}"
+
+
+def weather_text(conditions: dict) -> str:
+    text = f"High {conditions['high_f']}°F, low {conditions['low_f']}°F, "
+    text += 'with rain.' if conditions['rain'] else 'dry.'
+    # The month's note can describe sunshine, so it is left out on a rainy day.
+    return text if conditions['rain'] else f"{text} {conditions['note']}"
 
 
 def scene(connection, now: datetime) -> dict:
@@ -132,14 +151,14 @@ def scene(connection, now: datetime) -> dict:
     return {'city': {'id': data['id'], 'name': data['name'], 'era': data.get('era', 'modern')},
             'place': {'id': place['id'], 'name': place['name'], 'kind': place['kind'], 'summary': place.get('summary', ''),
                       'neighborhood': hood, 'spots': inside.names(inside.for_place(place, data.get('era')))},
-            'local_time': moment.isoformat(timespec='minutes'), 'weather': agenda.weather_text(weather) if weather else '',
+            'local_time': moment.isoformat(timespec='minutes'), 'weather': weather_text(weather) if weather else '',
             'people': present(connection, data, place['id'], moment), 'data': data, 'now': now,
             'known': story_people.known(connection)}
 
 
 def person_line(person: dict, place: dict, data: dict, known: dict | None = None) -> str:
     sheet = person['sheet']
-    seen = encounters.who(sheet, place, data, None, person['doing'])
+    seen = who(sheet, place, data, person['doing'])
     pronouns = f", {sheet['pronouns']}" if sheet.get('pronouns') else ''
     job = sheet.get('occupation') or sheet['role']
     # "working as the owner" already says the job: no "working as the owner, owner."
@@ -189,8 +208,8 @@ def scene_view(view: dict) -> dict:
 def seen(person: dict, view: dict) -> str:
     """'the barista', or 'Dana, the barista' once the user has met her."""
     sheet = person['sheet']
-    who = encounters.who(sheet, {'id': view['place']['id']}, view['data'], None, person['doing']).removesuffix(' there')
-    return f"{sheet['name']}, {who}" if sheet['key'] in view['known'] else who
+    said = who(sheet, {'id': view['place']['id']}, view['data'], person['doing']).removesuffix(' there')
+    return f"{sheet['name']}, {said}" if sheet['key'] in view['known'] else said
 
 
 # History ------------------------------------------------------------------------------------------
@@ -220,7 +239,7 @@ def story(database) -> dict:
     with database.connect() as connection:
         view = scene(connection, database.clock.now())
         return {'scene': scene_view(view), 'messages': messages(connection), 'people': people(connection, view),
-                'ready': config_for(connection, JOB) is not None, 'can_switch': current(connection) is not None}
+                'ready': config_for(connection, JOB) is not None}
 
 
 def people(connection, view: dict) -> list[dict]:
@@ -324,10 +343,9 @@ def prompt(connection, now: datetime, config: dict, latest: dict) -> dict:
 
 
 async def narrate(state, packet: dict, config: dict, active: bool) -> tuple[str, str | None]:
-    conversation = state.conversation
     guard, text, error = in_character.Guard(active), [], None
-    async with conversation.scheduler.reserve(config, CONVERSATION):
-        async for chunk in conversation.provider.stream(config, key_for(state.vault, config), packet['system'],
+    async with state.scheduler.reserve(config, CONVERSATION):
+        async for chunk in state.provider.stream(config, key_for(state.vault, config), packet['system'],
                                                         packet['messages']):
             text.append(guard.feed(chunk.text))
             if chunk.finish_reason == 'content_filter':

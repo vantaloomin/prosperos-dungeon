@@ -104,15 +104,11 @@ def chosen(database) -> str:
         return settings(connection)['auto_backups']
 
 
-def busy(state) -> bool:
-    return bool(state.conversation.running)
-
-
 async def run_once(state) -> list[Path]:
     """Back up every world that is due; a failure is logged and the next world still gets its turn."""
     database = state.database
     every = chosen(database)
-    if every == 'off' or busy(state):
+    if every == 'off':
         return []
     done = []
     for path in world_paths(database):
@@ -122,7 +118,7 @@ async def run_once(state) -> list[Path]:
         try:
             done.append(await asyncio.to_thread(back_up, path, now, database.now()))
         except (OSError, DomainError) as error:
-            logging.getLogger('companion').warning('An automatic backup of %s failed: %s', path.parent.name or
+            logging.getLogger('dungeon').warning('An automatic backup of %s failed: %s', path.parent.name or
                                                    'the first world', getattr(error, 'message', error))
     return done
 

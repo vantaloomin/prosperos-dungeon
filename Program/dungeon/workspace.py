@@ -1,27 +1,17 @@
-"""Workspace settings, permission revisions and pause (PRD T6, M7)."""
+"""Workspace settings."""
 import json
 
 from dungeon import local_zone
 from dungeon.clock import zone
-from dungeon.database import identifier, optional, settings
-from dungeon.errors import require
+from dungeon.database import settings
 
-FLAGS = ('automatic_memory', 'sensitive_memory', 'share_profile_across_timelines', 'background_activity',
-         'model_memory_suggestions', 'chat_sounds', 'chat_retro_dark', 'auto_launch', 'ask_about_people',
-         'story_mode', 'show_moods', 'show_news', 'show_odds', 'adult_side', 'show_adult_side',
-         'record_model_calls', 'recall_more', 'ooc_to_helper', 'show_home_meters')
-# Changing any of these can make queued work stale, so they advance the permission revision.
-PERMISSIONS = {'automatic_memory', 'sensitive_memory', 'background_activity', 'model_memory_suggestions'}
-# Out-of-character markers the composer sends to the helper, until the user changes them: the two that already work.
-OOC_MARKERS = [{'open': 'OOC:', 'close': ''}, {'open': '((', 'close': '))'}]
+FLAGS = ('auto_launch', 'show_odds', 'adult_side', 'show_adult_side', 'record_model_calls')
 
 
 def view(row: dict) -> dict:
     return {**row, **{flag: bool(row[flag]) for flag in FLAGS},
-            'paused': row['paused_at'] is not None, 'review_required': bool(row['review_required']),
             'ai_notice_confirmed': row['ai_notice_at'] is not None,
             'custom_palette': json.loads(row['custom_palette']) if row['custom_palette'] else None,
-            'ooc_markers': json.loads(row['ooc_markers']) if row['ooc_markers'] else OOC_MARKERS,
             'system_timezone': local_zone.detect()}
 
 
@@ -65,53 +55,14 @@ def update(database, body) -> dict:
     with database.connect(write=True) as connection:
         row = settings(connection)
         timezone_change(row, changes)
-        for column in ('custom_palette', 'ooc_markers'):
-            if column in changes:
-                changes[column] = json.dumps(changes[column], sort_keys=True)
-        review_done = changes.pop('review_complete', False)
+        if 'custom_palette' in changes:
+            changes['custom_palette'] = json.dumps(changes['custom_palette'], sort_keys=True)
         # The first-run notice is confirmed once and stays confirmed.
         if changes.pop('ai_notice_confirmed', False) and row['ai_notice_at'] is None:
             changes['ai_notice_at'] = database.now()
         changed = {key: value for key, value in changes.items() if row[key] != value}
-        enabling = any(changed.get(key) is True for key in PERMISSIONS)
-        require(not (enabling and row['review_required'] and not review_done),
-                'Review the restored workspace before enabling memory or background activity.', 409)
         assignments = {**{key: int(value) if isinstance(value, bool) else value for key, value in changed.items()},
                        'updated_at': database.now()}
-        if review_done:
-            assignments['review_required'] = 0
-        if PERMISSIONS & changed.keys():
-            assignments['permission_revision'] = row['permission_revision'] + 1
-        if 'share_profile_across_timelines' in changed:
-            # What the next reply may know changed, so a reply already being written is withheld (M9).
-            assignments['memory_revision'] = row['memory_revision'] + 1
         columns = ', '.join(f'{key}=?' for key in assignments)
         connection.execute(f'UPDATE workspace_settings SET {columns} WHERE id=1', tuple(assignments.values()))
         return view(settings(connection))
-
-
-def pause(database) -> dict:
-    with database.connect(write=True) as connection:
-        if settings(connection)['paused_at'] is None:
-            timestamp = database.now()
-            connection.execute('UPDATE workspace_settings SET paused_at=?, permission_revision=permission_revision+1, '
-                               'updated_at=? WHERE id=1', (timestamp, timestamp))
-            connection.execute('INSERT INTO pauses (id, started_at) VALUES (?, ?)', (identifier(), timestamp))
-        return view(settings(connection))
-
-
-def resume(database) -> dict:
-    """Resuming skips the paused interval; nothing is generated for it automatically."""
-    with database.connect(write=True) as connection:
-        if settings(connection)['paused_at'] is not None:
-            timestamp = database.now()
-            connection.execute('UPDATE workspace_settings SET paused_at=NULL, permission_revision=permission_revision+1, '
-                               'updated_at=? WHERE id=1', (timestamp,))
-            connection.execute('UPDATE pauses SET ended_at=? WHERE ended_at IS NULL', (timestamp,))
-        return view(settings(connection))
-
-
-def overlapping_pause(connection, starts_at: str, ends_at: str) -> dict | None:
-    """A pause the user deliberately caught up (T6) no longer blocks its interval."""
-    return optional(connection, 'SELECT * FROM pauses WHERE started_at < ? AND COALESCE(ended_at, ?) > ? '
-                    'AND id NOT IN (SELECT pause_id FROM pause_catch_ups) LIMIT 1', (ends_at, ends_at, starts_at))

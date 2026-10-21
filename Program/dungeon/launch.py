@@ -115,20 +115,12 @@ def report_restore(name: str, result) -> int:
     if isinstance(result, DomainError):
         print(f'Nothing was restored from {name}. {result.message}', flush=True)
         return 1
-    assets = result['assets']
-    print(f"Restored {name}. The workspace is paused, with automatic memory and background activity off, "
-          'until you review it in Settings. Saved keys were not restored; add them again.', flush=True)
+    print(f'Restored {name}.', flush=True)
     if result['previous']:
-        print(f"The workspace it replaced was moved to {result['previous']}.", flush=True)
-    deletions = result['deletions']
-    if deletions['memories_deleted'] or deletions['messages_redacted']:
-        print(f"Kept later deletions: {deletions['memories_deleted']} memories and "
-              f"{deletions['messages_redacted']} messages from the backup stay deleted.", flush=True)
-    if assets['missing']:
-        print(f"{len(assets['missing'])} images, reference pictures or adapters named in the backup are missing.",
-              flush=True)
-    if assets['excluded']:
-        print(f"{len(assets['excluded'])} reference pictures were left out of this backup.", flush=True)
+        print(f"The workspace it replaced was moved to {result['previous']}; its settings and connections carry "
+              'over.', flush=True)
+    else:
+        print('Saved keys were not restored; add them again in Settings.', flush=True)
     return 0
 
 

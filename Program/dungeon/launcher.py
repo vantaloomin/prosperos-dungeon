@@ -26,7 +26,7 @@ STEP_SECONDS = 600
 # Started programs get no console window, and keep running after the Dungeon closes.
 DETACHED = ({'creationflags': getattr(subprocess, 'CREATE_NO_WINDOW', 0) | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)}
             if sys.platform == 'win32' else {'start_new_session': True})
-log = logging.getLogger('companion')
+log = logging.getLogger('dungeon')
 # What a saved ComfyUI path may be besides a ComfyUI folder: the desktop app or the user's own launch script.
 COMFY_FILES = {'.exe', '.app'} | local_programs.WINDOWS_SCRIPTS | local_programs.SHELL_SCRIPTS
 NOT_A_PROGRAM = {errno.ENOEXEC, 193}  # 193: Windows' "not a valid Win32 application".

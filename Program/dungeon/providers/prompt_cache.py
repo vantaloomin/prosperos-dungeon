@@ -92,7 +92,7 @@ class PromptCache:
         if response.status_code == 501 or (response.status_code == 400 and action == 'save'):
             # Started without --slot-save-path: nothing can be kept on this server.
             server.supported = False
-            logging.getLogger('companion').info('The local model server cannot save prompts (start llama-server '
+            logging.getLogger('dungeon').info('The local model server cannot save prompts (start llama-server '
                                                 'with --slot-save-path to keep them); replies read them afresh.')
         return response.status_code == 200
 

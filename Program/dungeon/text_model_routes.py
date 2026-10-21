@@ -49,7 +49,7 @@ async def delete_profile(profile_id: str, request: Request):
 async def discover(body: ConnectionProbe, request: Request):
     """Test an unsaved form: list the service's models without generating anything."""
     key = text_models.probe_key(db(request), request.app.state.vault, body)
-    return await request.app.state.conversation.provider.check(body.config.model_dump(), key)
+    return await request.app.state.provider.check(body.config.model_dump(), key)
 
 
 @router.post('/profiles/{profile_id}/check')
@@ -57,7 +57,7 @@ async def check_profile(profile_id: str, request: Request):
     with db(request).connect() as connection:
         row = text_models.profile_row(connection, profile_id)
     config = {**decode(row['config']), 'credential_ref': row['credential_ref']}
-    return await request.app.state.conversation.provider.check(config, text_models.key_for(request.app.state.vault,
+    return await request.app.state.provider.check(config, text_models.key_for(request.app.state.vault,
                                                                                             config))
 
 
@@ -70,7 +70,7 @@ async def profile_usage(profile_id: str, request: Request, fresh: bool = False):
     if not balance.has_lookup(config):
         return None
     key = text_models.key_for(request.app.state.vault, config)
-    return await request.app.state.conversation.provider.usage((row['id'], row['revision']), config, key, fresh)
+    return await request.app.state.provider.usage((row['id'], row['revision']), config, key, fresh)
 
 
 @router.put('/routes')

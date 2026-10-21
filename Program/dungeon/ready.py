@@ -30,7 +30,7 @@ from dungeon.providers.builtin_recall import free_port
 from dungeon.providers.config import SavedProfileConfig
 from dungeon.text_models import CHAT, assign, assigned, routes
 
-log = logging.getLogger('companion')
+log = logging.getLogger('dungeon')
 HUB = 'https://huggingface.co'
 # Biggest first; `needs_gb` is the file plus a 16K context's memory, so the whole model stays on the card.
 # Sizes and SHA-256 from the Hugging Face API on 2026-10-12, at the commit in `revision`. `kv_bytes` is the
@@ -174,7 +174,6 @@ class Ready:
         self.received = 0
         self.waiting = False
         self.timed: tuple[float, int] | None = None  # When this stretch of the download began, and from which byte.
-        self.state_of_app = None  # The app's state, for the write-up of a companion made during the download.
 
     @property
     def folder(self) -> Path:
@@ -195,7 +194,6 @@ class Ready:
         state = self.state()
         runtime = self.chat.runtime()
         received = self.received if self.running() else state.get('received', 0)
-        queued = state.get('queued') or {}
         return {'pick': listed(chosen, space), 'reason': reason, 'models': [listed(item, space) for item in MODELS],
                 'runtime': runtime, 'runtime_bytes': self.runtime_bytes(runtime), 'card': card(report),
                 'status': state.get('status', 'idle'), 'model': state.get('model_key'),
@@ -204,8 +202,7 @@ class Ready:
                 'server': self.chat.status(), 'free_bytes': self.free_bytes(), 'drive': drive(self.chat.folder),
                 'in_use': state.get('status') == 'ready' and uses_builtin(self.database),
                 'profile_id': state.get('profile_id'), 'announced': bool(state.get('announced')),
-                'settings_seen': bool(state.get('settings_seen')),
-                'queued': {key: queued.get(key) for key in ('name', 'status', 'message')} if queued else None}
+                'settings_seen': bool(state.get('settings_seen'))}
 
     def runtime_bytes(self, runtime: dict) -> int:
         """The llama.cpp download that comes first, when this computer doesn't have it yet."""
@@ -297,8 +294,7 @@ class Ready:
         if state.get('status') == 'cancelled' and state.get('model_key'):
             item = model(state['model_key'])
             self.target(item).with_name(item['file'] + '.partial').unlink(missing_ok=True)
-            # A companion queued for a write-up goes too: it would otherwise wait for a model that never comes.
-            self.save(status='idle', model_key=None, received=0, bytes=0, message='', queued=None)
+            self.save(status='idle', model_key=None, received=0, bytes=0, message='')
         return self.view()
 
     def kept(self, item: dict) -> bool:
@@ -316,11 +312,11 @@ class Ready:
             return self.view()
         await self.chat.stop()
         self.save(status='idle', kept_key=state.get('model_key'), model_key=None, profile_id=None, received=0,
-                  bytes=0, message='', announced=False, settings_seen=False, queued=None)
+                  bytes=0, message='', announced=False, settings_seen=False)
         return self.view()
 
     def use(self) -> dict:
-        """The card's "Ready. Use it for conversation": the built-in model takes the chat job after all."""
+        """The card's "Ready. Use it for the story": the built-in model takes the chat job after all."""
         profile_id = self.state().get('profile_id')
         require(self.state().get('status') == 'ready' and profile_id, 'The built-in model is not ready yet.', 409)
         with self.database.connect(write=True) as connection:
@@ -331,32 +327,6 @@ class Ready:
     def seen(self, what: str) -> dict:
         self.save(**{'announced' if what == 'notice' else 'settings_seen': True})
         return self.view()
-
-    def queue(self, companion_id: str, name: str, request: dict) -> dict:
-        """A companion saved during the download, to be written up once the model is ready."""
-        status = self.state().get('status')
-        require(status in UNDER_WAY or status == 'ready', 'Start the download first.', 409)
-        self.save(queued={'companion_id': companion_id, 'name': name, 'request': {**request, 'name': name},
-                          'status': 'waiting', 'message': ''})
-        if status == 'ready':
-            self.launch_write_up()
-        return self.view()
-
-    def launch_write_up(self):
-        task = asyncio.get_running_loop().create_task(self.write_queued())
-        task.add_done_callback(lambda done: done.cancelled() or done.exception())
-
-    async def write_queued(self):
-        from dungeon.ready_writeup import write_up
-        queued = self.state().get('queued') or {}
-        if queued.get('status') != 'waiting' or self.state_of_app is None:
-            return
-        self.save(queued={**queued, 'status': 'writing'})
-        try:
-            name = await write_up(self.state_of_app, queued)
-            self.save(queued={**queued, 'name': name, 'status': 'done', 'message': ''})
-        except DomainError as error:
-            self.save(queued={**queued, 'status': 'failed', 'message': error.message})
 
     def target(self, item: dict) -> Path:
         return self.folder / item['file']
@@ -381,8 +351,6 @@ class Ready:
         except (OSError, httpx.HTTPError) as error:
             log.warning('Set it up for me failed: %s', error)
             self.save(status='failed', message=self.stopped(error), received=self.received)
-            return
-        await self.write_queued()
 
     async def obtain(self, item: dict) -> Path:
         """The model file, downloaded and checked against its SHA-256."""

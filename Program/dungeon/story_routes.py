@@ -1,21 +1,11 @@
-"""Story mode API (dungeon/story.py, docs/story.md)."""
-from fastapi import APIRouter, Depends, Request
+"""The story API (dungeon/story.py, docs/story.md)."""
+from fastapi import APIRouter, Request
 from pydantic import Field
 
 from dungeon import story
-from dungeon.database import settings
-from dungeon.errors import DomainError
 from dungeon.models import Input
 
-
-def switched_on(request: Request):
-    """Story mode is opt-in (Settings > Advanced > Story mode); while it is off the API is not there either."""
-    with request.app.state.database.connect() as connection:
-        if not settings(connection)['story_mode']:
-            raise DomainError('Story mode is off. Turn it on in Settings > Advanced.', 404, 'story_off')
-
-
-router = APIRouter(prefix='/api/story', dependencies=[Depends(switched_on)])
+router = APIRouter(prefix='/api/story')
 
 
 class StoryMessage(Input):

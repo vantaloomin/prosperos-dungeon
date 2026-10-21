@@ -5,7 +5,6 @@ other non-empty SQLite file is refused rather than silently gaining Dungeon tabl
 """
 import hashlib
 import json
-import re
 import sqlite3
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -19,7 +18,7 @@ from dungeon.identity import APP_ID, SCHEMA_VERSION, VERSION, database_path
 SCHEMA = Path(__file__).with_name('schema.sql').read_text(encoding='utf-8')
 # The world a piece of work belongs to (dungeon/worlds.py). A request, a background tick and every task they
 # start read and write the world they began in, even when the user switches worlds while they wait on a model.
-PINNED: ContextVar[tuple[int, Path] | None] = ContextVar('companion_world', default=None)
+PINNED: ContextVar[tuple[int, Path] | None] = ContextVar('dungeon_world', default=None)
 
 
 def identifier() -> str:
@@ -110,260 +109,22 @@ class Database:
             connection.close()
 
 
-# Columns added after a table first shipped. CREATE TABLE IF NOT EXISTS leaves an existing table
-# alone, so a workspace created earlier gains them here.
-ADDED_COLUMNS = (
-    ('life_settings', 'phrase_with_model', 'INTEGER NOT NULL DEFAULT 1 CHECK (phrase_with_model IN (0, 1))'),
-    ('connection', 'embedding_model', 'TEXT'),
-    ('memory_jobs', 'model_status', 'TEXT'),
-    ('workspace_settings', 'model_memory_suggestions',
-     'INTEGER NOT NULL DEFAULT 0 CHECK (model_memory_suggestions IN (0, 1))'),
-    ('memories', 'subject_key', "TEXT NOT NULL DEFAULT ''"),
-    ('memories', 'origin', "TEXT NOT NULL DEFAULT 'user' CHECK (origin IN ('user', 'automatic', 'suggestion'))"),
-    ('memories', 'ended_by_id', 'TEXT'),
-    ('memories', 'merged_into_id', 'TEXT'),
-    ('memories', 'dates_uncertain', 'INTEGER NOT NULL DEFAULT 0 CHECK (dates_uncertain IN (0, 1))'),
-    ('timelines', 'label', "TEXT NOT NULL DEFAULT ''"),
-    ('timelines', 'fork_message_id', 'TEXT'),
-    ('timelines', 'forked_at', 'TEXT'),
-    ('timelines', 'draft', 'TEXT'),
-    ('timelines', 'activated_at', 'TEXT'),
-    ('messages', 'origin_id', 'TEXT'),
-    ('workspace_settings', 'user_timezone_source',
-     "TEXT NOT NULL DEFAULT 'default' CHECK (user_timezone_source IN ('default', 'pc', 'chosen'))"),
-    ('workspace_settings', 'chat_style',
-     "TEXT NOT NULL DEFAULT 'feed' CHECK (chat_style IN ('feed', 'bubbles', 'community', 'retro', 'novel'))"),
-    ('workspace_settings', 'chat_sounds', 'INTEGER NOT NULL DEFAULT 0 CHECK (chat_sounds IN (0, 1))'),
-    ('life_settings', 'circle_size', 'INTEGER NOT NULL DEFAULT 0'),
-    ('life_settings', 'drama', 'INTEGER NOT NULL DEFAULT 1'),
-    ('life_settings', 'user_birthday', "TEXT NOT NULL DEFAULT ''"),
-    ('life_settings', 'paced_replies', 'INTEGER NOT NULL DEFAULT 1'),
-    ('life_settings', 'day_shifts', 'INTEGER NOT NULL DEFAULT 1 CHECK (day_shifts IN (0, 1))'),
-    # On their mind (dungeon/life/thoughts.py): one private thought a day, shown folded on Today.
-    ('life_settings', 'on_her_mind', 'INTEGER NOT NULL DEFAULT 1 CHECK (on_her_mind IN (0, 1))'),
-    ('messages', 'held_until', 'TEXT'),
-    ('messages', 'held_line', 'TEXT'),
-    ('messages', 'held_notified', 'TEXT'),
-    ('image_settings', 'chat_photos', 'INTEGER NOT NULL DEFAULT 1 CHECK (chat_photos IN (0, 1))'),
-    ('image_settings', 'unprompted_photos', 'INTEGER NOT NULL DEFAULT 1 CHECK (unprompted_photos IN (0, 1))'),
-    ('memories', 'person_id', 'TEXT'),
-    ('workspace_settings', 'ask_about_people', 'INTEGER NOT NULL DEFAULT 1 CHECK (ask_about_people IN (0, 1))'),
-    # A full reply after a holding text, dropped unseen because the user wrote again first (life/pacing.py).
-    ('messages', 'superseded_at', 'TEXT'),
-    ('workspace_settings', 'chat_retro_dark', 'INTEGER NOT NULL DEFAULT 0 CHECK (chat_retro_dark IN (0, 1))'),
-    ('workspace_settings', 'story_mode', 'INTEGER NOT NULL DEFAULT 0 CHECK (story_mode IN (0, 1))'),
-    # Launch buttons (dungeon/launcher.py): start the local programs in use with the Dungeon.
-    ('workspace_settings', 'auto_launch', 'INTEGER NOT NULL DEFAULT 0 CHECK (auto_launch IN (0, 1))'),
-    # Color schemes from Prospero's Study (Settings > General > Appearance).
-    ('workspace_settings', 'color_scheme', "TEXT NOT NULL DEFAULT 'ink' CHECK (color_scheme IN "
-     "('ink', 'slate', 'umber', 'moss', 'wine', 'ash', 'custom'))"),
-    ('workspace_settings', 'custom_palette', "TEXT NOT NULL DEFAULT ''"),
-    # Onboarding portraits (lora/portraits.py): a set whose later pictures follow the profile picture,
-    # and the kept picture shown as the companion's profile picture.
-    ('lora_generations', 'kind', "TEXT NOT NULL DEFAULT 'dataset' CHECK (kind IN ('dataset', 'portraits'))"),
-    ('lora_gen_images', 'follows', 'INTEGER'),
-    ('companions', 'portrait_reference_id', 'TEXT'),
-    # Memory is opt-out: every workspace gets automatic, sensitive and model memory turned on once (Vanta,
-    # 2026-10-07: users can't be relied on to approve suggestions); turning them off afterwards sticks.
-    ('workspace_settings', 'memory_on_by_default', 'INTEGER NOT NULL DEFAULT 0'),
-    # Switching the main character (dungeon/cast.py): the townsperson a companion was made from, and
-    # when they last stepped back from slot 1.
-    ('companions', 'townsfolk_key', 'TEXT'),
-    ('companions', 'stepped_back_at', 'TEXT'),
-    # Townsfolk of the companion's own, once the user seeds new ones (dungeon/cast.py); empty keeps the
-    # city's shared townsfolk.
-    ('companions', 'town_seed', "TEXT NOT NULL DEFAULT ''"),
-    # The routine slot still going when the life cursor last moved (dungeon/life/simulation.py).
-    ('life_cursors', 'open_slot', 'TEXT'),
-    ('prompt_overrides', 'default_text', 'TEXT'),
-    # The user switched an image API backend to take NSFW requests too (images/backends.py).
-    ('image_backends', 'allows_nsfw', 'INTEGER NOT NULL DEFAULT 0 CHECK (allows_nsfw IN (0, 1))'),
-    # A closeness stage the user set, a ceiling and opt-in gentle cooling (memory/closeness.py).
-    ('closeness_settings', 'head_start', 'INTEGER'),
-    ('closeness_settings', 'set_on', 'TEXT'),
-    ('closeness_settings', 'ceiling_level', 'INTEGER CHECK (ceiling_level BETWEEN 1 AND 5)'),
-    ('closeness_settings', 'cooling_since', 'TEXT'),
-    ('phone_settings', 'lan_enabled', 'INTEGER NOT NULL DEFAULT 0 CHECK (lan_enabled IN (0, 1))'),
-    # Hidden values: moods and who heard the news stay unseen unless the user turns them on.
-    ('workspace_settings', 'show_moods', 'INTEGER NOT NULL DEFAULT 0 CHECK (show_moods IN (0, 1))'),
-    ('workspace_settings', 'show_news', 'INTEGER NOT NULL DEFAULT 0 CHECK (show_news IN (0, 1))'),
-    ('workspace_settings', 'show_odds', 'INTEGER NOT NULL DEFAULT 0 CHECK (show_odds IN (0, 1))'),
-    # The adult side of life (dungeon/world/intimacy.py): off unless the user turns it on in Settings > Realism.
-    ('workspace_settings', 'adult_side', 'INTEGER NOT NULL DEFAULT 0 CHECK (adult_side IN (0, 1))'),
-    ('workspace_settings', 'show_adult_side', 'INTEGER NOT NULL DEFAULT 0 CHECK (show_adult_side IN (0, 1))'),
-    # Record model calls (dungeon/model_calls.py): off unless the user turns it on in Settings > Debug.
-    ('workspace_settings', 'record_model_calls', 'INTEGER NOT NULL DEFAULT 0 CHECK (record_model_calls IN (0, 1))'),
-    # Everyday events became automatic ("the world exists outside of User", Vanta 2026-10-08); a workspace
-    # from before that is switched on once (see initialize), and turning it off afterwards sticks.
-    ('life_settings', 'events_on_by_default', 'INTEGER NOT NULL DEFAULT 0'),
-    # A moment that keeps coming up becomes a running joke on its own; one the user removed stays out.
-    ('closeness_jokes', 'removed', 'INTEGER NOT NULL DEFAULT 0 CHECK (removed IN (0, 1))'),
-    # How a companion carries a mark about something the user did, told to them as "you" (dungeon/consequences.py).
-    ('marks', 'told', 'TEXT'),
-    # The names and mark holders an outcome was decided with, so changing how it went can redo its marks.
-    ('consequences', 'names', 'TEXT'),
-    ('consequences', 'holders', 'TEXT'),
-    # When the user read the one-time notice that the characters are AI and confirmed they are 18 or older
-    # (dungeon/workspace.py); the app asks once, before anything else, until then.
-    ('workspace_settings', 'ai_notice_at', 'TEXT'),
-    # Automatic backups of every world (dungeon/auto_backup.py): on by default, once a day.
-    ('workspace_settings', 'auto_backups',
-     "TEXT NOT NULL DEFAULT 'daily' CHECK (auto_backups IN ('off', 'daily', 'weekly'))"),
-    # Days without a message before a catch-up showed: no longer read, kept so workspaces' columns stay as they are.
-    ('life_settings', 'recap_after_days', 'INTEGER NOT NULL DEFAULT 3'),
-    # Become a townsperson (dungeon/worlds.py): the townsperson the user is in this world, and their town.
-    ('persona', 'townsfolk_key', "TEXT NOT NULL DEFAULT ''"),
-    ('persona', 'town_seed', "TEXT NOT NULL DEFAULT ''"),
-    # They can ask to remember more (dungeon/memory/look_back.py).
-    ('workspace_settings', 'recall_more', 'INTEGER NOT NULL DEFAULT 1 CHECK (recall_more IN (0, 1))'),
-    # Out-of-character messages go to the helper (the composer and Settings > General): the switch and the markers.
-    ('workspace_settings', 'ooc_to_helper', 'INTEGER NOT NULL DEFAULT 1 CHECK (ooc_to_helper IN (0, 1))'),
-    ('workspace_settings', 'ooc_markers', "TEXT NOT NULL DEFAULT ''"),
-    # A status line the user set for a companion, and when (dungeon/life/status.py); empty lets the app write it.
-    ('companions', 'status_text', "TEXT NOT NULL DEFAULT ''"),
-    ('companions', 'status_set_at', 'TEXT'),
-    # Light or dark (Settings > General > Appearance): 'system' matches the computer (Paper or Ink), 'paper' is the light
-    # profile and 'scheme' uses color_scheme. Workspaces from before keep the scheme they saved, so the column comes in
-    # as 'scheme' here while new workspaces start on 'system' (schema.sql).
-    ('workspace_settings', 'theme', "TEXT NOT NULL DEFAULT 'scheme' CHECK (theme IN ('system', 'scheme', 'paper'))"),
-    # A message brought in from an old chat file (dungeon/imports/chats.py): older history, never new talk.
-    ('messages', 'import_id', 'TEXT'),
-    # A world lorebook that belongs to one of the user's cities (a Marinara world map's notes, dungeon/lore.py):
-    # it comes along into new worlds in that city and goes when the city is deleted.
-    ('lore_books', 'city_id', 'TEXT'),
-    # Home upkeep (dungeon/life/upkeep.py, Settings > Realism > Home life): 0 off, 1 light, 2 true to life, 3 messy.
-    ('life_settings', 'upkeep_realism', 'INTEGER NOT NULL DEFAULT 2 CHECK (upkeep_realism BETWEEN 0 AND 3)'),
-    # Looks that change (dungeon/life/grooming.py): how often, from never (0) to often (3), set on the Realism tab.
-    ('life_settings', 'looks_realism', 'INTEGER NOT NULL DEFAULT 2 CHECK (looks_realism BETWEEN 0 AND 3)'),
-    # The numbers behind home life (upkeep meters and the like), under Settings > Realism > Hidden values.
-    ('workspace_settings', 'show_home_meters', 'INTEGER NOT NULL DEFAULT 0 CHECK (show_home_meters IN (0, 1))'),
-    # Pets with lives of their own (dungeon/life/pets.py), on Settings > Realism > Around the home: how often pets
-    # fall ill (0 off, 1 light, 2 true to life, 3 dramatic) and whether they can die.
-    ('life_settings', 'pets_realism', 'INTEGER NOT NULL DEFAULT 2 CHECK (pets_realism BETWEEN 0 AND 3)'),
-    ('life_settings', 'pets_can_die', 'INTEGER NOT NULL DEFAULT 1 CHECK (pets_can_die IN (0, 1))'),
-    # The pets on the user's persona (dungeon/worlds.py), as JSON: the user's own, given lives by pets.py.
-    ('persona', 'pets', "TEXT NOT NULL DEFAULT '[]'"),
-    # Kitchen and food (dungeon/life/kitchen.py, Settings > Realism > Around the home): 0 off, 1 light, 2 true to life,
-    # 3 dramatic.
-    ('life_settings', 'kitchen_realism', 'INTEGER NOT NULL DEFAULT 2 CHECK (kitchen_realism BETWEEN 0 AND 3)'),
-    # Life admin calendar (dungeon/life/admin.py), on the home features' shared scale: 0 off, 1 light, 2 true to
-    # life, 3 dramatic (Settings > Realism > Around the home).
-    ('life_settings', 'admin_realism', 'INTEGER NOT NULL DEFAULT 2 CHECK (admin_realism BETWEEN 0 AND 3)'),
-    # Work life (dungeon/life/work.py, Settings > Realism > Their days): 0 off, 1 steady, 2 true to life, 3 dramatic.
-    ('life_settings', 'work_realism', 'INTEGER NOT NULL DEFAULT 2 CHECK (work_realism BETWEEN 0 AND 3)'),
-    # Guests (Settings > Realism): how often they ask the user along to a big day (dungeon/life/big_days.py), 0 never
-    # on their own, 1 now and then, 2 true to life, 3 often.
-    ('life_settings', 'guests_realism', 'INTEGER NOT NULL DEFAULT 2 CHECK (guests_realism BETWEEN 0 AND 3)'),
-    # Reading, watching and listening (dungeon/life/media.py, Settings > Realism > Their days): 0 off, 1 light,
-    # 2 true to life, 3 dramatic.
-    ('life_settings', 'media_realism', 'INTEGER NOT NULL DEFAULT 2 CHECK (media_realism BETWEEN 0 AND 3)'),
-    # Hobbies that progress (dungeon/life/hobbies.py, Settings > Realism > Their days): 0 off, 1 light, 2 true to
-    # life, 3 dramatic.
-    ('life_settings', 'hobbies_realism', 'INTEGER NOT NULL DEFAULT 2 CHECK (hobbies_realism BETWEEN 0 AND 3)'),
-    # Where you live in this world (dungeon/life/where.py): a city id and a neighbourhood id in it.
-    ('persona', 'home_city_id', "TEXT NOT NULL DEFAULT ''"),
-    ('persona', 'home_neighbourhood', "TEXT NOT NULL DEFAULT ''"),
-    # Getting together (dungeon/life/together.py, Settings > Realism): 0 never on their own, 1 light, 2 true to life,
-    # 3 often.
-    ('life_settings', 'together_realism', 'INTEGER NOT NULL DEFAULT 2 CHECK (together_realism BETWEEN 0 AND 3)'),
-    # A trip that was a weekend visit with the user (v0.12 long distance, removed): kept so older rows still read; new
-    # trips leave `visit` empty. The message that asked for a trip, the memory it left, and when it was called off.
-    ('trips', 'visit', "TEXT NOT NULL DEFAULT '' CHECK (visit IN ('', 'to-you', 'host'))"),
-    ('trips', 'message_id', 'TEXT'),
-    ('trips', 'memory_id', 'TEXT'),
-    ('trips', 'cancelled_at', 'TEXT'),
-    # Rough patches (dungeon/life/rough_patches.py, Settings > Realism): 0 off, 1 easy (fades overnight), 2 true to
-    # life (an apology, a gesture or a few calm days), 3 dramatic (lingers until you make up).
-    ('life_settings', 'rough_patches_realism', 'INTEGER NOT NULL DEFAULT 2 CHECK (rough_patches_realism BETWEEN 0 AND 3)'),
-    # Next steps (dungeon/life/steps.py, Settings > Realism): how soon companions bring up the next step, 0 only when
-    # the user does, 1 slow, 2 true to life, 3 fast; and whether a close friend can fall for the user.
-    ('life_settings', 'steps_pace', 'INTEGER NOT NULL DEFAULT 2 CHECK (steps_pace BETWEEN 0 AND 3)'),
-    ('life_settings', 'friends_fall', 'INTEGER NOT NULL DEFAULT 1 CHECK (friends_fall IN (0, 1))'),
-    # Their own love life (dungeon/life/love_life.py, Settings > Realism): 0 nothing new, 1 quiet, 2 true to life,
-    # 3 lots going on.
-    ('life_settings', 'love_life', 'INTEGER NOT NULL DEFAULT 2 CHECK (love_life BETWEEN 0 AND 3)'),
-    # Breakups (Settings > Realism): whether a companion and their own partner can split up (dungeon/life/love_life.py).
-    # On for real life and drama, off for an easy life.
-    ('life_settings', 'breakups', 'INTEGER NOT NULL DEFAULT 1 CHECK (breakups IN (0, 1))'),
-    # Life's big turns (dungeon/life/big_turns.py, Settings > Realism > Their days): how often life chapters come,
-    # 0 off, 1 gentle (good turns only), 2 true to life, 3 eventful. The town's turnover follows it too
-    # (dungeon/world/turnover.py).
-    ('life_settings', 'life_turns', 'INTEGER NOT NULL DEFAULT 2 CHECK (life_turns BETWEEN 0 AND 3)'),
-    # A big turn's stages (dungeon/life/big_turns.py): what stage it is at, when the next one comes, and its plan.
-    ('life_chapters', 'details', "TEXT NOT NULL DEFAULT '{}'"),
-    # Births and growing families (dungeon/life/families.py, Settings > Realism): how often babies arrive in the
-    # circle and the town, 0 none, 1 now and then, 2 true to life, 3 lots.
-    ('life_settings', 'growing_families', 'INTEGER NOT NULL DEFAULT 2 CHECK (growing_families BETWEEN 0 AND 3)'),
-    # Loss and grief (dungeon/life/loss.py, Settings > Realism > Their days): whether people can pass away (off on
-    # every preset) and how often, 0 rare, 1 now and then, 2 true to life, 3 often. The town follows both
-    # (dungeon/world/turnover.py).
-    ('life_settings', 'people_pass_away', 'INTEGER NOT NULL DEFAULT 0 CHECK (people_pass_away IN (0, 1))'),
-    ('life_settings', 'loss', 'INTEGER NOT NULL DEFAULT 2 CHECK (loss BETWEEN 0 AND 3)'),
-    # Added once (v0.15) to set the Loss slider by the world's preset (`UPGRADE_LOSS`); nothing reads it.
-    ('life_settings', 'loss_by_preset', 'INTEGER NOT NULL DEFAULT 1'),
-    # Companions' own babies (dungeon/life/own_family.py): whose child this is. '' someone in the circle's (v0.14),
-    # 'companion' the companion's own with their partner (`parent_id`).
-    ('circle_children', 'whose', "TEXT NOT NULL DEFAULT ''"),
-    # Family life (Settings > Realism > Their days): how much their own young children shape their days
-    # (dungeon/life/own_family.py), 0 easy kids (only the good days), 1 gentle, 2 true to life, 3 true-to-life chaos.
-    ('life_settings', 'family_life', 'INTEGER NOT NULL DEFAULT 2 CHECK (family_life BETWEEN 0 AND 3)'),
-    # Lifespans (dungeon/world/lifespans.py): the kind and How long they live the user picked on a child's card ('' and
-    # NULL: the app's pick, from their parents' kinds; lifespan 0: they don't age).
-    ('circle_children', 'own_kind', "TEXT NOT NULL DEFAULT ''"),
-    ('circle_children', 'lifespan', 'INTEGER'),
-    # The user's kind and How long they live, picked on the Persona page (dungeon/worlds.py; '' and NULL: read from
-    # their own words; lifespan 0: they don't age).
-    ('persona', 'kind', "TEXT NOT NULL DEFAULT ''"),
-    ('persona', 'lifespan', 'INTEGER'),
-)
-
-# CHECK constraints widened after a table first shipped, as (table, text the current definition
-# contains). SQLite cannot alter a CHECK, so an older table is copied into the current definition.
-WIDENED_CHECKS = (
-    ('memory_vectors', "'storyline'))"),
-    # Work life's late nights on the shared calendar (dungeon/life/work.py).
-    ('life_admin', "'looks', 'work'"),
-    # Exams for a course they went back to school for (dungeon/life/big_turns.py).
-    ('life_admin', "'work', 'school'"),
-    # Check-ups for a long-term condition and a parent's appointments (dungeon/life/health_turns.py).
-    ('life_admin', "'school', 'health')"),
-    # The family step beside the romance ladder, from before it was removed: older rows still pass the check.
-    ('relationship_steps', "'friendship', 'parenthood')"),
-    # A child of the user and a companion, from before that was removed: older rows still pass the check.
-    ('circle_children', "'friend', 'ours')"),
-)
-
-
 def schema_digest() -> str:
-    """Changes whenever schema.sql or ADDED_COLUMNS does, so an upgrade is noticed without a version bump."""
-    return hashlib.sha256((SCHEMA + repr(ADDED_COLUMNS) + repr(WIDENED_CHECKS)).encode('utf-8')).hexdigest()
+    """Changes whenever schema.sql does, so an upgrade is noticed without a version bump."""
+    return hashlib.sha256(SCHEMA.encode('utf-8')).hexdigest()
+
+
+# One-row settings tables, created with their defaults.
+SINGLETONS = ('workspace_settings', 'builtin_recall')
 
 
 def initialize(connection, timestamp: str):
     claim_identity(connection)
     connection.executescript(SCHEMA)
-    add_columns(connection)
-    widen_checks(connection)
-    connection.execute('CREATE INDEX IF NOT EXISTS life_admin_day ON life_admin(timeline_id, status, local_date)')
-    connection.execute('CREATE INDEX IF NOT EXISTS relationship_steps_pair ON relationship_steps(timeline_id, other, ladder)')
-    connection.execute('CREATE INDEX IF NOT EXISTS circle_children_timeline ON circle_children(timeline_id, status, born_on)')
-    connection.execute('CREATE INDEX IF NOT EXISTS circle_children_parent ON circle_children(parent_id)')
-    connection.execute('CREATE INDEX IF NOT EXISTS messages_origin ON messages(origin_id)')
-    connection.execute('CREATE INDEX IF NOT EXISTS memories_person ON memories(person_id)')
-    backfill_subject_keys(connection)
-    from dungeon.imports.characters import card_sliders_upgrade
-    card_sliders_upgrade(connection)
-    from dungeon.text_models import adopt_legacy, split_recall
-    adopt_legacy(connection, timestamp)
-    split_recall(connection, timestamp)
-    for table in ('workspace_settings', 'life_settings', 'image_settings', 'lora_settings', 'phone_settings',
-                  'builtin_recall', 'voice_settings'):
+    for table in SINGLETONS:
         connection.execute(f'INSERT OR IGNORE INTO {table} (id, updated_at) VALUES (1, ?)', (timestamp,))
-    connection.execute('UPDATE life_settings SET automatic_events=1, events_on_by_default=1 WHERE events_on_by_default=0')
-    connection.execute('UPDATE workspace_settings SET automatic_memory=1, sensitive_memory=1, '
-                       'model_memory_suggestions=1, memory_on_by_default=1 WHERE memory_on_by_default=0')
-    from dungeon.life.outings import reword_memories
-    reword_memories(connection, timestamp)
+    from dungeon.life import ages
+    ages.start_town(connection, timestamp)
     connection.executemany('INSERT OR REPLACE INTO app_identity (key, value) VALUES (?, ?)',
                            (('schema_version', str(SCHEMA_VERSION)), ('schema_digest', schema_digest()),
                             ('app_version', VERSION)))
@@ -385,98 +146,6 @@ def upgrade_needed(path: Path) -> bool:
         return stored_identity(path).get('schema_digest') != schema_digest()
     except sqlite3.DatabaseError:
         return False  # An empty database without an identity yet.
-
-
-# Settings > Realism's sliders and switches from v0.13 on a world from before them, as its preset sets them
-# (src/features/settings/presetChoices.ts), told apart by its drama: an easy life keeps breakups and friends falling for
-# the user off, and a dramatic one stays dramatic. Any other world takes the columns' defaults (a real life).
-UPGRADE_REALISM = {0: {'rough_patches_realism': 1, 'steps_pace': 1, 'love_life': 1, 'friends_fall': 0, 'breakups': 0},
-                   3: {'rough_patches_realism': 3, 'steps_pace': 3, 'love_life': 3}}
-# Life's big turns from v0.14 the same way: an easy life gets the gentle level (good turns only), a dramatic one eventful.
-UPGRADE_TURNS = {0: {'life_turns': 1}, 3: {'life_turns': 3}}
-# Growing families (v0.14) the same way: an easy life has babies now and then, a dramatic one lots.
-UPGRADE_FAMILIES = {0: {'growing_families': 1}, 3: {'growing_families': 3}}
-# The Loss slider (v0.15) the same way: an easy life rare, a dramatic one often, only while the switch is off and the
-# slider still at its default, so a level the user chose stays.
-UPGRADE_LOSS = {0: {'loss': 0}, 3: {'loss': 3}}
-# Family life (v0.15) the same way: an easy life has easy kids, a dramatic one true-to-life chaos.
-UPGRADE_FAMILY_LIFE = {0: {'family_life': 0}, 3: {'family_life': 3}}
-
-
-def add_columns(connection):
-    added = set()
-    for table, column, definition in ADDED_COLUMNS:
-        existing = {row[1] for row in connection.execute(f'PRAGMA table_info({table})')}
-        if column not in existing:
-            connection.execute(f'ALTER TABLE {table} ADD COLUMN {column} {definition}')
-            added.add((table, column))
-    for column, upgrade in (('breakups', UPGRADE_REALISM), ('life_turns', UPGRADE_TURNS),
-                           ('growing_families', UPGRADE_FAMILIES), ('family_life', UPGRADE_FAMILY_LIFE)):
-        if ('life_settings', column) in added:
-            preset_upgrade(connection, upgrade)
-    if ('life_settings', 'loss_by_preset') in added:
-        preset_upgrade(connection, UPGRADE_LOSS, 'people_pass_away=0 AND loss=2')
-
-
-def preset_upgrade(connection, upgrade: dict, unless_moved: str = '1'):
-    row = connection.execute(f'SELECT drama FROM life_settings WHERE id=1 AND {unless_moved}').fetchone()  # noqa: S608
-    picked = upgrade.get(row[0]) if row else None
-    if picked:
-        connection.execute(f"UPDATE life_settings SET {', '.join(f'{key}=?' for key in picked)} WHERE id=1",  # noqa: S608
-                           tuple(picked.values()))
-
-
-def widen_checks(connection):
-    for table, marker in WIDENED_CHECKS:
-        row = connection.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone()
-        if not row or marker in row[0]:
-            continue
-        definition = re.search(rf'CREATE TABLE IF NOT EXISTS {table} \((.*?)\n\);', SCHEMA, re.S).group(1)
-        columns = ', '.join(item[1] for item in connection.execute(f'PRAGMA table_info({table})'))
-        connection.execute(f'CREATE TABLE {table}_widened ({definition})')
-        # Columns added later (ADDED_COLUMNS, added above) are not in schema.sql's definition: add them here too, so
-        # the copy keeps them.
-        have = {item[1] for item in connection.execute(f'PRAGMA table_info({table}_widened)')}
-        for added_table, column, added in ADDED_COLUMNS:
-            if added_table == table and column not in have:
-                connection.execute(f'ALTER TABLE {table}_widened ADD COLUMN {column} {added}')
-        connection.execute(f'INSERT INTO {table}_widened ({columns}) SELECT {columns} FROM {table}')
-        connection.execute(f'DROP TABLE {table}')
-        connection.execute(f'ALTER TABLE {table}_widened RENAME TO {table}')
-
-
-def free_companion_slot(connection):
-    """Workspaces from before switching companions allowed only one companions row, by a CHECK that SQLite
-    cannot alter. Other tables reference the table, so it is rebuilt with foreign keys off, outside any
-    transaction, as SQLite's own procedure for table changes does; the caller turns them back on."""
-    row = connection.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='companions'").fetchone()
-    if not row or 'NOT NULL UNIQUE DEFAULT 1' not in row[0]:
-        return
-    definition = re.search(r'CREATE TABLE IF NOT EXISTS companions \((.*?)\n\);', SCHEMA, re.S).group(1)
-    columns = ', '.join(item[1] for item in connection.execute('PRAGMA table_info(companions)'))
-    connection.execute('PRAGMA foreign_keys=OFF')
-    connection.execute('BEGIN IMMEDIATE')
-    try:
-        connection.execute(f'CREATE TABLE companions_widened ({definition})')
-        for table, column, added in ADDED_COLUMNS:
-            if table == 'companions':
-                connection.execute(f'ALTER TABLE companions_widened ADD COLUMN {column} {added}')
-        connection.execute(f'INSERT INTO companions_widened ({columns}) SELECT {columns} FROM companions')
-        connection.execute('DROP TABLE companions')
-        connection.execute('ALTER TABLE companions_widened RENAME TO companions')
-        if connection.execute('PRAGMA foreign_key_check').fetchone():
-            raise DomainError('The companions table could not be upgraded.', 500)
-        connection.execute('COMMIT')
-    except BaseException:
-        connection.execute('ROLLBACK')
-        raise
-
-
-def backfill_subject_keys(connection):
-    from dungeon.memory.extraction import subject_key
-    rows = connection.execute("SELECT id, subject FROM memories WHERE subject_key=''").fetchall()
-    connection.executemany('UPDATE memories SET subject_key=? WHERE id=?',
-                           [(subject_key(row[1]), row[0]) for row in rows])
 
 
 FOREIGN = 'This database belongs to another application. Choose a Dungeon workspace.'
@@ -533,9 +202,3 @@ def many(connection, sql: str, values=()) -> list[dict]:
 
 def settings(connection) -> dict:
     return one(connection, 'SELECT * FROM workspace_settings WHERE id=1')
-
-
-def bump_memory_revision(connection, timestamp) -> int:
-    connection.execute('UPDATE workspace_settings SET memory_revision=memory_revision+1, updated_at=? '
-                       'WHERE id=1', (timestamp,))
-    return settings(connection)['memory_revision']

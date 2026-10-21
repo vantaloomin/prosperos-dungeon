@@ -12,73 +12,38 @@ from fastapi.staticfiles import StaticFiles
 from dungeon import (
     authors_note_routes,
     auto_backup,
-    export_routes,
     local_zone,
     logs,
+    model_calls,
     story_routes,
     troubleshoot,
     workspace,
     worlds,
     worlds_routes,
 )
-from dungeon.conversation import Conversation, recover
 from dungeon.database import Database
 from dungeon.debug_routes import calls_router, mix_router
 from dungeon.debug_routes import router as debug_router
-from dungeon.debug_time import DebugTime
 from dungeon.errors import DomainError
 from dungeon.hardware import Hardware
 from dungeon.hardware_routes import router as hardware_router
 from dungeon.identity import APP_NAME, CLIENT_HEADER, VERSION, WORLD_HEADER
-from dungeon.images import jobs as image_jobs
 from dungeon.images import routes as image_routes
-from dungeon.images.photos import ChatPhotos
-from dungeon.images.runner import ImageRunner
+from dungeon.images.adapters import default_adapters
 from dungeon.imports import file_routes
-from dungeon.imports import routes as import_routes
 from dungeon.launcher import Launcher
 from dungeon.launcher_routes import router as launcher_router
-from dungeon.life import (
-    admin_routes,
-    grooming_routes,
-    hobbies_routes,
-    home_routes,
-    kitchen_routes,
-    media_routes,
-    outings,
-    pets_routes,
-    scrapbook_routes,
-    status,
-    steps_routes,
-    traditions_routes,
-    upkeep_routes,
-    wardrobe_routes,
-    work_routes,
-)
-from dungeon.life import routes as life_routes
-from dungeon.life.simulation import LifeEngine
-from dungeon.lora import evaluation as lora_evaluation
-from dungeon.lora import generation as lora_generation
-from dungeon.lora import maker_enabled as lora_maker_enabled
-from dungeon.lora import routes as lora_routes
-from dungeon.lora import training as lora_training
-from dungeon.memory import closeness_routes, history_routes, people_routes
-from dungeon.memory.worker import MemoryWorker
-from dungeon.phone import access as phone_access
-from dungeon.phone import lan as phone_lan
-from dungeon.phone import routes as phone_routes
 from dungeon.providers.builtin_chat import BuiltinChat
 from dungeon.providers.builtin_recall import BuiltinRecall
+from dungeon.providers.chat import ChatProvider
+from dungeon.providers.embeddings import EmbeddingProvider
+from dungeon.providers.scheduling import RequestScheduler
 from dungeon.providers.vault import SystemVault
 from dungeon.ready import Ready, uses_builtin
 from dungeon.ready_routes import router as ready_router
-from dungeon.recall_routes import router as recall_router
 from dungeon.routes import router
 from dungeon.text_model_routes import router as model_router
-from dungeon.voice.notes import VoiceNotes
-from dungeon.voice_routes import router as voice_router
 from dungeon.world import routes as world_routes
-from dungeon.world.source import CatalogWorld
 
 # The built interface (`npm run build`), served beside the API as prosperos-study server/main.py does.
 FRONTEND = Path(__file__).parent.parent / 'dist'
@@ -92,7 +57,7 @@ async def guard_writes(request: Request, call_next):
 
 async def stay_in_world(request: Request, call_next):
     """A request, and everything it starts, reads and writes the world open when it arrived
-    (dungeon/database.py PINNED). A page opened in another world (a phone, when the PC switched) is told
+    (dungeon/database.py PINNED). A page opened in another world (another tab, when this one switched) is told
     so instead of changing this one; it reloads into the world now open (src/api.ts)."""
     database = request.app.state.database
     opened = request.headers.get(WORLD_HEADER)
@@ -111,7 +76,7 @@ async def unexpected_error(request: Request, error: Exception):
     """Anything else: the traceback goes to the log (dungeon/logs.py) and the page gets a message it can show,
     rather than a bare "Internal Server Error": what failed, the likely reason when it can be told, and a
     one-line detail for a bug report (dungeon/troubleshoot.py)."""
-    logging.getLogger('companion').error('%s %s failed', request.method, request.url.path)
+    logging.getLogger('dungeon').error('%s %s failed', request.method, request.url.path)
     log = logs.file_path()
     return JSONResponse({'detail': troubleshoot.for_request(request.method, request.url.path, error, str(log)),
                          'code': 'server_error', 'log': str(log)}, status_code=500)
@@ -122,147 +87,57 @@ async def invalid_request(_request: Request, error: RequestValidationError):
     return JSONResponse({'detail': details}, status_code=422)
 
 
-async def start_lan(app):
-    """Home Wi-Fi access stays on across restarts (dungeon/phone/lan.py); a busy port is logged, not fatal."""
-    with app.state.database.connect() as connection:
-        wanted = phone_access.phone_settings(connection)['lan_enabled']
-    if wanted and app.state.life_tasks:
-        try:
-            await app.state.lan.start(phone_lan.port())
-        except DomainError as error:
-            logging.getLogger('companion').warning('%s', error.message)
-
-
 @asynccontextmanager
 async def lifespan(app):
-    recover(app.state.database)
-    status.lyrics_template(app.state.database.root)
-    image_jobs.recover(app.state.database)
-    lora_training.recover(app.state.database)
-    lora_evaluation.recover(app.state.database)
-    lora_generation.recover(app.state.database)
-    tasks = [asyncio.create_task(app.state.life.run_forever()),
-             asyncio.create_task(app.state.images.run_forever()),
-             asyncio.create_task(auto_backup.run_forever(app.state))] if app.state.life_tasks else []
-    if app.state.life_tasks:
-        # Built-in recall loads its model now, so the first reply does not wait for it; so does the built-in chat
-        # model while it does the chat job, and a confirmed download carries on.
+    tasks = []
+    if app.state.background:
+        # Built-in recall loads its model now, so the first turn does not wait for it; so does the built-in text
+        # model while it narrates, and a confirmed download carries on.
         app.state.builtin_recall.kick()
         app.state.ready.recover()
         if uses_builtin(app.state.database):
             app.state.builtin_chat.kick()
-        # The built-in voice is a big download, so it waits for the press in Settings > Models (docs/voice-notes.md).
+        tasks.append(asyncio.create_task(auto_backup.run_forever(app.state)))
         # Local programs the user asked to start with the Dungeon (off until turned on).
         tasks.append(asyncio.create_task(app.state.launcher.launch_all()))
-    app.state.memory.kick()
-    await start_lan(app)
     yield
-    await app.state.lan.stop()
     app.state.builtin_recall.shutdown()
     app.state.builtin_chat.shutdown()
-    app.state.training.shutdown()
     for task in tasks:
         task.cancel()
 
 
 def create_app(database_path: str | Path | None = None, *, clock=None, vault=None, provider=None,
-               life_tasks=True, world=None, embedder=None, image_adapters=None,
-               trainer_spawn=None,
-               lora_maker=None, builtin_spawn=None, builtin_transport=None, hardware=None, voice_transport=None,
-               voice_runner=None, launcher=None) -> FastAPI:
+               background=True, embedder=None, image_adapters=None, builtin_spawn=None, builtin_transport=None,
+               hardware=None, launcher=None) -> FastAPI:
     app = FastAPI(title=APP_NAME, version=VERSION, lifespan=lifespan)
     app.state.database = Database(database_path, clock)
     worlds.start(app.state.database)  # The world the user was last in; the first run makes the first world.
     workspace.adopt_pc_timezone(app.state.database, local_zone.detect())
     app.state.vault = vault or SystemVault()
-    world = world or CatalogWorld(app.state.database)
-    app.state.conversation = Conversation(app.state.database, app.state.vault, provider, embedder=embedder)
+    # Every model call goes through here, written down in full while Record model calls is on.
+    app.state.provider = model_calls.Recording(provider or ChatProvider(), app.state.database)
+    app.state.scheduler = RequestScheduler()
+    app.state.embedder = embedder or EmbeddingProvider()
     app.state.builtin_recall = BuiltinRecall(app.state.database, builtin_spawn, builtin_transport)
+    app.state.embedder.builtin = app.state.builtin_recall
     app.state.launcher = launcher or Launcher(app.state.database)
-    app.state.conversation.embedder.builtin = app.state.builtin_recall
     app.state.hardware = hardware or Hardware()
     app.state.builtin_chat = BuiltinChat(app.state.database, builtin_spawn, builtin_transport)
-    app.state.conversation.provider.inner.builtin_chat = app.state.builtin_chat
+    app.state.provider.inner.builtin_chat = app.state.builtin_chat
     app.state.ready = Ready(app.state.database, app.state.builtin_chat,
                             lambda: app.state.hardware.report(app.state.database), builtin_transport)
-    app.state.ready.state_of_app = app.state
-    app.state.memory = MemoryWorker(app.state.database, app.state.conversation.scheduler, app.state.vault,
-                                    app.state.conversation.embedder, enabled=life_tasks,
-                                    provider=app.state.conversation.provider)
-    app.state.life = LifeEngine(app.state.database, app.state.vault, app.state.conversation.provider,
-                                app.state.conversation.scheduler, world)
-    app.state.voice = VoiceNotes(app.state.database, app.state.vault, voice_transport, voice_runner)
-    app.state.conversation.voice = app.state.voice
-    app.state.debug_time = DebugTime(app.state.database, app.state.life)
-    app.state.images = ImageRunner(app.state.database, app.state.vault, image_adapters,
-                                   app.state.conversation.scheduler)
-    app.state.conversation.photos = ChatPhotos(app.state.database, app.state.images, app.state.life)
-    # The photo of a finished outing with the user.
-    app.state.images.others += [lambda: outings.photograph(app.state.database)]
-
-    def after_turn():
-        # A local image waits while a reply is written (compute and job control); a finished turn lets it start.
-        app.state.memory.kick()
-        app.state.images.wake()
-
-    app.state.conversation.after_turn = after_turn
-    app.state.training = lora_training.TrainingRunner(app.state.database, trainer_spawn)
-    app.state.evaluations = lora_evaluation.EvaluationRunner(app.state.database, app.state.vault, app.state.images)
-    app.state.generations = lora_generation.GenerationRunner(app.state.database, app.state.vault, app.state.images)
-    # Local ComfyUI images wait while a trainer holds the GPU (compute and job control).
-    app.state.images.gpu_busy = lambda: app.state.training.active
-    app.state.life_tasks = life_tasks
-    # The LoRA creator is hidden unless switched on; profile pictures and an adopted adapter keep working.
-    app.state.lora_maker = lora_maker_enabled() if lora_maker is None else lora_maker
+    app.state.image_adapters = image_adapters or default_adapters()
+    app.state.background = background
     app.middleware('http')(stay_in_world)
     app.middleware('http')(guard_writes)
-    # Outermost: only this PC, or a paired phone through Tailscale, gets further (dungeon/phone/access.py).
-    app.state.phone = phone_access.Gate(app.state.database)
-    app.middleware('http')(app.state.phone)
-    app.state.lan = phone_lan.LanServer(app)
     app.add_exception_handler(DomainError, domain_error)
     app.add_exception_handler(RequestValidationError, invalid_request)
     app.add_exception_handler(Exception, unexpected_error)
-    app.include_router(router)
-    app.include_router(model_router)
-    app.include_router(launcher_router)
-    app.include_router(recall_router)
-    app.include_router(voice_router)
-    app.include_router(hardware_router)
-    app.include_router(ready_router)
-    app.include_router(life_routes.router)
-    app.include_router(home_routes.router)
-    app.include_router(pets_routes.router)
-    app.include_router(wardrobe_routes.router)
-    app.include_router(upkeep_routes.router)
-    app.include_router(grooming_routes.router)
-    app.include_router(kitchen_routes.router)
-    app.include_router(media_routes.router)
-    app.include_router(hobbies_routes.router)
-    app.include_router(admin_routes.router)
-    app.include_router(work_routes.router)
-    app.include_router(steps_routes.router)
-    app.include_router(traditions_routes.router)
-    app.include_router(scrapbook_routes.router)
-    app.include_router(history_routes.router)
-    app.include_router(life_routes.today_router)
-    app.include_router(world_routes.router)
-    app.include_router(image_routes.router)
-    app.include_router(story_routes.router)
-    app.include_router(authors_note_routes.router)
-    app.include_router(export_routes.router)
-    app.include_router(lora_routes.router)
-    if app.state.lora_maker:
-        app.include_router(lora_routes.maker_router)
-    app.include_router(import_routes.router)
-    app.include_router(file_routes.router)
-    app.include_router(closeness_routes.router)
-    app.include_router(phone_routes.router)
-    app.include_router(people_routes.router)
-    app.include_router(debug_router)
-    app.include_router(worlds_routes.router)
-    app.include_router(calls_router)
-    app.include_router(mix_router)
+    for item in (router, model_router, launcher_router, hardware_router, ready_router, world_routes.router,
+                 image_routes.router, story_routes.router, authors_note_routes.router, file_routes.router,
+                 debug_router, worlds_routes.router, calls_router, mix_router):
+        app.include_router(item)
     if FRONTEND.exists():
         app.mount('/', StaticFiles(directory=FRONTEND, html=True), name='frontend')
     return app

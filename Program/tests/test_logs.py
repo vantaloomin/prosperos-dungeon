@@ -23,10 +23,10 @@ def test_log_file_masks_messages_and_tracebacks(tmp_path):
         logger.exception('Request failed')
     for handler in logger.handlers:
         handler.flush()
-    text = (tmp_path / 'logs' / 'companion.log').read_text(encoding='utf-8')
+    text = (tmp_path / 'logs' / 'dungeon.log').read_text(encoding='utf-8')
     assert 'Request failed' in text and 'RuntimeError' in text
     assert 'SECRET' not in text
-    for name in ('uvicorn', 'uvicorn.error', 'companion'):
+    for name in ('uvicorn', 'uvicorn.error', 'dungeon'):
         configured = logging.getLogger(name)
         for handler in list(configured.handlers):
             handler.close()

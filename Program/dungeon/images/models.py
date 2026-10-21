@@ -73,31 +73,3 @@ class ModelProbe(Input):
 
 class BackendMove(Input):
     position: int = Field(ge=0, le=50)
-
-
-class ImageSettingsUpdate(Input):
-    automatic_images: bool | None = None
-    daily_limit: int | None = Field(default=None, ge=0, le=24)
-    queue_limit: int | None = Field(default=None, ge=1, le=20)
-    fallback: bool | None = None
-    chat_photos: bool | None = None
-    unprompted_photos: bool | None = None
-    aspect: Aspect | None = None
-    style: str | None = Field(default=None, max_length=500)
-
-
-class JobCreate(Input):
-    post_id: str
-    backend_id: str | None = None
-    marked_nsfw: bool = False
-
-
-class JobRetry(Input):
-    # Retry keeps the original inputs unless the user explicitly chooses current settings (F4).
-    current_settings: bool = False
-    backend_id: str | None = None
-
-
-class Preview(Input):
-    post_id: str
-    marked_nsfw: bool = False
