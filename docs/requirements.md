@@ -381,12 +381,20 @@ Decided 2026-10-21.
 
 ## Art
 
-Decided 2026-10-21. Builds on Companion's image pipeline. Art is opt-in per image, so play never
-waits on it and costs nothing unless the player asks.
+Decided 2026-10-21. Builds on Companion's image pipeline. By default art is made only when the
+player asks, so play never waits on it and costs nothing. A **Passive art** setting adds automatic
+art on top.
+
+- **Passive art (setting, off by default).** When on, code triggers images from game events: a new
+  named character appears, the scene moves to a new location or time of day, a portrait goes out
+  of date, or a big moment happens (a death, a reveal, a defeat, a chapter end). Most triggers are
+  plain code checks on ledger and state changes; for less clear moments the decision model (Jev)
+  answers "is this worth illustrating?". Passive art runs in the background and never holds up
+  the text. A per-session cap limits how many images it makes.
 
 - **Anything can be illustrated, on request.** VN-style character portraits with expressions,
   location backgrounds by time of day, full scene illustrations, and a button to illustrate any
-  passage. Nothing is generated automatically. Images are saved with their chapter, are reused
+  passage. Images are saved with their chapter, are reused
   until something changes, and go into the book export.
 - **Every named character gets one reference image.** The first portrait of a named character
   becomes their reference, reused in every later image so they keep looking like themselves. No
