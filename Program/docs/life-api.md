@@ -145,8 +145,8 @@ lists it with the birthdays and anniversaries from a week ahead (see below).
 Events are composed from the routine, a fixed activity catalog and the world data, without a
 model. When a model is connected and `phrase_with_model` is on, it only rewrites the wording;
 `inputs.wording` is `model` or `template`. Set `home_city` on the character to a city id from the
-world data (for example `"baltimore"`) so events use real places there. Without `home_city`, the
-character's `location` is used when it names a known city, such as `"Fells Point, Baltimore"`.
+world data (for example `"haddon-harbor"`) so events use real places there. Without `home_city`, the
+character's `location` is used when it names a known city, such as `"The Harbor, Haddon Harbor"`.
 When the location also names a neighborhood, everyday places (cafés, restaurants, bars, markets,
 libraries, gyms, parks) stay near it; museums, venues and attractions stay city-wide. Circle members
 use their own home neighborhood.

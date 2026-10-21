@@ -18,7 +18,7 @@ The app decides the scene, the same way the life sim decides the companion's day
 (`dungeon/story.py`):
 
 - **Where:** the city and place the user picked under "Go somewhere else…". A new story starts in
-  the companion's city (Baltimore without one) at its first cafe. Moving adds a line to the story
+  the companion's city (Haddon Harbor without one) at its first cafe. Moving adds a line to the story
   ("You arrive at …") that the narrator sees as a note.
 - **When:** the app clock (debug time included) in the city's own timezone.
 - **Weather:** the city's typical weather for the date (`generators.conditions`).

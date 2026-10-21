@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from dungeon import story
 from dungeon.clock import FixedClock
 from dungeon.identity import CLIENT_HEADER
 from dungeon.life import composer
@@ -19,11 +20,15 @@ from dungeon.world import catalog
 
 START = datetime(2026, 10, 5, 12, 0, tzinfo=UTC)
 
-# The app ships one city. The tests load these copies instead, as built-in cities, so every era and kind of city
+# The app ships one city. The tests load these copies instead, as built-in cities, with the featured list from before, so every era and kind of city
 # they cover stays covered. They live only here: not in the package data.
-SHIPPED_CITIES = catalog.BUILTIN_CITIES
+SHIPPED_CITIES, SHIPPED_FEATURED = catalog.BUILTIN_CITIES, catalog.FEATURED
 catalog.BUILTIN_CITIES = Path(__file__).parent / 'fixtures' / 'cities'
+catalog.FEATURED = Path(__file__).parent / 'fixtures' / 'featured.json'
 catalog.reload()
+catalog._featured.cache_clear()
+# The tests were written with Baltimore as the city a workspace falls back to; the app's own is the shipped city.
+SHIPPED_DEFAULT_CITY, story.DEFAULT_CITY = story.DEFAULT_CITY, 'baltimore'
 
 
 class FakeProvider:

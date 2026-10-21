@@ -18,6 +18,7 @@ from dungeon.world.schema import Career, Careers, City, Featured, Holidays, Name
 DATA = Path(__file__).parent / 'data'
 LOG = logging.getLogger(__name__)
 BUILTIN_CITIES = DATA / 'cities'
+FEATURED = DATA / 'featured.json'
 
 
 @cache
@@ -343,7 +344,7 @@ def sources(data: dict) -> list[dict]:
 
 @cache
 def _featured() -> dict:
-    return Featured.model_validate_json((DATA / 'featured.json').read_text(encoding='utf-8')).model_dump()
+    return Featured.model_validate_json(FEATURED.read_text(encoding='utf-8')).model_dump()
 
 
 def featured(extra: dict[str, dict] | None = None) -> dict:

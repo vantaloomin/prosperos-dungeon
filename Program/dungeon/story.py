@@ -22,7 +22,7 @@ from dungeon.text_models import config_for, default_name, key_for
 from dungeon.world import catalog, changes, custom, generators, inside, life_details, newcomers, townsfolk
 
 JOB = 'story'
-DEFAULT_CITY = 'baltimore'
+DEFAULT_CITY = 'haddon-harbor'
 HISTORY_LIMIT = 200
 CHARS_PER_TOKEN = 4
 # The kinds a story starts at when nothing else is chosen: somewhere people sit and talk.
@@ -87,7 +87,7 @@ def opening_place(data: dict) -> dict:
 
 
 def default_city(connection) -> str:
-    """The companion's city, else Baltimore, the first shipped city."""
+    """The companion's city, else Haddon Harbor, the shipped city."""
     companion = current(connection)
     return (newcomers.city_for(connection, companion['version']['definition'])['id'] if companion else '') or DEFAULT_CITY
 

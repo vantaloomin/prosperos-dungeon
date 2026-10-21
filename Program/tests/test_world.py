@@ -12,7 +12,7 @@ from dungeon.errors import DomainError
 from dungeon.models import CharacterDefinition
 from dungeon.world import catalog, generators, naming
 from dungeon.world.check import FOOD
-from dungeon.world.schema import City
+from dungeon.world.schema import City, Featured
 
 CITIES = sorted(key for key, value in catalog.cities().items() if value['origin'] == 'builtin')
 DERIVED = ('data_version', 'builtin', 'origin', 'pack_file')
@@ -47,9 +47,12 @@ def test_generated_schedules_are_valid_character_routines(city_id):
         CharacterDefinition(name='Mira', schedule=blocks)
 
 
-@pytest.mark.parametrize('city_id', CITIES)
+SCRIPTS = Path(__file__).parent.parent / 'scripts' / 'world'
+
+
+@pytest.mark.parametrize('city_id', [city for city in CITIES if (SCRIPTS / f'{city.replace("-", "_")}.py').exists()])
 def test_shipped_json_matches_its_source_script(city_id):
-    script = Path(__file__).parent.parent / 'scripts' / 'world' / f'{city_id.replace("-", "_")}.py'
+    script = SCRIPTS / f'{city_id.replace("-", "_")}.py'
     written = json.loads((catalog.BUILTIN_CITIES / f'{city_id}.json').read_text(encoding='utf-8'))
     assert runpy.run_path(str(script))['CITY'] == json.loads(json.dumps(written)), 'Rerun the script.'
 
@@ -296,6 +299,11 @@ def test_a_saved_copy_of_a_city_that_is_now_built_in_is_not_listed_twice(app, cl
     assert client.delete('/api/world/cities/los-angeles').status_code == 200
     assert 'los-angeles' in catalog.cities()
     assert client.delete('/api/world/cities/los-angeles').status_code == 409
+
+
+def test_the_app_falls_back_to_the_city_it_ships():
+    from conftest import SHIPPED_CITIES, SHIPPED_DEFAULT_CITY
+    assert (SHIPPED_CITIES / f'{SHIPPED_DEFAULT_CITY}.json').exists()
 
 
 def test_every_shipped_city_loads_strictly():
@@ -632,6 +640,9 @@ def test_surf_instructors_work_only_where_there_is_surf():
 
 
 def test_featured_cities_list_only_cities_that_load_and_are_new_on_their_release(client, monkeypatch):
+    from conftest import SHIPPED_CITIES, SHIPPED_FEATURED
+    released = Featured.model_validate_json(SHIPPED_FEATURED.read_text(encoding='utf-8'))
+    assert set(released.new_cities) <= set(released.cities) <= {path.stem for path in catalog.city_files(SHIPPED_CITIES)}
     shipped = catalog._featured()
     assert len(shipped['cities']) <= 4
     assert set(shipped['new_cities']) <= set(shipped['cities']) <= set(catalog.cities())

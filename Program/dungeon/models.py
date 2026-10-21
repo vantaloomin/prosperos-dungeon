@@ -121,7 +121,7 @@ class CharacterDefinition(Input):
     looks: Looks = Field(default_factory=Looks)
     routine: str = Field(default='', max_length=8000)
     location: str = Field(default='', max_length=200)
-    # City id in the installed world data (for example "baltimore"); events use its real places.
+    # City id in the installed world data (for example "haddon-harbor"); events use its real places.
     home_city: str = Field(default='', max_length=60)
     relationship: Relationship = 'friendship'
     # How close they start (a closeness stage, 1 = Just met) and how the two of them know each other already.

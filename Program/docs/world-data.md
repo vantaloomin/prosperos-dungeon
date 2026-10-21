@@ -7,13 +7,13 @@ and the model only phrases it (PRD W1–W4). A companion's outing, job, commute,
 they had are picked by deterministic code from these records. The model never has to invent a
 museum, an employer or a neighbourhood, and the same inputs always give the same choice.
 
-Built-in cities come in three kinds (`setting`):
+The app ships one city: **Haddon Harbor** (`setting: original`), a modern Maine harbour town where everyone
+knows everyone, written for the Dungeon. Every other city is the user's own or comes from a city pack. Cities can
+be `real`, `fictional` or `original`, in any era.
 
-| Setting | Cities |
-| --- | --- |
-| `real` | Baltimore, Chicago, New York, Miami, New Orleans, San Diego, Los Angeles (written by a beta tester), Las Vegas, London, Jeju (South Korea, in won) and Osaka (Japan, in yen); New York, 1925 is the real city in the Jazz Age (`jazz-age`) |
-| `fictional` | Well-known settings that are free to ship: the Emerald City of Oz (Baum's public-domain books), London in 1895 (Conan Doyle's Holmes stories) Camelot (Malory, Tennyson and other public-domain Arthurian sources) and Ellerbrück, a fairy-tale market town drawn from Grimm, Perrault and Andersen. Grandport, the merchant republic's capital in Oak's dark fantasy world Neokosmos, ships with Oak's permission (see Credits below). Other settings owned by others (Gotham, Night City, Baldur's Gate) are not shipped; users can build cities like them for themselves. |
-| `original` | Settings written for the Dungeon: Whitlock, an 1880s territorial railroad and mining town, Calderwick, an industrial canal city with a steampunk lean, Haddon Harbor, a modern Maine harbour town where everyone knows everyone, and Pellmouth, a 1926 Massachusetts river-mouth town with a cosmic-horror lean (rumour and legend, never confirmed monsters; it names `category: fictional`). |
+The tests use copies of the cities that used to ship (real cities such as Baltimore and London, other eras such
+as London in 1895 and New York in 1925, and fantasy towns such as Camelot and Grandport), in
+`tests/fixtures/cities`. They are not package data and the app never loads them.
 
 City lists (Settings > Cities and every city picker) shelve cities as **Real / Modern**, **Other Eras**,
 **Fictional** and **Custom**. Custom holds the user's own cities. Any other city can name its shelf in
@@ -68,11 +68,11 @@ carry, so an event can record exactly which data it was built from (PRD T7).
 ```python
 from dungeon.world import catalog, generators
 
-data = catalog.city('baltimore')            # DomainError 404 for an unknown city
-catalog.resolve('Fells Point, Baltimore')   # {'city': 'baltimore', 'neighborhood': 'fells-point'} or None
-catalog.places(data, kind='museum', neighborhood='mount-vernon', tag=None, good_for='date')
-catalog.nearby(data, 'canton', limit=4)     # closest neighbourhoods
-catalog.find(data, 'fort-mchenry')          # any record by id
+data = catalog.city('haddon-harbor')        # DomainError 404 for an unknown city
+catalog.resolve('The Harbor, Haddon Harbor')  # {'city': 'haddon-harbor', 'neighborhood': 'the-harbor'} or None
+catalog.places(data, kind='museum', neighborhood='the-green', tag=None, good_for='date')
+catalog.nearby(data, 'the-harbor', limit=4) # closest neighbourhoods
+catalog.find(data, 'bluebird-diner') # any record by id
 
 generators.conditions(data, day, seed)      # typical weather for the date, with a seeded rain chance
 generators.annual_events(data, day)         # recurring events usually held that month
@@ -375,9 +375,9 @@ repetitive: neighbourhoods with fewer than two places or nowhere to eat, no empl
 hubs, or no climate. `--json` prints the results for tools. It exits 1 when any file has errors,
 and CI runs it.
 
-## Credits for shipped settings
+## Credits for settings in the test cities
 
-**Grandport** (`grandport.json`, written by `scripts/world/grandport.py`) is set in **Neokosmos**, a world
+**Grandport** (`tests/fixtures/cities/grandport.json`; the app no longer ships it) is set in **Neokosmos**, a world
 by **Oak** (https://quietoak.github.io/NeokosmosWiki/). The Neokosmos wiki is licensed CC BY-NC-SA 4.0;
 Prospero's Dungeon includes Grandport with Oak's permission (given 2026-10-10). The city, its people and
 its lore are Oak's, not part of the app's AGPL-3.0 code, and are not relicensed by being shipped here.
@@ -386,7 +386,7 @@ setting's voice. Oak's characters appear in town as `notables`.
 
 ## Adding or refreshing a built-in city
 
-1. Copy `scripts/world/baltimore.py`, keep its two source records, and fill in the city.
+1. Copy `scripts/world/haddon_harbor.py`, keep its source records, and fill in the city.
 2. Run it to write `dungeon/world/data/cities/<id>.json`, then `python -m pytest tests/test_world.py`.
    The tests validate every reference, check every career gets a job and every generated schedule
    is a valid character routine.
