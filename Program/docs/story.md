@@ -160,6 +160,17 @@ branch shows its parent's messages before the line it went back to, then its own
 "Tell it again" works on lines of the branch being played; a shared line keeps the reply it was told. A system that
 keeps game state adds its tables to `timeline.SAVED`.
 
+## The screen
+
+A fixed layout for Milestone 1 (`src/features/story/Story.tsx`); the free grid of widgets comes in Milestone 6.
+
+- **The story column:** where and when the story is (place, city, story time, weather, who is around), the fight
+  and the character's condition when there is something to say, then the story text and the composer.
+- **The side panel:** the character sheet, the pack, the shop window when the story is in a shop, "What you know",
+  "People you've met" and "Other branches". On a screen 1100 pixels wide or more it sits beside the story with the
+  sheet, pack and journal open and scrolls on its own; on a narrower screen it sits above the story, folded, and
+  takes at most under half the height.
+
 ## API
 
 | Request | Does |

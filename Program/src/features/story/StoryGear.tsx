@@ -8,7 +8,7 @@ import { gearLine, moneyText, slotsText } from './storyText'
 const GEAR_KEY = ['story-gear']
 
 /** The character's purse and pack (dungeon/inventory.py), and the shop window where the story is. */
-export function StoryGear({ onTrade }: { onTrade: () => void }) {
+export function StoryGear({ onTrade, open }: { onTrade: () => void; open?: boolean }) {
   const client = useQueryClient()
   const gear = useQuery({ queryKey: GEAR_KEY, queryFn: () => api<Gear>('/story/gear') })
   const [error, setError] = useState('')
@@ -20,7 +20,7 @@ export function StoryGear({ onTrade }: { onTrade: () => void }) {
   }
   const { coins, currency, items, shop, slots } = gear.data
   return (<>
-    <details className="story-people">
+    <details className="story-people" open={open}>
       <summary>Your pack ({moneyText(coins, currency)} · {slotsText(slots)})</summary>
       <ul aria-label="Your pack">
         {items.map((item) => <li key={item.id}>

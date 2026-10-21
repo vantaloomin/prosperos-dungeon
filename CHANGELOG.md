@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **A fixed Story screen.** On a wide screen your character sheet, pack, the shop counter, what you know and the
+  people you've met sit in a panel beside the story instead of piling up above it. On a narrow screen the panel
+  folds above the story and scrolls on its own, so the story keeps its room.
 - **Fights.** Attack someone, or meet what the Heartwood holds, and the game runs the fight a round per line: hits
   wound by how well the roll went and what you carry, a parry blunts the reply, running can end it, and foes break
   when the fight turns. Your character can be grazed, hurt, wounded, maimed or dying, and a night's sleep heals a

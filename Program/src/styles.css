@@ -111,6 +111,16 @@ textarea { resize: vertical; line-height: 1.6; }
 
 /* Story mode (src/features/story): one reading column of narration, the user's lines set apart. */
 .story { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+/* A fixed layout: the story column, and the panel beside it on a wide screen or above the story on a narrow one. */
+.story-main { display: contents; }
+.story-panel { order: 1; max-width: 760px; width: 100%; margin: 0 auto; padding: 8px 32px 12px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--border); max-height: 45dvh; overflow-y: auto; }
+.story-main > :not(.story-header) { order: 2; }
+@media (min-width: 1100px) {
+  .story { flex-direction: row; }
+  .story-main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+  .story-panel { order: 0; flex: 0 0 360px; max-width: 360px; max-height: none; margin: 0; padding: 18px 20px; gap: 10px; border-bottom: 0; border-left: 1px solid var(--border); }
+  .story-panel .story-people ul { max-height: none; }
+}
 .story-header { max-width: 760px; width: 100%; margin: 0 auto; padding: 18px 32px 12px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--border); }
 .story-header h1 { font-size: 1.3rem; }
 .story-scene { display: flex; flex-direction: column; gap: 4px; }
@@ -170,7 +180,7 @@ textarea { resize: vertical; line-height: 1.6; }
   .page-header { flex-wrap: wrap; }
   .composer { padding: 10px 12px 12px; }
   .story-note-form { grid-template-columns: 1fr; }
-  .story-header, .story-log, .story-start, .story-notice, .story-footer { padding-left: 16px; padding-right: 16px; }
+  .story-header, .story-panel, .story-log, .story-start, .story-notice, .story-footer { padding-left: 16px; padding-right: 16px; }
 }
 @media (prefers-reduced-motion: reduce) { :root:not([data-motion='full']) *, :root:not([data-motion='full']) *::before, :root:not([data-motion='full']) *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
 :root[data-motion='reduce'] *, :root[data-motion='reduce'] *::before, :root[data-motion='reduce'] *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }

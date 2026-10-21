@@ -8,7 +8,7 @@ import { Notice } from '../../components/Feedback'
 const SHEET_KEY = ['story-sheet']
 
 /** Your character's MARVEL stats (dungeon/sheet.py): each one rolls a bigger die as it grows. */
-export function StorySheet() {
+export function StorySheet({ open }: { open?: boolean }) {
   const client = useQueryClient()
   const sheet = useQuery({ queryKey: SHEET_KEY, queryFn: () => api<Sheet>('/story/sheet') })
   const [error, setError] = useState('')
@@ -20,7 +20,7 @@ export function StorySheet() {
     catch (failure) { setError(failure instanceof Error ? failure.message : 'That was not saved.') }
   }
   return (
-    <details className="story-sheet">
+    <details className="story-sheet" open={open}>
       <summary>Your character</summary>
       <div className="story-stats">
         {sheet.data.stat_names.map((stat) => (
