@@ -481,7 +481,7 @@ stored in the ledger as hidden truth.
 - **Connected characters get detailed beats.** Absent party members, bonds, rivals and quest NPCs
   get rolled beats. Everyone else just follows their schedule in code, which keeps model calls
   down.
-- **The player learns through the world, with cutaways as a toggle.** By default news reaches the
+- **The player learns through the world, with cutaways as a toggle.** By default what happened reaches the
   character only through news, letters, rumor and meeting people again, distorted as usual
   ("word gets around"). A setting turns on short "meanwhile" cutaways that show the player what
   the character can't know. Cutaway content also shows in the GM view.
