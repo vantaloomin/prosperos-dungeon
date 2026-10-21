@@ -28,8 +28,12 @@ The app decides the scene, the same way the life sim decides the companion's day
   family names, so a name means the same person in both. Companions are never in the story, including
   ones who stepped back.
 
-The narrator model only voices the scene. Its prompt is "The Story narrator" in Settings > Advanced
-(`NARRATOR`, [prompts.md](prompts.md)), followed by a `## Scene` section with the facts above. The
+The narrator model only voices the scene. Its prompt is built in layers (`dungeon/narration/prompt.py`):
+"The Story narrator" and "The narrator's writing rules" in Settings > Advanced ([prompts.md](prompts.md)),
+the narration format (second person, present tense, short turns, since Story mode has no persona yet),
+the intensity, then a `## Scene` section with the facts above. After each reply, `dungeon/narration/prose.py`
+removes em dashes and asks the model for one rewrite when the reply has the strongest AI tells
+(see "Narrator prompting" in the top-level docs/requirements.md). The
 narrator gets the names of the people present, with a rule not to use a name until that person
 gives it. The screen lists them only as the user would see them ("the barista", "a
 regular").

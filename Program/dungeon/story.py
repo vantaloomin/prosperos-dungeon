@@ -16,6 +16,8 @@ from dungeon.database import identifier, many, one, optional
 from dungeon.errors import DomainError, require
 from dungeon.life import agenda, ages, encounters, network
 from dungeon.memory.context import NOTE_CLOSE
+from dungeon.narration import prompt as narration_prompt
+from dungeon.narration import prose
 from dungeon.providers.chat import INCOMPLETE
 from dungeon.providers.scheduling import CONVERSATION
 from dungeon.text_models import config_for, default_name, key_for
@@ -28,29 +30,8 @@ CHARS_PER_TOKEN = 4
 # The kinds a story starts at when nothing else is chosen: somewhere people sit and talk.
 OPENING_KINDS = ('cafe', 'tavern', 'bar', 'restaurant', 'market', 'park')
 
-NARRATOR = """You are the narrator of an open-ended story. The user plays themself, arriving in a real place \
-at a real hour; you describe the world around them and voice everyone they meet.
-
-How to narrate:
-- Write in the second person and present tense ("You push open the door..."), in two or three short paragraphs \
-at most, then stop where the user can act.
-- Never decide what the user says, does, thinks or feels. Describe, voice the people, and leave the next move \
-to them.
-- The scene below is fact: the place, the hour, the weather and who is there. Only the people listed are \
-present, apart from unnamed passers-by. Each keeps their own job, mood and manner, and is busy if their \
-listing says so.
-- A person's name is unknown to the user until that person gives it. Do not narrate it before then.
-- Everyone has a life of their own. People can be friendly, shy, busy or uninterested, and they answer the user \
-as they would a stranger until they know them. Romance happens only if the user pursues it and the other \
-person would plausibly welcome it.
-- Keep to the place's era and the city's character; people talk as people there and then would.
-- Never encourage, praise or help with self-harm or suicide, and never describe ways to do it. If the user says \
-they want to hurt themselves, take it seriously: let the people in the scene answer with real care.
-- When the user wants to go somewhere else, narrate them setting off. Where they arrive is set by the app \
-when they choose the place.
-- You are a storyteller, not a character: never say you are an AI or a language model, and never add notes \
-about the story. A message starting with OOC: or wrapped in ((double parentheses)) is the user stepping out \
-of the story; answer it plainly and honestly instead."""
+# Story mode's player has no persona yet, so the narrator speaks to them as "you", as Story mode always has.
+NARRATION = narration_prompt.Format(pov='second', tense='present', length='short')
 
 
 def no_model() -> DomainError:
@@ -311,7 +292,9 @@ def steered(chat: list[dict], steer: str) -> list[dict]:
 
 def prompt(connection, now: datetime, config: dict, latest: dict) -> dict:
     view = scene(connection, now)
-    system = prompt_library.text(connection, 'story-narrator') + '\n\n' + scene_text(view)
+    craft = narration_prompt.craft_for(config.get('context_tokens'), prompt_library.text(connection, 'narrator-craft'))
+    system = narration_prompt.system(prompt_library.text(connection, 'story-narrator'), craft, scene=scene_text(view),
+                                     narration=NARRATION)
     if in_character.out_of_character(latest['text']):
         system += '\n\n' + in_character.OUT_OF_CHARACTER_NOTE.format(name='the narrator', model=default_name(config))
     budget = (config['context_tokens'] - config['max_output_tokens']) * CHARS_PER_TOKEN - len(system)
@@ -336,6 +319,14 @@ async def narrate(state, packet: dict, config: dict, active: bool) -> tuple[str,
     return ''.join(text).strip(), error
 
 
+async def complete(state, config: dict, system: str, messages: list[dict]) -> str:
+    """One whole reply from the story's model, for the narration's rewrite pass."""
+    conversation = state.conversation
+    async with conversation.scheduler.reserve(config, CONVERSATION):
+        return ''.join([chunk.text async for chunk in conversation.provider.stream(
+            config, key_for(state.vault, config), system, messages)])
+
+
 async def answer(state, user: dict) -> dict:
     """The narrator's reply to the user's message, saved complete or failed with the reason."""
     database = state.database
@@ -344,10 +335,13 @@ async def answer(state, user: dict) -> dict:
         if config is None:
             raise no_model()
         packet = prompt(connection, database.clock.now(), config, user)
+    in_story = not in_character.out_of_character(user['text'])
     try:
-        text, error = await narrate(state, packet, config, not in_character.out_of_character(user['text']))
+        text, error = await narrate(state, packet, config, in_story)
     except DomainError as failure:
         text, error = '', failure.message
+    if text and not error and in_story:
+        text, _ = await prose.polish(text, lambda system, messages: complete(state, config, system, messages))
     status = 'complete' if text and not error else 'failed'
     error = None if status == 'complete' else error or 'The model returned no story text.'
     with database.connect(write=True) as connection:
