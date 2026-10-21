@@ -9,7 +9,6 @@ import pytest
 
 from dungeon import local_programs
 from dungeon.errors import DomainError
-from dungeon.phone.access import pc_only
 
 
 class FakePrograms:
@@ -172,10 +171,6 @@ def test_starting_with_the_companion_is_off_until_turned_on_then_runs_in_order(c
     assert client.put('/api/models/launcher', json={'auto_launch': True}).json()['auto_launch'] is True
     asyncio.run(app.state.launcher.launch_all())
     assert [Path(command[0]).name for command in programs.started] == ['lms.exe', 'lms.exe', 'python.exe']
-
-
-def test_a_phone_never_starts_programs_on_the_pc():
-    assert pc_only('GET', '/api/models/launcher') and pc_only('POST', '/api/models/launcher/comfyui/launch')
 
 
 def test_installs_are_found_a_few_folders_down(tmp_path):

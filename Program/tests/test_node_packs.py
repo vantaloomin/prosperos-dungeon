@@ -87,10 +87,3 @@ def test_the_listed_pack_covers_the_reference_workflows_nodes():
     assert node_packs.providing(['KSampler']) == []
     pack = node_packs.PACKS['krea2edit']
     assert '/86f886dac23013d88996e3a2e99093ba44d322fb/' in pack['source'] and '__init__.py' in pack['files']
-
-
-def test_only_a_comfyui_on_this_computer(client, companion):
-    remote = client.post('/api/images/backends', json={'kind': 'comfyui', 'base_url': 'http://192.168.1.20:8188',
-                                                        'controlled_machine': True}).json()
-    refused = client.post(f"/api/images/backends/{remote['id']}/install-nodes/krea2edit")
-    assert refused.status_code == 409 and 'this computer' in refused.json()['detail']

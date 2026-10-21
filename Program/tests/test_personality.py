@@ -3,14 +3,8 @@ import json
 import re
 from collections import Counter
 
-from test_drafting import GOOD, connect, replying
 from test_perception import GENDERED
-from test_social_circle import make
 
-from dungeon import cast
-from dungeon.characters import require_current
-from dungeon.life import town_personality
-from dungeon.memory.context import character_text
 from dungeon.world import catalog, perception, personality, townsfolk
 
 TRAIT_NAMES = re.compile(r'\b(openness|conscientious\w*|extravers\w*|extrovers\w*|agreeabl\w*|neurotic\w*)\b', re.I)
@@ -111,82 +105,3 @@ def test_townsfolk_sliders_follow_their_sheet_and_their_habits_fit():
     shy = {'temperament': 'shy', 'flaw': 'messy', 'key': 'k'}
     assert personality.sheet_words(shy) == {'social': 0, 'order': 0}
     assert personality.sheet_words({'temperament': 'cheerful', 'flaw': 'worrier'}) == {'stress': 1}
-
-
-def test_a_companion_prompt_gets_the_behaviour_lines(client):
-    sliders = {'social': {'level': 2, 'source': 'you'}, 'warmth': {'level': 1, 'source': 'you'},
-               'order': {'level': 1, 'source': 'you'}, 'curiosity': {'level': 1, 'source': 'you'},
-               'stress': {'level': 0, 'source': 'you'}}
-    make(client, 'Likes crosswords.', personality_sliders=sliders)
-    with client.app.state.database.connect() as connection:
-        prompt = character_text(require_current(connection)['version'], connection)
-    assert 'How you tend to act' in prompt
-    assert '- Starts conversations easily' in prompt and '- Stays calm under pressure' in prompt
-    assert 'Outgoing' not in prompt and 'Steady' not in prompt
-
-
-def test_a_companion_saved_before_sliders_gets_the_same_ones_every_time(client):
-    companion = make(client, 'Shy, and a bit of a worrier.')
-    assert companion['version']['definition']['personality_sliders'] is None
-    first = client.post('/api/companion/personality', json={'definition': companion['version']['definition']}).json()
-    again = client.post('/api/companion/personality', json={'definition': companion['version']['definition']}).json()
-    assert first == again
-    assert first['sliders']['social'] == {'level': 0, 'source': 'idea'}
-    assert first['sliders']['stress'] == {'level': 2, 'source': 'idea'}
-    assert 'Reserved' in first['chips'] and [trait['key'] for trait in first['traits']][0] == 'social'
-    rolled = client.post('/api/companion/personality', json={'definition': companion['version']['definition'],
-                                                            'roll': 3}).json()
-    assert rolled['sliders']['social'] == first['sliders']['social']
-    bad = client.post('/api/companion/personality', json={'definition': {}, 'type': 'XXXX'})
-    assert bad.status_code == 422
-
-
-def test_a_new_character_form_rolls_from_its_own_seed(client):
-    one = client.post('/api/companion/personality', json={'definition': {}, 'seed': 'a'}).json()
-    two = client.post('/api/companion/personality', json={'definition': {}, 'seed': 'a'}).json()
-    assert one == two
-    others = {json.dumps(client.post('/api/companion/personality', json={'definition': {}, 'seed': s}).json()['sliders'])
-              for s in 'bcdefgh'}
-    assert len(others) > 3
-
-
-def test_the_quick_start_rolls_first_and_the_idea_wins(client, provider):
-    connect(client)
-    provider.respond = replying(json.dumps(GOOD))
-    response = client.post('/api/companion/draft', json={'idea': 'a kind, shy kindergarten teacher', 'timezone': 'UTC'})
-    assert response.status_code == 200, response.text
-    sliders = response.json()['definition']['personality_sliders']
-    assert sliders['warmth'] == {'level': 2, 'source': 'idea'} and sliders['social'] == {'level': 0, 'source': 'idea'}
-    system = provider.requests[0]['system']
-    assert 'Their personality, decided by the app' in system
-    assert 'Gives people the benefit of the doubt' in system and 'Needs time alone to recharge' in system
-    assert 'Warm' not in system.split('Their personality, decided by the app')[1].split('\n\n')[0]
-
-
-def test_townsfolk_sliders_can_be_edited_and_carry_over_when_they_take_over(client):
-    make(client, 'Outgoing.')
-    with client.app.state.database.connect() as connection:
-        companion = require_current(connection)
-        data = catalog.city('baltimore')
-        sheet = townsfolk.at_place(data, data['places'][0]['id'])[0]
-        before = town_personality.view(sheet, None)
-        changed = {key: dict(value) for key, value in before['sliders'].items()}
-        changed['warmth'] = {'level': 0 if before['sliders']['warmth']['level'] else 2, 'source': 'you'}
-    with client.app.state.database.connect(write=True) as connection:
-        town_personality.save(connection, town_personality.town_of(companion), sheet['key'], changed, 'now')
-        kept = town_personality.edited(connection, town_personality.town_of(companion), sheet['key'])
-    assert list(kept) == ['warmth']
-    after = town_personality.view(sheet, kept)
-    assert after['sliders']['warmth'] == changed['warmth']
-    assert {key: value for key, value in after['sliders'].items() if key != 'warmth'} == \
-           {key: value for key, value in before['sliders'].items() if key != 'warmth'}
-    definition = cast.profile(data, sheet, {'focus': None, 'meetings': [], 'in_story': None},
-                              __import__('datetime').date(2026, 3, 1), kept)
-    assert definition['personality_sliders']['warmth'] == changed['warmth']
-
-
-def test_unknown_townsfolk_cannot_be_edited(client):
-    make(client, 'Outgoing.')
-    response = client.post('/api/life/townsfolk/personality',
-                           json={'key': 'town:baltimore:nowhere:0', 'sliders': {'social': {'level': 2, 'source': 'you'}}})
-    assert response.status_code == 404

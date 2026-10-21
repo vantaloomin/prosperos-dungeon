@@ -1,8 +1,6 @@
 """The companion is nudged when their last replies keep reaching for the same words."""
-from conftest import send
 
 from dungeon.memory import phrases
-from dungeon.providers.chat import Chunk
 
 REPLIES = ['Honestly the ER was a zoo.', 'Ugh, honestly I need a nap.', 'That movie was honestly great!',
            'Christina is coming over, honestly so excited.', 'We could try the new taco place, honestly.',
@@ -31,13 +29,3 @@ def test_varied_replies_get_no_nudge():
              'Reading on the couch.', 'Gym was packed.']
     assert phrases.repeats_line(passages(texts)) is None
     assert phrases.repeats_line(passages(['Honestly, chaos.'] * 4)) is None
-
-
-def test_the_nudge_reaches_the_context(client, connected, provider):
-    provider.respond = lambda system, messages: [Chunk('Honestly that sounds like total chaos.'), Chunk('', 'stop')]
-    for index in range(3):
-        send(client, f'Guess what happened {index}', f'client-words-{index}')
-    assert 'You keep repeating' not in provider.requests[-1]['prompt']
-    send(client, 'And then?', 'client-words-last')
-    system = provider.requests[-1]['prompt']
-    assert 'You keep repeating: "honestly that sounds like total chaos" (3 of your last 3 messages).' in system

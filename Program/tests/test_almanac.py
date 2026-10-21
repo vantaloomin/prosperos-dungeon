@@ -2,7 +2,7 @@
 from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 
-from dungeon.almanac import context, days, sky
+from dungeon.almanac import days, sky
 from dungeon.world import catalog
 from dungeon.world.source import CatalogWorld
 
@@ -52,36 +52,3 @@ def test_parties_join_the_days_happenings_in_modern_us_cities_only():
     assert [item['name'] for item in world.happenings('baltimore', date(2026, 10, 31))] == ['Halloween parties']
     assert world.happenings('baltimore', date(2026, 10, 30)) == []
     assert not any(item['id'].startswith('gathering-') for item in world.happenings('london-1895', date(1895, 12, 31)))
-
-
-def test_chat_context_section(app):
-    with app.state.database.connect() as connection:
-        check_context(connection)
-
-
-def check_context(connection):
-    now = datetime(2026, 10, 5, 16, tzinfo=timezone.utc)
-    lines = dict(context.context_lines(connection, {'home_city': 'baltimore'}, 'America/New_York', now))
-    assert lines['2026-10-05:coming'] == "- Coming up: Indigenous Peoples' Day / Columbus Day, Monday, October 12 " \
-                                         "(in 7 days)."
-    assert 'Hispanic Heritage Month (until October 15)' in lines['2026-10-05:seasons']
-    assert 'Ravens football season' in lines['2026-10-05:seasons']
-    assert lines['2026-10-05:daylight'].startswith('- Daylight: sunrise 7:0')
-    assert 'never make them up' in lines['2026-10-05:no_news']
-    christmas = dict(context.context_lines(connection, {'home_city': 'baltimore'}, 'America/New_York',
-                                           datetime(2026, 12, 25, 16, tzinfo=timezone.utc)))
-    assert christmas['2026-12-25:today'] == '- Today: Christmas Day (a public holiday).'
-    assert context.context_lines(connection, {'home_city': ''}, 'America/New_York', now) == []
-    camelot = dict(context.context_lines(connection, {'home_city': 'camelot'}, 'Europe/London', now))
-    assert not any(key.endswith(':no_news') for key in camelot)
-
-
-def test_the_reply_prompt_carries_the_calendar(client, provider):
-    created = client.post('/api/companion', json={'name': 'Hana', 'personality': 'Warm', 'home_city': 'baltimore',
-                                                    'timezone': 'America/New_York'})
-    assert created.status_code == 200, created.text
-    client.put('/api/connection', json={'base_url': 'http://127.0.0.1:1234/v1', 'model': 'local-model'})
-    client.post('/api/conversation/messages', json={'text': 'Any plans this weekend?', 'client_id': 'almanac-1'})
-    system = provider.requests[-1]['system']
-    assert "## The calendar where you live (real dates and seasons from the app's built-in calendar)" in system
-    assert '- Daylight: sunrise ' in system

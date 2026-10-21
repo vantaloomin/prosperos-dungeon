@@ -41,6 +41,7 @@ from dungeon.providers.scheduling import RequestScheduler
 from dungeon.providers.vault import SystemVault
 from dungeon.ready import Ready, uses_builtin
 from dungeon.ready_routes import router as ready_router
+from dungeon.recall_routes import router as recall_router
 from dungeon.routes import router
 from dungeon.text_model_routes import router as model_router
 from dungeon.world import routes as world_routes
@@ -134,7 +135,7 @@ def create_app(database_path: str | Path | None = None, *, clock=None, vault=Non
     app.add_exception_handler(DomainError, domain_error)
     app.add_exception_handler(RequestValidationError, invalid_request)
     app.add_exception_handler(Exception, unexpected_error)
-    for item in (router, model_router, launcher_router, hardware_router, ready_router, world_routes.router,
+    for item in (router, model_router, launcher_router, recall_router, hardware_router, ready_router, world_routes.router,
                  image_routes.router, story_routes.router, authors_note_routes.router, file_routes.router,
                  debug_router, worlds_routes.router, calls_router, mix_router):
         app.include_router(item)

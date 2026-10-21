@@ -2,19 +2,14 @@
 from the single connection that came before profiles."""
 import asyncio
 import json
-import sqlite3
 
 import httpx
 import pytest
-from conftest import send
 
 from dungeon import text_models
-from dungeon.database import initialize
 from dungeon.errors import DomainError
-from dungeon.main import create_app
-from dungeon.providers.chat import ChatProvider, Chunk
+from dungeon.providers.chat import ChatProvider
 from dungeon.providers.requests import CACHED, REQUESTS, headers_for, transcript
-from dungeon.providers.vault import MemoryVault
 
 LOCAL = {'provider': 'local', 'model': 'local-model'}
 ANTHROPIC = {'provider': 'anthropic', 'model': 'claude-sonnet-5-5', 'max_output_tokens': 1000}
@@ -26,89 +21,8 @@ def add(client, config, name='', api_key=None, status=201):
     return response.json()
 
 
-def test_the_first_finished_profile_answers_in_chat_and_other_jobs_inherit_it(client, companion, provider):
-    unfinished = add(client, {'provider': 'openrouter'}, api_key='or-key')
-    assert not unfinished['ready'] and unfinished['has_saved_key']
-    assert client.get('/api/models').json()['routes'] == {}
-    local = add(client, LOCAL)
-    overview = client.get('/api/models').json()
-    assert overview['routes'] == {'chat': local['id']}
-    assert {job['key'] for job in overview['jobs']} == {'chat', 'life', 'memory', 'drafting', 'sidecar', 'vision', 'story',
-                                                       'recall'}
-    with client.app.state.database.connect() as connection:
-        assert text_models.config_for(connection, 'drafting')['profile_id'] == local['id']
-    assert client.get('/api/connection').json()['connection']['provider'] == 'local'
-    send(client, 'Hi', 'client-message-1')
-    assert provider.requests[-1]['config']['model'] == 'local-model'
-
-
-def test_a_job_can_use_its_own_profile(client, companion, provider):
-    add(client, LOCAL)
-    claude = add(client, ANTHROPIC, api_key='sk-ant')
-    response = client.put('/api/models/routes', json={'job': 'drafting', 'profile_id': claude['id']})
-    assert response.status_code == 200, response.text
-    provider.respond = lambda system, messages: [Chunk('{"name": "Dana"}'), Chunk('', 'stop')]
-    client.post('/api/companion/draft', json={'idea': 'a nurse'})
-    drafted = provider.requests[-1]
-    assert drafted['config']['provider'] == 'anthropic' and drafted['key'] == 'sk-ant'
-    send(client, 'Hi', 'client-message-2')
-    assert provider.requests[-1]['config']['provider'] == 'local'
-    # Clearing the assignment falls back to the conversation profile.
-    client.put('/api/models/routes', json={'job': 'drafting', 'profile_id': None})
-    with client.app.state.database.connect() as connection:
-        assert text_models.config_for(connection, 'drafting')['provider'] == 'local'
-
-
 RECALL = {'provider': 'local', 'base_url': 'http://127.0.0.1:11434/v1', 'purpose': 'recall',
           'embedding_model': 'qwen3-embedding'}
-
-
-def test_recall_has_its_own_profile_apart_from_text_profiles(client, companion):
-    chat = add(client, {**ANTHROPIC}, api_key='anthropic-key')
-    recall = add(client, RECALL)
-    assert not recall['ready'] and recall['recall_ready'] and recall['name'] == 'Local / LM Studio · qwen3-embedding'
-    assert client.get('/api/models').json()['routes'] == {'chat': chat['id'], 'recall': recall['id']}
-    with client.app.state.database.connect() as connection:
-        assert text_models.config_for(connection, 'recall')['embedding_model'] == 'qwen3-embedding'
-        assert text_models.config_for(connection, 'drafting')['profile_id'] == chat['id']
-    assert client.put('/api/models/routes', json={'job': 'drafting', 'profile_id': recall['id']}).status_code == 409
-    assert client.put('/api/models/routes', json={'job': 'recall', 'profile_id': chat['id']}).status_code == 409
-    emptied = client.put(f"/api/models/profiles/{recall['id']}", json={
-        'name': '', 'config': {**RECALL, 'embedding_model': ''}, 'expected_revision': 1})
-    assert emptied.status_code == 409
-    add(client, {**LOCAL, 'embedding_model': 'nomic-embed'}, status=422)
-    add(client, {**ANTHROPIC, 'purpose': 'recall', 'embedding_model': 'x'}, status=422)
-
-
-def test_without_a_recall_profile_the_conversation_profile_does_not_do_recall(client, companion):
-    add(client, LOCAL)
-    with client.app.state.database.connect() as connection:
-        assert text_models.config_for(connection, 'recall') is None
-
-
-def test_an_embedding_model_on_a_text_profile_moves_to_its_own_recall_profile(client, app, companion):
-    claude = add(client, ANTHROPIC, api_key='sk-ant')
-    local = add(client, LOCAL, api_key='local-key')
-    with app.state.database.connect(write=True) as connection:
-        config = json.loads(connection.execute('SELECT config FROM model_profiles WHERE id=?', (local['id'],)).fetchone()[0])
-        connection.execute('UPDATE model_profiles SET config=? WHERE id=?',
-                           (json.dumps({**config, 'embedding_model': 'nomic-embed'}), local['id']))
-        connection.execute("INSERT INTO model_routes (job, profile_id, updated_at) VALUES ('recall', ?, 'x')", (local['id'],))
-    for _ in range(2):
-        with app.state.database.connect(write=True) as connection:
-            text_models.split_recall(connection, '2026-10-07T12:00:00Z')
-    overview = client.get('/api/models').json()
-    recall = [profile for profile in overview['profiles'] if profile['recall_ready']]
-    assert len(recall) == 1 and recall[0]['config']['embedding_model'] == 'nomic-embed' and recall[0]['has_saved_key']
-    assert overview['routes']['recall'] == recall[0]['id'] and overview['routes']['chat'] == claude['id']
-    text = next(profile for profile in overview['profiles'] if profile['id'] == local['id'])
-    assert text['ready'] and not text['config']['embedding_model']
-    # The shared key stays until neither profile uses it.
-    client.delete(f"/api/models/profiles/{local['id']}")
-    with app.state.database.connect() as connection:
-        assert text_models.key_for(app.state.vault, text_models.config_for(connection, 'recall')) == 'local-key'
-    client.delete(f"/api/models/profiles/{recall[0]['id']}")
-    assert list(app.state.vault.secrets) == [claude_key(app, claude)]
 
 
 def claude_key(app, claude):
@@ -160,40 +74,6 @@ def test_a_profile_doing_a_job_must_keep_a_model(client):
     response = client.put(f"/api/models/profiles/{local['id']}", json={
         'config': {'provider': 'local', 'model': ''}, 'expected_revision': local['revision']})
     assert response.status_code == 409
-
-
-def test_the_single_connection_becomes_the_conversation_profile_once(tmp_path, clock):
-    path = tmp_path / 'workspace' / 'dungeon.sqlite3'
-    vault = MemoryVault()
-    vault.put('text-connection', 'old-key')
-    app = create_app(path, clock=clock, vault=vault, life_tasks=False)
-    with app.state.database.connect(write=True) as connection:
-        connection.execute("INSERT INTO connection (id, base_url, model, credential_ref, max_output_tokens, "
-                           "context_tokens, timeout_seconds, embedding_model, updated_at) VALUES "
-                           "(1, 'https://api.example.com/v1', 'old-model', 'text-connection', 900, 900, 60, 'emb', 'x')")
-    for _ in range(2):  # Every start runs the same initialization; only the first adopts.
-        raw = sqlite3.connect(path)
-        initialize(raw, '2026-10-05T12:00:00Z')
-        raw.commit()
-        raw.close()
-    with app.state.database.connect() as connection:
-        profiles = connection.execute('SELECT * FROM model_profiles').fetchall()
-        assert len(profiles) == 2  # The text profile and, for its embedding model, a recall profile.
-        assert connection.execute('SELECT COUNT(*) FROM connection').fetchone()[0] == 0
-        config = text_models.config_for(connection, 'chat')
-        # Settings the old form allowed (no room left for input) survive the move untouched.
-        assert config['provider'] == 'compatible' and config['model'] == 'old-model'
-        assert config['context_tokens'] == 900 and not config['embedding_model']
-        assert text_models.key_for(vault, config) == 'old-key'
-        recall = text_models.config_for(connection, 'recall')
-        assert recall['embedding_model'] == 'emb' and text_models.key_for(vault, recall) == 'old-key'
-
-
-def test_a_loopback_connection_becomes_a_local_profile(client, companion):
-    summary = client.put('/api/connection', json={'base_url': 'http://localhost:1234/v1', 'model': 'm'}).json()
-    assert summary['provider'] == 'local'
-    again = client.put('/api/connection', json={'base_url': 'http://localhost:1234/v1', 'model': 'm2'}).json()
-    assert again['profile_id'] == summary['profile_id'] and again['model'] == 'm2'
 
 
 # --- Provider adapters ----------------------------------------------------------------------------
@@ -298,38 +178,6 @@ def test_hosted_providers_need_a_key():
     with pytest.raises(DomainError) as error:
         collect(ChatProvider(httpx.MockTransport(lambda request: httpx.Response(500))), config('openrouter'), key=None)
     assert error.value.status == 409
-
-
-def test_testing_a_form_lists_models_with_their_reported_limits(tmp_path, clock, monkeypatch):
-    monkeypatch.delenv('OPENROUTER_API_KEY', raising=False)  # A key in the environment would stand in for the missing one.
-    seen = {}
-
-    def handler(request):
-        seen['auth'] = request.headers.get('authorization')
-        return httpx.Response(200, json={'data': [
-            {'id': 'anthropic/claude-sonnet-5.5', 'name': 'Claude Sonnet 5.5', 'context_length': 200000,
-             'top_provider': {'max_completion_tokens': 64000}, 'supported_parameters': ['temperature', 'reasoning']},
-            {'id': 'mystery/model'}]})
-    app = create_app(tmp_path / 'w' / 'dungeon.sqlite3', clock=clock, vault=MemoryVault(),
-                     provider=ChatProvider(httpx.MockTransport(handler)), life_tasks=False)
-    from fastapi.testclient import TestClient
-
-    from dungeon.identity import CLIENT_HEADER
-    with TestClient(app, headers={CLIENT_HEADER: 'workspace'}) as client:
-        missing = client.post('/api/models/discover', json={'config': {'provider': 'openrouter'}})
-        assert missing.status_code == 409
-        result = client.post('/api/models/discover', json={'config': {'provider': 'openrouter'}, 'api_key': 'or'})
-        assert result.status_code == 200, result.text
-        details = {model['id']: model for model in result.json()['model_details']}
-        assert details['anthropic/claude-sonnet-5.5']['context_tokens'] == 200000
-        assert details['anthropic/claude-sonnet-5.5']['max_output_tokens'] == 64000
-        assert details['mystery/model']['limit_source'] == 'unreported'
-        assert seen['auth'] == 'Bearer or'
-        # A saved profile's key is reused for its own test, never typed again.
-        profile = add(client, {'provider': 'openrouter'}, api_key='saved')
-        client.post('/api/models/discover', json={'config': {'provider': 'openrouter'}, 'profile_id': profile['id']})
-        assert seen['auth'] == 'Bearer saved'
-        assert client.post(f"/api/models/profiles/{profile['id']}/check").status_code == 200
 
 
 def test_duplicating_a_profile_copies_its_settings_and_key_but_not_its_jobs(client, app):

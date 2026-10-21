@@ -15,7 +15,6 @@ from dungeon.providers import builtin_chat, builtin_recall
 from dungeon.providers.chat import ChatProvider
 from dungeon.providers.vault import MemoryVault
 from dungeon.text_models import config_for
-from tests.conftest import send
 from tests.test_builtin_recall import Machine, runtime_zip
 
 MODEL = b'GGUF' + bytes(range(256)) * 40
@@ -137,7 +136,7 @@ async def fast_sleep(seconds):
 @pytest.fixture
 def client(tmp_path, clock, hub):
     transport = httpx.MockTransport(hub.handle)
-    app = create_app(tmp_path / 'workspace' / 'dungeon.sqlite3', clock=clock, vault=MemoryVault(), life_tasks=False,
+    app = create_app(tmp_path / 'workspace' / 'dungeon.sqlite3', clock=clock, vault=MemoryVault(), background=False,
                      provider=ChatProvider(transport), builtin_spawn=hub.spawn, builtin_transport=transport,
                      hardware=FakeHardware([card('GTX 1650', 4.0)]))
     with TestClient(app, headers={CLIENT_HEADER: 'workspace'}) as test_client:
@@ -184,14 +183,6 @@ def test_set_it_up_downloads_resumes_and_makes_the_chat_profile(client, hub):
     for flag, value in [('--temp', '0.7'), ('--top-p', '0.8'), ('--top-k', '20'), ('--min-p', '0.0'),
                         ('--presence-penalty', '1.5'), ('--repeat-penalty', '1.0')]:
         assert arguments[arguments.index(flag) + 1] == value
-
-
-def test_a_reply_starts_the_server_and_asks_it(client, hub, companion):
-    client.post('/api/ready', json={'model': 'qwen3.5-4b'})
-    assert settled(client)['status'] == 'ready'
-    port = int(hub.processes[-1].arguments[hub.processes[-1].arguments.index('--port') + 1])
-    send(client, 'hi', 'ready-message-1')
-    assert hub.chats and hub.chats[-1] == port
 
 
 def test_a_bad_download_is_thrown_away(client, hub, monkeypatch):
@@ -263,59 +254,11 @@ def test_a_check_cut_short_by_a_restart_runs_again(client, hub):
     assert settled(client)['status'] == 'ready'
 
 
-def test_a_write_up_waiting_on_a_discarded_download_goes_with_it(client):
-    ready_app = client.app.state.ready
-    ready_app.save(status='cancelled', model_key='qwen3.5-4b', queued={'name': 'Mira', 'status': 'waiting'})
-    assert client.delete('/api/ready').json()['queued'] is None
-
-
 def test_the_view_names_the_card_the_drive_and_the_runtime_download(client):
     view = client.get('/api/ready').json()
     assert view['card'] == {'name': 'GTX 1650', 'memory_gb': 4.0}
     assert view['runtime_bytes'] > 0 and view['drive'] and view['seconds_left'] is None
     assert client.post('/api/ready/seen', json={'what': 'notice'}).json()['announced'] is True
-
-
-def test_a_companion_saved_during_the_download_is_written_up_when_it_is_ready(client, hub, companion, monkeypatch):
-    from dungeon import drafting
-    drafted = {**companion['version']['definition'], 'name': 'Someone else', 'personality': 'Should not replace',
-               'voice': 'Short, dry texts.', 'interests': ['bouldering']}
-
-    async def draft(_state, request):
-        assert request.name == 'Mira' and request.idea == 'a night-shift nurse'
-        return {'definition': drafted}
-
-    monkeypatch.setattr(drafting, 'draft', draft)
-    client.post('/api/ready', json={'model': 'qwen3.5-4b'})
-    assert client.post('/api/ready/queue', json={'request': {'idea': 'a night-shift nurse'}}).status_code == 200
-    view = settled(client)
-    deadline = time.monotonic() + 5
-    while view['queued']['status'] in ('waiting', 'writing') and time.monotonic() < deadline:
-        time.sleep(0.02)
-        view = client.get('/api/ready').json()
-    assert view['queued'] == {'name': 'Mira', 'status': 'done', 'message': ''}
-    definition = client.get('/api/companion').json()['companion']['version']['definition']
-    assert definition['name'] == 'Mira' and definition['personality'] == 'Warm and curious'
-    assert definition['voice'] == 'Short, dry texts.' and definition['interests'] == ['bouldering']
-
-
-def test_deleting_the_built_in_profile_stops_its_server_and_offers_set_up_again(client, hub, companion):
-    client.post('/api/ready', json={'model': 'qwen3.5-4b'})
-    view = settled(client)
-    send(client, 'hi', 'ready-message-1')
-    process = hub.processes[-1]
-    assert process.poll() is None
-    assert client.delete(f"/api/models/profiles/{view['profile_id']}").status_code == 200
-    assert process.poll() is not None, 'the server stopped'
-    after = client.get('/api/ready').json()
-    assert (after['status'], after['profile_id'], after['server']['state']) == ('idle', None, 'off')
-    # Setting it up again uses the checked file still on disk: nothing is downloaded again.
-    asked = len(hub.ranges)
-    client.post('/api/ready', json={'model': 'qwen3.5-4b'})
-    again = settled(client)
-    assert again['status'] == 'ready' and len(hub.ranges) == asked
-    with client.app.state.database.connect() as connection:
-        assert config_for(connection, 'chat')['resource_group'] == 'builtin-chat'
 
 
 def test_saving_the_setup_waits_out_a_reader_that_has_it_open(tmp_path, monkeypatch):

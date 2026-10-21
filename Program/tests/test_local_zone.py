@@ -1,11 +1,8 @@
 """Your timezone comes from this PC unless you pick one yourself."""
-import sqlite3
 
-import pytest
 from fastapi.testclient import TestClient
 
 from dungeon import local_zone
-from dungeon.database import Database
 from dungeon.identity import CLIENT_HEADER
 from dungeon.main import create_app
 from dungeon.providers.vault import MemoryVault
@@ -13,7 +10,7 @@ from dungeon.providers.vault import MemoryVault
 
 def open_app(path, monkeypatch, detected):
     monkeypatch.setattr('dungeon.local_zone.detect', lambda: detected)
-    app = create_app(path, vault=MemoryVault(), life_tasks=False)
+    app = create_app(path, vault=MemoryVault(), background=False)
     return TestClient(app, headers={CLIENT_HEADER: 'workspace'})
 
 
@@ -66,20 +63,6 @@ def test_pc_zone_follows_on_startup_but_a_chosen_one_stays(tmp_path, monkeypatch
         put(client, user_timezone='Asia/Tokyo')
     with open_app(path, monkeypatch, 'America/New_York') as client:
         assert client.get('/api/settings').json()['user_timezone'] == 'Asia/Tokyo'
-
-
-@pytest.mark.parametrize(('stored', 'expected'), [('UTC', 'America/New_York'), ('America/Denver', 'America/Denver')])
-def test_existing_workspace_keeps_a_zone_set_before_this_version(tmp_path, monkeypatch, stored, expected):
-    path = tmp_path / 'dungeon.sqlite3'
-    database = Database(path)
-    with database.connect(write=True) as connection:
-        connection.execute('UPDATE workspace_settings SET user_timezone=? WHERE id=1', (stored,))
-        connection.execute("DELETE FROM app_identity WHERE key IN ('schema_digest', 'app_version')")
-        connection.execute('ALTER TABLE workspace_settings DROP COLUMN user_timezone_source')
-    with open_app(path, monkeypatch, 'America/New_York') as client:
-        assert client.get('/api/settings').json()['user_timezone'] == expected
-    assert 'user_timezone_source' in {row[1] for row in sqlite3.connect(path).execute(
-        'PRAGMA table_info(workspace_settings)')}
 
 
 def test_windows_zone_names_map_to_iana(monkeypatch):

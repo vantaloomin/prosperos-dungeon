@@ -6,6 +6,7 @@ the user set up with a model file they downloaded (`builtin_recall.py`), and key
 otherwise. Only OpenAI, local and OpenAI-compatible profiles offer embeddings.
 """
 import asyncio
+import math
 
 import httpx
 
@@ -91,3 +92,12 @@ class EmbeddingProvider:
         require(all(isinstance(vector, list) and vector for vector in vectors), 'The service returned empty embeddings.',
                 502)
         return [[float(value) for value in vector] for vector in vectors]
+
+
+def cosine(left, right) -> float:
+    """How alike two vectors point: 1 the same way, 0 unrelated (0 for vectors of different sizes)."""
+    if len(left) != len(right):
+        return 0.0
+    dot = sum(a * b for a, b in zip(left, right))
+    norm = math.sqrt(sum(a * a for a in left)) * math.sqrt(sum(b * b for b in right))
+    return dot / norm if norm else 0.0

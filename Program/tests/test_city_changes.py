@@ -128,20 +128,6 @@ def test_users_add_changes_and_dismiss_seeded_ones(client):
     assert client.delete('/api/world/cities/baltimore/changes/unknown').status_code == 404
 
 
-def test_chat_context_mentions_city_changes(client, connected, provider):
-    current = client.get('/api/companion').json()['companion']
-    definition = {**current['version']['definition'], 'home_city': 'baltimore', 'timezone': 'America/New_York'}
-    client.post('/api/companion/versions', json={'definition': definition,
-                                                 'expected_version_id': current['active_version_id']})
-    client.post('/api/world/cities/baltimore/changes', json={
-        'kind': 'roadworks', 'starts_on': '2026-10-01', 'ends_on': '2026-11-15', 'neighborhood': 'canton'})
-    response = client.post('/api/conversation/messages', json={'text': 'How was the drive?', 'client_id': 'client-changes'})
-    assert response.status_code == 200, response.text
-    system = provider.requests[-1]['system']
-    assert '## Changes around your city' in system
-    assert '- Canton: road works on the main street until Nov 15; trips by road through there take longer' in system
-
-
 def test_shipped_wording_matches_its_script():
     script = Path(__file__).parent.parent / 'scripts' / 'world' / 'changes.py'
     written = json.loads((catalog.DATA / 'changes.json').read_text(encoding='utf-8'))

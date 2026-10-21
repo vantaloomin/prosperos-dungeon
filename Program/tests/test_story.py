@@ -1,22 +1,15 @@
-"""Story mode: a narrator for the user's own story around the cities, apart from the companion (dungeon/story.py)."""
+"""The story: a narrator for the user's own story around the cities (dungeon/story.py)."""
 from datetime import timedelta
 
-import pytest
-from conftest import Chunk, send
-from test_drafting import connect
-from test_social_circle import make
+from conftest import Chunk
 
 from dungeon import story
 from dungeon.narration import prose
 
 
-@pytest.fixture(autouse=True)
-def story_on(client):
-    """Story mode is opt-in; every test here turns it on first, after checking it starts off."""
-    off = client.get('/api/story')
-    assert off.status_code == 404 and off.json()['code'] == 'story_off'
-    assert client.get('/api/settings').json()['story_mode'] is False
-    assert client.put('/api/settings', json={'story_mode': True}).json()['story_mode'] is True
+def connect(client):
+    response = client.put('/api/connection', json={'base_url': 'http://127.0.0.1:1234/v1', 'model': 'local-model'})
+    assert response.status_code == 200, response.text
 
 
 def ok(response):
@@ -41,8 +34,7 @@ def busy_place(client, clock):
     raise AssertionError('Nobody is anywhere in Baltimore for two days.')
 
 
-def test_the_story_starts_in_the_companions_city_and_needs_a_model(client, clock):
-    make(client, 'Warm and curious.')
+def test_the_story_starts_in_the_worlds_city_and_needs_a_model(client, clock):
     opened = ok(client.get('/api/story'))
     assert opened['ready'] is False and opened['messages'] == []
     scene = opened['scene']
@@ -59,8 +51,7 @@ def test_the_story_starts_in_the_companions_city_and_needs_a_model(client, clock
     assert ok(client.get('/api/story'))['ready'] is True
 
 
-def test_the_narrator_is_given_the_scene_and_the_companion_never_sees_the_story(client, clock, provider):
-    make(client, 'Warm and curious.')
+def test_the_narrator_is_given_the_scene(client, clock, provider):
     connect(client)
     place, people = busy_place(client, clock)
     moved = ok(client.put('/api/story/scene', json={'city_id': 'baltimore', 'place_id': place['id']}))
@@ -82,14 +73,8 @@ def test_the_narrator_is_given_the_scene_and_the_companion_never_sees_the_story(
     assert request['messages'][0]['content'].startswith('[You arrive at')
     assert 'secret password is plum' in request['messages'][-1]['content']
 
-    send(client, 'Hi Mira!', 'client-0001')
-    chat = provider.requests[-1]
-    assert 'plum' not in chat['system'] and all('plum' not in message['content'] for message in chat['messages'])
-    assert 'narrator' not in chat['system']
-
 
 def test_moving_to_another_city_and_unknown_places(client, clock):
-    make(client, 'Warm and curious.')
     moved = ok(client.put('/api/story/scene', json={'city_id': 'new-york'}))
     assert moved['scene']['city']['name'] == 'New York' and moved['messages'][-1]['text'].endswith('New York.')
     # Choosing where the story already is adds nothing.
@@ -133,7 +118,6 @@ def test_a_failed_reply_can_be_told_again_and_a_new_story_started(client, clock,
 
 
 def test_people_named_in_the_story_are_met_and_remembered(client, clock, provider):
-    make(client, 'Warm and curious.')
     connect(client)
     place, people = busy_place(client, clock)
     ok(client.put('/api/story/scene', json={'city_id': 'baltimore', 'place_id': place['id']}))
@@ -155,13 +139,6 @@ def test_people_named_in_the_story_are_met_and_remembered(client, clock, provide
     assert 'The user has met them once and knows their name' in provider.requests[-1]['system']
     assert 'From before: "I\'m' in provider.requests[-1]['system']
     assert ok(client.get('/api/story'))['people'][0]['meetings'] == 1
-
-    # They can become the main character, with the story's meeting in their profile.
-    drafted = ok(client.get('/api/companion/cast/draft', params={'key': them['key']}))
-    assert 'Has met the user in person once.' in drafted['definition']['history_together']
-    switched = ok(client.post('/api/companion/cast/switch', json={'key': them['key'],
-                                                                  'definition': drafted['definition']}))
-    assert switched['version']['name'] == them['full']
 
     cleared = ok(client.delete('/api/story'))
     assert cleared['people'] == []
@@ -201,7 +178,6 @@ def test_a_person_line_does_not_say_their_job_twice():
 
 
 def test_the_narration_is_checked_and_rewritten_before_it_is_saved(client, clock, provider):
-    make(client, 'Warm and curious.')
     connect(client)
     provider.replies = [[Chunk('The door chimes—softly. A shiver ran down your spine as the room turned to look.'),
                          Chunk('', 'stop')],

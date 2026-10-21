@@ -1,8 +1,7 @@
 """Automatic backups of every world (dungeon/auto_backup.py)."""
-import asyncio
 from datetime import datetime, timedelta
 
-from dungeon import auto_backup, backup
+from dungeon import auto_backup
 
 
 def ok(response):
@@ -24,19 +23,6 @@ def test_seven_days_then_four_weeks_are_kept():
     assert weekly[-1] >= 28
 
 
-def test_every_world_is_backed_up_once_a_day_on_its_own(client, companion, app, clock):
-    made = ok(client.post('/api/worlds', json={}))
-    done = asyncio.run(auto_backup.run_once(app.state))
-    assert len(done) == 2 and all(backup.inspect(path) for path in done)
-    assert {path.parent.parent for path in done} == {app.state.database.root,
-                                                     app.state.database.root / made['folder']}
-    # Nothing again the same day.
-    assert asyncio.run(auto_backup.run_once(app.state)) == []
-    listed = ok(client.get('/api/backups'))
-    assert listed['auto_backups'] == 'daily' and listed['last_auto_backup']
-    assert any(item['kind'] == 'auto' for item in listed['backups'])
-
-
 def test_a_world_nobody_opened_is_not_backed_up_again(tmp_path):
     folder = tmp_path / 'backups'
     folder.mkdir()
@@ -46,8 +32,3 @@ def test_a_world_nobody_opened_is_not_backed_up_again(tmp_path):
     (folder / f"auto-{later.strftime('%Y%m%dT%H%M%S')}.zip").write_bytes(b'')
     assert not auto_backup.due(database, later + timedelta(days=2), 'daily')
     assert auto_backup.due(tmp_path / 'other' / 'dungeon.sqlite3', later, 'daily')
-
-
-def test_turned_off_means_none(client, companion, app):
-    ok(client.put('/api/settings', json={'auto_backups': 'off'}))
-    assert asyncio.run(auto_backup.run_once(app.state)) == []

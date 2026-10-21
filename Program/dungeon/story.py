@@ -339,9 +339,8 @@ async def narrate(state, packet: dict, config: dict, active: bool) -> tuple[str,
 
 async def complete(state, config: dict, system: str, messages: list[dict]) -> str:
     """One whole reply from the story's model, for the narration's rewrite pass."""
-    conversation = state.conversation
-    async with conversation.scheduler.reserve(config, CONVERSATION):
-        return ''.join([chunk.text async for chunk in conversation.provider.stream(
+    async with state.scheduler.reserve(config, CONVERSATION):
+        return ''.join([chunk.text async for chunk in state.provider.stream(
             config, key_for(state.vault, config), system, messages)])
 
 
