@@ -2,8 +2,8 @@
 from fastapi import APIRouter, Request
 from pydantic import Field
 
-from dungeon import sheet, story
-from dungeon.models import Input
+from dungeon import campaign, sheet, story
+from dungeon.models import Input, PersonaInput
 
 router = APIRouter(prefix='/api/story')
 
@@ -63,6 +63,23 @@ def change_sheet(request: Request, body: SheetChange):
     with database.connect(write=True) as connection:
         sheet.set_stats(connection, body.stats, database.now())
         return sheet.view(connection)
+
+
+class StoryStart(Input):
+    """A premade character by id, or one the player made: who they are and their bought stats."""
+    premade_id: str | None = Field(None, min_length=1, max_length=80)
+    persona: PersonaInput | None = None
+    stats: dict[str, int] | None = None
+
+
+@router.get('/start')
+def start_choices(request: Request):
+    return campaign.view(request.app.state.database)
+
+
+@router.post('/start')
+def start(request: Request, body: StoryStart):
+    return campaign.begin(request.app.state.database, body.premade_id, body.persona, body.stats)
 
 
 @router.delete('')

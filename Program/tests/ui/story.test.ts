@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { aroundText, personLine, placeGroups, rollText, sceneTime } from '../../src/features/story/storyText.ts'
+import { aroundText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -46,4 +46,17 @@ test('a shown roll reads as the sum it was', () => {
   assert.equal(rollText(roll), 'Allure d8: 62 + 5, very hard (-20) = 47, Fail with an upside')
   assert.equal(rollText({ ...roll, die: null, bonus: 0, shift: -10, difficulty: 'easy', total: 72, label: 'Success' }), 'Allure: 62, easy (+10) = 72, Success')
   assert.equal(rollText({ ...roll, shift: 0, difficulty: 'normal', total: 67, label: 'Success at a cost' }), 'Allure d8: 62 + 5 = 67, Success at a cost')
+})
+
+test('a made character starts even and counts the points it has left', () => {
+  const start = { stat_names: ['Mind', 'Allure', 'Resolve', 'Vitality', 'Essence', 'Luck'], points: 60, range: [4, 18] as [number, number] }
+  const stats = startingStats(start)
+  assert.deepEqual(Object.values(stats), [10, 10, 10, 10, 10, 10])
+  assert.equal(pointsLeft(stats, 60), 0)
+  assert.equal(pointsLeft({ ...stats, Mind: 13 }, 60), -3)
+  assert.equal(pointsText(-1, 60), '1 point over of 60')
+  assert.equal(pointsText(4, 60), '4 points left of 60')
+  assert.equal(premadeLine({ gender: 'woman', age: 41 }), 'a woman, 41')
+  assert.equal(premadeLine({ gender: 'nonbinary', age: null }), 'nonbinary')
+  assert.equal(premadeLine({ gender: '', age: null }), '')
 })

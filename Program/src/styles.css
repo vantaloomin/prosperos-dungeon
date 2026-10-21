@@ -124,6 +124,14 @@ textarea { resize: vertical; line-height: 1.6; }
 .story-user { margin: 0 0 20px auto; max-width: 85%; padding: 10px 14px; border-radius: 12px; background: var(--accent-tint); white-space: pre-wrap; overflow-wrap: anywhere; width: fit-content; }
 .story-rolls { list-style: none; margin: -12px 0 20px auto; padding: 0; max-width: 85%; width: fit-content; font-size: 0.8125rem; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
 .story-sheet { margin-top: 8px; }
+.story-start { flex: 1; overflow-y: auto; max-width: 760px; width: 100%; margin: 0 auto; padding: 20px 32px; }
+.story-start h2 { margin: 0 0 6px; }
+.story-premades { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 12px; }
+.story-premades li { border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; background: var(--surface); }
+.story-premades p { margin: 6px 0 10px; }
+.story-make { display: grid; gap: 12px; }
+.story-points { margin: 4px 0 0; color: var(--muted); }
+.story-points.over { color: var(--danger); }
 .story-sheet summary { cursor: pointer; color: var(--muted); }
 .story-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px 16px; margin-top: 8px; }
 .story-move { margin-bottom: 20px; text-align: center; font-size: 0.8125rem; color: var(--muted); font-style: italic; }
@@ -132,7 +140,6 @@ textarea { resize: vertical; line-height: 1.6; }
 .story-people li { display: flex; flex-direction: column; gap: 6px; padding: var(--card-pad); border: 1px solid var(--border); border-radius: 10px; }
 .story-people .form-actions { gap: 14px; }
 .story-note { font-family: var(--read-font); font-size: 0.875rem; color: var(--muted); font-style: italic; }
-.story-empty { text-align: center; margin-top: 24px; }
 .story-notice, .story-footer { max-width: 760px; width: 100%; margin: 0 auto; padding: 0 32px 10px; }
 .story-notice { padding-top: 12px; }
 .story-footer { padding-bottom: 16px; display: flex; flex-wrap: wrap; gap: 4px 16px; }
@@ -156,7 +163,7 @@ textarea { resize: vertical; line-height: 1.6; }
   .page { padding: 22px 16px 32px; }
   .page-header { flex-wrap: wrap; }
   .composer { padding: 10px 12px 12px; }
-  .story-header, .story-log, .story-notice, .story-footer { padding-left: 16px; padding-right: 16px; }
+  .story-header, .story-log, .story-start, .story-notice, .story-footer { padding-left: 16px; padding-right: 16px; }
 }
 @media (prefers-reduced-motion: reduce) { :root:not([data-motion='full']) *, :root:not([data-motion='full']) *::before, :root:not([data-motion='full']) *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
 :root[data-motion='reduce'] *, :root[data-motion='reduce'] *::before, :root[data-motion='reduce'] *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }

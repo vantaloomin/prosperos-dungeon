@@ -211,6 +211,10 @@ export interface StoryPerson {
   key: string; name: string; role: string; city: string; meetings: number; last_met_at: string; notes: string[]
   doing: string; place: { id: string; name: string; city_id: string } | null
 }
+/** A character a town ships to play as (dungeon/campaign.py). */
+export interface Premade { id: string; name: string; gender: PersonaGender; age: number | null; about: string; stats: Record<string, number> }
+/** Campaign start: the town's premades and the point-buy for making your own. */
+export interface StoryStart { premades: Premade[]; points: number; range: [number, number]; stat_names: string[]; meanings: Record<string, string> }
 export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean }
 
 /** Record model calls (dungeon/model_calls.py), Settings > Debug. */

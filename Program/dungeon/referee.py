@@ -34,14 +34,14 @@ KEYWORDS = (
     ('Luck', ('sneak', 'hide', 'gamble', 'bet', 'guess', 'hope', 'slip past', 'luck')),
 )
 
+STATS = '; '.join(f'{stat} ({meaning})' for stat, meaning in marvel.MEANINGS.items())
+
 SYSTEM = f"""You are the Referee of a tabletop roleplaying game. You never write story. Read the player's turn and \
 split it into the separate things their character tries to do, at most {MOST_ACTIONS}. For each one decide whether \
 the outcome is uncertain enough to need a roll (talking, looking around, walking somewhere or ordinary actions do \
 not), which stat it tests and how hard it is.
 
-Stats: Mind (reason, perception, knowledge, skill with the hands), Allure (charm, persuasion, deception, \
-performance), Resolve (will, nerve, intimidation, resisting pain or influence), Vitality (strength, speed, \
-fighting, endurance), Essence (magic, faith, the uncanny), Luck (chance, stealth, timing).
+Stats: {STATS}.
 Difficulty: easy, normal, hard, very_hard or extreme.
 
 Answer with JSON only, in this shape:

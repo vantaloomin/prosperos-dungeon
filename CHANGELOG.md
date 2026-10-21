@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Campaign start.** A new story asks "Who are you?": play one of the town's premade characters (Haddon Harbor
+  has three) or make your own with a name, a few lines and MARVEL stats bought from 60 points. The narrator now
+  knows who the player is, and what they are good and poor at, in words.
 - **The turn loop (Milestone 1).** Each story turn is refereed and rolled in code before the narrator writes: the
   six MARVEL stats (Mind, Allure, Resolve, Vitality, Essence, Luck) under "Your character", a d100 roll plus the
   stat's die on the six-band ladder from critical failure to critical success, and the Referee, a model job that
