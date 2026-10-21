@@ -223,7 +223,31 @@ CREATE TABLE IF NOT EXISTS story_messages (
   error TEXT,
   city_id TEXT NOT NULL,
   place_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  -- The branch the message was written in (dungeon/timeline.py); 'first' is the story's first.
+  branch_id TEXT NOT NULL DEFAULT 'first'
+);
+
+-- Branches of the story (dungeon/timeline.py). A branch shows its parent's messages before `fork_seq`, then its
+-- own. `tip` is the game state where the player left it, kept while another branch is played.
+CREATE TABLE IF NOT EXISTS story_branches (
+  id TEXT PRIMARY KEY,
+  parent_id TEXT,
+  fork_seq INTEGER,
+  tip TEXT,
   created_at TEXT NOT NULL
+);
+
+-- Which branch is being played.
+CREATE TABLE IF NOT EXISTS story_timeline (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  branch_id TEXT NOT NULL DEFAULT 'first'
+);
+
+-- The game state at the start of each of the player's turns: going back to a turn puts it back.
+CREATE TABLE IF NOT EXISTS story_saves (
+  message_id TEXT PRIMARY KEY REFERENCES story_messages(id) ON DELETE CASCADE,
+  state TEXT NOT NULL
 );
 
 -- MARVEL stats per actor (dungeon/sheet.py); 'persona' is the player's character.

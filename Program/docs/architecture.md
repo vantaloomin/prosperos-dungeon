@@ -34,11 +34,14 @@ top of it, milestone by milestone, as set out in [the roadmap](../../docs/roadma
 | `world_cities`, `world_changes`, `world_change_dismissals` | Custom cities and what has changed in the town since it was generated |
 | `lore_books`, `lore_entries` | World lore, imported from lorebooks or a Marinara map |
 | `story_scene`, `story_messages`, `story_people` | Where the story is, the story so far, and the people the user has met |
+| `story_branches`, `story_timeline`, `story_saves` | The story's branches, which one is played, and the game state at each of the player's lines |
+| `character_stats`, `story_rolls` | MARVEL stats, and the rolls of each turn |
 | `authors_notes` | The user's note that rides along with every narrator turn |
 | `townsfolk_mix`, `townsfolk_personality`, `birth_dates`, `town_levels` | How the town is generated and how it ages |
 
 A database from before Milestone 0 is not upgraded: Dungeon starts a fresh schema, and `upgrade.py` only handles
-changes made from here on.
+changes made from here on. New tables come from `schema.sql`; a column added to an existing table is listed in
+`database.ADDED_COLUMNS` as well.
 
 ## Engines kept
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { aroundText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats } from '../../src/features/story/storyText.ts'
+import { aroundText, branchLine, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -59,4 +59,9 @@ test('a made character starts even and counts the points it has left', () => {
   assert.equal(premadeLine({ gender: 'woman', age: 41 }), 'a woman, 41')
   assert.equal(premadeLine({ gender: 'nonbinary', age: null }), 'nonbinary')
   assert.equal(premadeLine({ gender: '', age: null }), '')
+})
+
+test('a branch says how long it ran', () => {
+  assert.equal(branchLine({ turns: 1, last_at: '' }), '1 turn')
+  assert.match(branchLine({ turns: 3, last_at: '2026-10-21T20:00:00' }), /^3 turns, last played /)
 })

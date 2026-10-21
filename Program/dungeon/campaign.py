@@ -7,7 +7,7 @@ way the persona of this world takes them on, and the story opens with the player
 import json
 from pathlib import Path
 
-from dungeon import sheet, story, worlds
+from dungeon import sheet, story, timeline, worlds
 from dungeon.database import one
 from dungeon.errors import require
 from dungeon.models import PersonaInput
@@ -45,7 +45,8 @@ def begin(database, premade_id: str | None = None, persona: PersonaInput | None 
           stats: dict[str, int] | None = None) -> dict:
     """Start the story as a premade character or one the player made; only a story with nothing in it yet."""
     with database.connect() as connection:
-        require(one(connection, 'SELECT COUNT(*) AS n FROM story_messages')['n'] == 0,
+        where, values = timeline.visible(connection)
+        require(one(connection, f'SELECT COUNT(*) AS n FROM story_messages WHERE {where}', values)['n'] == 0,
                 'The story has already begun. Start a new story to choose someone else.', 409)
         city_id = story.scene_row(connection)['city_id']
     if premade_id:

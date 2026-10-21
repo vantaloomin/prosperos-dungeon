@@ -1,4 +1,4 @@
-import type { Premade, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart } from '../../types'
+import type { Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -100,4 +100,12 @@ export function pointsText(left: number, points: number): string {
 /** The points still to spend; below zero when the stats cost more than the pool. */
 export function pointsLeft(stats: Record<string, number>, points: number): number {
   return points - Object.values(stats).reduce((sum, value) => sum + value, 0)
+}
+
+/** "3 turns, last played Tue 21 Oct" for a branch the player is not in. */
+export function branchLine(branch: Pick<StoryBranch, 'turns' | 'last_at'>): string {
+  const turns = `${branch.turns} ${branch.turns === 1 ? 'turn' : 'turns'}`
+  if (!branch.last_at) return turns
+  const day = new Date(branch.last_at)
+  return `${turns}, last played ${day.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}`
 }

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { MapPin, RotateCcw, Send } from 'lucide-react'
+import { MapPin, RotateCcw, Send, Undo2 } from 'lucide-react'
 import { api, newId } from '../../api'
 import type { View } from '../../workspace'
-import type { CitySummary, Story as StoryData, StoryMessage, StoryScene } from '../../types'
+import type { CitySummary, Story as StoryData, StoryBack, StoryMessage, StoryScene } from '../../types'
 import { Loading, Notice } from '../../components/Feedback'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
@@ -15,6 +15,7 @@ import { CityOptions } from '../world/CityOptions'
 import { AuthorsNote } from './AuthorsNote'
 import { StorySheet } from './StorySheet'
 import { StoryStart } from './StoryStart'
+import { StoryBranches } from './StoryBranches'
 
 const STORY_KEY = ['story']
 const OUT_OF_STORY = 'To step out of the story, start a message with OOC: or wrap it in ((double parentheses)).'
@@ -25,6 +26,7 @@ export function Story({ go }: { go: (view: View) => void }) {
   const client = useQueryClient()
   const [pending, setPending] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [draft, setDraft] = useState({ text: '', at: 0 })
   if (story.isPending) return <Loading label="Opening your story" />
   if (story.isError) return <ErrorNotice error={story.error} />
   const update = (data: StoryData) => client.setQueryData(STORY_KEY, data)
@@ -37,23 +39,36 @@ export function Story({ go }: { go: (view: View) => void }) {
   const send = (text: string) => run(text, () => api('/story/messages', { text, client_id: newId() }))
   return (
     <section className="story" aria-labelledby="story-heading">
-      <header className="story-header">
-        <h1 id="story-heading">Story</h1>
-        <p className="subtle">Your own story around town, told by a narrator.</p>
-        <SceneBar scene={story.data.scene} onMove={(body) => run(null, () => api<StoryData>('/story/scene', body, 'PUT').then(update))} />
-        {!!story.data.messages.length && <StorySheet />}
-        <StoryPeople people={story.data.people}
-          onFind={(key) => void run(null, () => api<StoryData>('/story/find', { key }).then(update))} />
-      </header>
-      {!story.data.ready && <div className="story-notice"><Notice action={<button type="button" className="text-button" onClick={() => go('settings/models')}>Open Models</button>}>
-        Add a text model in Settings &gt; Models to tell the story.</Notice></div>}
+      <StoryHeader story={story.data} change={(request) => run(null, () => request().then(update))} />
+      {!story.data.ready && <NoModel go={go} />}
       {!story.data.messages.length && pending === null ? <StoryStart onStarted={update} /> : <>
-        <StoryLog messages={story.data.messages} pending={pending} onRetry={() => void run(null, () => api('/story/retry', {}))} />
+        <StoryLog messages={story.data.messages} pending={pending} onRetry={() => void run(null, () => api('/story/retry', {}))}
+          onBack={(id) => void run(null, () => api<StoryBack>('/story/back', { message_id: id }).then((data) => { update(data); setDraft({ text: data.draft, at: Date.now() }) }))} />
         {error && <div className="story-notice"><Notice tone="error">{error}</Notice></div>}
-        <StoryComposer busy={pending !== null} onSend={(text) => void send(text)} />
+        <StoryComposer key={draft.at} busy={pending !== null} draft={draft.text} onSend={(text) => void send(text)} />
       </>}
       <NewStory empty={!story.data.messages.length} onClear={() => run(null, () => api<StoryData>('/story', undefined, 'DELETE').then(update))} />
     </section>
+  )
+}
+
+function NoModel({ go }: { go: (view: View) => void }) {
+  return <div className="story-notice"><Notice action={<button type="button" className="text-button" onClick={() => go('settings/models')}>Open Models</button>}>
+    Add a text model in Settings &gt; Models to tell the story.</Notice></div>
+}
+
+/** The scene, the sheet, the people met and the other branches; `change` runs a request that returns the story. */
+function StoryHeader({ story, change }: { story: StoryData; change: (request: () => Promise<StoryData>) => Promise<void> }) {
+  return (
+    <header className="story-header">
+      <h1 id="story-heading">Story</h1>
+      <p className="subtle">Your own story around town, told by a narrator.</p>
+      <SceneBar scene={story.scene} onMove={(body) => change(() => api<StoryData>('/story/scene', body, 'PUT'))} />
+      {!!story.messages.length && <StorySheet />}
+      <StoryPeople people={story.people} onFind={(key) => void change(() => api<StoryData>('/story/find', { key }))} />
+      <StoryBranches branches={story.branches}
+        onSwitch={(id) => void change(() => api<StoryData>(`/story/branches/${encodeURIComponent(id)}/switch`, {}))} />
+    </header>
   )
 }
 
@@ -99,13 +114,15 @@ function GoElsewhere({ scene, onDone, onMove }: GoProps) {
   )
 }
 
-function StoryLog({ messages, pending, onRetry }: { messages: StoryMessage[]; pending: string | null; onRetry: () => void }) {
+interface LogProps { messages: StoryMessage[]; pending: string | null; onRetry: () => void; onBack: (id: string) => void }
+
+function StoryLog({ messages, pending, onRetry, onBack }: LogProps) {
   const end = useRef<HTMLDivElement>(null)
   useEffect(() => { end.current?.scrollIntoView?.({ block: 'end' }) }, [messages.length, pending])
   const last = messages[messages.length - 1]
   return (
     <div className="story-log" aria-live="polite">
-      {messages.map((message) => <StoryLine key={message.id} message={message} />)}
+      {messages.map((message) => <StoryLine key={message.id} message={message} onBack={pending ? undefined : onBack} />)}
       {pending && <><p className="story-user">{pending}</p><p className="subtle">The narrator is writing…</p></>}
       {last?.status === 'failed' && !pending && <button type="button" className="text-button" onClick={onRetry}><RotateCcw aria-hidden="true" />Try again</button>}
       <div ref={end} />
@@ -113,19 +130,25 @@ function StoryLog({ messages, pending, onRetry }: { messages: StoryMessage[]; pe
   )
 }
 
-function StoryLine({ message }: { message: StoryMessage }) {
+/** `onBack` goes back to before a line of the player's, to send it again with new dice. */
+function StoryLine({ message, onBack }: { message: StoryMessage; onBack?: (id: string) => void }) {
   if (message.role === 'scene') return <p className="story-move">{message.text}</p>
   if (message.role === 'user') return <>
     <p className="story-user">{message.text}</p>
-    {!!message.rolls?.length && <ul className="story-rolls" aria-label="Rolls">{message.rolls.map((roll, index) => <li key={index} title={roll.action}>{rollText(roll)}</li>)}</ul>}
+    <div className="story-turn">
+      {!!message.rolls?.length && <ul className="story-rolls" aria-label="Rolls">{message.rolls.map((roll, index) => <li key={index} title={roll.action}>{rollText(roll)}</li>)}</ul>}
+      {onBack && <button type="button" className="text-button story-back" onClick={() => onBack(message.id)}
+        title="Go back to before this line and send it again, with new dice. The story from here is kept as a branch."><Undo2 aria-hidden="true" />Go back here</button>}
+    </div>
     {message.crisis_help && <CrisisNote />}
   </>
   if (message.status === 'failed') return <Notice tone="error">The narrator could not go on: {message.error}</Notice>
   return <div className="story-narration">{message.text.split(/\n{2,}/).map((part, index) => <p key={index}>{part}</p>)}</div>
 }
 
-function StoryComposer({ busy, onSend }: { busy: boolean; onSend: (text: string) => void }) {
-  const [text, setText] = useState('')
+/** `draft` is a line taken back to send again; a new draft remounts the composer with it. */
+function StoryComposer({ busy, draft, onSend }: { busy: boolean; draft: string; onSend: (text: string) => void }) {
+  const [text, setText] = useState(draft)
   const submit = () => { if (text.trim() && !busy) { onSend(text.trim()); setText('') } }
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit() }

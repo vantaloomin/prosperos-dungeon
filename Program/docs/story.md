@@ -60,11 +60,24 @@ dice. The character's six stats (table `character_stats`, 1 to 30, 10 to start) 
 the Story screen. "Show the dice" in Settings > World shows each roll under the user's line; off, rolls stay
 hidden and the story reads the same.
 
+## Going back
+
+Every line the player sends is a save point (`dungeon/timeline.py`): the game state as the line arrives (the scene,
+the people met and the sheet, the tables in `timeline.SAVED`) is kept in `story_saves`. "Go back here" under any of
+the player's lines starts a new branch from just before it, puts that state back and returns the line to the
+composer to send again. Nothing is rolled until it is sent, so the dice are always new.
+
+The branch left behind is kept with its state (`story_branches.tip`) and listed under "Other branches", where
+"Play this branch" picks it up where it was left. Messages carry their `branch_id` (the first branch is `first`); a
+branch shows its parent's messages before the line it went back to, then its own, and the narrator sees only those.
+"Tell it again" works on lines of the branch being played; a shared line keeps the reply it was told. A system that
+keeps game state adds its tables to `timeline.SAVED`.
+
 ## API
 
 | Request | Does |
 | --- | --- |
-| `GET /api/story` | `{scene, messages, people, ready, dice_shown}`. User messages carry their `rolls` while the dice are shown. `people` are those met, newest first, with `meetings`, `notes`, `doing` and `place` now. `scene` has the city, place, `local_time` (city clock, no offset), `weather`, the city's `places` and `around` (who is there, named only once met). `ready` is false without a model. |
+| `GET /api/story` | `{scene, messages, people, ready, dice_shown, branches}`. `branches` lists every branch with `playing`, `turns`, `last_line` and `last_at`, the one being played first. User messages carry their `rolls` while the dice are shown. `people` are those met, newest first, with `meetings`, `notes`, `doing` and `place` now. `scene` has the city, place, `local_time` (city clock, no offset), `weather`, the city's `places` and `around` (who is there, named only once met). `ready` is false without a model. |
 | `PUT /api/story/scene` `{city_id, place_id?}` | Moves there; a city alone means its opening place. 404 for an unknown city or place. |
 | `POST /api/story/messages` `{text, client_id}` | Saves the user's line once per `client_id` and returns `{message, reply}`. A failed reply is saved with `status: failed` and its `error`. Sending the same `client_id` again returns the saved reply, or tries again if it failed. 409 `no_connection` without a model; the line stays saved. |
 | `POST /api/story/find` `{key}` | Moves the story to where someone the user has met is now. 404 if not met, 409 if they are nowhere the story can go. |
@@ -73,7 +86,9 @@ hidden and the story reads the same.
 | `POST /api/story/start` `{premade_id}` or `{persona, stats}` | Starts the story as a premade or a made character; 409 once the story has begun, 404 for a premade not in this town, 422 for a missing name or stats outside the point-buy. |
 | `GET /api/story/sheet` | `{stats, stat_names, range, dice}`: the character's MARVEL stats and the die each one adds. |
 | `PUT /api/story/sheet` `{stats}` | Changes some or all stats; 422 for an unknown stat or a value outside 1 to 30. |
-| `DELETE /api/story` | Starts a new story: the history and the people met go, the scene stays. |
+| `POST /api/story/back` `{message_id}` | Back to before one of the player's lines, as a new branch; the story comes back with `draft`, the line to send again. 404 for a line not in the branch being played. |
+| `POST /api/story/branches/{id}/switch` | Plays on in another branch, where it was left. 404 for a branch not in this story. |
+| `DELETE /api/story` | Starts a new story: the history, every branch and the people met go, the scene stays. |
 
 ## People you've met
 

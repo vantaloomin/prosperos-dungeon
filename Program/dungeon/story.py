@@ -9,7 +9,7 @@ user's choice in the place picker, not the model's.
 """
 from datetime import datetime
 
-from dungeon import authors_note, in_character, prompt_library, referee, safety, story_people, turn
+from dungeon import authors_note, in_character, prompt_library, referee, safety, story_people, timeline, turn
 from dungeon.authors_note import NOTE_CLOSE
 from dungeon.clock import zone
 from dungeon.database import identifier, many, one, optional, settings
@@ -230,15 +230,17 @@ def add(connection, now: str, role: str, text: str, where: dict, **extra) -> dic
     message_id = identifier()
     connection.execute(
         'INSERT INTO story_messages (id, seq, role, text, client_id, reply_to, status, error, city_id, place_id, '
-        'created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'created_at, branch_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         (message_id, next_seq(connection), role, text, extra.get('client_id'), extra.get('reply_to'),
-         extra.get('status', 'complete'), extra.get('error'), where['city_id'], where['place_id'], now))
+         extra.get('status', 'complete'), extra.get('error'), where['city_id'], where['place_id'], now,
+         timeline.active(connection)))
     return one(connection, 'SELECT * FROM story_messages WHERE id=?', (message_id,))
 
 
 def messages(connection, limit: int = HISTORY_LIMIT) -> list[dict]:
+    where, values = timeline.visible(connection)
     rows = many(connection, 'SELECT id, seq, role, text, reply_to, status, error, city_id, place_id, created_at '
-                'FROM story_messages ORDER BY seq DESC LIMIT ?', (limit,))
+                f'FROM story_messages WHERE {where} ORDER BY seq DESC LIMIT ?', (*values, limit))
     # The app's crisis note under a user's line that sounds like self-harm (dungeon/safety.py).
     return [{**row, 'crisis_help': row['role'] == 'user' and safety.crisis(row['text'])} for row in reversed(rows)]
 
@@ -261,7 +263,20 @@ def story(database) -> dict:
         view = scene(connection, database.clock.now())
         return {'scene': scene_view(view), 'messages': with_rolls(connection, messages(connection)),
                 'people': people(connection, view), 'ready': config_for(connection, JOB) is not None,
-                'dice_shown': dice_shown(connection)}
+                'dice_shown': dice_shown(connection), 'branches': timeline.branches(connection)}
+
+
+def back(database, message_id: str) -> dict:
+    """Go back to before one of the player's lines; the line comes back as a draft to send again, with new dice."""
+    with database.connect(write=True) as connection:
+        line = timeline.back(connection, message_id, database.now())
+    return story(database) | {'draft': line['text']}
+
+
+def switch_branch(database, branch_id: str) -> dict:
+    with database.connect(write=True) as connection:
+        timeline.switch(connection, branch_id, database.now())
+    return story(database)
 
 
 def people(connection, view: dict) -> list[dict]:
@@ -327,6 +342,7 @@ def clear(database) -> dict:
     with database.connect(write=True) as connection:
         connection.execute('DELETE FROM story_messages')
         connection.execute('DELETE FROM story_people')
+        timeline.clear(connection)
     return story(database)
 
 
@@ -432,6 +448,7 @@ def record(database, text: str, client_id: str) -> tuple[dict, dict | None]:
         user = optional(connection, 'SELECT * FROM story_messages WHERE client_id=?', (client_id,))
         if user is None:
             user = add(connection, database.now(), 'user', text, scene_row(connection), client_id=client_id)
+            timeline.save(connection, user['id'])
         reply = optional(connection, "SELECT * FROM story_messages WHERE reply_to=? AND status='complete'",
                          (user['id'],))
         return user, reply
@@ -445,7 +462,11 @@ async def send(state, text: str, client_id: str) -> dict:
 async def retry(state) -> dict:
     """Tell the last part again: a new reply to the user's latest message, replacing the one there."""
     with state.database.connect(write=True) as connection:
-        user = optional(connection, "SELECT * FROM story_messages WHERE role='user' ORDER BY seq DESC LIMIT 1")
-        require(user is not None, 'There is nothing to retell yet.', 409)
+        where, values = timeline.visible(connection)
+        user = optional(connection, f"SELECT * FROM story_messages WHERE role='user' AND {where} ORDER BY seq DESC "
+                                    'LIMIT 1', values)
+        # A line from before going back is shared with the branch it came from; its reply stays as it was told.
+        require(user is not None and user['branch_id'] == timeline.active(connection),
+                'There is nothing to retell yet.', 409)
         connection.execute('DELETE FROM story_messages WHERE reply_to=?', (user['id'],))
     return {'message': user, 'reply': await answer(state, user)}
