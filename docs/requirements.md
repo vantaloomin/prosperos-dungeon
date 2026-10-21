@@ -426,6 +426,29 @@ shown and what the tables can produce, so each player can tune the game to their
   tables toward calmer or more eventful draws, building on the Life deck's drama level. Neither
   part ever changes roll odds, so good outcomes are never guaranteed.
 
+## Scaling and tiers
+
+Decided 2026-10-21. Supports the classic "save cats, kill rats, eventually kill a god" arc as an
+option. Work that finds the player matches their standing: nothing below it unless they go looking,
+and never two or more tiers above it.
+
+- **Standing comes from a per-world track.** Each world names which progression track sets the
+  player's tier (Rank, Grades, XP, renown and so on), mapped onto one shared tier ladder (for
+  example Local, Regional, Realm, World, Mythic) so code can compare quests, foes and regions
+  across rulesets.
+- **Offers come at your tier, with a rare +1 stretch.** Quests that come to the player unasked are
+  at their tier. Now and then a +1 offer appears, flagged beforehand by a rumor or an NPC's warning
+  as beyond them. Offers at +2 or above never appear. Lower-tier work is always there for a player
+  who seeks it out (a notice board, a favor for a friend), but it never comes to them.
+- **The world is fixed, but threats can find you.** Regions, foes and treasure keep their own tier
+  and do not rise with the player. A player can walk into a region far above them; signs, rumors
+  and NPCs warn first, and death is real. Faction clocks can also send higher-tier trouble after a
+  player who has made powerful enemies.
+- **The arc has start, ceiling and pace sliders.** Each world sets defaults. At campaign start the
+  player picks a starting tier, a ceiling tier (Grounded stays low, Classic runs rats to gods,
+  Epic starts high) and a pace from slow burn to fast rise. Pace controls how fast the world's
+  track climbs; the tier ladder itself stays the same.
+
 ## World packages (proposed)
 
 The three bases arrive in three shapes: Mabry (canon / hidden / continuity markdown plus dice
