@@ -160,13 +160,27 @@ branch shows its parent's messages before the line it went back to, then its own
 "Tell it again" works on lines of the branch being played; a shared line keeps the reply it was told. A system that
 keeps game state adds its tables to `timeline.SAVED`.
 
+## How far the story goes
+
+Intensity v0 (`dungeon/story.py` `intensity`, requirements "Intensity and tone"). The narrator is told how far
+violence, sex, horror, cruelty and drugs go on the page: restrained (implied, little detail), mature (shown plainly)
+or unflinching (explicit, in full). One preset covers every category for now.
+
+- **The world's own.** A city may set its `intensity`: a preset and the narrator's voice there. Kingswood, like
+  Vallarith, is unflinching and grim. A city without one is unflinching with no voice.
+- **The player's choice.** "How far the story goes" in the side panel picks the world's own or another preset
+  (`workspace_settings.intensity`), at any time, mid-scene included; the next line follows it. The world's voice
+  stays whatever the preset.
+
+Not in v0: per-category sliders, veils, tone and drama settings, and lower settings removing outcomes from the tables.
+
 ## The screen
 
 A fixed layout for Milestone 1 (`src/features/story/Story.tsx`); the free grid of widgets comes in Milestone 6.
 
 - **The story column:** where and when the story is (place, city, story time, weather, who is around), the fight
   and the character's condition when there is something to say, then the story text and the composer.
-- **The side panel:** the character sheet, the pack, the shop window when the story is in a shop, "What you know",
+- **The side panel:** how far the story goes, the character sheet, the pack, the shop window when the story is in a shop, "What you know",
   "People you've met" and "Other branches". On a screen 1100 pixels wide or more it sits beside the story with the
   sheet, pack and journal open and scrolls on its own; on a narrower screen it sits above the story, folded, and
   takes at most under half the height.
@@ -175,7 +189,7 @@ A fixed layout for Milestone 1 (`src/features/story/Story.tsx`); the free grid o
 
 | Request | Does |
 | --- | --- |
-| `GET /api/story` | `{scene, messages, people, ready, dice_shown, branches, fight}`. `fight` is `{condition, dead, fight}`: the character's wound level, whether they are dead, and the fight under way (null when none) with its `round` and `foes` (`name`, `state`, and `wound` while the dice are shown). `branches` lists every branch with `playing`, `turns`, `last_line` and `last_at`, the one being played first. User messages carry their `rolls` while the dice are shown. `people` are those met, newest first, with `meetings`, `notes`, `doing` and `place` now. `scene` has the city, place, `local_time` (city clock, no offset), `weather`, the city's `places` and `around` (who is there, named only once met). `ready` is false without a model. |
+| `GET /api/story` | `{scene, messages, people, ready, dice_shown, branches, fight, intensity}`. `intensity` is `{preset, chosen, world, voice}`: the preset in play, the player's choice (`world` follows the world) and the world's own preset and voice. `fight` is `{condition, dead, fight}`: the character's wound level, whether they are dead, and the fight under way (null when none) with its `round` and `foes` (`name`, `state`, and `wound` while the dice are shown). `branches` lists every branch with `playing`, `turns`, `last_line` and `last_at`, the one being played first. User messages carry their `rolls` while the dice are shown. `people` are those met, newest first, with `meetings`, `notes`, `doing` and `place` now. `scene` has the city, place, `local_time` (city clock, no offset), `weather`, the city's `places` and `around` (who is there, named only once met). `ready` is false without a model. |
 | `PUT /api/story/scene` `{city_id, place_id?}` | Moves there; a city alone means its opening place. 404 for an unknown city or place, 409 in the middle of a fight. |
 | `POST /api/story/messages` `{text, client_id}` | Saves the user's line once per `client_id` and returns `{message, reply}`. A failed reply is saved with `status: failed` and its `error`. Sending the same `client_id` again returns the saved reply, or tries again if it failed. 409 `no_connection` without a model; the line stays saved. 409 when the character is dead. |
 | `POST /api/story/find` `{key}` | Moves the story to where someone the user has met is now. 404 if not met, 409 if they are nowhere the story can go. |

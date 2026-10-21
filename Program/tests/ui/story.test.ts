@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { aroundText, branchLine, fightText, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats } from '../../src/features/story/storyText.ts'
+import { aroundText, branchLine, fightText, intensityChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -95,4 +95,10 @@ test('fightText says how the character is and who they are fighting', () => {
   assert.equal(fightText({ condition: 'unhurt', dead: false, fight: { round: 1, foes: [{ name: 'the boar', state: 'hurt', wound: 2 }] } }),
     'Fighting: the boar (hurt, wound 2 of 5).')
   assert.match(fightText({ condition: 'dying', dead: true, fight: null }), /dead/)
+})
+
+test('intensityChoices offers the world\'s own preset first, by name', () => {
+  const choices = intensityChoices('unflinching')
+  assert.deepEqual(choices[0], ['world', "The world's own (Unflinching)"])
+  assert.deepEqual(choices.map(([value]) => value), ['world', 'restrained', 'mature', 'unflinching'])
 })

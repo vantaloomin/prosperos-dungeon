@@ -120,6 +120,8 @@ LEVELS = ('off the page: if it happens, it happens between scenes',
           'mature: shown plainly, without lingering',
           'unflinching: explicit and on the page, in full')
 PRESETS = {'restrained': 1, 'mature': 2, 'unflinching': 3}
+# Until a world sets its own, every category is unflinching (requirements: "Content").
+DEFAULT_PRESET = 'unflinching'
 
 BANDS = {'critical_failure': 'goes badly wrong, worse than a plain failure, and leaves a lasting problem',
          'failure': 'fails',
@@ -154,6 +156,11 @@ class Intensity:
     levels: dict = field(default_factory=lambda: dict.fromkeys(CATEGORIES, PRESETS['unflinching']))
     veils: tuple = ()
     voice: str = ''
+
+    @classmethod
+    def preset(cls, name: str, voice: str = '') -> 'Intensity':
+        """Every category at one preset's level, with the world's voice."""
+        return cls(levels=dict.fromkeys(CATEGORIES, PRESETS[name]), voice=voice)
 
     def text(self) -> str:
         lines = ['Intensity:', *(f'- {name.capitalize()}: {LEVELS[level]}.' for name, level in self.levels.items())]

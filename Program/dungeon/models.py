@@ -83,6 +83,8 @@ class SettingsUpdate(Input):
     show_adult_side: bool | None = None
     # Automatic backups of every world (dungeon/auto_backup.py).
     auto_backups: Literal['off', 'daily', 'weekly'] | None = None
+    # How far the story goes on the page: the world's preset, or one the player chose (dungeon/story.py intensity).
+    intensity: Literal['world', 'restrained', 'mature', 'unflinching'] | None = None
     # The first-run notice: the story is AI written, and the user is 18 or older. Only ever confirmed.
     ai_notice_confirmed: Literal[True] | None = None
 

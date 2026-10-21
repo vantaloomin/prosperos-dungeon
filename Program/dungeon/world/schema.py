@@ -382,6 +382,12 @@ class Water(Record):
         return self
 
 
+class Intensity(Record):
+    """How far a world's stories go by default, and the narrator's voice there (requirements "Intensity and tone")."""
+    preset: Literal['restrained', 'mature', 'unflinching'] = 'unflinching'
+    voice: str = Field(default='', max_length=300)
+
+
 class City(Record):
     """One city. Minimums are small so a user can start a city of their own with a neighborhood and a place."""
     schema_version: Literal[1]
@@ -425,6 +431,8 @@ class City(Record):
     # in the Middle Ages, off today and in fantasy settings, which turn it on themselves; generators.by_gender).
     work_by_gender: bool | None = None
     names: CityNames | None = None
+    # The world's default intensity and narrator voice; left out, every category is unflinching with no voice.
+    intensity: Intensity | None = None
     local_color: list[LocalColor] = Field(default_factory=list, max_length=100)
     prices: list[Price] = Field(default_factory=list, max_length=60)
     # A shared holiday calendar ('none' for no shared one); by default chosen from the era and country.

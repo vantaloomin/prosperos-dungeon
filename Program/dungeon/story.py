@@ -50,6 +50,16 @@ OPENING_KINDS = ('cafe', 'tavern', 'bar', 'restaurant', 'market', 'park')
 NARRATION = narration_prompt.Format(pov='second', tense='present', length='short')
 
 
+def intensity(connection, data: dict) -> dict:
+    """How far the story goes on the page: the player's preset, or the world's (requirements "Intensity and tone").
+    v0 has one preset for every category; per-category sliders and veils come later."""
+    world = data.get('intensity') or {}
+    chosen = settings(connection)['intensity']
+    world_preset = world.get('preset') or narration_prompt.DEFAULT_PRESET
+    return {'preset': world_preset if chosen == 'world' else chosen, 'chosen': chosen, 'world': world_preset,
+            'voice': world.get('voice') or ''}
+
+
 def no_model() -> DomainError:
     return DomainError('Add a text model in Settings > Models to tell the story.', 409, 'no_connection')
 
@@ -333,7 +343,8 @@ def story(database) -> dict:
         return {'scene': scene_view(view), 'messages': with_rolls(connection, messages(connection)),
                 'people': people(connection, view), 'ready': config_for(connection, JOB) is not None,
                 'dice_shown': dice_shown(connection), 'branches': timeline.branches(connection),
-                'fight': combat.view(connection, dice_shown(connection))}
+                'fight': combat.view(connection, dice_shown(connection)),
+                'intensity': intensity(connection, view['data'])}
 
 
 def back(database, message_id: str) -> dict:
@@ -469,12 +480,13 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
                   inventory.prompt_text(connection, view['city']['id'], view['data']['currency'])):
         if extra:
             who_text = f'{who_text}\n{extra}' if who_text else extra
-    shop = shop_view(connection, view)
+    shop, level = shop_view(connection, view), intensity(connection, view['data'])
     memory = '\n\n'.join(part for part in (ledger.summary_text(connection), ledger.prompt_text(connection),
                                              quests.prompt_text(connection, now)) if part)
     place_text = scene_text(view) + (f"\n\n{inventory.shop_prompt(shop, view['data']['currency'])}" if shop else '')
     system = narration_prompt.system(prompt_library.text(connection, 'story-narrator'), craft, scene=place_text,
                                      persona=who_text, persona_name=name, memory=memory, narration=NARRATION,
+                                     intensity=narration_prompt.Intensity.preset(level['preset'], level['voice']),
                                      outcomes=outcomes, rolls_shown=dice_shown(connection))
     if fight_text := combat.prompt_text(fought or [], connection):
         system += '\n\n' + fight_text

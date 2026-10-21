@@ -22,6 +22,8 @@ export interface WorkspaceSettings {
   adult_side?: boolean
   /** Hidden values: what townsfolk are like that way, for the user's eyes; off unless turned on. */
   show_adult_side?: boolean
+  /** How far the story goes on the page; 'world' follows the world's own preset. */
+  intensity?: IntensityPreset
   /** Settings > Debug: every model request and response is written in full to logs/model-calls; off by default. */
   record_model_calls?: boolean
   /** The one-time notice that the characters are AI, with the 18+ confirmation, has been read. */
@@ -236,7 +238,10 @@ export interface StoryFight {
   condition: string; dead: boolean
   fight: { round: number; foes: { name: string; state: string; wound: number | null }[] } | null
 }
-export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; branches: StoryBranch[]; fight: StoryFight }
+export type IntensityPreset = 'world' | 'restrained' | 'mature' | 'unflinching'
+/** How far the story goes: `preset` in play, the player's `chosen` one ('world' follows the world), the world's own. */
+export interface StoryIntensity { preset: Exclude<IntensityPreset, 'world'>; chosen: IntensityPreset; world: Exclude<IntensityPreset, 'world'>; voice: string }
+export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity }
 /** The story after going back, with the line that was taken back to send again. */
 export interface StoryBack extends Story { draft: string }
 
