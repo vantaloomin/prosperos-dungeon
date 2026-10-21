@@ -13,7 +13,8 @@ decisions; the language model narrates them.
 | Source | What Dungeon takes |
 | --- | --- |
 | Prospero's Companion | The backbone, as a clean copy: Python backend, React/Vite UI, any model provider, model per job, timelines, memory, life simulation, world data format, townsfolk, Story-mode narrator |
-| Prospero's Study | "Life Cards": the Story randomness engine (`server/mechanics/`): seeded d100 activation, cooldown, major-disruption cap, ~30 event / extra / handling tables |
+| Prospero's Companion (cont.) | "Life Cards": the Life deck (`companion/life/deck.py`, `world/data/life_deck.json`): seeded draws of weighted cards into the day, gated by a drama level, alongside Study's d100 random tables reworded for life |
+| Prospero's Study | The Story randomness engine Life Cards grew from (`server/mechanics/`): seeded d100 activation, cooldown, major-disruption cap, ~30 event / extra / handling tables |
 | Mabry Curve (RP archive) | The reference turn loop, hidden-information model, continuity tracking, off-page cadence and house rules |
 
 ## Decided
@@ -96,6 +97,44 @@ marked "unverified" were checked from memory or secondary coverage, not the lice
 | **Cypher System** | Cypher System Open License | Risky | Written for tabletop games; software use unclear. |
 | **The Black Hack** | OGL 1.0a (unverified) | Low | OGL obligations; low priority. |
 
+## Shops and economy (proposed)
+
+Code decides what a shop has and what it costs; the narrator only voices the shopkeeper. The
+narrator never invents an item, a price or money: it gets the shop's real stock and quotes.
+
+**What already exists in Companion:** each city has a `currency`, places with a price level,
+careers with pay bands, rents, and a `prices` list of everyday goods as low–high ranges with a
+seeded `price()` picker. Dungeon extends this rather than starting over.
+
+- **Shops are places with an owner.** A shop is a world place with a type (general store, smith,
+  apothecary, tailor, bookseller, fence, black market, campus store, and so on), a wealth tier, and
+  a shopkeeper who is a townsperson with a schedule. Opening hours come from that schedule, so a
+  shop can be closed, or the owner out sick.
+- **Item catalog per world and ruleset.** Each item has a base price in the world's currency,
+  category, rarity, legality, and its rules stats for the active ruleset. 5e uses SRD 5.2's
+  equipment and price lists as written (in gp). MARVEL items are priced in the world's own currency;
+  Havenbrooke uses real 2009 prices.
+- **Realism check.** Base prices are anchored to the world's wages and rents (what a day's work
+  buys), and a data test flags items that are out of line.
+- **Stock generation.** Seeded and deterministic from shop type × settlement size × wealth tier ×
+  rarity. Quantities are finite; what the player buys is gone. Rare items are few or absent in
+  small places.
+- **Restocking.** On the life-sim clock (deliveries on a cadence per shop type), so stock changes
+  while the player is away. Shopkeepers buy the player's goods at a markdown and resell them.
+- **Price modifiers.** base × region (distance from the source, local scarcity) × settlement ×
+  shop tier × reputation and relationship with the owner × current events × legality markup
+  (a fence pays little, a black market charges a lot). Each modifier is clamped and logged.
+- **Life Cards and world events move markets.** A shortage, a caravan raid, a festival, a war or a
+  plague changes stock and prices for a while. Shops can open and close as Companion's cities
+  already do.
+- **Haggling is a roll.** An opposed check in the active ruleset (MARVEL: Allure vs the owner's
+  Resolve; 5e: Persuasion, Deception or Intimidation vs Insight; Ironsworn: Compel) mapped onto the
+  outcome ladder. Success lowers the price; success at a cost gets the price but the owner
+  remembers; a critical failure can raise prices or get the player thrown out.
+- **Money is tracked by code.** Wallet, carried goods and a transaction log live in the database.
+- **Ironsworn** has no coins by design: it tracks an abstract Supply track and buys with moves.
+  Proposed: keep Supply under Ironsworn, with the world's currency as color only.
+
 ## World packages (proposed)
 
 The three bases arrive in three shapes: Mabry (canon / hidden / continuity markdown plus dice
@@ -132,6 +171,9 @@ Dungeon would normalize them into one package per world:
 - Note: turn text sent to hosted services is subject to their content policies.
 
 ## Open questions
+
+- Shops: a shop window in the UI or purely in-story; selling loot and fencing stolen goods;
+  whether shopkeepers have finite cash; Ironsworn Supply vs coins.
 
 - Exact licenses for Fate, Blades in the Dark and Dungeon World before they are added.
 
