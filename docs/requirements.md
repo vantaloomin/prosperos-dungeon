@@ -184,6 +184,29 @@ attack, save and morale check is rolled by code and mapped onto the shared outco
   Slavers capture, bandits rob, beasts kill. Death stays possible, and the player can always
   branch back.
 
+## Injuries and recovery
+
+Decided 2026-10-21. Code tracks every wound, treatment and condition; the narrator describes them.
+
+- **Healing speed: as written, with a gritty toggle.** Each ruleset heals as written by default
+  (5e long rests, Ironsworn's recovery moves). A campaign setting switches on gritty healing, where
+  serious wounds take days to weeks of in-game time in any ruleset. **MARVEL is gritty by
+  default:** a wound drops one level after a stretch of rest set by its severity.
+- **Permanent injuries are rolled.** A Maimed result, a critical hit or a failed death save rolls
+  on a lasting-injury table (a lost eye, a limp, a ruined hand, a disfiguring scar). Each has a
+  mechanical effect and a social one that NPCs react to. It stays until something extraordinary
+  fixes it, such as rare magic or a master healer, at a price.
+- **Treatment takes a healer, supplies and a roll, and can go wrong.** The roll uses the healer's
+  skill and what they have on hand. A bad roll can mean infection, a badly set bone or a wound that
+  reopens. Magic healing still works where a world has it (Vallarith's clerics, BABEL potions),
+  under that world's rules. Healers and medical supplies are shop and service items with real
+  prices, and Life Cards can bring plague or contaminated supplies.
+- **Mental harm: a stress track.** Code tracks stress from traumatic events: horror, torture,
+  loss, a first kill, betrayal. MARVEL resists with Resolve; other rulesets use their nearest
+  equivalent (5e Wisdom saves, Ironsworn's Spirit). Past thresholds, code rolls a lasting condition
+  such as nightmares, a phobia, numbness or a compulsion. Conditions can ease with rest, support
+  and time, and the narrator plays them consistently across the campaign.
+
 ## World packages (proposed)
 
 The three bases arrive in three shapes: Mabry (canon / hidden / continuity markdown plus dice
