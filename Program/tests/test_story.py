@@ -7,6 +7,7 @@ from test_drafting import connect
 from test_social_circle import make
 
 from dungeon import story
+from dungeon.narration import prose
 
 
 @pytest.fixture(autouse=True)
@@ -71,7 +72,8 @@ def test_the_narrator_is_given_the_scene_and_the_companion_never_sees_the_story(
     provider.replies = [[Chunk('The door chimes behind you.'), Chunk('', 'stop')]]
     say(client, 'I order a coffee and the secret password is plum.', 'story-0001')
     request = provider.requests[-1]
-    assert 'You are the narrator of an open-ended story' in request['system']
+    assert 'You are the narrator of a tabletop roleplaying game for adults' in request['system']
+    assert 'Never write:' in request['system'] and 'second person' in request['system']
     assert f"Place: {place['name']}" in request['system'] and 'Weather:' in request['system']
     # Named spots inside the place are detail for the narrator and the screen (dungeon/world/inside.py).
     spots = moved['scene']['place']['spots']
@@ -196,3 +198,16 @@ def test_a_person_line_does_not_say_their_job_twice():
     line = story.person_line({'sheet': sheet, 'doing': f"working as the {sheet['role']}", 'mood': 'fine'},
                              {'id': place['id']}, data)
     assert f"working as the {sheet['role']}. " in line and f", {sheet['role']}." not in line
+
+
+def test_the_narration_is_checked_and_rewritten_before_it_is_saved(client, clock, provider):
+    make(client, 'Warm and curious.')
+    connect(client)
+    provider.replies = [[Chunk('The door chimes—softly. A shiver ran down your spine as the room turned to look.'),
+                         Chunk('', 'stop')],
+                        [Chunk('The door chimes softly. Two dockhands at the bar turn to look, then go back to their '
+                               'dice.'), Chunk('', 'stop')]]
+    reply = say(client, 'I walk in.', 'story-0001')['reply']
+    assert reply['status'] == 'complete' and reply['text'].startswith('The door chimes softly. Two dockhands')
+    assert provider.requests[-1]['system'] == prose.REWRITE
+    assert 'shiver' in provider.requests[-1]['messages'][0]['content']

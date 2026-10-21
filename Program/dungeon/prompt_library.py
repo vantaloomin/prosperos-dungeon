@@ -82,9 +82,16 @@ PROMPTS = {prompt.name: prompt for prompt in (
            'companion sees.',
            constant('dungeon.pictures', 'DESCRIBE')),
     Prompt('story-narrator', CHAT, 'The Story narrator',
-           'Opens every reply in the Story tab, before the scene: the place, the hour, the weather and who is '
-           'there, which the app decides. OOC answers are also enforced by the app.',
-           constant('dungeon.story', 'NARRATOR')),
+           'Opens every reply in the Story tab: who the narrator is and its contract with the game (the facts are '
+           "fixed, the player's words are expanded, everyone else lives their own life). The scene, the "
+           'narration format and the intensity follow it, and the app decides them. OOC answers are also '
+           'enforced by the app.',
+           constant('dungeon.narration.prompt', 'CORE')),
+    Prompt('narrator-craft', CHAT, "The narrator's writing rules",
+           'Follows the Story narrator: how to write, the dialogue rules and the phrases never to use. Models '
+           'with a small context window get a short version instead. Em dashes and the strongest tells are '
+           'also checked by the app after every reply, and rewritten before you see them.',
+           constant('dungeon.narration.prompt', 'CRAFT')),
     Prompt('authors-note', CHAT, "Author's note",
            "Goes right before your author's note, the last thing the model reads before your message in a chat "
            'that has a note switched on. Your note follows this line.',
