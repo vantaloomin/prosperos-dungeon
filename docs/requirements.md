@@ -469,6 +469,26 @@ them sets the player's tier (see "Scaling and tiers").
 - **Tracks follow the roll visibility toggle.** In hidden mode the sheet shows words ("known on
   the Docks", "Rank: Journeyman"). In exposed mode it shows numbers and progress bars.
 
+## Off-page beats
+
+Decided 2026-10-21. Characters the player isn't with keep living. Key NPCs already follow life-sim
+schedules and factions run clocks; a beat is a rolled event in an absent character's own story,
+stored in the ledger as hidden truth.
+
+- **Beats run on world time, with a turn minimum.** Beats fire as in-world time passes (for
+  example each day), so a long rest or journey moves everyone along. A beat also fires at least
+  every few turns (default 3, as in Mabry), so a long scene doesn't freeze the world.
+- **Connected characters get detailed beats.** Absent party members, bonds, rivals and quest NPCs
+  get rolled beats. Everyone else just follows their schedule in code, which keeps model calls
+  down.
+- **The player learns through the world, with cutaways as a toggle.** By default news reaches the
+  character only through news, letters, rumor and meeting people again, distorted as usual
+  ("word gets around"). A setting turns on short "meanwhile" cutaways that show the player what
+  the character can't know. Cutaway content also shows in the GM view.
+- **Anything can happen off-page.** Beats can kill, capture or turn anyone, bonded characters
+  included, with no guaranteed warning. The player may find out late, or only by going back to an
+  earlier branch.
+
 ## World packages (proposed)
 
 The three bases arrive in three shapes: Mabry (canon / hidden / continuity markdown plus dice
@@ -509,6 +529,5 @@ Dungeon would normalize them into one package per world:
 
 - Exact licenses for Fate, Blades in the Dark and Dungeon World before they are added.
 
-- Off-page characters and their cadence (Mabry uses rolled beats every third turn).
 - Which widgets and layout presets ship first.
 - World package file format, and how canon, hidden truth and player knowledge are stored.
