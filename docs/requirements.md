@@ -404,6 +404,28 @@ art on top.
   axes. When that state changes, the portrait is marked out of date, and the player can refresh
   it with one click.
 
+## Intensity and tone
+
+Decided 2026-10-21. There are no hard lines beyond adults only. These settings control what is
+shown and what the tables can produce, so each player can tune the game to their comfort.
+
+- **Intensity is set per category, with presets and veils.** Each category has its own slider:
+  violence and gore, sex, horror, cruelty and abuse, drugs, and others the worlds need. Presets
+  such as Restrained, Mature and Unflinching set them all at once. **Veils** name specific topics
+  that may still happen but always fade to black on the page.
+- **Worlds set the default, and the player can change it at any time.** Each world suggests its
+  levels (Vallarith grimdark, for example). The player can adjust them at any point, even
+  mid-scene, without restarting. Unlike rulesets, intensity never locks.
+- **Lower settings also change what can happen.** Code filters event tables, Life Cards, defeat
+  tables and injury results by the current levels, so a lower setting removes some outcomes
+  entirely (for example, no sexual-violence results or fewer maims), not just their description.
+  At the top setting, every outcome stays in play. Veiled topics stay in the tables but are
+  narrated off the page.
+- **Tone is a separate dial with two parts.** A **voice** setting (grim, wry, romantic, hopeful
+  and so on) shapes how the narrator writes. A **drama** setting weights Life Cards and event
+  tables toward calmer or more eventful draws, building on the Life deck's drama level. Neither
+  part ever changes roll odds, so good outcomes are never guaranteed.
+
 ## World packages (proposed)
 
 The three bases arrive in three shapes: Mabry (canon / hidden / continuity markdown plus dice
