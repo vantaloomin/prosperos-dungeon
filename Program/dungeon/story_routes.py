@@ -82,6 +82,21 @@ def start(request: Request, body: StoryStart):
     return campaign.begin(request.app.state.database, body.premade_id, body.persona, body.stats)
 
 
+class StoryBack(Input):
+    message_id: str = Field(min_length=1, max_length=80)
+
+
+@router.post('/back')
+def back(request: Request, body: StoryBack):
+    """Back to before one of the player's lines, as a new branch; the story so far is kept."""
+    return story.back(request.app.state.database, body.message_id)
+
+
+@router.post('/branches/{branch_id}/switch')
+def switch_branch(request: Request, branch_id: str):
+    return story.switch_branch(request.app.state.database, branch_id)
+
+
 @router.delete('')
 def clear(request: Request):
     return story.clear(request.app.state.database)

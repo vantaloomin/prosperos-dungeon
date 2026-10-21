@@ -215,7 +215,11 @@ export interface StoryPerson {
 export interface Premade { id: string; name: string; gender: PersonaGender; age: number | null; about: string; stats: Record<string, number> }
 /** Campaign start: the town's premades and the point-buy for making your own. */
 export interface StoryStart { premades: Premade[]; points: number; range: [number, number]; stat_names: string[]; meanings: Record<string, string> }
-export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean }
+/** One way the story went (dungeon/timeline.py); `playing` is the one on screen. */
+export interface StoryBranch { id: string; playing: boolean; turns: number; last_line: string; last_at: string; started_at: string }
+export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; branches: StoryBranch[] }
+/** The story after going back, with the line that was taken back to send again. */
+export interface StoryBack extends Story { draft: string }
 
 /** Record model calls (dungeon/model_calls.py), Settings > Debug. */
 export interface ModelCallLog { recording: boolean; folder: string; keep_days: number; files: number; bytes: number }

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Every turn is a save point.** "Go back here" under any of your lines starts a new branch from just before it,
+  with the scene, the people you'd met and your sheet as they were, and the line back in the box to send again with
+  new dice. The branch you left is kept under "Other branches" to play on later.
+- **Upgrades can add columns.** `database.ADDED_COLUMNS` adds new columns to tables an older workspace already has.
 - **Campaign start.** A new story asks "Who are you?": play one of the town's premade characters (Haddon Harbor
   has three) or make your own with a name, a few lines and MARVEL stats bought from 60 points. The narrator now
   knows who the player is, and what they are good and poor at, in words.

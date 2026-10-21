@@ -116,11 +116,21 @@ def schema_digest() -> str:
 
 # One-row settings tables, created with their defaults.
 SINGLETONS = ('workspace_settings', 'builtin_recall')
+# Columns added to a table after it shipped: (table, column, definition). CREATE TABLE IF NOT EXISTS leaves an
+# existing table as it was, so an upgraded workspace gains them here. schema.sql lists them too, for new workspaces.
+ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"),)
+
+
+def add_columns(connection):
+    for table, column, definition in ADDED_COLUMNS:
+        if column not in {row[1] for row in connection.execute(f'PRAGMA table_info({table})')}:
+            connection.execute(f'ALTER TABLE {table} ADD COLUMN {column} {definition}')
 
 
 def initialize(connection, timestamp: str):
     claim_identity(connection)
     connection.executescript(SCHEMA)
+    add_columns(connection)
     for table in SINGLETONS:
         connection.execute(f'INSERT OR IGNORE INTO {table} (id, updated_at) VALUES (1, ?)', (timestamp,))
     from dungeon.life import ages
