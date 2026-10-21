@@ -110,8 +110,12 @@ def no_storylines(monkeypatch):
 @pytest.fixture(autouse=True)
 def no_turnover(monkeypatch):
     """Townsfolk moving away and newcomers (dungeon/world/turnover.py) would change who unrelated tests meet as
-    their clocks move on; tests/test_turnover.py turns it on."""
-    monkeypatch.setattr('dungeon.world.turnover.ACTIVE', False)
+    their clocks move on; tests/test_turnover.py turns it on. Each test also starts from the usual town levels, since a
+    workspace with Growing families or Life's big turns at zero would otherwise leave them there for the next test."""
+    from dungeon.clock import Clock
+    from dungeon.world import turnover
+    monkeypatch.setattr(turnover, 'ACTIVE', False)
+    monkeypatch.setattr(turnover, 'STATE', turnover.Levels(Clock()))
 
 
 @pytest.fixture(autouse=True)
