@@ -1,18 +1,16 @@
-"""Lore from imported lorebooks (dungeon/imports/characters.py): what a companion or their world knows as fact.
+"""Lore from imported lorebooks (dungeon/imports/lore_routes.py): what the world knows as fact.
 
-A book belongs to one companion, or to the whole world (`companion_id` NULL, from a lorebook file imported on
-its own). Each entry is plain text with keywords. Always-on entries sit in the system prompt with the rest of
-what rarely changes; an entry with keywords joins the notes sent with a reply only while one of them is in the
-last few messages, as a whole word in any letter case, like Prospero's Study's literal keyword matching
-(server/lore/matching.py at bbcbde4). No pattern runs and no model picks entries.
+A book belongs to the world (a lorebook file imported on its own), or to a city (a world map's notes). Each entry is
+plain text with keywords: always-on, or matched only while one of its keywords is in the last few messages, as a
+whole word in any letter case, like Prospero's Study's literal keyword matching (server/lore/matching.py at
+bbcbde4). No pattern runs and no model picks entries. The story narrator reads it from Milestone 1.
 """
-import re
 import sqlite3
 from pathlib import Path
 
-from dungeon.characters import require_current
-from dungeon.database import decode, identifier, many, one
+from dungeon.database import decode, encode, identifier, many, one
 from dungeon.errors import require
+from dungeon.imports import formats
 
 # The messages a keyword is looked for in, counting the one being answered.
 SCAN_MESSAGES = 4
@@ -24,9 +22,8 @@ MAP_FORMAT = 'Marinara world map'
 MAP_TITLE = 'Marinara world map: '
 
 
-def books_for(connection, companion_id: str) -> list[dict]:
-    return many(connection, 'SELECT * FROM lore_books WHERE companion_id=? OR companion_id IS NULL '
-                'ORDER BY companion_id IS NULL, created_at', (companion_id,))
+def books(connection) -> list[dict]:
+    return many(connection, 'SELECT * FROM lore_books ORDER BY created_at')
 
 
 def entry_view(row: dict) -> dict:
@@ -35,24 +32,20 @@ def entry_view(row: dict) -> dict:
 
 
 def listing(database) -> dict:
-    """The open companion's books and the world's, with their entries."""
+    """The world's books, with their entries."""
     with database.connect() as connection:
-        companion = require_current(connection)
         found = []
-        for book in books_for(connection, companion['id']):
+        for book in books(connection):
             entries = many(connection, 'SELECT * FROM lore_entries WHERE book_id=? ORDER BY position', (book['id'],))
             found.append({'id': book['id'], 'name': book['name'], 'description': book['description'],
                           'source_format': book['source_format'], 'source_file': book['source_file'],
-                          'world': book['companion_id'] is None, 'enabled': bool(book['enabled']),
+                          'city_id': book['city_id'], 'enabled': bool(book['enabled']),
                           'created_at': book['created_at'], 'entries': [entry_view(row) for row in entries]})
         return {'books': found}
 
 
 def visible_book(connection, book_id: str) -> dict:
-    companion = require_current(connection)
-    book = one(connection, 'SELECT * FROM lore_books WHERE id=?', (book_id,))
-    require(book['companion_id'] in (None, companion['id']), 'That lorebook belongs to another companion.', 404)
-    return book
+    return one(connection, 'SELECT * FROM lore_books WHERE id=?', (book_id,))
 
 
 def set_book(database, book_id: str, enabled: bool) -> dict:
@@ -67,7 +60,7 @@ def set_entry(database, entry_id: str, enabled: bool) -> dict:
         entry = one(connection, 'SELECT * FROM lore_entries WHERE id=?', (entry_id,))
         visible_book(connection, entry['book_id'])
         require(not (enabled and entry['pattern']), 'This entry finds its moment with a search pattern, which the '
-                'Companion cannot match, so it stays off. Copy what matters into an entry of your own.', 422)
+                'Dungeon cannot match, so it stays off. Copy what matters into an entry of your own.', 422)
         connection.execute('UPDATE lore_entries SET enabled=? WHERE id=?', (int(enabled), entry_id))
     return listing(database)
 
@@ -79,16 +72,39 @@ def remove_book(database, book_id: str) -> dict:
     return listing(database)
 
 
+def add_book(connection, timestamp: str, book: dict, filename: str, city_id: str | None = None) -> dict:
+    """A lorebook read by dungeon/imports/formats.py, saved with its entries."""
+    book_id = identifier()
+    connection.execute('INSERT INTO lore_books (id, name, description, source_format, source_file, created_at, '
+                       'city_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                       (book_id, book['name'], book['description'], book['format'], filename[:260], timestamp, city_id))
+    for position, entry in enumerate(book['entries']):
+        connection.execute('INSERT INTO lore_entries (id, book_id, position, title, text, keywords, always, pattern, '
+                           'enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                           (identifier(), book_id, position, entry['title'], entry['text'], encode(entry['keywords']),
+                            int(entry['always']), int(entry['pattern']), int(entry['enabled'])))
+    return {'id': book_id, 'name': book['name'], 'entries': len(book['entries']),
+            'off': sum(not entry['enabled'] for entry in book['entries'])}
+
+
+def bring(database, filename: str, encoded: str) -> dict:
+    """Import one lorebook file straight away. Character cards wait for the game's own characters."""
+    found = formats.read(filename, encoded)
+    require(found['character'] is None and found['book'] is not None,
+            'Only lorebooks can be imported for now. Character cards come back when the game has characters of its '
+            'own.', 422)
+    with database.connect(write=True) as connection:
+        book = add_book(connection, database.now(), found['book'], filename)
+    return {'format': found['format'], 'book': book}
+
+
 # Lore that belongs to a city ------------------------------------------------------------------------------
 # A world map's notes describe its city's places, so they follow the city: a new world in that city gets them too
-# (dungeon/worlds.py), and deleting the city deletes them. Books from before `city_id` are known by the map's name.
+# (dungeon/worlds.py), and deleting the city deletes them.
 
 def city_book_ids(connection, city: dict, schema: str = 'main') -> list[str]:
-    title = ((city.get('sources') or {}).get('marinara') or {}).get('title') or ''
-    name = title[len(MAP_TITLE):] if title.startswith(MAP_TITLE) else None
-    rows = connection.execute(f'SELECT id FROM {schema}.lore_books WHERE companion_id IS NULL AND (city_id=? OR '
-                              '(city_id IS NULL AND source_format=? AND name=?)) ORDER BY created_at',
-                              (city['id'], MAP_FORMAT, name)).fetchall()
+    rows = connection.execute(f'SELECT id FROM {schema}.lore_books WHERE city_id=? ORDER BY created_at',
+                              (city['id'],)).fetchall()
     return [row[0] for row in rows]
 
 
@@ -106,8 +122,8 @@ def carry_city_lore(target: Path, source: Path, city: dict) -> None:
         for book_id in [] if city_book_ids(connection, city) else city_book_ids(connection, city, 'kept'):
             new_id = identifier()
             connection.execute(
-                'INSERT INTO main.lore_books (id, companion_id, name, description, source_format, source_file, '
-                'enabled, created_at, city_id) SELECT ?, NULL, name, description, source_format, source_file, enabled, '
+                'INSERT INTO main.lore_books (id, name, description, source_format, source_file, '
+                'enabled, created_at, city_id) SELECT ?, name, description, source_format, source_file, enabled, '
                 'created_at, ? FROM kept.lore_books WHERE id=?', (new_id, city['id'], book_id))
             connection.execute(
                 'INSERT INTO main.lore_entries (id, book_id, position, title, text, keywords, always, pattern, enabled) '
@@ -128,40 +144,3 @@ def drop_orphaned(connection) -> None:
                        'AND city_id NOT IN (SELECT id FROM world_cities))')
     connection.execute('DELETE FROM lore_books WHERE city_id IS NOT NULL AND city_id NOT IN (SELECT id FROM '
                        'world_cities)')
-
-
-# In the prompt ------------------------------------------------------------------------------------------
-
-def spelled(text: str, name: str, user: str) -> str:
-    for macro, value in zip(MACROS, (name, name, user, user)):
-        text = text.replace(macro, value)
-    return text
-
-
-def mentioned(keyword: str, text: str) -> bool:
-    return re.search(r'(?<!\w)' + re.escape(keyword.casefold()) + r'(?!\w)', text) is not None
-
-
-def active_entries(connection, companion_id: str) -> list[dict]:
-    return many(connection, 'SELECT e.*, b.name AS book FROM lore_entries e JOIN lore_books b ON b.id=e.book_id '
-                'WHERE e.enabled=1 AND b.enabled=1 AND (b.companion_id=? OR b.companion_id IS NULL) '
-                'ORDER BY b.companion_id IS NULL, b.created_at, e.position', (companion_id,))
-
-
-def offer(packet, connection, companion: dict, recent: list[dict], query: str = ''):
-    """Always-on entries for the system prompt ('lore'); keyword entries mentioned lately for this reply's notes
-    ('lore_now'). {{char}} and {{user}} become the companion's and the persona's names."""
-    entries = active_entries(connection, companion['id'])
-    if not entries:
-        return
-    persona = connection.execute('SELECT name FROM persona WHERE id=1').fetchone()
-    user = persona['name'].strip() if persona and persona['name'].strip() else 'the user'
-    name = companion['version']['name']
-    scanned = '\n'.join([*(message['text'] for message in recent[-SCAN_MESSAGES:]), query]).casefold()
-    triggered = 0
-    for entry in entries:
-        line = spelled(f"- {entry['title']}: {entry['text']}", name, user)
-        if entry['always']:
-            packet.offer('lore', entry['id'], line)
-        elif triggered < MAX_TRIGGERED and any(mentioned(word, scanned) for word in decode(entry['keywords'])):
-            triggered += packet.offer('lore_now', entry['id'], line)

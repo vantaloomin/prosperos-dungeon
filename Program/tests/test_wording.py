@@ -1,5 +1,4 @@
 """American wording for the shared banks in American settings (dungeon/world/wording.py)."""
-import json
 
 from dungeon.world import catalog, life_details, perception, townsfolk, wording
 
@@ -43,19 +42,3 @@ def test_a_companions_own_lines_read_american_in_an_american_home_city():
                                                  picks)))
     assert 'neighbour' in ' '.join(british).lower()
     assert not [word for word in BRITISH if word in ' '.join(american).lower()]
-
-
-def test_the_quick_start_and_the_forms_suggestions_read_american_in_an_american_city(client, provider):
-    from test_drafting import GOOD, connect, replying
-    connect(client)
-    picks = {'temperament': 'nosy', 'tell': 'knows-everyones-business', 'self_story': 'good-neighbour',
-             'flaw': 'favorites', 'desire': 'neighborhood'}
-    provider.respond = replying(json.dumps({**GOOD, 'perception': picks}))
-    response = client.post('/api/companion/draft', json={'idea': 'a tired nurse', 'timezone': 'UTC',
-                                                         'home_city': 'haddon-harbor'})
-    assert response.status_code == 200, response.text
-    definition = response.json()['definition']
-    assert definition['seen_as'] and 'neighbour' not in f"{definition['seen_as']} {definition['sees_self']}".lower()
-    found = client.post('/api/companion/perception', json={'definition': {
-        'name': 'Rae', 'personality': 'Nosy, a good neighbour to everyone.', 'home_city': 'haddon-harbor'}}).json()
-    assert not [word for word in BRITISH if word in json.dumps(found).lower()]

@@ -67,28 +67,3 @@ def test_ages_and_the_adult_check_never_follow_the_mix():
         bold = [intimacy.roll(f'p{n}', 30, 'woman')['level'] for n in range(300)]
     plain = [intimacy.roll(f'p{n}', 30, 'woman')['level'] for n in range(300)]
     assert bold.count('wild') > plain.count('wild')
-
-
-def test_debug_shows_the_mix_and_what_the_town_is_made_of(client, companion):
-    found = ok(client.get('/api/townsfolk-mix'))
-    assert found['mix'] == found['defaults'] and found['town']['people'] > 500
-    town = found['town']
-    assert 40 < town['genders']['woman'] < 60 and 150 < town['heights']['woman'] < 175
-    assert sum(found['levels']['0'].values()) == pytest.approx(100, abs=0.5)
-    assert len(found['bands']) == len(dating.ORIENTATION_RATES)
-
-
-def test_a_new_world_takes_the_mix_and_the_old_one_keeps_its_own(client, companion, app):
-    first = ok(client.get('/api/worlds'))['world']
-    switched = ok(client.post('/api/townsfolk-mix/new-world', json={'mix': {'gay': 20, 'height_woman': 999}}))
-    assert switched['world']['id'] != first['id']
-    assert mix.current()['gay'] == 20 and mix.current()['height_woman'] == mix.LIMITS['height_woman'][1]
-    assert ok(client.get('/api/townsfolk-mix'))['mix']['gay'] == 20
-    # A world made from this one keeps the mix (so becoming a townsperson keeps the same people).
-    made = ok(client.post('/api/worlds', json={}))
-    ok(client.post(f"/api/worlds/{made['id']}/switch"))
-    assert mix.current()['gay'] == 20
-    # The first world, with its companion and townsfolk, is as it was.
-    ok(client.post(f"/api/worlds/{first['id']}/switch"))
-    assert mix.current() == mix.DEFAULTS
-    assert ok(client.get('/api/companion'))['companion']['version']['name'] == 'Mira'

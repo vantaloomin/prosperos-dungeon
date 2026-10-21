@@ -1,17 +1,16 @@
 """Settings > Debug > Townsfolk mix (dungeon/world/mix.py): what the open world's town is made of, counted from its
 people, and a new world made with a changed mix.
 
-The count reads every townsperson in the main character's city (people at its places and its residents), the
+The count reads every townsperson in the story's city (people at its places and its residents), the
 same sheets the rest of the app draws, so it is what the town is rather than what the rates promise. It is worked
 out once per city, town and mix. Nothing here calls a model.
 """
 import functools
 from collections import Counter
 
-from dungeon import characters, worlds
+from dungeon import story, worlds
 from dungeon.database import settings
 from dungeon.errors import require
-from dungeon.life import network
 from dungeon.world import dating, intimacy, mix, townsfolk
 
 BAND_LABELS = ('18 to 29', '30 to 44', '45 to 59', '60 and over')
@@ -20,10 +19,8 @@ _COUNTS: dict[tuple, dict] = {}
 
 
 def town_of(connection) -> dict:
-    """The main character's city and town, else the world's city; one with no places has no townsfolk to count."""
-    companion = characters.current(connection)
-    data = network.city(connection, companion) if companion else {}
-    return data if data.get('places') else worlds.city_of(connection)
+    """The story's city; one with no places has no townsfolk to count."""
+    return story.city_data(connection, story.scene_row(connection)['city_id'])
 
 
 def everyone(data: dict) -> list[dict]:

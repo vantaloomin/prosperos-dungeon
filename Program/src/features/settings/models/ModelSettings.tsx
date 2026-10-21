@@ -49,10 +49,10 @@ function TextProfiles({ overview, editing, setEditing, refresh, result, setResul
   return <section className="settings-section form-stack" aria-labelledby="models-heading">
     <div>
       <h2 id="models-heading">Models</h2>
-      <p className="subtle">A profile is one provider, model and key: hosted services, your Codex login, or a model running on this computer. The conversation profile does every job until you give a job its own. Saving never contacts the service.</p>
+      <p className="subtle">A profile is one provider, model and key: hosted services, your Codex login, or a model running on this computer. The default profile does every job until you give a job its own. Saving never contacts the service.</p>
     </div>
     <ReadyCard hasProfiles={profiles.length > 0} />
-    {profiles.length === 0 && editing !== 'new' && !builtinComing && <p className="subtle">No model yet. Until you add one, your messages are saved and replies wait.</p>}
+    {profiles.length === 0 && editing !== 'new' && !builtinComing && <p className="subtle">No model yet. Until you add one, what you write is saved and the narrator waits.</p>}
     <ProfileList profiles={profiles} overview={overview} editing={editing} setEditing={setEditing} done={done} refresh={refresh} setResult={setResult} />
     {editing === 'new' ? <ProfileEditor onDone={done} />
       : <div className="form-actions"><button ref={addButton} type="button" className="button" onClick={() => { setResult(null); setEditing('new') }}>Add a model profile</button></div>}
@@ -69,7 +69,7 @@ function RecallProfiles({ overview, editing, setEditing, refresh, setResult }: S
   return <section className="settings-section form-stack" aria-labelledby="recall-profiles-heading">
     <div>
       <h2 id="recall-profiles-heading">Recall</h2>
-      <p className="subtle">Semantic recall finds related memories even when the words differ, using an embedding model. It can use a different service from your text model: an embeddings model in Ollama or LM Studio, OpenAI, or an OpenAI-compatible service. Or let Built-in recall below run one on this PC. Without either, recall matches keywords only.</p>
+      <p className="subtle">Semantic recall finds related parts of the story even when the words differ, using an embedding model. It can use a different service from your text model: an embeddings model in Ollama or LM Studio, OpenAI, or an OpenAI-compatible service. Or let Built-in recall below run one on this PC. Without either, recall matches keywords only.</p>
     </div>
     <ProfileList profiles={profiles} overview={overview} editing={editing} setEditing={setEditing} done={done} refresh={refresh} setResult={setResult} />
     {editing === 'new-recall' ? <ProfileEditor recall onDone={done} />

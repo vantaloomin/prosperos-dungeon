@@ -33,24 +33,11 @@ from dungeon.providers.vault import credential_for
 
 CHAT = 'chat'
 JOBS = [
-    {'key': CHAT, 'name': 'Conversation', 'detail': 'Replies in chat. Every other job uses this profile '
-     'unless you choose another.'},
-    {'key': 'life', 'name': 'Life phrasing', 'detail': "Words the companion's day in the background, when model "
-     'phrasing is on in Life settings.'},
-    {'key': 'memory', 'name': 'Memory suggestions', 'detail': 'Suggests memories from your messages in the '
-     'background, when model suggestions are on.'},
-    {'key': 'drafting', 'name': 'Character drafting', 'detail': 'Quick start, Help me write and splitting a character '
-     'you paste in.'},
-    {'key': 'sidecar', 'name': 'Sidecar', 'detail': 'The chat beside the app that evaluates and edits replies, '
-     'memories and the character for you.'},
-    {'key': 'vision', 'name': 'Seeing pictures', 'detail': 'Describes pictures you send, once, so the companion '
-     'sees them. Needs a model that can look at images, such as GPT-4o, Claude, Gemini, or a vision model in LM '
-     'Studio or Ollama.'},
-    {'key': 'story', 'name': 'Story narrator', 'detail': 'Tells your story in the Story tab, apart from the '
-     'companion.'},
-    {'key': 'recall', 'name': 'Semantic recall', 'detail': 'Embeddings that find related memories, from a recall '
-     'profile (Settings > Models > Recall) or built-in recall when it is on. Without either, recall matches keywords '
-     'only.'},
+    {'key': CHAT, 'name': 'Default', 'detail': 'Every job uses this profile unless you choose another.'},
+    {'key': 'story', 'name': 'Story narrator', 'detail': 'Tells your story.'},
+    {'key': 'recall', 'name': 'Semantic recall', 'detail': 'Embeddings that find related parts of the story, from a '
+     'recall profile (Settings > Models > Recall) or built-in recall when it is on. Without either, recall matches '
+     'keywords only.'},
 ]
 JOB_KEYS = {job['key'] for job in JOBS}
 
@@ -257,37 +244,6 @@ def legacy_provider(base_url: str) -> str:
     return 'local' if is_loopback(urlsplit(base_url).hostname) else 'compatible'
 
 
-def adopt_legacy(connection, timestamp: str):
-    """Turn the pre-profile connection into the conversation profile, once, keeping its saved key.
-
-    Both kinds of address it accepted keep working unchanged: a loopback server becomes a Local
-    profile and anything else an OpenAI-compatible one, so requests still use Chat Completions.
-    The old row is removed so a later upgrade never adopts it twice.
-    """
-    tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    if 'connection' not in tables:
-        return
-    cursor = connection.execute('SELECT * FROM connection WHERE id=1')
-    values = cursor.fetchone()
-    if values is None:
-        return
-    row = dict(zip([column[0] for column in cursor.description], values))
-    if not connection.execute('SELECT 1 FROM model_profiles LIMIT 1').fetchone():
-        settings = {'provider': legacy_provider(row['base_url']), 'model': row['model'], 'base_url': row['base_url'],
-                    'max_output_tokens': row['max_output_tokens'], 'context_tokens': row['context_tokens'],
-                    'timeout_seconds': row['timeout_seconds'], 'embedding_model': row.get('embedding_model') or ''}
-        # Not re-validated: the old form accepted settings a profile now questions, and an upgrade
-        # must never fail over them. Editing the profile later checks them.
-        config = ProfileConfig.model_construct(**settings).model_dump()
-        profile_id = identifier()
-        connection.execute('INSERT INTO model_profiles (id, name, config, credential_ref, revision, created_at, '
-                           'updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)',
-                           (profile_id, 'Text model', encode(config), row['credential_ref'], timestamp, timestamp))
-        connection.execute('INSERT OR IGNORE INTO model_routes (job, profile_id, updated_at) VALUES (?, ?, ?)',
-                           (CHAT, profile_id, timestamp))
-    connection.execute('DELETE FROM connection')
-
-
 def split_recall(connection, timestamp: str):
     """Move embedding models out of text profiles into recall profiles of their own, once.
 
@@ -386,5 +342,5 @@ def quick_save(database, vault, body) -> dict:
         return connection_summary(connection)
 
 
-__all__ = ['CHAT', 'DEFAULT_URLS', 'JOBS', 'adopt_legacy', 'split_recall', 'config_for', 'connection_summary', 'create', 'delete', 'duplicate',
+__all__ = ['CHAT', 'DEFAULT_URLS', 'JOBS', 'split_recall', 'config_for', 'connection_summary', 'create', 'delete', 'duplicate',
            'key_for', 'overview', 'probe_key', 'quick_save', 'set_route', 'update']

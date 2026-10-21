@@ -1,20 +1,18 @@
-"""Replacing the active workspace with a backup keeps later deletions (PRD M5, persistence section)."""
+"""Replacing the active workspace with a backup (PRD persistence section)."""
 from pathlib import Path
 
 import pytest
+from conftest import tell
 
 from dungeon import backup, restore
 from dungeon.errors import DomainError
 
 
-def remember(client, subject, value):
-    response = client.post('/api/memories', json={'layer': 'user_fact', 'subject': subject, 'value': value})
-    assert response.status_code == 200, response.text
-    return response.json()
+def said(connection) -> list[str]:
+    return [row[0] for row in connection.execute("SELECT text FROM story_messages WHERE role='user' ORDER BY seq")]
 
 
-def test_a_refused_restore_leaves_the_current_workspace_in_place(client, app, companion, tmp_path, clock):
-    remember(client, 'Pet', 'Biscuit')
+def test_a_refused_restore_leaves_the_current_workspace_in_place(client, app, told, tmp_path, clock):
     damaged = tmp_path / 'damaged.zip'
     damaged.write_bytes(b'not a backup')
     path = app.state.database.path
@@ -24,8 +22,7 @@ def test_a_refused_restore_leaves_the_current_workspace_in_place(client, app, co
     assert sorted(item.name for item in path.parent.iterdir()) == before
 
 
-def test_a_failed_restore_moves_the_workspace_back(client, app, companion, clock, monkeypatch):
-    remember(client, 'Pet', 'Biscuit')
+def test_a_failed_restore_moves_the_workspace_back(client, app, told, clock, monkeypatch):
     archive = Path(client.post('/api/backups').json()['path'])
     path = app.state.database.path
     client.close()
@@ -38,14 +35,13 @@ def test_a_failed_restore_moves_the_workspace_back(client, app, companion, clock
         restore.replace_workspace(archive, path, clock)
     assert path.exists() and not list(path.parent.glob('replaced-*'))
     with app.state.database.connect() as connection:
-        assert connection.execute('SELECT value FROM memories').fetchone()[0] == 'Biscuit'
+        assert said(connection) == ['I step inside out of the rain.']
 
 
-def test_the_launcher_restores_a_backup_and_exits(client, app, companion, monkeypatch, capsys, tmp_path):
+def test_the_launcher_restores_a_backup_and_exits(client, app, told, monkeypatch, capsys, tmp_path):
     import socket
 
     from dungeon import launch
-    remember(client, 'Pet', 'Biscuit')
     archive = Path(client.post('/api/backups').json()['path'])
     path = app.state.database.path
     client.close()
@@ -61,10 +57,9 @@ def test_the_launcher_restores_a_backup_and_exits(client, app, companion, monkey
     assert list(path.parent.glob('replaced-*/dungeon.sqlite3'))
 
 
-def test_a_restore_chosen_in_settings_runs_on_the_next_start(client, app, companion, clock):
-    remember(client, 'Pet', 'Biscuit')
+def test_a_restore_chosen_in_settings_runs_on_the_next_start(client, app, told, clock):
     name = Path(client.post('/api/backups').json()['path']).name
-    remember(client, 'Car', 'A green van')
+    tell(client, 'I order a coffee.', 'told-0002')
     listed = client.get('/api/backups').json()
     assert [item['name'] for item in listed['backups']] == [name] and listed['pending'] is None
     assert listed['backups'][0]['readable'] and listed['backups'][0]['kind'] == 'backup'
@@ -85,11 +80,10 @@ def test_a_restore_chosen_in_settings_runs_on_the_next_start(client, app, compan
     assert restore.apply_pending(path) is None  # Consumed: never repeated on later starts.
     restored = app.state.database.__class__(path, clock)
     with restored.connect() as connection:
-        values = {row[0] for row in connection.execute('SELECT value FROM memories')}
-    assert values == {'Biscuit'}
+        assert said(connection) == ['I step inside out of the rain.']
 
 
-def test_a_damaged_backup_cannot_be_chosen(client, app, companion):
+def test_a_damaged_backup_cannot_be_chosen(client, app, told):
     folder = app.state.database.path.parent / 'backups'
     folder.mkdir(exist_ok=True)
     (folder / 'broken.zip').write_bytes(b'not a zip')
@@ -98,7 +92,7 @@ def test_a_damaged_backup_cannot_be_chosen(client, app, companion):
     assert client.get('/api/backups').json()['pending'] is None
 
 
-def test_the_launcher_restores_the_world_you_are_in(client, app, companion, monkeypatch, capsys, tmp_path):
+def test_the_launcher_restores_the_world_you_are_in(client, app, told, monkeypatch, capsys, tmp_path):
     import socket
 
     from dungeon import launch

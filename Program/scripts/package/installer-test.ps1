@@ -24,7 +24,7 @@ function Check([bool]$condition, [string]$message) {
 }
 
 function Install([string]$label) {
-  $log = Join-Path ([System.IO.Path]::GetTempPath()) "companion-setup-$label.log"
+  $log = Join-Path ([System.IO.Path]::GetTempPath()) "dungeon-setup-$label.log"
   $process = Start-Process -FilePath $Setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER', "/LOG=`"$log`"" -PassThru -Wait
   if ($process.ExitCode -ne 0) { Get-Content -LiteralPath $log -Tail 40; throw "Setup ($label) exited with $($process.ExitCode)." }
 }
@@ -52,7 +52,7 @@ Check ((Test-Path -LiteralPath $database) -and (Get-Item -LiteralPath $database)
 Launch
 
 # Restore the newest backup through the installed launcher: the workspace it replaces is set aside.
-$latest = Get-ChildItem -LiteralPath (Join-Path $workspace 'backups') -Filter 'companion-*.zip' | Sort-Object Name | Select-Object -Last 1
+$latest = Get-ChildItem -LiteralPath (Join-Path $workspace 'backups') -Filter 'dungeon-*.zip' | Sort-Object Name | Select-Object -Last 1
 $restoreOutput = & $env:ComSpec /d /c "`"$(Join-Path $installed 'Prospero Dungeon.cmd')`" --restore `"$($latest.FullName)`"" 2>&1 | Out-String
 Write-Host $restoreOutput
 Check ($LASTEXITCODE -eq 0 -and $restoreOutput -match 'Restored') "restores $($latest.Name) with the installed launcher"

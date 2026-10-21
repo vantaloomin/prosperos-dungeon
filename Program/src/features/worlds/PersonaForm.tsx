@@ -7,18 +7,16 @@ import { GENDERS, ageHint, ageText, personaAges } from './worldsText'
 import { KindFields } from '../kinds/KindFields'
 import { lifeAge, longLived, pickedLifespan } from '../kinds/kindText'
 import { CityPick, SOMEWHERE_NEW } from './CityPick'
-import { PersonaPets } from './PersonaPets'
 import { PersonaHome } from './PersonaHome'
 import { homeChanged, saveHome, useHomeDraft, type HomeDraft } from './personaHomeText'
-import { petDrafts, petsBody, type PetDraft } from './personaPetsText'
 
 const BIRTHDAY = /^(?:(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]))?$/
 
-type Draft = { name: string; gender: PersonaGender; age: string; about: string; birthday: string; pets: PetDraft[]; kind: string; lifespan: number | null }
+type Draft = { name: string; gender: PersonaGender; age: string; about: string; birthday: string; kind: string; lifespan: number | null }
 
 function draftOf(persona?: Persona): Draft {
-  if (!persona) return { name: '', gender: '', age: '', about: '', birthday: '', pets: [], kind: '', lifespan: null }
-  return { name: persona.name, gender: persona.gender, age: persona.age ? String(persona.age) : '', about: persona.about, birthday: persona.birthday, pets: petDrafts(persona.pets),
+  if (!persona) return { name: '', gender: '', age: '', about: '', birthday: '', kind: '', lifespan: null }
+  return { name: persona.name, gender: persona.gender, age: persona.age ? String(persona.age) : '', about: persona.about, birthday: persona.birthday,
     kind: persona.kind ?? '', lifespan: persona.lifespan ?? null }
 }
 
@@ -29,12 +27,12 @@ function validDraft(draft: Draft, age: number | null, isNew: boolean, long: bool
 }
 
 const TEXT = {
-  existing: { id: 'persona-heading', heading: 'Who you are here', button: 'Save', busy: 'Saving…', intro: 'Your companions in this persona\'s worlds know you by this.' },
-  new: { id: 'new-persona-heading', heading: 'A new persona', button: 'Make this persona', busy: 'Making their world…', intro: 'Who will you be? They get a world of their own with new people in it, and you make the first companion there.' },
+  existing: { id: 'persona-heading', heading: 'Who you are here', button: 'Save', busy: 'Saving…', intro: 'The narrator and the people in this persona\'s worlds know you by this.' },
+  new: { id: 'new-persona-heading', heading: 'A new persona', button: 'Make this persona', busy: 'Making their world…', intro: 'Who will you be? They get a world of their own with new people in it.' },
 }
 
 /** A new persona, with their world in `city`, or the changes to one; a new one's form closes once it is made. */
-async function savePersona(persona: Persona | undefined, body: Omit<Draft, 'age' | 'pets'> & { age: number | null; pets: ReturnType<typeof petsBody> }, city: string): Promise<Worlds | undefined> {
+async function savePersona(persona: Persona | undefined, body: Omit<Draft, 'age'> & { age: number | null }, city: string): Promise<Worlds | undefined> {
   if (!persona) { await api('/worlds/personas', { ...body, city_id: city }); return undefined }
   return api<Worlds>(`/worlds/personas/${persona.id}`, body, 'PATCH')
 }
@@ -51,7 +49,7 @@ interface PersonaFormProps { persona?: Persona; world?: World; cityId: string; o
   /** What the Kind pickers offer, for a new persona (the one in use carries its own). */
   kinds?: KindChoices }
 
-/** Who the user is: the one in use, or (without `persona`) a new one. Only the user says this; companions know
+/** Who the user is: the one in use, or (without `persona`) a new one. Only the user says this; the narrator knows
  * only what is written here, and nothing left blank is made up. */
 export function PersonaForm({ persona, world, cityId, onSaved, onCancel, kinds }: PersonaFormProps) {
   const [draft, setDraft] = useState(() => draftOf(persona))
@@ -69,10 +67,10 @@ export function PersonaForm({ persona, world, cityId, onSaved, onCancel, kinds }
   const save = async () => {
     setSaving(true)
     try {
-      const saved = await saveAll(persona, { ...draft, age, pets: petsBody(draft.pets) }, city, home.moving)
+      const saved = await saveAll(persona, { ...draft, age }, city, home.moving)
       home.settle(saved)
       onSaved(saved)
-      setNote({ tone: 'info', text: 'Saved. Your companions know you this way from the next message.' })
+      setNote({ tone: 'info', text: 'Saved. The narrator knows you this way from the next turn.' })
     } catch (failure) { setNote({ tone: 'error', text: failure instanceof Error ? failure.message : 'That was not saved.' }) } finally { setSaving(false) }
   }
   return (
@@ -90,10 +88,9 @@ export function PersonaForm({ persona, world, cityId, onSaved, onCancel, kinds }
       {choices && <PersonaKind found={found} choices={choices} draft={draft} age={age} span={span} set={set} />}
       <AgeField value={draft.age} age={age} long={long} onChange={(value) => set({ age: value })} />
       <TextInput label="Birthday" value={draft.birthday} placeholder="MM-DD" maxLength={5} onChange={(birthday) => set({ birthday })}
-        hint="Month and day, like 04-23. Companions remember it and wish you a happy birthday." />
+        hint="Month and day, like 04-23. The story keeps track of your age from it." />
       <TextArea label="About you" value={draft.about} rows={3} maxLength={2000} onChange={(about) => set({ about })}
         placeholder="Works nights as a paramedic, loves old films." />
-      <PersonaPets drafts={draft.pets} onChange={(pets) => set({ pets })} persona={persona} />
       <PersonaHome moving={home.moving} disabled={saving} onChange={(next) => { home.setHome(next); setNote(null) }} />
       {!persona && <CityPick value={city} currentId={cityId} disabled={saving} onChange={setCity} />}
       <div className="form-actions">

@@ -1,7 +1,7 @@
 {
   "name": "Prospero Dungeon",
   "short_name": "Dungeon",
-  "description": "A private companion with a life of its own, running on your computer.",
+  "description": "A tabletop story game with an AI narrator, running on your computer.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

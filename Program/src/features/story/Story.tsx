@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Map as MapIcon, MapPin, RotateCcw, Send } from 'lucide-react'
+import { MapPin, RotateCcw, Send } from 'lucide-react'
 import { api, newId } from '../../api'
-import type { View } from '../../companion'
+import type { View } from '../../workspace'
 import type { CitySummary, Story as StoryData, StoryMessage, StoryScene } from '../../types'
 import { Loading, Notice } from '../../components/Feedback'
 import { ErrorNotice } from '../../components/ErrorNotice'
@@ -12,13 +12,12 @@ import { AiFooter, CrisisNote } from '../../components/Safety'
 import { aroundText, placeGroups, sceneTime, spotsText, whereText } from './storyText'
 import { StoryPeople } from './StoryPeople'
 import { CityOptions } from '../world/CityOptions'
-import { ExportLinks } from '../chats/ExportLinks'
-import { AuthorsNote } from '../conversation/AuthorsNote'
+import { AuthorsNote } from './AuthorsNote'
 
 const STORY_KEY = ['story']
 const OUT_OF_STORY = 'To step out of the story, start a message with OOC: or wrap it in ((double parentheses)).'
 
-/** Story mode: the user's own story around the cities, told by a narrator. The companion never sees it. */
+/** The story: the user's own story around the cities, told by a narrator. */
 export function Story({ go }: { go: (view: View) => void }) {
   const story = useQuery({ queryKey: STORY_KEY, queryFn: () => api<StoryData>('/story') })
   const client = useQueryClient()
@@ -38,9 +37,9 @@ export function Story({ go }: { go: (view: View) => void }) {
     <section className="story" aria-labelledby="story-heading">
       <header className="story-header">
         <h1 id="story-heading">Story</h1>
-        <p className="subtle">Your own story around town, told by a narrator. Your companion never sees it.</p>
-        <SceneBar scene={story.data.scene} onMap={() => go(`map/${encodeURIComponent(story.data.scene.place.id)}`)} onMove={(body) => run(null, () => api<StoryData>('/story/scene', body, 'PUT').then(update))} />
-        <StoryPeople people={story.data.people} canSwitch={story.data.can_switch} go={go}
+        <p className="subtle">Your own story around town, told by a narrator.</p>
+        <SceneBar scene={story.data.scene} onMove={(body) => run(null, () => api<StoryData>('/story/scene', body, 'PUT').then(update))} />
+        <StoryPeople people={story.data.people}
           onFind={(key) => void run(null, () => api<StoryData>('/story/find', { key }).then(update))} />
       </header>
       {!story.data.ready && <div className="story-notice"><Notice action={<button type="button" className="text-button" onClick={() => go('settings/models')}>Open Models</button>}>
@@ -53,7 +52,7 @@ export function Story({ go }: { go: (view: View) => void }) {
   )
 }
 
-function SceneBar({ scene, onMap, onMove }: { scene: StoryScene; onMap: () => void; onMove: (body: { city_id: string; place_id?: string }) => Promise<void> }) {
+function SceneBar({ scene, onMove }: { scene: StoryScene; onMove: (body: { city_id: string; place_id?: string }) => Promise<void> }) {
   const [moving, setMoving] = useState(false)
   return (
     <div className="story-scene">
@@ -64,7 +63,6 @@ function SceneBar({ scene, onMap, onMove }: { scene: StoryScene; onMap: () => vo
       {moving ? <GoElsewhere scene={scene} onDone={() => setMoving(false)} onMove={onMove} />
         : <div className="form-actions">
           <button type="button" className="button" onClick={() => setMoving(true)}>Go somewhere else…</button>
-          <button type="button" className="button" onClick={onMap}><MapIcon aria-hidden="true" />Map</button>
         </div>}
     </div>
   )
@@ -142,15 +140,12 @@ function NewStory({ empty, onClear }: { empty: boolean; onClear: () => Promise<v
   if (empty) return null
   return (
     <div className="story-footer">
-      <ExportLinks target={{ kind: 'story' }} />
       <button type="button" className="text-button" onClick={() => setAsking(true)}>Start a new story…</button>
       {asking && <ConfirmDialog title="Start a new story?" onClose={() => setAsking(false)} actions={<>
         <button type="button" className="button" onClick={() => setAsking(false)}>Cancel</button>
         <button type="button" className="button primary" onClick={() => void onClear().then(() => setAsking(false))}>Start a new story</button>
       </>}>
         <p>The story so far and the people you&apos;ve met in it are cleared for good. You stay where you are.</p>
-        <p className="subtle">To keep a copy, export it first:</p>
-        <p className="form-actions"><ExportLinks target={{ kind: 'story' }} /></p>
       </ConfirmDialog>}
     </div>
   )

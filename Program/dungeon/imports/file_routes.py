@@ -1,10 +1,8 @@
-"""Bring your characters (dungeon/imports/characters.py), the lore it brings (dungeon/lore.py) and old chats
-(dungeon/imports/chats.py)."""
+"""Lorebook files (dungeon/lore.py): import them, and switch their books and entries on or off."""
 from fastapi import APIRouter, Request
 
 from dungeon import lore
-from dungeon.imports import characters, chats
-from dungeon.models import CharacterCardFile, ChatFile, LoreSwitch
+from dungeon.models import LoreFile, LoreSwitch
 
 router = APIRouter(prefix='/api')
 
@@ -13,16 +11,10 @@ def db(request: Request):
     return request.app.state.database
 
 
-@router.post('/import/character')
-def import_character(request: Request, body: CharacterCardFile):
-    """A character card, CHARX, BYAF or lorebook file, imported straight away."""
-    return characters.bring(db(request), body.filename, body.data)
-
-
-@router.post('/import/chat')
-def import_chat(request: Request, body: ChatFile):
-    """A SillyTavern chat or a role/content transcript, brought in as older history straight away."""
-    return chats.bring(db(request), body.filename, body.data, body.companion_id)
+@router.post('/import/lorebook')
+def import_lorebook(request: Request, body: LoreFile):
+    """A lorebook file (JSON or .lorebook), imported straight away."""
+    return lore.bring(db(request), body.filename, body.data)
 
 
 @router.get('/lore')

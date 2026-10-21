@@ -1,15 +1,7 @@
 """How others see a person and how they see themselves (dungeon/world/perception.py)."""
-import json
 import re
 from collections import Counter
 
-from test_drafting import GOOD, connect, replying
-from test_social_circle import make
-
-from dungeon import cast
-from dungeon.characters import require_current
-from dungeon.life import encounters
-from dungeon.memory.context import character_text
 from dungeon.world import catalog, perception, townsfolk
 
 GENDERED = re.compile(r"\b(he|she|him|her|his|hers|himself|herself|man|woman|men|women|guy|girl|boy|lady|ladies|"
@@ -52,21 +44,6 @@ def test_the_bank_is_big_varied_and_safe_to_say_about_anyone():
             assert not text.endswith('.'), (path, text)
         else:
             assert text[-1] in '.!?', (path, text)
-
-
-def test_traits_from_the_bank_give_the_town_sheet_what_it_needs():
-    bank = perception.bank()
-    for key, item in bank['temperaments'].items():
-        impression, lift = townsfolk.TEMPERAMENTS[key][1:]
-        assert impression[:1].islower() and not impression.endswith('.') and -0.1 <= lift <= 0.2, key
-        voice = cast.VOICES.get(key) or item['town']['voice']
-        assert voice.endswith('.') and not GENDERED.search(voice), key
-    for key in bank['flaws']:
-        text, slows, setback = townsfolk.FLAWS[key]
-        assert text[:1].islower() and isinstance(slows, bool) and setback.startswith('{name} '), key
-        assert not GENDERED.search(text + setback), key
-    for key in bank['desires']:
-        assert townsfolk.DESIRES[key][:1].islower() and not GENDERED.search(townsfolk.DESIRES[key]), key
 
 
 def test_the_same_person_always_gets_the_same_lines():
@@ -119,24 +96,6 @@ def test_a_gap_changes_only_that_facets_own_line():
            [line for n, line in enumerate(blind['private']) if n != 3]
 
 
-def test_a_townsperson_is_revealed_meeting_by_meeting():
-    data = catalog.city('baltimore')
-    sheet = townsfolk.at_place(data, data['places'][0]['id'])[0]
-    full = perception.for_sheet(data, sheet)
-    assert perception.revealed(data, sheet, 0) == {}
-    once = perception.revealed(data, sheet, 1)
-    assert full['public'].startswith(once['comes_across'][:-1]) and 'says_they_are' not in once
-    assert perception.revealed(data, sheet, 2) == {'comes_across': full['public']}
-    thrice = perception.revealed(data, sheet, 3)
-    assert thrice['says_they_are'] == full['glimpse']
-    meetings = [{'place': 'X', 'local_date': '2026-03-0' + str(n), 'met_at': ''} for n in range(1, 4)]
-    person = encounters.revealed(sheet, data, meetings, None, None)
-    text = encounters.text(person)
-    assert f"How they come across: {full['public']}" in text and full['glimpse'] in text
-    # The sore spot never shows to anyone else.
-    assert not any(line in text for line in full['private'])
-
-
 def test_word_matching_reads_the_sheet():
     definition = {'name': 'Rae', 'flaws': ["Can't say no to anyone who asks for a favour."],
                   'personality': 'Cheerful and bubbly, the glue of the friend group.'}
@@ -174,56 +133,6 @@ def test_the_helper_picks_by_id_and_unknown_ids_are_dropped():
         **dict.fromkeys(perception.FACETS, 'aligned'), 'flaw': 'blind_spot'}
     assert perception.valid_gaps(None) is None
     assert 'pleaser' in perception.menu() and tell in perception.menu()
-
-
-def test_the_quick_start_keeps_the_models_bank_picks(client, provider):
-    connect(client)
-    raw = {**GOOD, 'perception': {'flaw': 'gossip', 'temperament': 'made-up', 'gaps': {'flaw': 'blind_spot'}}}
-    provider.respond = replying(json.dumps(raw))
-    response = client.post('/api/companion/draft', json={'idea': 'a tired nurse', 'timezone': 'UTC'})
-    assert response.status_code == 200, response.text
-    definition = response.json()['definition']
-    gossip = perception.entry('flaw', 'gossip')
-    assert any(phrase in definition['seen_as'] for phrase in gossip['seen'])
-    assert definition['sees_self'].split('\n')[3] in gossip['excuse']
-    assert 'self_story' in provider.requests[0]['system']
-    # Without picks the fields stay empty and fill themselves in from the sheet.
-    provider.respond = replying(json.dumps(GOOD))
-    plain = client.post('/api/companion/draft', json={'idea': 'a tired nurse', 'timezone': 'UTC'}).json()
-    assert plain['definition']['seen_as'] == '' and plain['definition']['sees_self'] == ''
-
-
-def test_a_companion_prompt_holds_both_lines(client):
-    companion = make(client, 'Cheerful and bubbly.', flaws=["Can't say no."])
-    with client.app.state.database.connect() as connection:
-        current = require_current(connection)
-        prompt = character_text(current['version'], connection)
-        lines = perception.for_companion(companion['id'], current['version']['definition'])
-    assert lines['public'] and len(lines['private']) == 6
-    assert f"How others see you (how you come across, whether or not you agree): {lines['public']}" in prompt
-    assert all(f'- {line}' in prompt for line in lines['private'])
-
-
-def test_the_form_gets_suggestions_that_fit(client):
-    body = {'definition': {'name': 'Rae', 'flaws': ["Can't say no."]}}
-    fresh = client.post('/api/companion/perception', json=body).json()
-    assert fresh['automatic'] is None and len(fresh['seen_as']) == 6 and len(set(fresh['sees_self'])) == 6
-    pleaser = perception.entry('flaw', 'pleaser')
-    assert all(any(phrase in line for phrase in pleaser['seen']) for line in fresh['seen_as'])
-    make(client, 'Warm.')
-    saved = client.post('/api/companion/perception', json=body).json()
-    assert saved['automatic']['seen_as'] == saved['seen_as'][0]
-
-
-def test_a_townsperson_who_becomes_a_companion_keeps_their_lines():
-    from datetime import date
-
-    from dungeon import cast
-    data = catalog.city('baltimore')
-    sheet = townsfolk.at_place(data, data['places'][0]['id'])[0]
-    definition = cast.profile(data, sheet, {'meetings': [], 'in_story': None, 'focus': {'version': {'name': 'Mira'}}}, date(2026, 3, 2))
-    lines = perception.for_sheet(data, sheet)
-    assert definition['seen_as'] == lines['public'] and definition['sees_self'] == '\n'.join(lines['private'])
 
 
 def test_period_towns_use_period_wording_where_the_bank_has_it():

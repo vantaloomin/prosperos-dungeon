@@ -6,8 +6,7 @@ from datetime import UTC, date, datetime, timedelta
 import pytest
 
 from dungeon.clock import FixedClock
-from dungeon.life import encounters
-from dungeon.world import catalog, couples, paper, townsfolk, turnover
+from dungeon.world import catalog, townsfolk, turnover
 
 START = turnover.START
 
@@ -140,40 +139,6 @@ def test_nobody_passes_away_unless_people_can_pass_away_is_on():
     assert 'passed' in reasons
 
 
-def test_the_paper_reports_comings_and_goings():
-    data = city()
-    items = []
-    for week in range(30):
-        sunday = paper.issue_date(later(1)) + timedelta(weeks=week)
-        items += paper.comings_and_goings(data, (sunday - timedelta(days=6), sunday))
-    headlines = ' '.join(item['headline'] for item in items)
-    assert 'New ' in headlines and ('Farewell to' in headlines or 'moves on' in headlines or 'retires' in headlines)
-    assert all(item['text'].endswith('.') for item in items)
-    assert len({item['key'] for item in items}) == len(items)
-
-
-def test_town_couples_have_babies_in_words_only_and_follow_growing_families():
-    data = city()
-    people = paper.sample(data, later(1))
-    found = [item for sheet in people
-             for item in couples.babies(sheet, data, (START, later(3)))]
-    assert found and all(item['partner']['full'] for item in found)
-    turnover.STATE.families = 0
-    assert not [item for sheet in people for item in couples.babies(sheet, data, (START, later(3)))]
-
-
-def test_a_companion_who_knew_someone_hears_they_left():
-    data = city()
-    sheet = next(sheet for people in everyone_at_places(data, START).values() for sheet in people
-                 if sheet['staff'] and townsfolk.gone(sheet, data, later(5)))
-    companion = {'version': {'timezone': 'UTC'}}
-    assert encounters.left(sheet, data, 1, None, companion) is None  # Nobody has left yet today.
-    found = encounters.left(sheet, data, 1, datetime.combine(later(5), datetime.min.time(), UTC), companion)
-    assert found and found['text']
-    line = ' '.join(encounters.news_of({'left': found}))
-    assert line.startswith('They have since ') and date.fromisoformat(found['day']).strftime('%B %Y') in line
-
-
 def test_before_1925_staff_retire_rarely_and_passing_away_is_likelier():
     modern = turnover.chances('staff', 68, 2, 3, 'modern')
     victorian = turnover.chances('staff', 68, 2, 3, 'victorian')
@@ -195,25 +160,3 @@ def test_london_1895_staff_mostly_work_on_where_baltimore_staff_retire():
                                                                                       turnover.week_of(later(20))))
         return found
     assert retired('london-1895') * 2 < retired('baltimore')
-
-
-def test_the_paper_gives_the_age_around_town_does(monkeypatch):
-    from dungeon.life import ages
-    monkeypatch.setattr(turnover, 'STATE', turnover.Levels(turnover.STATE.clock, loss=4))
-    data = city() | {'began': date(2027, 2, 14)}
-    for place in data['places']:
-        found = [term for term in townsfolk.place_terms(data, place, 0, turnover.week_of(later(30)))
-                 if term.why == 'passed']
-        if found:
-            break
-    term = found[0]
-
-    def sheet_of(generation):
-        return townsfolk.person(data, place, turnover.STRIDE * generation)
-    [item] = [item for item in paper.moves(data, [term], range(term.left, term.left + 1), sheet_of)
-              if item.get('obituary')]
-    sheet, day = sheet_of(term.generation), turnover.week_day(term.left)
-    assert f" at {ages.aged(sheet, day, data['began'])}" in item['text']
-    assert couples.age_on(sheet, data, day) == ages.aged(sheet, day, data['began'])
-    # Without the town's own day, the paper counts from when the town started changing hands.
-    assert couples.age_on(sheet, city(), day) == ages.aged(sheet, day, turnover.START)

@@ -30,30 +30,30 @@ class Finish(Input):
 
 @router.get('')
 def status(request: Request):
-    return request.app.state.debug_time.status()
+    return debug_time.status(request.app.state.database)
 
 
 @router.post('/start')
 def start(request: Request):
     """Takes a verified backup and a copy of the database before the clock moves."""
     debug_time.start(request.app.state.database)
-    return request.app.state.debug_time.status()
+    return debug_time.status(request.app.state.database)
 
 
 @router.post('/speed')
 def speed(request: Request, body: SpeedChange):
     debug_time.set_speed(request.app.state.database, body.speed)
-    return request.app.state.debug_time.status()
+    return debug_time.status(request.app.state.database)
 
 
 @router.post('/jump')
 async def jump(request: Request, body: Jump):
-    return request.app.state.debug_time.jump(body.hours, body.to)
+    return debug_time.jump(request.app.state.database, body.hours, body.to)
 
 
 @router.post('/finish')
 async def finish(request: Request, body: Finish):
-    return await request.app.state.debug_time.finish(body.keep)
+    return debug_time.finish(request.app.state.database, body.keep)
 
 
 class Recording(Input):

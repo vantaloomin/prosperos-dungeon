@@ -23,10 +23,10 @@ def test_log_file_masks_messages_and_tracebacks(tmp_path):
         logger.exception('Request failed')
     for handler in logger.handlers:
         handler.flush()
-    text = (tmp_path / 'logs' / 'companion.log').read_text(encoding='utf-8')
+    text = (tmp_path / 'logs' / 'dungeon.log').read_text(encoding='utf-8')
     assert 'Request failed' in text and 'RuntimeError' in text
     assert 'SECRET' not in text
-    for name in ('uvicorn', 'uvicorn.error', 'companion'):
+    for name in ('uvicorn', 'uvicorn.error', 'dungeon'):
         configured = logging.getLogger(name)
         for handler in list(configured.handlers):
             handler.close()
@@ -39,13 +39,13 @@ def test_unexpected_failures_say_what_failed_and_why_in_plain_words():
     import sqlite3
 
     from dungeon import troubleshoot
-    said = troubleshoot.for_request('GET', '/api/world', ValueError('jpl names careers this city does not offer'), '/x/companion.log')
+    said = troubleshoot.for_request('GET', '/api/world', ValueError('jpl names careers this city does not offer'), '/x/dungeon.log')
     assert said.startswith("Couldn't load the cities. This looks like a bug")
     assert said.endswith('Details: ValueError: jpl names careers this city does not offer')
-    assert '/x/companion.log' in said and 'Traceback' not in said
-    assert troubleshoot.area('/api/life/home/rooms') == 'their home' and troubleshoot.area('/api/lifeline') == 'the Companion'
-    locked = troubleshoot.for_request('POST', '/api/conversation/messages', sqlite3.OperationalError('database is locked'))
-    assert locked.startswith("Couldn't finish that in the chat. Its data file was busy")
+    assert '/x/dungeon.log' in said and 'Traceback' not in said
+    assert troubleshoot.area('/api/story/messages') == 'the story' and troubleshoot.area('/api/storyline') == 'the Dungeon'
+    locked = troubleshoot.for_request('POST', '/api/story/messages', sqlite3.OperationalError('database is locked'))
+    assert locked.startswith("Couldn't finish that in the story. Its data file was busy")
     assert 'read-only' in troubleshoot.reason(sqlite3.OperationalError('attempt to write a readonly database'))
     assert troubleshoot.reason(KeyError('x')) is None
     assert len(troubleshoot.detail(ValueError('x' * 1000))) == troubleshoot.DETAIL_LIMIT

@@ -8,7 +8,6 @@ import logging
 from pydantic import ValidationError
 
 from dungeon import lore
-from dungeon.characters import current
 from dungeon.database import decode, encode, optional
 from dungeon.errors import DomainError, require
 from dungeon.world import catalog, mend
@@ -144,9 +143,8 @@ def delete(database, city_id: str) -> None:
             # Only the user's saved copy of a city that is now built in goes; the built-in one stays.
             connection.execute('DELETE FROM world_cities WHERE id=?', (city_id,))
             return
-        companion = current(connection)
-        home = companion['version']['definition'].get('home_city') if companion else None
-        require(home != city_id, 'Your companion lives in this city. Move them to another city first.', 409)
+        home = optional(connection, 'SELECT home_city_id FROM persona WHERE id=1')
+        require(not home or home['home_city_id'] != city_id, 'You live in this city. Move your home first.', 409)
         row = optional(connection, 'SELECT definition FROM world_cities WHERE id=?', (city_id,))
         lore.forget_city(connection, {**_decoded(row['definition']), 'id': city_id})
         connection.execute('DELETE FROM world_cities WHERE id=?', (city_id,))

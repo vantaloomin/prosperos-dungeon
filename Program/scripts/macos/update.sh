@@ -10,7 +10,7 @@ UPDATE_MANIFEST="$CHECKOUT_ROOT/.zip-update-files"
 
 fail() {
     say_error "Update failed: $*"
-    echo "Your companion's data was not touched."
+    echo "Your Dungeon data was not touched."
     exit 1
 }
 
@@ -38,7 +38,7 @@ update_with_git() {
 update_from_zip() {
     [ -w "$CHECKOUT_ROOT" ] || fail "This folder can't be changed (it may be on a read-only disk): $CHECKOUT_ROOT. Copy the whole folder to your Mac, for example into Documents, and run update.command from there."
     local work source before after relative
-    work="$(mktemp -d "${TMPDIR:-/tmp}/companion-update.XXXXXX")" || fail 'Could not make a temporary folder.'
+    work="$(mktemp -d "${TMPDIR:-/tmp}/dungeon-update.XXXXXX")" || fail 'Could not make a temporary folder.'
     trap 'rm -rf "$work"' EXIT
     if [ -n "$DUNGEON_UPDATE_ZIP" ]; then
         cp "$DUNGEON_UPDATE_ZIP" "$work/main.zip" || fail "Could not read $DUNGEON_UPDATE_ZIP."

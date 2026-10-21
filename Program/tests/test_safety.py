@@ -1,7 +1,6 @@
 """AI notices and crisis help (docs/safety.md): the first-run notice, the crisis note and the standing prompt rule."""
 import pytest
-from companions import ok
-from conftest import send
+from conftest import ok
 
 from dungeon import safety
 
@@ -22,21 +21,6 @@ def test_self_harm_talk_is_noticed(text):
 ])
 def test_everyday_talk_is_not(text):
     assert not safety.crisis(text)
-
-
-def test_the_note_marks_only_the_users_message_and_never_stops_the_reply(client, connected, provider):
-    result = send(client, "honestly I don't want to be alive anymore", 'client-crisis-1')
-    assert result['message']['crisis_help'] is True
-    assert result['reply']['status'] == 'complete' and result['reply']['crisis_help'] is False
-    later = send(client, 'Lovely weather today.', 'client-crisis-2')
-    assert later['message']['crisis_help'] is False
-    history = ok(client.get('/api/conversation'))['messages']
-    assert [message['crisis_help'] for message in history if message['role'] == 'user'] == [True, False]
-
-
-def test_characters_are_told_never_to_encourage_self_harm(client, connected, provider):
-    send(client, 'Hi', 'client-rule')
-    assert 'Never encourage, praise or help with self-harm or suicide' in provider.requests[-1]['system']
 
 
 def test_the_first_run_notice_is_confirmed_once(client):

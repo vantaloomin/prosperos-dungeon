@@ -22,7 +22,6 @@ from zoneinfo import available_timezones
 from dungeon import lore
 from dungeon.errors import DomainError, require
 from dungeon.imports import lorebooks
-from dungeon.imports.characters import add_book
 from dungeon.world import catalog, custom, mend, naming
 from dungeon.world.mend import slug
 from dungeon.world.schema import PLACE_KINDS, TRANSIT_KINDS
@@ -527,9 +526,9 @@ def bring(database, value: dict) -> dict:
 
     def with_book(connection, timestamp: str) -> None:
         if made['book']:
-            added['book'] = add_book(connection, timestamp, made['book'], None, f"{made['book']['name']}.world-map.json")
             # The notes follow the city into new worlds there and go when it is deleted (dungeon/lore.py).
-            connection.execute('UPDATE lore_books SET city_id=? WHERE id=?', (city['id'], added['book']['id']))
+            added['book'] = lore.add_book(connection, timestamp, made['book'], f"{made['book']['name']}.world-map.json",
+                                          city['id'])
 
     saved = custom.create(database, city, also=with_book)
     return catalog.summary(saved) | {'import_notes': made['notes'] + saved.get('import_notes', []),

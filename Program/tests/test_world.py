@@ -9,8 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from dungeon.errors import DomainError
-from dungeon.models import CharacterDefinition
-from dungeon.world import catalog, generators, naming
+from dungeon.world import catalog, generators
 from dungeon.world.check import FOOD
 from dungeon.world.schema import City, Featured
 
@@ -37,14 +36,6 @@ def test_every_shipped_city_validates_and_cites_its_sources(city_id):
     for career in catalog.careers_for(data):
         result = generators.job(data, career, seed=career)
         assert result['employer']['name'] and result['refs'] and result['sources']
-
-
-@pytest.mark.parametrize('city_id', CITIES)
-def test_generated_schedules_are_valid_character_routines(city_id):
-    data = catalog.city(city_id)
-    for career in catalog.careers_for(data):
-        blocks = generators.job(data, career, seed=career)['schedule']
-        CharacterDefinition(name='Mira', schedule=blocks)
 
 
 SCRIPTS = Path(__file__).parent.parent / 'scripts' / 'world'
@@ -171,30 +162,6 @@ def test_world_api(client):
         'city': 'baltimore', 'neighborhood': 'hampden'}
 
 
-def test_a_generated_schedule_drives_the_life_routine(client):
-    job = client.get('/api/world/cities/baltimore/generate/job', params={'career': 'barista', 'seed': 'm'}).json()
-    response = client.post('/api/companion', json={'name': 'Mira', 'timezone': 'America/New_York',
-                                                     'location': 'Hampden, Baltimore', 'schedule': job['schedule']})
-    assert response.status_code == 200, response.text
-    routine = client.get('/api/life/routine').json()
-    assert not routine['default_schedule'] and {block['key'] for block in routine['blocks']} >= {'work', 'sleep'}
-
-
-def test_the_catalog_answers_the_life_composer(app):
-    from dungeon.world.source import CatalogWorld
-    assert isinstance(app.state.life.world, CatalogWorld)
-    world = CatalogWorld()
-    waterfront = world.places('baltimore', ['waterfront'])
-    assert waterfront and all(place.kind == 'waterfront' and place.city == 'Baltimore' for place in waterfront)
-    # A waterfront bar or distillery is not somewhere to walk along the water.
-    assert 'Sagamore Spirit Distillery' not in {place.name for place in waterfront}
-    assert world.places('Fells Point, Baltimore', ['cafe', 'bar'])
-    colleges = world.places('baltimore', ['college'])
-    assert {'Johns Hopkins University'} <= {place.name for place in colleges}
-    assert world.places('atlantis', ['cafe']) == []
-    assert world.places('baltimore', ['cafe']) == world.places('baltimore', ['cafe'])
-
-
 def test_users_build_their_own_cities(client):
     template = client.get('/api/world/template').json()
     assert client.post('/api/world/validate', json=template).json()['valid']
@@ -243,7 +210,6 @@ def test_a_saved_city_that_no_longer_validates_leaves_the_others_listed(app, cli
     assert 'neighborhoods' in broken[0]['error'] and broken[0]['definition']['neighborhoods'] == []
     assert client.delete('/api/world/cities/stale-town').status_code == 200
     assert client.get('/api/world/broken-cities').json() == []
-
 
 
 def test_a_saved_city_that_crashes_while_loading_leaves_the_others_listed(app, client, monkeypatch):
@@ -314,20 +280,6 @@ def test_every_shipped_city_loads_strictly():
     assert all(data['origin'] == 'builtin' for data in catalog.cities().values() if not data.get('pack_file'))
     assert {path.stem for path in catalog.city_files(catalog.BUILTIN_CITIES)} == \
         {key for key, data in catalog.cities().items() if data['origin'] == 'builtin'}
-
-
-def test_copying_a_built_in_city_and_living_in_a_user_city(app, client):
-    copied = client.post('/api/world/cities/baltimore/copy', json={'id': 'my-baltimore', 'name': 'My Baltimore'})
-    assert copied.status_code == 200, copied.text
-    assert len(copied.json()['places']) == len(baltimore()['places']) and copied.json()['aliases'] == []
-    client.post('/api/companion', json={'name': 'Mira', 'timezone': 'America/New_York', 'home_city': 'my-baltimore'})
-    assert app.state.life.world.places('my-baltimore', ['cafe'])
-    blocked = client.delete('/api/world/cities/my-baltimore')
-    assert blocked.status_code == 409
-    assert client.delete('/api/world/cities/baltimore').status_code == 409
-    client.post('/api/world/cities/baltimore/copy', json={'id': 'spare', 'name': 'Spare'})
-    assert client.delete('/api/world/cities/spare').json() == {'deleted': 'spare'}
-    assert client.get('/api/world/cities/spare').status_code == 404
 
 
 def test_settings_without_money_or_climate_still_generate():
@@ -422,34 +374,6 @@ def test_shipped_names_match_their_script_and_every_era_has_a_bank():
     for city_id in CITIES:
         groups, mix = catalog.name_groups(catalog.city(city_id))
         assert mix and set(mix) <= set(groups)
-
-
-@pytest.mark.parametrize('city_id', CITIES)
-def test_circles_are_deterministic_and_coherent(city_id):
-    data = catalog.city(city_id)
-    hood = data['neighborhoods'][0]['id']
-    employer = data['employers'][0]['id'] if data['employers'] else None
-    for seed in SEEDS[:8]:
-        result = generators.circle(data, seed=seed, size=12, home=hood, age=30, employer=employer)
-        assert result == generators.circle(data, seed=seed, size=12, home=hood, age=30, employer=employer)
-        people = result['people']
-        assert len(people) == 12 and len({person['name']['full'] for person in people}) == 12
-        assert len({person['id'] for person in people}) == 12
-        for person in people:
-            if person['role'] in ('parent', 'sibling'):
-                # Polish and Russian women use the feminine form of the shared name.
-                assert naming.base_family(person['name']['culture'], person['name']['family']) == result['family']
-                assert person['name']['group'] == people[2]['name']['group']
-            if person['role'] == 'neighbor':
-                assert person['home']['neighborhood']['id'] == hood
-            if person['role'] == 'coworker' and employer:
-                assert person['job']['employer']['id'] == employer
-            if person['role'] == 'parent':
-                assert person['age'] >= 30 + 24
-            if person['local'] and person['schedule']:
-                CharacterDefinition(name=person['name']['given'], schedule=person['schedule'])
-            assert len(person['haunts']) <= 3
-        assert result['refs'] and result['sources']
 
 
 def test_residents_follow_their_arguments():

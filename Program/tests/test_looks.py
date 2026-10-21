@@ -2,11 +2,6 @@
 import re
 from collections import Counter
 
-from test_social_circle import make
-
-from dungeon.characters import require_current
-from dungeon.images import prompts
-from dungeon.memory.context import character_text
 from dungeon.world import catalog, dating, looks, townsfolk
 
 
@@ -40,31 +35,6 @@ def test_what_the_appearance_already_says_is_not_drawn_again():
     assert sheet['height_cm'] is None and sheet['skin'] and sheet['face']
     words = looks.picture(sheet, 'she')
     assert words.startswith('A woman in her ') and 'hair' not in words and 'eyes' not in words
-
-
-def test_the_picture_opens_with_the_sheet_in_words():
-    sheet = {'age': 31, 'height_cm': 172, 'weight_kg': 70, 'build': 'athletic', 'skin': 'olive', 'face': 'oval',
-             'jaw': 'a defined jawline', 'nose': 'a straight nose', 'eyes': 'hazel', 'eye_shape': 'almond-shaped',
-             'hair': 'dark brown hair, in a ponytail', 'facial_hair': '', 'feature': 'freckles'}
-    assert looks.picture(sheet, 'she') == (
-        'A tall, athletic woman in her early thirties with olive skin, an oval face, a defined jawline, a straight '
-        'nose, almond-shaped hazel eyes, dark brown hair in a ponytail and freckles.')
-    assert looks.text(sheet).startswith('31 years old, 5\'8" (172 cm), about 154 lb (70 kg), athletic build')
-    prompt = prompts.compose('Mira', '', [{'summary': 'Read a book.', 'place': '', 'mood': ''}], '',
-                             sheet=looks.picture(sheet, 'she'), who='she')
-    assert 'A tall, athletic woman in her early thirties' in prompt and 'Mira' not in prompt
-
-
-def test_a_companion_knows_their_looks_and_the_form_can_show_them(client):
-    before = client.post('/api/companion/looks', json={'definition': {'identity': 'A baker.'}}).json()
-    assert before['automatic'] is None and 'oval' in before['options']['face']
-    make(client, 'Warm and curious.', identity='29. She bakes bread.', looks={'height_cm': 158})
-    shown = client.post('/api/companion/looks', json={'definition': {'identity': '29. She bakes bread.'}}).json()
-    assert shown['automatic']['age'] == 29 and shown['automatic']['face']
-    with client.app.state.database.connect() as connection:
-        version = require_current(connection)['version']
-    assert version['definition']['looks']['height_cm'] == 158
-    assert 'Looks: 29 years old, 5\'2" (158 cm)' in character_text(version)
 
 
 def test_a_townsperson_keeps_their_matchlight_looks():
@@ -111,20 +81,6 @@ def test_old_injuries_are_pictured_as_they_look_now():
         assert not re.search(r'broken|healed|scar|crooked|gap-tooth', looks.seen(detail))
     drawn = looks.picture({'nose': 'a straight nose', 'feature': 'a broken nose that healed a little crooked'}, 'he')
     assert drawn == 'A man with a nose that bends slightly to one side.'
-
-
-def test_damage_words_in_any_look_are_pictured_as_shapes():
-    """Krea draws "cleft", "chipped" and "crooked" literally, as cuts and damage, so every bank word is reworded."""
-    assert looks.seen('a cleft chin') == 'a chin with a faint vertical dimple'
-    assert looks.seen('his crooked smile') == 'his lopsided smile'
-    assert looks.seen('a gap-toothed smile') == 'a smile with a small gap between the front teeth'
-    assert looks.seen('ripped jeans and chipped nail polish') == 'faded jeans with open knees and nail polish'
-    words = r'\b(?:broken|healed|scars?|cleft|chipped|crooked|ripped|scuffed)\b'
-    banks = [*looks.bank()['jaw'], *looks.bank()['nose'], *dating.DETAILS, *dating.MODERN_DETAILS, *dating.BEARDS]
-    assert not [word for word in banks if re.search(words, looks.seen(word))]
-    event = {'summary': 'Read a book', 'place': '', 'caption': '', 'mood': ''}
-    prompt = prompts.compose('Sam', 'Sam has a cleft chin and wears ripped jeans.', [event], '')
-    assert 'cleft' not in prompt and 'ripped' not in prompt
 
 
 def test_an_age_spelled_out_is_read_like_digits():

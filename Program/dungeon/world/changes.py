@@ -298,23 +298,6 @@ def remove(connection, data: dict, change_id: str, now: str) -> dict:
     raise DomainError(f'{data["name"]} has no change {change_id!r}.', 404, 'unknown_change')
 
 
-def refresh_agenda(connection, data: dict, starts_on: str, now: str) -> None:
-    """When the companion lives in the changed city, drop their upcoming plans from the change's first day so the
-    agenda recomposes them with it (plans already started stay as they were)."""
-    from dungeon.characters import current
-    companion = current(connection)
-    definition = companion['version']['definition'] if companion else {}
-    city = definition.get('home_city') or definition.get('location') or ''
-    match = catalog.resolve(city, {data['id']: data}) if city else None
-    if not companion or (city != data['id'] and not (match and match['city'] == data['id'])):
-        return
-    timeline_id = companion['active_timeline_id']
-    if connection.execute("DELETE FROM life_agenda WHERE timeline_id=? AND local_date>=? AND status='upcoming' "
-                          'AND starts_at>?', (timeline_id, starts_on, now)).rowcount:
-        connection.execute('UPDATE agenda_cursors SET through=MIN(through, ?) WHERE timeline_id=?', (now, timeline_id))
-
-
-
 # --- Chat context ---
 
 def newsworthy(change: dict, day: date) -> bool:

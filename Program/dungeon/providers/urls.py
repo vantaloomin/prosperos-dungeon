@@ -11,7 +11,7 @@ import certifi
 
 from dungeon.errors import DomainError
 
-log = logging.getLogger('companion')
+log = logging.getLogger('dungeon')
 
 
 def is_loopback(host: str | None) -> bool:

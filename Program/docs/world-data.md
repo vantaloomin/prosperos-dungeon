@@ -1,10 +1,14 @@
 # World data
 
-[Back to the README](../../README.md) · [Architecture](architecture.md) · [Life simulation API](life-api.md)
+[Back to the README](../../README.md) · [Architecture](architecture.md)
 
-The Dungeon ships static facts about a few real cities so that everyday life is assembled from data
-and the model only phrases it (PRD W1–W4). A companion's outing, job, commute, rent and the weather
-they had are picked by deterministic code from these records. The model never has to invent a
+> This engine came from Prospero's Companion, where a companion was its main consumer. Milestone 0 removed the
+> companion; the story, its persona and the townsfolk use the engine now, and the sections below that mention a
+> companion describe parts the game will build on again.
+
+The Dungeon ships static facts about cities so that everyday life is assembled from data
+and the model only phrases it (PRD W1–W4). A townsperson's day, job, home and the weather are picked by
+deterministic code from these records. The model never has to invent a
 museum, an employer or a neighbourhood, and the same inputs always give the same choice.
 
 The app ships one city: **Haddon Harbor** (`setting: original`), a modern Maine harbour town where everyone
@@ -109,7 +113,7 @@ event's generation inputs.
 | --- | --- |
 | `outing`, `meal` | `place` (full record), `neighborhood`, `day_part`, `company`, `weather` (when `day` is given), `travel` (a commute from `home` or `neighborhood`), plus `meal` for meals. `None` only when no place of the requested kinds exists. Constraints relax (day part, then company) rather than fail. Rain or extreme heat or cold strongly favours indoor places; seasonal places only appear in season. |
 | `job` | Careers come from `catalog.careers_for(data)`: the shared ones for the city's era plus its own. Returns `career`, `employer` (`name`, `id`, `named`, `fit`), `neighborhood`, `schedule`, `commute` (when `home` is given). `fit` says how the employer was found: `employer` (a named employer for that career), `college` (students), `workplace` (a fitting place, such as a cafe for a barista or a tavern for a career in hospitality), `hub` (an unnamed workplace in a matching career hub) or `weak` (no matching sector in this city). Unnamed employers are described, never given invented names. |
-| `schedule` | Routine blocks in exactly the character `schedule` shape of the [life simulation API](life-api.md): `work` (or `study`), `sleep`, `after-work` leisure when there is time, and `day-off` leisure. They can be passed straight to `POST /api/companion`. |
+| `schedule` | Routine blocks in the routine `schedule` shape: `work` (or `study`), `sleep`, `after-work` leisure when there is time, and `day-off` leisure. |
 | `home` | `neighborhood`, `housing` type, `bedrooms`, `rent` within the neighbourhood's range and the budget (in the city's `currency` per `rent_period`), `rent_range`; both `null` where the setting has no rents. |
 | `commute` | `mode`, `line` (transit name or `null`), `distance_km`, `minutes`; walking for short trips, a shared rail line, then a shared bus, then one change of line (`line` reads "A, then B", with `change: {at, name, lines}` and seven minutes added), then a car. All values are estimates. |
 | `circle` | `family` (the companion's family name, given or chosen) and `people`, closest first: close friend, coworker, sibling, friend, parent, neighbor, friend, cousin, old classmate, friend, mentor, coworker (up to 12). Coworkers share the companion's `employer` (or `career` when only that is known; with neither there are no coworkers). Neighbors live in the `home` neighbourhood. Parents and siblings share the family name and heritage group; cousins do half the time. Relatives live out of town about 40% of the time. Ages sit around the companion's `age`. Names are unique within a circle. |
@@ -321,7 +325,7 @@ new city from the template, open a city file someone shared, copy any city, edit
 | `POST /api/world/cities` (body: a city) | Saves a new city. 409 if the id is taken or belongs to a built-in city. |
 | `POST /api/world/cities/{id}/copy` `{"id", "name"}` | Copies any city (built-in or the user's) as a new city of the user's |
 | `PUT /api/world/cities/{id}` `{"definition", "expected_revision"}` | Replaces a user city; 409 when the revision is stale |
-| `DELETE /api/world/cities/{id}` | Deletes a user city; 409 while the companion's `home_city` is that city |
+| `DELETE /api/world/cities/{id}` | Deletes a user city; 409 while the persona lives in that city |
 
 **Forgiving loading.** User cities and packs are mended before validation (`dungeon/world/mend.py`)
 so one slightly wrong word never stops a city loading; built-in cities are not, and their tests keep

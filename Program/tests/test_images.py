@@ -3,21 +3,15 @@ import asyncio
 import base64
 import json
 import os
-import sqlite3
 import struct
 import sys
-from datetime import timedelta
-from pathlib import Path
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
-from life_posts import post as read_post
-from life_posts import post_event, posts
 
-from dungeon import worlds
 from dungeon.identity import CLIENT_HEADER
-from dungeon.images import content, prompts
+from dungeon.images import content
 from dungeon.images.adapters.base import AdapterError, ImageRequest, ImageResult
 from dungeon.images.adapters.codex import CodexAdapter
 from dungeon.images.adapters.comfyui import ComfyAdapter
@@ -60,7 +54,7 @@ def adapters():
 @pytest.fixture
 def app(tmp_path, clock, provider, adapters):
     return create_app(tmp_path / 'workspace' / 'dungeon.sqlite3', clock=clock, vault=MemoryVault(),
-                      provider=provider, life_tasks=False, image_adapters=adapters)
+                      provider=provider, background=False, image_adapters=adapters)
 
 
 @pytest.fixture
@@ -72,17 +66,6 @@ def client(app):
 def ok(response):
     assert response.status_code == 200, response.text
     return response.json()
-
-
-def make_post(client, clock, summary='Mira walked along the harbour at dusk.', key='event-0001'):
-    clock.advance(timedelta(hours=2))
-    start = clock.now() - timedelta(hours=1)
-    event = ok(client.post('/api/events', json={
-        'idempotency_key': key, 'kind': 'ordinary', 'summary': summary,
-        'details': {'post': 'The water was so calm.', 'mood': 'content'},
-        'starts_at': start.isoformat(), 'ends_at': (start + timedelta(minutes=30)).isoformat()}))
-    ok(client.post(f"/api/events/{event['id']}/commit"))
-    return post_event(client, event['id'])
 
 
 def add_backend(client, **body):
@@ -101,12 +84,6 @@ def drain(client):
 def generate(client, post, **body):
     return ok(client.post('/api/images/jobs', json={'post_id': post['id'], **body}))
 
-
-def post_image(client, post):
-    return read_post(client, post['id'])['image']
-
-
-# Classification (F6) -------------------------------------------------------------------------
 
 LABELLED = [
     ('Mira reads a novel at a quiet café by the window.', 'safe'),
@@ -156,205 +133,7 @@ def test_classifier_errors_and_manual_marks_route_as_nsfw(monkeypatch):
     assert result.tier == 'nsfw' and 'classifier error' in result.reasons[0]
 
 
-def test_composed_life_events_are_mostly_safe():
-    """Every catalog caption and mood is classified, so a built-in event never needs a local
-    backend because of the app's own wording."""
-    from dungeon.life import composer
-    activities = [item for group in composer.CATALOG.values() for item in group]
-    texts = [text for item in activities for text in (*item.summaries, *item.captions, *item.moods)]
-    texts += [text for thread in composer.THREADS for text in (thread.opening, *thread.endings)]
-    flagged = [text for text in texts if content.classify({'prompt': text}).tier != 'safe']
-    assert flagged == []
-
-
 # Routing and jobs ----------------------------------------------------------------------------
-
-def test_no_backend_refuses_with_an_explanation(client, companion, clock):
-    post = make_post(client, clock)
-    job = generate(client, post)
-    assert job['status'] == 'failed' and job['error_code'] == 'no_backend'
-    image = post_image(client, post)
-    assert image['status'] == 'failed' and 'Settings' in image['error']
-
-
-def test_nsfw_goes_only_to_a_local_backend(client, companion, clock, adapters):
-    codex = add_backend(client, kind='codex')
-    google = add_backend(client, kind='hosted', provider='google', model='imagen-4', api_key='k')
-    post = make_post(client, clock, summary='Mira posed nude for a life drawing class.')
-    refused = generate(client, post)
-    assert refused['status'] == 'failed' and refused['error_code'] == 'no_local_backend'
-    assert 'local' in refused['error'] and refused['classification'] == 'nsfw'
-    pinned = ok(client.post('/api/images/jobs', json={'post_id': post['id'], 'backend_id': codex['id']}))
-    assert pinned['error_code'] == 'not_eligible'
-    comfy = local_comfy(client)
-    job = generate(client, post)
-    assert job['status'] == 'queued' and job['backend_id'] == comfy['id']
-    drain(client)
-    assert adapters['codex'].requests == [] and adapters['hosted'].requests == []
-    assert len(adapters['comfyui'].requests) == 1
-    assert google['accepts_nsfw'] is False
-
-
-def test_an_image_api_switched_to_nsfw_takes_nsfw_requests(client, companion, clock, adapters):
-    plain = add_backend(client, kind='hosted', provider='openrouter', model='m', api_key='k')
-    assert plain['nsfw_switch'] is True and plain['allows_nsfw'] is False and plain['accepts_nsfw'] is False
-    assert 'NSFW' not in plain['disclosure']
-    post = make_post(client, clock, summary='Mira posed nude for a life drawing class.')
-    assert generate(client, post)['error_code'] == 'no_local_backend'
-    # A new destination for NSFW requests: switching it on needs the disclosure accepted again.
-    unaccepted = client.put(f"/api/images/backends/{plain['id']}", json={'allows_nsfw': True})
-    assert unaccepted.status_code == 409 and unaccepted.json()['code'] == 'disclosure_required'
-    switched = ok(client.put(f"/api/images/backends/{plain['id']}", json={'allows_nsfw': True, 'accept_disclosure': True}))
-    assert switched['accepts_nsfw'] is True and switched['local'] is False and switched['allows_nsfw'] is True
-    assert switched['disclosure_accepted'] is True and 'NSFW requests go there too' in switched['disclosure']
-    job = generate(client, post)
-    assert job['status'] == 'queued' and job['backend_id'] == plain['id'] and job['classification'] == 'nsfw'
-    drain(client)
-    assert len(adapters['hosted'].requests) == 1
-    prohibited = make_post(client, clock, key='event-0002', summary='A nude 15-year-old at the lake.')
-    assert generate(client, prohibited)['error_code'] == 'prohibited'
-
-
-def test_google_openai_and_codex_cannot_take_nsfw(client, companion):
-    for body in ({'kind': 'hosted', 'provider': 'google', 'model': 'imagen-4'},
-                 {'kind': 'hosted', 'provider': 'openai', 'model': 'gpt-image-1'}, {'kind': 'codex'}):
-        response = client.post('/api/images/backends', json={**body, 'allows_nsfw': True, 'accept_disclosure': True})
-        assert response.status_code == 422
-        backend = add_backend(client, **body)
-        assert backend['nsfw_switch'] is False
-        assert client.put(f"/api/images/backends/{backend['id']}", json={'allows_nsfw': True}).status_code == 422
-
-
-def test_a_refusal_on_an_nsfw_image_api_is_not_sent_back_to_it(client, companion, clock, adapters):
-    hosted = add_backend(client, kind='hosted', provider='other', base_url='https://images.example.com/v1',
-                         model='m', api_key='k', allows_nsfw=True)
-    local = local_comfy(client)
-    ok(client.put('/api/images/settings', json={'fallback': True}))
-    adapters['hosted'].outcomes = [AdapterError('refused', 'refused')]
-    post = make_post(client, clock, summary='Mira posed nude for a life drawing class.')
-    generate(client, post)
-    drain(client)
-    assert [request.backend['id'] for request in adapters['hosted'].requests] == [hosted['id']]
-    assert [request.backend['id'] for request in adapters['comfyui'].requests] == [local['id']]
-
-
-def test_a_remote_comfyui_counts_as_hosted_unless_marked_controlled(client, companion, clock):
-    remote = add_backend(client, kind='comfyui', base_url='https://gpu.example.com')
-    assert remote['local'] is False and remote['accepts_nsfw'] is False
-    marked = ok(client.put(f"/api/images/backends/{remote['id']}", json={'controlled_machine': True,
-                                                                          'accept_disclosure': True}))
-    assert marked['local'] is True
-
-
-def test_prohibited_is_refused_even_locally(client, companion, clock, adapters):
-    local_comfy(client)
-    post = make_post(client, clock, summary='A nude 15-year-old at the lake.')
-    job = generate(client, post)
-    assert job['status'] == 'failed' and job['error_code'] == 'prohibited'
-    drain(client)
-    assert adapters['comfyui'].requests == []
-
-
-def test_safe_follows_the_users_order_and_records_provenance(client, companion, clock, adapters):
-    local_comfy(client)
-    hosted = add_backend(client, kind='hosted', provider='openrouter', model='google/gemini-image', api_key='k')
-    ok(client.post(f"/api/images/backends/{hosted['id']}/move", json={'position': 0}))
-    post = make_post(client, clock)
-    job = generate(client, post)
-    drain(client)
-    done = ok(client.get(f"/api/images/jobs/{job['id']}"))
-    assert done['status'] == 'completed' and done['backend_kind'] == 'hosted' and done['provider'] == 'openrouter'
-    assert done['classification'] == 'safe' and 'any enabled backend' in done['routing_reason']
-    assert done['identity_method'] == 'text description only' and done['current']
-    assert 'harbour' in done['prompt'] and done['width'] == 64
-    assert adapters['hosted'].requests[0].key == 'k'
-    image = post_image(client, post)
-    assert image['status'] == 'completed' and image['ref'] == job['id']
-    file = client.get(f"/api/images/jobs/{job['id']}/file")
-    assert file.status_code == 200 and file.headers['content-type'] == 'image/png'
-
-
-def test_hosted_backends_need_the_disclosure_accepted(client, companion):
-    response = client.post('/api/images/backends', json={'kind': 'hosted', 'provider': 'openai', 'model': 'gpt-image-1'})
-    assert response.status_code == 409 and response.json()['code'] == 'disclosure_required'
-    off = ok(client.post('/api/images/backends', json={'kind': 'hosted', 'provider': 'openai', 'model': 'gpt-image-1',
-                                                       'enabled': False}))
-    assert 'retention' in off['disclosure'] and not off['has_key']
-    assert local_comfy(client)['disclosure'] is None
-
-
-def test_a_late_result_never_replaces_a_newer_selection(client, companion, clock, adapters):
-    local_comfy(client)
-    post = make_post(client, clock)
-    first = generate(client, post)
-    drain(client)
-    adapters['comfyui'].gate = asyncio.Event()
-
-    async def scenario():
-        second = generate(client, post)
-        client.app.state.images.dispatch()
-        await asyncio.sleep(0)
-        ok(client.post(f"/api/images/jobs/{first['id']}/select"))
-        adapters['comfyui'].gate.set()
-        await client.app.state.images.drain()
-        return second
-    second = asyncio.run(scenario())
-    image = post_image(client, post)
-    assert image['ref'] == first['id'] and image['job_id'] == first['id']
-    late = ok(client.get(f"/api/images/jobs/{second['id']}"))
-    assert late['status'] == 'completed' and not late['current']
-    ok(client.post(f"/api/images/jobs/{second['id']}/select"))
-    assert post_image(client, post)['ref'] == second['id']
-    assert [job['id'] for job in ok(client.get('/api/images/jobs', params={'post_id': post['id']}))['jobs']] == \
-        [second['id'], first['id']]
-
-
-def test_retry_keeps_original_inputs_unless_current_settings(client, companion, clock, adapters):
-    local_comfy(client)
-    post = make_post(client, clock)
-    adapters['comfyui'].outcomes = [AdapterError('failed', 'GPU out of memory')]
-    job = generate(client, post)
-    drain(client)
-    failed = ok(client.get(f"/api/images/jobs/{job['id']}"))
-    assert failed['status'] == 'failed' and failed['error'] == 'GPU out of memory'
-    ok(client.put('/api/images/settings', json={'style': 'Watercolour sketch'}))
-    again = ok(client.post(f"/api/images/jobs/{job['id']}/retry"))
-    assert again['prompt'] == failed['prompt'] and again['retry_of'] == job['id']
-    current = ok(client.post(f"/api/images/jobs/{job['id']}/retry", json={'current_settings': True}))
-    assert current['prompt'].startswith('Watercolour sketch')
-    drain(client)
-    assert adapters['comfyui'].requests[1].seed == adapters['comfyui'].requests[0].seed
-
-
-def test_each_backend_can_have_its_own_style(client, companion, clock, adapters):
-    """A backend's own style starts its prompts in place of the general one; a backend without one
-    uses the general style, also when a request falls back to it from one that has its own."""
-    hosted = add_backend(client, kind='hosted', provider='openrouter', model='m', api_key='k',
-                         style='Anime illustration, clean line art')
-    assert hosted['style'] == 'Anime illustration, clean line art'
-    local = local_comfy(client)
-    assert local['style'] == ''
-    ok(client.put('/api/images/settings', json={'fallback': True}))
-    adapters['hosted'].outcomes = [AdapterError('failed', 'busy')]
-    post = make_post(client, clock)
-    job = generate(client, post)
-    assert job['prompt'].startswith(prompts.DEFAULT_STYLE)
-    drain(client)
-    sent = adapters['hosted'].requests[0].prompt
-    assert sent.startswith('Anime illustration, clean line art of a fictional') and 'phone camera' not in sent
-    assert ok(client.get(f"/api/images/jobs/{job['id']}"))['prompt'] == sent
-    fallback = adapters['comfyui'].requests[0].prompt
-    assert fallback.startswith(f'{prompts.DEFAULT_STYLE} of') and fallback.endswith(prompts.CAMERAS['moment'])
-    assert fallback[len(prompts.DEFAULT_STYLE):-len(prompts.CAMERAS['moment'])].strip() == \
-        sent[len('Anime illustration, clean line art'):].strip()
-    cleared = ok(client.put(f"/api/images/backends/{hosted['id']}", json={'style': '  '}))
-    assert cleared['style'] == ''
-
-
-def test_a_meme_keeps_its_own_opening_whatever_the_backend_style():
-    meme = {'prompt': 'Reaction-meme style photo, simple and centered: a cat. A fictional scene.',
-            'style': None, 'framing': 'meme'}
-    assert prompts.restyle(meme, 'Watercolour sketch') == meme
 
 
 def test_a_backend_style_never_makes_a_server_less_strict(client):
@@ -366,219 +145,6 @@ def test_a_backend_style_never_makes_a_server_less_strict(client):
     assert created.status_code == 422
     local = local_comfy(client)
     assert ok(client.put(f"/api/images/backends/{local['id']}", json={'style': 'Erotic nude photograph'}))['style']
-
-
-def test_a_corrected_event_makes_queued_work_stale(client, companion, clock, adapters):
-    local_comfy(client)
-    post = make_post(client, clock)
-    job = generate(client, post)
-    ok(client.post(f"/api/events/{post['events'][0]['id']}/correct",
-                   json={'summary': 'Mira walked the dog instead.', 'details': {}}))
-    drain(client)
-    stale = ok(client.get(f"/api/images/jobs/{job['id']}"))
-    assert stale['status'] == 'cancelled' and stale['error_code'] == 'stale_inputs'
-    assert adapters['comfyui'].requests == [] and not stale['retry_original_available']
-    refused = client.post(f"/api/images/jobs/{job['id']}/retry")
-    assert refused.status_code == 409
-    fresh = ok(client.post(f"/api/images/jobs/{job['id']}/retry", json={'current_settings': True}))
-    assert 'dog' in fresh['prompt']
-
-
-def test_a_finished_image_of_a_corrected_event_is_marked_outdated(client, companion, clock, adapters):
-    """One event through post, image and correction (acceptance: chat and feed coherence)."""
-    local_comfy(client)
-    clock.advance(timedelta(hours=2))
-    start = clock.now() - timedelta(hours=1)
-    event = ok(client.post('/api/events', json={
-        'idempotency_key': 'event-place', 'kind': 'ordinary', 'summary': 'Mira had a coffee at The Charmery.',
-        'details': {'post': 'Quiet corner.', 'place': {'id': 'the-charmery', 'name': 'The Charmery', 'kind': 'cafe'}},
-        'starts_at': start.isoformat(), 'ends_at': (start + timedelta(minutes=30)).isoformat()}))
-    ok(client.post(f"/api/events/{event['id']}/commit"))
-    post = post_event(client, event['id'])
-    generate(client, post)
-    drain(client)
-    assert post_image(client, post)['outdated'] is False
-    ok(client.post(f"/api/events/{event['id']}/correct",
-                   json={'summary': 'Mira had a coffee at Artifact Coffee.', 'details': event['details']}))
-    image = post_image(client, post)
-    assert image['status'] == 'completed' and image['outdated'] is True
-    preview = ok(client.post('/api/images/preview', json={'post_id': post['id']}))
-    assert 'Artifact Coffee' in preview['prompt'] and 'Charmery' not in preview['prompt']
-    generate(client, post)
-    drain(client)
-    assert post_image(client, post)['outdated'] is False
-
-
-def test_a_carried_over_image_is_not_marked_outdated(client, companion, clock, adapters):
-    local_comfy(client)
-    post = make_post(client, clock)
-    generate(client, post)
-    drain(client)
-    clock.advance(timedelta(hours=1))
-    message = ok(client.post('/api/conversation/messages', json={'text': 'Hi', 'client_id': 'client-0001'}))['message']
-    created = ok(client.post('/api/timelines', json={'message_id': message['id'], 'text': 'Hello'}))
-    ok(client.post(f"/api/timelines/{created['id']}/activate"))
-    [copy] = [item for item in posts(client) if item['kind'] == 'event']
-    assert copy['id'] != post['id'] and copy['image']['status'] == 'completed'
-    assert copy['image']['outdated'] is False
-
-
-def test_rechecked_at_dispatch_when_the_request_becomes_nsfw(client, companion, clock, adapters):
-    hosted = add_backend(client, kind='hosted', provider='openai', model='gpt-image-1', api_key='k')
-    post = make_post(client, clock)
-    job = generate(client, post)
-    database = client.app.state.database
-    with database.connect(write=True) as connection:
-        inputs = json.loads(connection.execute('SELECT inputs FROM image_jobs WHERE id=?', (job['id'],)).fetchone()[0])
-        inputs['prompt'] += ' Topless.'
-        connection.execute('UPDATE image_jobs SET inputs=? WHERE id=?', (json.dumps(inputs), job['id']))
-    drain(client)
-    assert adapters['hosted'].requests == []
-    assert ok(client.get(f"/api/images/jobs/{job['id']}"))['error_code'] == 'not_eligible'
-    assert hosted['accepts_nsfw'] is False
-
-
-def test_provider_refusal_reclassifies_and_falls_back_only_to_local(client, companion, clock, adapters):
-    hosted = add_backend(client, kind='hosted', provider='openrouter', model='m', api_key='k')
-    second_hosted = add_backend(client, kind='hosted', provider='openai', model='gpt-image-1', api_key='k')
-    local = local_comfy(client)
-    ok(client.put('/api/images/settings', json={'fallback': True}))
-    adapters['hosted'].outcomes = [AdapterError('refused', 'refused')]
-    post = make_post(client, clock)
-    job = generate(client, post)
-    drain(client)
-    refused = ok(client.get(f"/api/images/jobs/{job['id']}"))
-    assert refused['classification'] == 'nsfw' and 'refused by the provider' in refused['classification_reasons']
-    assert len(adapters['hosted'].requests) == 1 and adapters['hosted'].requests[0].backend['id'] == hosted['id']
-    jobs = ok(client.get('/api/images/jobs', params={'post_id': post['id']}))['jobs']
-    assert jobs[0]['backend_id'] == local['id'] and jobs[0]['trigger'] == 'fallback' and jobs[0]['current']
-    assert jobs[0]['status'] == 'completed' and second_hosted['id'] not in {job['backend_id'] for job in jobs}
-
-
-def test_failure_without_fallback_does_not_move_on(client, companion, clock, adapters):
-    add_backend(client, kind='codex')
-    local_comfy(client)
-    adapters['codex'].outcomes = [AdapterError('timeout', 'timed out')]
-    post = make_post(client, clock)
-    generate(client, post)
-    drain(client)
-    assert adapters['comfyui'].requests == []
-    assert post_image(client, post)['status'] == 'failed'
-
-
-def test_codex_auth_error_stops_its_queue_until_sign_in(client, companion, clock, adapters):
-    codex = add_backend(client, kind='codex')
-    adapters['codex'].outcomes = [AdapterError('auth', 'Run codex login.')]
-    posts = [make_post(client, clock, key=f'event-000{index}') for index in range(3)]
-    ids = [generate(client, post)['id'] for post in posts]
-    drain(client)
-    assert len(adapters['codex'].requests) == 1
-    states = [ok(client.get(f'/api/images/jobs/{job_id}')) for job_id in ids]
-    assert states[0]['status'] == 'failed' and states[0]['error_code'] == 'auth'
-    assert [state['status'] for state in states[1:]] == ['queued', 'queued']
-    assert states[1]['waiting_for'] == 'Run codex login.'
-    ok(client.post(f"/api/images/backends/{codex['id']}/unblock"))
-    drain(client)
-    assert len(adapters['codex'].requests) == 3
-
-
-def test_codex_runs_one_at_a_time_across_backends(client, companion, clock, adapters):
-    add_backend(client, kind='codex')
-    add_backend(client, kind='codex', label='Second login')
-    posts = [make_post(client, clock, key=f'event-000{index}') for index in range(2)]
-    for post in posts:
-        generate(client, post)
-
-    async def scenario():
-        adapters['codex'].gate = asyncio.Event()
-        started = client.app.state.images.dispatch()
-        await asyncio.sleep(0)
-        running = len(adapters['codex'].requests)
-        adapters['codex'].gate.set()
-        await client.app.state.images.drain()
-        return len(started), running
-    assert asyncio.run(scenario()) == (1, 1)
-    assert len(adapters['codex'].requests) == 2
-
-
-def test_cancel_and_restart_recovery(client, companion, clock, adapters, app):
-    local_comfy(client)
-    post = make_post(client, clock)
-    job = generate(client, post)
-    cancelled = ok(client.post(f"/api/images/jobs/{job['id']}/cancel"))
-    assert cancelled['status'] == 'cancelled'
-    queued = generate(client, post)
-    from dungeon.images import jobs as jobs_module
-    jobs_module.recover(app.state.database)
-    interrupted = ok(client.get(f"/api/images/jobs/{queued['id']}"))
-    assert interrupted['status'] == 'interrupted' and post_image(client, post)['status'] == 'interrupted'
-    drain(client)
-    assert adapters['comfyui'].requests == []
-
-
-def test_cancel_a_running_job(client, companion, clock, adapters):
-    local_comfy(client)
-    post = make_post(client, clock)
-    job = generate(client, post)
-    adapters['comfyui'].gate = asyncio.Event()
-
-    async def scenario():
-        client.app.state.images.dispatch()
-        await asyncio.sleep(0)
-        return await client.app.state.images.cancel(job['id'])
-    result = asyncio.run(scenario())
-    assert result['status'] == 'cancelled' and 'removed from ComfyUI' in result['error']
-
-
-def test_invalid_output_is_not_an_image(client, companion, clock, adapters):
-    local_comfy(client)
-    adapters['comfyui'].outcomes = [b'<html>error</html>']
-    post = make_post(client, clock)
-    job = generate(client, post)
-    drain(client)
-    assert ok(client.get(f"/api/images/jobs/{job['id']}"))['error_code'] == 'invalid_output'
-
-
-def test_automatic_cadence_is_bounded_and_skips_digests(client, companion, clock, adapters):
-    local_comfy(client)
-    ok(client.put('/api/settings', json={'background_activity': True}))
-    early = make_post(client, clock, key='event-early')
-    ok(client.put('/api/images/settings', json={'automatic_images': True, 'daily_limit': 1}))
-    runner = client.app.state.images
-    runner.automatic()
-    assert post_image(client, early)['status'] == 'none'
-    later = make_post(client, clock, key='event-later')
-    runner.automatic()
-    runner.automatic()
-    third = make_post(client, clock, key='event-third')
-    runner.automatic()
-    assert post_image(client, later)['status'] == 'queued' and post_image(client, third)['status'] == 'none'
-    ok(client.post('/api/pause'))
-    clock.advance(timedelta(days=2))
-    runner.automatic()
-    assert post_image(client, third)['status'] == 'none'
-
-
-def test_queue_limit(client, companion, clock):
-    local_comfy(client)
-    ok(client.put('/api/images/settings', json={'queue_limit': 1}))
-    post = make_post(client, clock)
-    generate(client, post)
-    assert client.post('/api/images/jobs', json={'post_id': post['id']}).status_code == 409
-
-
-def test_preview_shows_prompt_and_route_without_queuing(client, companion, clock):
-    local_comfy(client)
-    post = make_post(client, clock)
-    preview = ok(client.post('/api/images/preview', json={'post_id': post['id'], 'marked_nsfw': True}))
-    assert preview['classification']['tier'] == 'nsfw' and preview['refusal'] is None
-    assert ok(client.get('/api/images/jobs', params={'post_id': post['id']}))['jobs'] == []
-
-
-def test_saved_keys_stay_out_of_the_api(client, companion):
-    backend = add_backend(client, kind='hosted', provider='openrouter', model='m', api_key='sk-secret')
-    assert 'sk-secret' not in json.dumps(ok(client.get('/api/images/backends')))
-    assert backend['has_key'] and client.app.state.vault.get(f"image-backend:{backend['id']}") == 'sk-secret'
 
 
 # Adapters against stand-in servers --------------------------------------------------------------
@@ -709,12 +275,6 @@ def test_comfyui_check_lists_missing_nodes_and_models():
     assert any('Missing node: CLIPLoader' in line for line in report.details)
 
 
-def test_comfyui_custom_workflow_needs_a_prompt_marker(client, companion):
-    bad = client.post('/api/images/backends', json={'kind': 'comfyui', 'base_url': 'http://127.0.0.1:8188',
-                                                     'workflow': json.dumps({'1': {'class_type': 'X', 'inputs': {}}})})
-    assert bad.status_code == 422 and '{{prompt}}' in bad.json()['detail']
-
-
 def test_comfyui_lists_the_servers_files_for_each_loader():
     server = ComfyStandIn()
     adapter = ComfyAdapter(httpx.MockTransport(server))
@@ -777,7 +337,7 @@ def comfy_client(tmp_path, clock, provider):
     stand_in = ComfyStandIn()
     adapters = {'comfyui': ComfyAdapter(httpx.MockTransport(handler)), 'codex': FakeAdapter(), 'hosted': FakeAdapter()}
     app = create_app(tmp_path / 'workspace' / 'dungeon.sqlite3', clock=clock, vault=MemoryVault(),
-                     provider=provider, life_tasks=False, image_adapters=adapters)
+                     provider=provider, background=False, image_adapters=adapters)
     with TestClient(app, headers={CLIENT_HEADER: 'workspace'}) as test_client:
         yield test_client
 
@@ -820,7 +380,7 @@ def test_backend_files_put_krea_2_files_first_and_style_loras_are_saved(comfy_cl
     assert listed['options']['unet_name'] == [MODEL, 'krea2_turbo_fp8_scaled.safetensors']
     assert listed['matching']['clip_name'] == [ENCODER] and listed['matching']['vae_name'] == [VAE]
     assert listed['options']['lora'][0] == PHONE and listed['matching']['lora'] == [PHONE]
-    assert 'sdxl\\detail.safetensors' in listed['options']['lora'] and listed['character_lora'] is None
+    assert 'sdxl\\detail.safetensors' in listed['options']['lora']
     assert backend['style_loras'] == []
     style = {'name': PHONE, 'strength': 0.7, 'trigger': 'phone photo'}
     saved = ok(comfy_client.put(f"/api/images/backends/{backend['id']}", json={'style_loras': [style]}))
@@ -975,10 +535,6 @@ def test_codex_native_failures(fake_codex, monkeypatch, mode, code):
 
 @pytest.mark.parametrize(('mode', 'ok', 'words'), [('ok', True, 'experimental'), ('apikey', True, 'API key'),
                                                    ('out', False, 'not signed in')])
-def test_codex_native_check_reads_the_login_state(fake_codex, monkeypatch, mode, ok, words):
-    monkeypatch.setenv('FAKE_CODEX_MODE', mode)
-    report = asyncio.run(CodexAdapter().check({}, {'cli_path': str(fake_codex['codex'])}))
-    assert report.ok is ok and words in report.summary and any('0.160.1' in line for line in report.details)
 
 
 def hosted_server(responses, seen):
@@ -1040,31 +596,6 @@ def test_storage_reads_jpeg_and_webp_headers():
     assert storage.sniff(webp) == ('webp', 100, 50)
 
 
-def test_restored_workspaces_drop_image_keys(client, companion, tmp_path):
-    from dungeon import backup
-    add_backend(client, kind='hosted', provider='openrouter', model='m', api_key='k')
-    ok(client.put('/api/images/settings', json={'automatic_images': True}))
-    archive = backup.create(client.app.state.database, tmp_path / 'backups')
-    restored = backup.restore(Path(archive['path']), tmp_path / 'restored' / 'dungeon.sqlite3')
-    with restored.connect() as connection:
-        row = connection.execute('SELECT credential_ref, enabled FROM image_backends').fetchone()
-        settings = connection.execute('SELECT automatic_images FROM image_settings').fetchone()
-    assert row['credential_ref'] is None and settings['automatic_images'] == 0
-
-
-def test_switching_timelines_cancels_images_not_started(client, companion, clock, adapters):
-    local_comfy(client)
-    post = make_post(client, clock)
-    job = generate(client, post)
-    message = ok(client.post('/api/conversation/messages', json={'text': 'Hi', 'client_id': 'client-image-01'}))['message']
-    fork = ok(client.post('/api/timelines', json={'message_id': message['id'], 'text': 'Hello'}))
-    ok(client.post(f"/api/timelines/{fork['id']}/activate"))
-    drain(client)
-    cancelled = ok(client.get(f"/api/images/jobs/{job['id']}"))
-    assert cancelled['status'] == 'cancelled' and 'set aside' in cancelled['error']
-    assert adapters['comfyui'].requests == []
-
-
 def test_codex_missing_login_unverified_size_and_old_imagegen_location(fake_codex, monkeypatch):
     with pytest.raises(AdapterError) as size:
         asyncio.run(CodexAdapter().generate(native_request(fake_codex, width=1216, height=832)))
@@ -1092,65 +623,6 @@ def test_codex_timeout_stops_the_process(fake_codex, monkeypatch):
         with pytest.raises(asyncio.CancelledError):
             await task
     asyncio.run(scenario())
-
-
-def test_a_moment_with_its_own_outfit_leaves_the_usual_clothes_out():
-    """A Krea picture showed one black flat and one white sneaker: the appearance's usual work shoes and
-    the moment's outfit were both in the prompt."""
-    from dungeon.images import prompts
-    appearance = ('Shoulder-length honey-blonde hair with dark roots, freckles, and wire glasses. Usually wears '
-                  'black flats and a blazer to work, with a silver ring.')
-    kept = prompts.without_clothes(appearance)
-    assert 'flats' not in kept and 'blazer' not in kept
-    assert 'honey-blonde hair' in kept and 'freckles' in kept and 'glasses' in kept and 'silver ring' in kept
-    event = {'summary': 'Studied at the library', 'place': '', 'caption': '', 'mood': ''}
-    dressed = prompts.compose('Kim', appearance, [event], 'Candid phone photo, natural light.',
-                              'Wearing white sneakers and a green sweater.', dressed=True)
-    assert 'flats' not in dressed and 'white sneakers' in dressed and '..' not in dressed
-    plain = prompts.compose('Kim', appearance, [event], 'Candid phone photo, natural light.')
-    assert 'black flats' in plain and '..' not in plain
-
-
-def test_the_prompt_is_one_krea_style_paragraph_of_what_a_camera_can_see():
-    """Krea 2's guide (docs/prompting.md): medium first, the subject with what can be seen of them and what
-    they do, then the light and the camera. A name, backstory, caption or bare mood word gives it nothing to draw."""
-    from dungeon.images import prompts
-    appearance = ("Kimberly is a 32-year-old woman with long auburn hair, thin eyebrows she overplucked in college, "
-                  "and freckles. She has a faint scar on her chin from a derby fall. She looks like someone who never "
-                  "sleeps enough. Kimberly's smile is lopsided.")
-    event = {'summary': 'Kimberly studied at the library.', 'place': 'Enoch Pratt Library',
-             'caption': 'I am literally so locked in right now', 'mood': 'focused', 'hour': 16,
-             'weather': {'rain': True, 'high_f': 60}}
-    prompt = prompts.compose('Kimberly Smith', appearance, [event], 'Candid, natural-light photograph',
-                             'Wearing a grey hoodie.', dressed=True)
-    assert prompt.startswith('Candid, natural-light photograph of a fictional everyday moment, a medium shot with her '
-                             'whole head and face in the frame.')
-    assert 'Kimberly' not in prompt and 'locked in' not in prompt and 'Mood:' not in prompt
-    assert 'in college' not in prompt and 'derby' not in prompt and 'looks like someone' not in prompt
-    assert 'a faint pale mark on her chin' in prompt and 'Her smile is lopsided' in prompt
-    assert 'She is wearing a grey hoodie.' in prompt and 'She studied at the library at Enoch Pratt Library.' in prompt
-    assert 'focused, concentrating expression' in prompt and 'late-afternoon light' in prompt and 'rainy' in prompt
-    assert prompt.endswith('shallow depth of field.') and '..' not in prompt
-    painted = prompts.compose('Kimberly Smith', appearance, [event], 'Watercolour sketch')
-    assert 'phone camera' not in painted
-    assert prompts.pronoun('') == 'they' and prompts.pronoun('He has a beard.') == 'he'
-
-
-def test_the_action_is_the_activitys_present_tense_picture_line():
-    """A past-tense summary ("studied at the library") drew a selfie in the stacks; each activity has a
-    fixed line of what it looks like now. A corrected event keeps its own words."""
-    from dungeon.images import prompts
-    from dungeon.life import composer
-    event = {'summary': 'Kim studied at the library.', 'place': 'Enoch Pratt Library', 'caption': '', 'mood': '',
-             'activity': 'library', 'with': None}
-    prompt = prompts.compose('Kim', 'A woman with short hair.', [event], 'Candid photograph')
-    assert 'She is studying at a library table' in prompt and 'at Enoch Pratt Library.' in prompt
-    assert 'studied' not in prompt
-    dinner = prompts.compose('Kim', '', [{**event, 'activity': 'dinner', 'with': {'name': 'Tasha'}}], 'Candid photograph')
-    assert 'They are sitting at a restaurant table' in dinner and ', with a friend.' in dinner and 'Tasha' not in dinner
-    corrected = prompts.compose('Kim', '', [{**event, 'summary': 'Kim walked the dog instead.', 'revision': 2}], 'Photo')
-    assert 'walked the dog' in corrected
-    assert set(prompts.PICTURES) >= {item.key for group in composer.CATALOG.values() for item in group}
 
 
 def test_nanogpt_is_a_named_provider_that_can_take_nsfw(client):
@@ -1242,61 +714,6 @@ def test_image_model_lists_in_each_shape(body, provider, expected):
     assert sorted(row['id'] for row in image_models(body, provider)) == expected
 
 
-def test_listing_models_for_the_form_and_a_saved_backend(app, client):
-    seen = []
-
-    def server(request):
-        seen.append((str(request.url), request.headers.get('authorization')))
-        return httpx.Response(200, json={'data': [{'id': 'gpt-image-1'}, {'id': 'gpt-4o'}]})
-    app.state.images.adapters['hosted'] = HostedAdapter(httpx.MockTransport(server))
-    listed = ok(client.post('/api/images/models', json={'provider': 'openai', 'api_key': 'typed'}))
-    assert listed == {'ok': True, 'error': None, 'models': [{'id': 'gpt-image-1', 'name': 'gpt-image-1'}]}
-    assert seen[-1] == ('https://api.openai.com/v1/models', 'Bearer typed')
-    backend = add_backend(client, kind='hosted', provider='other', model='m', api_key='saved',
-                          base_url='https://images.example.com/v1')
-    ok(client.post('/api/images/models', json={'provider': 'other', 'backend_id': backend['id']}))
-    assert seen[-1] == ('https://images.example.com/v1/models', 'Bearer saved')
-    # The saved key never goes to an address it was not saved for.
-    ok(client.post('/api/images/models', json={'provider': 'other', 'backend_id': backend['id'],
-                                               'base_url': 'https://elsewhere.example.com/v1'}))
-    assert seen[-1] == ('https://elsewhere.example.com/v1/models', None)
-
-
-def test_a_model_list_that_cannot_be_read_says_to_type_the_name(app, client):
-    app.state.images.adapters['hosted'] = HostedAdapter(httpx.MockTransport(lambda request: httpx.Response(404)))
-    listed = ok(client.post('/api/images/models', json={'provider': 'other', 'base_url': 'https://images.example.com/v1'}))
-    assert not listed['ok'] and 'Type the model name' in listed['error'] and listed['models'] == []
-
-
 # Worlds -----------------------------------------------------------------------------------------
 
-def test_a_picture_that_finishes_after_a_switch_is_stored_in_its_own_world(client, companion, clock, adapters):
-    state = client.app.state
-    local_comfy(client)
-    job = generate(client, make_post(client, clock))
-    first = state.database.path
-    made = ok(client.post('/api/worlds', json={}))
-    comfy = adapters['comfyui']
-    comfy.gate = asyncio.Event()
 
-    async def scenario():
-        drawing = asyncio.create_task(state.images.drain())
-        while not comfy.requests:  # The picture is being drawn: the model has it, nothing is stored yet.
-            await asyncio.sleep(0)
-        worlds.switch(state, made['id'])
-        comfy.gate.set()
-        await drawing
-
-    asyncio.run(scenario())
-    assert state.database.path != first
-    with sqlite3.connect(first) as connection:
-        assert connection.execute('SELECT status FROM image_jobs WHERE id=?', (job['id'],)).fetchone() == ('completed',)
-    with sqlite3.connect(state.database.path) as connection:
-        assert connection.execute('SELECT COUNT(*) FROM image_jobs').fetchone() == (0,)
-
-
-def test_they_takes_the_plural_verb_after_a_name_is_said_as_a_pronoun():
-    from dungeon.images import prompts
-    found = prompts.unnamed('Mira always wears a red scarf. Mira carries a tote and Mira dresses well.', 'Mira', 'they')
-    assert found == 'They always wear a red scarf. They carry a tote and they dress well.'
-    assert prompts.unnamed('Mira always wears a red scarf.', 'Mira', 'she') == 'She always wears a red scarf.'

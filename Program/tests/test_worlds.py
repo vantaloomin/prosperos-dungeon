@@ -2,9 +2,9 @@
 import json
 
 import pytest
-from conftest import send
+from conftest import tell
 
-from dungeon import worlds
+from dungeon import story, worlds
 
 
 def ok(response):
@@ -16,52 +16,44 @@ def listing(client):
     return ok(client.get('/api/worlds'))
 
 
-def test_an_existing_workspace_quietly_becomes_the_first_world(client, companion, app):
+def test_a_new_workspace_is_the_first_world_in_the_default_city(client, app):
     data = listing(client)
     assert len(data['personas']) == 1 and len(data['personas'][0]['worlds']) == 1
     world = data['world']
-    assert world['first'] and world['active'] and world['companions'] == ['Mira']
+    assert world['first'] and world['active'] and world['city_id'] == story.DEFAULT_CITY
     assert (app.state.database.root / worlds.REGISTRY).is_file()
 
 
-def test_the_companion_knows_who_the_user_is(client, connected, provider):
-    persona = listing(client)['persona']
-    ok(client.patch(f"/api/worlds/personas/{persona['id']}", json={'name': 'Sam', 'age': 31,
-                                                                 'about': 'Works nights as a paramedic.'}))
-    send(client, 'Hey!', 'first-message')
-    prompt = provider.requests[-1]['prompt']
-    assert '## Who the user is' in prompt and '- Name: Sam' in prompt and 'paramedic' in prompt
-
-
-def test_a_new_world_is_ready_for_the_user_to_make_its_first_companion(client, companion, app):
-    # A blank companion to create, not a townsperson (Vanta, 2026-10-12).
+def test_a_new_world_has_its_own_town(client, app):
     made = ok(client.post('/api/worlds', json={}))
-    assert not made['active'] and not made['first'] and made['companions'] == []
-    assert made['name'] == 'Baltimore 2' or made['name'] != listing(client)['world']['name']
+    assert not made['active'] and not made['first'] and made['name'] != listing(client)['world']['name']
     path = app.state.database.root / made['folder'] / worlds.DATABASE
     assert path.is_file()
-    # The user is still where they were.
-    assert listing(client)['world']['companions'] == ['Mira']
+    ok(client.post(f"/api/worlds/{made['id']}/switch"))
+    with app.state.database.connect() as connection:
+        assert story.town_seed(connection) == made['id'][:16]
+    # The town seed is the world's and outlives a change to the persona.
+    persona = listing(client)['persona']
+    ok(client.patch(f"/api/worlds/personas/{persona['id']}", json={'name': 'Sam'}))
+    with app.state.database.connect() as connection:
+        assert story.town_seed(connection) == made['id'][:16]
 
 
-def test_switching_worlds_changes_everything_and_settings_follow(client, connected, app):
-    ok(client.put('/api/settings', json={'chat_style': 'retro', 'show_moods': True}))
-    send(client, 'Hello there', 'hello-message')
+def test_switching_worlds_changes_the_story_and_settings_follow(client, connected, app):
+    ok(client.put('/api/settings', json={'show_odds': True}))
+    tell(client, 'Hello there', 'hello-message')
     made = ok(client.post('/api/worlds', json={'name': 'Somewhere else'}))
     switched = ok(client.post(f"/api/worlds/{made['id']}/switch"))
     assert switched['world']['id'] == made['id'] and switched['world']['name'] == 'Somewhere else'
-    assert ok(client.get('/api/companion'))['companion'] is None
-    settings = ok(client.get('/api/settings'))
-    assert settings['chat_style'] == 'retro' and settings['show_moods']
+    assert ok(client.get('/api/story'))['messages'] == []
+    assert ok(client.get('/api/settings'))['show_odds']
     assert ok(client.get('/api/connection'))['connection']['model'] == 'local-model'
-    # And back: Mira and the chat are as they were.
     first = next(world for world in listing(client)['personas'][0]['worlds'] if world['first'])
     ok(client.post(f"/api/worlds/{first['id']}/switch"))
-    assert ok(client.get('/api/companion'))['companion']['version']['name'] == 'Mira'
-    assert any(message['text'] == 'Hello there' for message in ok(client.get('/api/conversation'))['messages'])
+    assert any(message['text'] == 'Hello there' for message in ok(client.get('/api/story'))['messages'])
 
 
-def test_a_new_persona_has_a_world_of_their_own(client, companion):
+def test_a_new_persona_has_a_world_of_their_own(client):
     # Who the user is stays theirs: a name is needed, and nothing they left blank is made up.
     assert client.post('/api/worlds/personas', json={}).status_code == 422
     made = ok(client.post('/api/worlds/personas', json={'name': 'Jordan'}))
@@ -69,21 +61,20 @@ def test_a_new_persona_has_a_world_of_their_own(client, companion):
     assert (made['gender'], made['age'], made['about'], made['birthday']) == ('', None, '', '')
     switched = ok(client.post(f"/api/worlds/personas/{made['id']}/switch"))
     assert switched['persona']['id'] == made['id'] and switched['world']['id'] == made['worlds'][0]['id']
-    data = listing(client)
-    assert [persona['active'] for persona in data['personas']] == [False, True]
+    assert [persona['active'] for persona in listing(client)['personas']] == [False, True]
 
 
-def test_the_world_the_user_was_in_opens_on_the_next_start(tmp_path, clock, provider, companion, client, app):
+def test_the_world_the_user_was_in_opens_on_the_next_start(clock, provider, client, app):
     from dungeon.main import create_app
     from dungeon.providers.vault import MemoryVault
     made = ok(client.post('/api/worlds', json={}))
     ok(client.post(f"/api/worlds/{made['id']}/switch"))
-    again = create_app(app.state.database.home, clock=clock, vault=MemoryVault(), provider=provider, life_tasks=False)
+    again = create_app(app.state.database.home, clock=clock, vault=MemoryVault(), provider=provider, background=False)
     assert again.state.database.path == app.state.database.path
     assert worlds.active_path(app.state.database.home) == app.state.database.path
 
 
-def test_nothing_switches_while_debug_time_is_on(client, companion, app):
+def test_nothing_switches_while_debug_time_is_on(client, app):
     made = ok(client.post('/api/worlds', json={}))
     with app.state.database.connect(write=True) as connection:
         connection.execute("INSERT INTO debug_time (id, app_anchor, real_anchor, speed, started_at, app_started_at, "
@@ -92,10 +83,9 @@ def test_nothing_switches_while_debug_time_is_on(client, companion, app):
     assert response.status_code == 409 and 'Debug time' in response.json()['detail']
 
 
-def test_deleting_a_world_keeps_a_backup_and_never_the_one_in_use(client, companion, app):
+def test_deleting_a_world_keeps_a_backup_and_never_the_one_in_use(client, app):
     data = listing(client)
-    response = client.delete(f"/api/worlds/{data['world']['id']}")
-    assert response.status_code == 409
+    assert client.delete(f"/api/worlds/{data['world']['id']}").status_code == 409
     made = ok(client.post('/api/worlds', json={}))
     ok(client.delete(f"/api/worlds/{made['id']}"))
     assert len(listing(client)['personas'][0]['worlds']) == 1
@@ -103,7 +93,7 @@ def test_deleting_a_world_keeps_a_backup_and_never_the_one_in_use(client, compan
     assert list((app.state.database.root / 'backups' / 'deleted-worlds').glob('*.zip'))
 
 
-def test_a_world_can_move_to_another_persona(client, companion):
+def test_a_world_can_move_to_another_persona(client):
     persona = ok(client.post('/api/worlds/personas', json={'name': 'Riley'}))
     first = listing(client)['world']
     moved = ok(client.patch(f"/api/worlds/{first['id']}", json={'persona_id': persona['id'], 'name': 'Home'}))
@@ -118,58 +108,12 @@ def test_a_damaged_registry_is_not_trusted(tmp_path):
 
 
 @pytest.mark.parametrize('name', ['', '  '])
-def test_a_world_needs_a_name(client, companion, name):
+def test_a_world_needs_a_name(client, name):
     world = listing(client)['world']
     assert client.patch(f"/api/worlds/{world['id']}", json={'name': name}).status_code == 422
 
 
-def test_memories_still_queued_in_a_world_left_behind_are_formed_on_return(client, connected, app):
-    from dungeon.memory.formation import run_pending
-    send(client, 'My neighbour is called Oskar.', 'oskar-message')
-    database = app.state.database
-    with database.connect(write=True) as connection:  # As if the memory model had not got to it yet.
-        connection.execute("UPDATE memory_jobs SET status='queued', finished_at=NULL")
-    first = listing(client)['world']['id']
-    made = ok(client.post('/api/worlds', json={}))
-    ok(client.post(f"/api/worlds/{made['id']}/switch"))
-    ok(client.post(f"/api/worlds/{first}/switch"))
-    run_pending(database)
-    with database.connect() as connection:
-        assert {row['status'] for row in connection.execute('SELECT status FROM memory_jobs')} == {'done'}
-
-
-def test_the_first_world_takes_its_first_companions_city(client):
-    assert listing(client)['world']['name'] == 'Baltimore'
-    ok(client.post('/api/companion', json={'name': 'Wren', 'timezone': 'America/New_York',
-                                           'home_city': 'haddon-harbor'}))
-    world = listing(client)['world']
-    assert world['name'] == 'Haddon Harbor' and world['city_id'] == 'haddon-harbor'
-
-
-def test_a_world_the_user_named_keeps_its_name(client):
-    world = listing(client)['world']
-    ok(client.patch(f"/api/worlds/{world['id']}", json={'name': 'Home'}))
-    ok(client.post('/api/companion', json={'name': 'Wren', 'timezone': 'America/New_York',
-                                           'home_city': 'haddon-harbor'}))
-    assert listing(client)['world']['name'] == 'Home'
-
-
-def test_a_new_persona_lives_in_the_city_the_user_picked(client, companion):
-    # The user says where, and makes the first companion there themselves.
-    made = ok(client.post('/api/worlds/personas', json={'name': 'Casey', 'city_id': 'haddon-harbor'}))
-    world = made['worlds'][0]
-    assert world['city_id'] == 'haddon-harbor' and world['name'].startswith('Haddon Harbor')
-    assert world['companions'] == []
-    # Without a pick it is the city the user is in now; a city that does not exist makes nothing.
-    assert ok(client.post('/api/worlds/personas', json={'name': 'Drew'}))['worlds'][0]['city_id'] == 'baltimore'
+def test_a_city_that_does_not_exist_makes_no_persona(client):
     before = len(listing(client)['personas'])
     assert client.post('/api/worlds/personas', json={'name': 'Ellis', 'city_id': 'nowhere'}).status_code == 404
     assert len(listing(client)['personas']) == before
-
-
-def test_somewhere_new_is_a_featured_city_other_than_this_one(client, companion):
-    made = ok(client.post('/api/worlds/personas', json={'name': 'Frankie', 'city_id': 'somewhere-new'}))
-    world = made['worlds'][0]
-    assert world['city_id'] != 'baltimore' and world['city_id'] in {'grandport', 'pellmouth', 'osaka'}
-    other = ok(client.post('/api/worlds', json={'city_id': 'somewhere-new'}))
-    assert other['city_id'] in {'grandport', 'pellmouth', 'osaka'}

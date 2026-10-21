@@ -8,11 +8,9 @@ export const READY_KEY = ['ready']
 const UNDO_MS = 10_000
 let discardTimer: number | undefined
 
-// A write-up waits only while there is a download to wait for (a discarded one clears it on the server too).
-const polling = (view?: ReadyView) => isRunning(view) ||
-  ((view?.status === 'ready' || isRunning(view)) && (view?.queued?.status === 'waiting' || view?.queued?.status === 'writing'))
+const polling = (view?: ReadyView) => isRunning(view)
 
-/** "Set it up for me" as it stands; checked every second while it downloads or writes a companion up. */
+/** "Set it up for me" as it stands; checked every second while it downloads. */
 export function useReady(enabled = true) {
   const client = useQueryClient()
   const query = useQuery({ queryKey: READY_KEY, queryFn: () => api<ReadyView>('/ready'), enabled,
@@ -57,11 +55,3 @@ function actions(client: QueryClient) {
   }
 }
 
-/** A companion saved while the model downloads gets the rest written once it is ready (dungeon/ready_writeup.py). */
-export async function queueWriteUp(client: QueryClient, request: Record<string, unknown>) {
-  try {
-    const view = await client.fetchQuery({ queryKey: READY_KEY, queryFn: () => api<ReadyView>('/ready'), staleTime: 5000 })
-    if (view.status === 'idle' || view.status === 'ready') return
-    refresh(client, await api<ReadyView>('/ready/queue', { request }))
-  } catch { /* the companion is saved as they wrote it; the form's helpers can fill the rest later */ }
-}

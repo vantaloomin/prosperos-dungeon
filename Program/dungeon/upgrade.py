@@ -9,17 +9,22 @@ accepts requests:
 3. The upgrade runs on a copy, which must pass SQLite's integrity check.
 4. Only then does the copy replace the workspace. Any failure leaves the original untouched and
    names the backup, which restores through the normal restore path.
+
+A workspace from before Milestone 0 (schema version 1, the companion's) is not migrated: the copy is a fresh
+workspace that keeps only the user's settings, models, persona and cities. The pre-upgrade backup keeps the rest.
 """
 import os
 import sqlite3
 from pathlib import Path
 
 from dungeon import backup
-from dungeon.database import free_companion_slot, initialize, stored_identity
+from dungeon.database import initialize, stored_identity
 from dungeon.errors import DomainError
 
 BACKUP_DIRECTORY = 'backups'
 KEEP_PRE_UPGRADE = 3
+# The first schema version of Milestone 0's fresh schema; older workspaces start fresh (`fresh`).
+FRESH_FROM = 2
 
 
 def sidecars(path: Path) -> tuple[Path, Path]:
@@ -34,7 +39,6 @@ def remove(path: Path):
 def migrate(staging: Path, timestamp: str):
     connection = sqlite3.connect(staging, isolation_level=None)
     try:
-        free_companion_slot(connection)
         connection.execute('PRAGMA foreign_keys=ON')
         connection.execute('BEGIN IMMEDIATE')
         initialize(connection, timestamp)
@@ -45,6 +49,20 @@ def migrate(staging: Path, timestamp: str):
         connection.execute('PRAGMA journal_mode=DELETE')
     finally:
         connection.close()
+
+
+def fresh(staging: Path, original: Path, timestamp: str):
+    """A new workspace in place of a pre-Milestone 0 one, keeping what the user set up rather than what happened."""
+    from dungeon import restore
+    connection = sqlite3.connect(staging, isolation_level=None)
+    try:
+        connection.execute('BEGIN IMMEDIATE')
+        initialize(connection, timestamp)
+        connection.commit()
+    finally:
+        connection.close()
+    restore.copy_settings(staging, original, restore.KEPT_SETTINGS + ('world_cities', 'persona'), timestamp)
+    migrate(staging, timestamp)
 
 
 def settle(path: Path):
@@ -72,12 +90,15 @@ def run(path: Path, timestamp: str) -> dict:
     stamp = timestamp[:19].replace(':', '').replace('-', '')
     saved = backup.archive(path, directory / f'pre-upgrade-{stamp}.zip', timestamp,
                            schema_version=int(stored.get('schema_version', 0)),
-                           app_version=stored.get('app_version', 'unknown'), assets=False)
+                           app_version=stored.get('app_version', 'unknown'))
     staging = path.with_name(path.name + '.upgrading')
     remove(staging)
     try:
-        backup.snapshot(path, staging)
-        migrate(staging, timestamp)
+        if int(stored.get('schema_version', 0)) < FRESH_FROM:
+            fresh(staging, path, timestamp)
+        else:
+            backup.snapshot(path, staging)
+            migrate(staging, timestamp)
         settle(path)
         os.replace(staging, path)
     except BaseException as error:

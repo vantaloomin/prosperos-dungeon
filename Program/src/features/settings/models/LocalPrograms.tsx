@@ -3,7 +3,6 @@ import { Play } from 'lucide-react'
 import { Notice } from '../../../components/Feedback'
 import { TextInput, Toggle } from '../../../components/Fields'
 import { shownPath } from '../../../paths'
-import { usePhoneStatus } from '../../phone/phoneAccess'
 import { STATE_TEXT, programFor, useLauncher, type LauncherView, type LocalProgram } from './launcher'
 
 const failure = (error: unknown) => error instanceof Error ? error.message : 'That did not work.'
@@ -109,8 +108,7 @@ function LaunchButton({ item, onLaunch }: { item: LocalProgram; onLaunch: () => 
 
 /** A launch button beside a profile or image backend that runs in a program the Dungeon can start. */
 export function LaunchFor({ id }: { id: string }) {
-  // A phone never starts programs on the PC, so it does not ask.
-  const launcher = useLauncher(usePhoneStatus().data?.remote === false)
+  const launcher = useLauncher()
   const item = programFor(launcher.query.data, id)
   // Not found or still missing its model file: Local programs below says what it needs.
   if (!item || item.state === 'running' || !item.path || item.needs_model) return null

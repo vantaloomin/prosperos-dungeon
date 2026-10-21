@@ -1,45 +1,33 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Search } from 'lucide-react'
-import type { Companion } from '../../types'
 import { useAdvancedSettings } from './advanced'
-import { StoryModeSetting } from './StoryModeSetting'
-import { HiddenValues } from './HiddenValues'
+import { AdultSideSettings, HiddenValues } from './HiddenValues'
+import { AppearanceSettings } from './AppearanceSettings'
 import { ModelCalls } from './ModelCalls'
 import { Backups } from './Backups'
 import { DataFolder } from './DataFolder'
 import { DebugSettings } from './DebugSettings'
 import { TownsfolkMix } from './TownsfolkMix'
-import { ChatStyleSettings } from './ChatStyleSettings'
 import { ImageSettings } from './ImageSettings'
-import { LifeSettings } from './LifeSettings'
-import { AdultSideSettings, ClosenessSettings, HomeLifeSettings, LoveSettings, PaceSettings, RealismIntro } from './RealismSettings'
-import { PhoneSettings } from './PhoneSettings'
 import { PromptSettings } from './PromptSettings'
 import { Toggle } from '../../components/Fields'
-import { BackgroundSettings, MemorySettings, OocSettings, PauseSettings, RestoredReview, TimezoneSettings } from './WorkspaceSettings'
+import { TimezoneSettings } from './WorkspaceSettings'
 import { Cities } from '../world/Cities'
 import { BuiltinRecall } from './models/BuiltinRecall'
-import { VoiceSettings } from './models/VoiceSettings'
 import { HardwareCheck } from './models/HardwareCheck'
 import { LocalPrograms } from './models/LocalPrograms'
 import { ModelSettings } from './models/ModelSettings'
-import { usePhoneStatus } from '../phone/phoneAccess'
-import { NextStep } from './NextStep'
 import { availableTabs, pickTab, searchSettings, type SettingsMatch, type SettingsTab } from './sections'
 
 interface Props {
-  companion: Companion | null
   /** The tab named in the address (#settings/models); an unknown or unavailable one opens the first tab. */
   tab?: string
   onTab: (tab: SettingsTab) => void
-  /** Before there is a companion: where "create your companion" goes once a model is connected. */
-  onCreate?: () => void
 }
 
-export function Settings({ companion, tab, onTab, onCreate }: Props) {
-  const onPhone = !!usePhoneStatus().data?.remote
+export function Settings({ tab, onTab }: Props) {
   const [advanced, setAdvanced] = useAdvancedSettings()
-  const current = pickTab(tab, !!companion, onPhone, advanced)
+  const current = pickTab(tab, advanced)
   const landing = useLanding()
   const land = (match: SettingsMatch) => {
     if (match.tab.advanced) setAdvanced(true)
@@ -48,19 +36,17 @@ export function Settings({ companion, tab, onTab, onCreate }: Props) {
   return (
     <section className="page settings">
       <header className="page-header"><h1>Settings</h1></header>
-      {!companion && onCreate && <NextStep onCreate={onCreate} />}
-      {companion && <RestoredReview onDone={() => { onTab('memory'); landing('memory-heading') }} />}
-      <SettingsSearch hasCompanion={!!companion} onPhone={onPhone} onPick={land} />
+      <SettingsSearch onPick={land} />
       <div className="settings-layout">
         <div className="settings-nav">
-          <SettingsTabs current={current} hasCompanion={!!companion} onPhone={onPhone} advanced={advanced} onTab={onTab} />
+          <SettingsTabs current={current} advanced={advanced} onTab={onTab} />
           <div className="advanced-switch">
             <Toggle label="Show advanced settings" checked={advanced} onChange={setAdvanced}
               hint={advanced ? 'The Advanced tab is now in the list of tabs.' : 'Adds an Advanced tab for power users, where you can reword the prompts sent to your models.'} />
           </div>
         </div>
         <div className="settings-panel" role="tabpanel" id={`settings-panel-${current}`} aria-labelledby={`settings-tab-${current}`}>
-          <TabContent tab={current} companion={companion} />
+          <TabContent tab={current} />
         </div>
       </div>
     </section>
@@ -87,21 +73,15 @@ function useLanding() {
   }
 }
 
-function TabContent({ tab, companion }: { tab: SettingsTab; companion: Companion | null }) {
-  const name = companion?.version.name ?? ''
-  // Built-in recall reads and runs files on the PC, so a phone does not show it (dungeon/phone/access.py).
-  const remote = !!usePhoneStatus().data?.remote
+function TabContent({ tab }: { tab: SettingsTab }) {
   const content: Record<SettingsTab, ReactNode> = {
-    general: <><TimezoneSettings /><ChatStyleSettings /><OocSettings /><PauseSettings /><BackgroundSettings /></>,
-    models: <>{!remote && <HardwareCheck />}<ModelSettings />{!remote && <LocalPrograms />}{!remote && <BuiltinRecall />}<VoiceSettings /></>,
-    life: <><LifeSettings name={name} /><Cities /></>,
-    realism: <><RealismIntro /><PaceSettings /><LoveSettings /><HomeLifeSettings /><ClosenessSettings name={name} /><AdultSideSettings /><HiddenValues name="" /></>,
-    memory: <MemorySettings />,
+    general: <><TimezoneSettings /><AppearanceSettings /></>,
+    models: <><HardwareCheck /><ModelSettings /><LocalPrograms /><BuiltinRecall /></>,
+    world: <><Cities /><AdultSideSettings /><HiddenValues /></>,
     images: <ImageSettings />,
-    phone: <PhoneSettings />,
-    data: <>{!remote && <DataFolder />}<Backups /></>,
-    debug: <><DebugSettings name={name} />{!remote && <><ModelCalls /><TownsfolkMix /></>}</>,
-    advanced: <><StoryModeSetting /><PromptSettings /></>,
+    data: <><DataFolder /><Backups /></>,
+    debug: <><DebugSettings /><ModelCalls /><TownsfolkMix /></>,
+    advanced: <PromptSettings />,
   }
   return content[tab]
 }
@@ -109,8 +89,8 @@ function TabContent({ tab, companion }: { tab: SettingsTab; companion: Companion
 const NEXT_KEYS: Record<string, number> = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }
 
 /** Vertical tabs beside the panel on wide windows, a scrolling row above it on narrow ones. */
-function SettingsTabs({ current, hasCompanion, onPhone, advanced, onTab }: { current: SettingsTab; hasCompanion: boolean; onPhone: boolean; advanced: boolean; onTab: (tab: SettingsTab) => void }) {
-  const tabs = availableTabs(hasCompanion, onPhone, advanced)
+function SettingsTabs({ current, advanced, onTab }: { current: SettingsTab; advanced: boolean; onTab: (tab: SettingsTab) => void }) {
+  const tabs = availableTabs(advanced)
   const narrow = useNarrow()
   const list = useRef<HTMLDivElement>(null)
   // On a narrow window the row scrolls; keep the open tab in sight, as after a deep link.
@@ -150,9 +130,9 @@ function useNarrow() {
   return narrow
 }
 
-function SettingsSearch({ hasCompanion, onPhone, onPick }: { hasCompanion: boolean; onPhone: boolean; onPick: (match: SettingsMatch) => void }) {
+function SettingsSearch({ onPick }: { onPick: (match: SettingsMatch) => void }) {
   const [query, setQuery] = useState('')
-  const matches = searchSettings(query, hasCompanion, onPhone)
+  const matches = searchSettings(query)
   const searching = query.trim().length > 0
   return (
     <div className="settings-search">

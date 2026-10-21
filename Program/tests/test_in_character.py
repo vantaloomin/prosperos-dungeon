@@ -1,7 +1,5 @@
-from conftest import send
 
 from dungeon.in_character import applies, breaks, clean
-from dungeon.providers.chat import Chunk
 
 
 def test_ai_denials_are_recognized():
@@ -31,43 +29,6 @@ def test_out_of_character_questions_and_artificial_characters_are_not_filtered()
     assert not applies('((are you Claude?))', {})
     assert not applies('hi', {'identity': 'An android who runs a night-shift diner'})
     assert applies('are you even real?', {'identity': 'A nurse in Lisbon'})
-
-
-def test_the_user_never_sees_a_denial(client, connected, provider):
-    provider.replies = [[Chunk('Of course I miss you. '), Chunk("As an AI, I can't miss "), Chunk('anyone. '),
-                         Chunk('Tell me everything.'), Chunk('', 'stop')]]
-    reply = send(client, 'Did you miss me?', 'client-0001')['reply']
-    assert reply['status'] == 'complete'
-    assert reply['text'] == 'Of course I miss you. Tell me everything.'
-
-
-def test_a_reply_that_only_denies_is_written_again(client, connected, provider):
-    provider.replies = [[Chunk("I'm an AI, so I'm not real."), Chunk('', 'stop')],
-                        [Chunk('Real enough to beat you at cards.'), Chunk('', 'stop')]]
-    reply = send(client, 'Are you even real?', 'client-0001')['reply']
-    assert reply['text'] == 'Real enough to beat you at cards.'
-    assert 'stepped out of the story' in provider.requests[1]['prompt']
-
-
-def test_a_reply_that_keeps_denying_is_hidden(client, connected, provider):
-    provider.replies = [[Chunk("I'm an AI."), Chunk('', 'stop')], [Chunk('As an AI, no.'), Chunk('', 'stop')]]
-    reply = send(client, 'Are you even real?', 'client-0001')['reply']
-    assert reply['status'] == 'failed'
-    assert 'stepped out of character' in reply['error']
-
-
-def test_out_of_character_messages_get_a_plain_answer(client, connected, provider):
-    provider.replies = [[Chunk("I'm an AI language model playing Mira."), Chunk('', 'stop')]]
-    reply = send(client, 'OOC: are you an AI?', 'client-0001')['reply']
-    assert reply['text'] == "I'm an AI language model playing Mira."
-    # The persona prompt forbids admitting to being an AI, so the OOC turn says plainly that it may.
-    assert 'say you are an AI and which model you are' in provider.requests[0]['prompt']
-
-
-def test_in_character_messages_get_no_out_of_character_note(client, connected, provider):
-    provider.replies = [[Chunk('Real enough.'), Chunk('', 'stop')]]
-    send(client, 'Are you even real?', 'client-0001')
-    assert 'is out of character' not in provider.requests[0]['prompt']
 
 
 def test_a_caption_tag_echoed_from_the_photo_note_is_removed():

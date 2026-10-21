@@ -5,10 +5,8 @@ from typing import Literal
 from fastapi import APIRouter, Query, Request
 from pydantic import Field
 
-from dungeon.characters import current
 from dungeon.clock import zone
 from dungeon.errors import require
-from dungeon.life import network
 from dungeon.models import Input
 from dungeon.world import catalog, changes, custom, generators, marinara, townsfolk
 from dungeon.world.schema import PlaceKind
@@ -148,12 +146,11 @@ def list_places(request: Request, city_id: str, kind: str | None = None, neighbo
 
 
 def town(request: Request, data: dict) -> dict:
-    """The city as the current companion's townsfolk live in it: each companion has their own."""
+    """The city as this world's townsfolk live in it: each world seeds its own town."""
+    from dungeon import story
     with request.app.state.database.connect() as connection:
-        companion = current(connection)
-        town_seed = companion.get('town_seed') or '' if companion else ''
-        you, kept = network.you(connection, town_seed), network.kept(connection, town_seed)
-    return data | {'town': town_seed, 'you': you, 'kept': kept} if companion else data
+        seed = story.town_seed(connection)
+        return data | {'kin': [], 'town': seed, 'you': story.you(connection, seed), 'kept': ()}
 
 
 @router.get('/cities/{city_id}/places/{place_id}/people')
@@ -305,9 +302,7 @@ def add_change(request: Request, city_id: str, body: CityChange):
     with database.connect(write=True) as connection:
         data = catalog.city(city_id, custom.all_cities(connection))
         change = body.model_dump(mode='json')
-        added = changes.add(connection, data, change, database.now())
-        changes.refresh_agenda(connection, data, change['starts_on'], database.now())
-        return added
+        return changes.add(connection, data, change, database.now())
 
 
 @router.delete('/cities/{city_id}/changes/{change_id}')
@@ -315,9 +310,4 @@ def remove_change(request: Request, city_id: str, change_id: str):
     database = request.app.state.database
     with database.connect(write=True) as connection:
         data = catalog.city(city_id, custom.all_cities(connection))
-        before = {change['id']: change for change in changes.known(data, city_today(request, data) + timedelta(
-            days=max(changes.LEAD.values())), changes.stored(connection, city_id))}
-        result = changes.remove(connection, data, change_id, database.now())
-        if change_id in before:
-            changes.refresh_agenda(connection, data, before[change_id]['starts'], database.now())
-        return result
+        return changes.remove(connection, data, change_id, database.now())

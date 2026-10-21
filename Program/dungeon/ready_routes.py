@@ -4,8 +4,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Request
 from pydantic import Field
 
-from dungeon import characters
-from dungeon.models import CharacterDraftRequest, Input
+from dungeon.models import Input
 
 router = APIRouter(prefix='/api/ready')
 
@@ -17,11 +16,6 @@ class ReadyStart(Input):
 
 class ReadySeen(Input):
     what: Literal['notice', 'settings']
-
-
-class ReadyQueue(Input):
-    """The quick start's picks for the companion just saved, written up when the model is ready."""
-    request: CharacterDraftRequest
 
 
 @router.get('')
@@ -57,11 +51,3 @@ async def use(request: Request):
 @router.post('/seen')
 def seen(request: Request, body: ReadySeen):
     return request.app.state.ready.seen(body.what)
-
-
-@router.post('/queue')
-async def queue(request: Request, body: ReadyQueue):
-    with request.app.state.database.connect() as connection:
-        companion = characters.require_current(connection)
-    return request.app.state.ready.queue(companion['id'], companion['version']['definition']['name'],
-                                         body.request.model_dump())

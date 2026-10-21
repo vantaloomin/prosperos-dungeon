@@ -1,11 +1,11 @@
 import { useEffect, useSyncExternalStore } from 'react'
-import { useWorkspaceSettings } from '../../companion'
+import { useWorkspaceSettings } from '../../workspace'
 import { applyLook, readLook } from './deviceLook'
 import { paletteStyles, shownScheme } from './palette'
 
 const LIGHT_QUERY = '(prefers-color-scheme: light)'
 // The last colors shown, read by the script in index.html before the first paint so a Paper user never sees a dark frame.
-const CACHE = 'companion-colors'
+const CACHE = 'dungeon-colors'
 const BAR = { ink: '#191816', paper: '#f4f0e8' }
 
 function subscribe(change: () => void) {

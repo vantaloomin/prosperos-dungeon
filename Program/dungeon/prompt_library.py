@@ -1,7 +1,7 @@
 """The core prompts a power user may reword in Settings > Advanced (docs/prompts.md).
 
-Each prompt's default lives where it is used: a module constant written for `str.format`, or one of
-the character drafting files in `dungeon/prompts/`. Here they are shown and stored in one form,
+Each prompt's default lives where it is used, a module constant written for `str.format`. Here they are shown and
+stored in one form,
 with `{{placeholder}}` marks the app fills in. A user's wording is stored in `prompt_overrides`
 with the default it replaced, so an update that changes the default can say so without touching
 their text. Wording is checked before it is saved: every placeholder the default uses must stay,
@@ -33,10 +33,6 @@ def constant(module: str, name: str):
     return lambda: from_format(getattr(import_module(module), name))
 
 
-def drafting_file(name: str):
-    return lambda: (import_module('dungeon.drafting').PROMPTS / name).read_text(encoding='utf-8')
-
-
 @dataclass(frozen=True)
 class Prompt:
     name: str
@@ -47,42 +43,10 @@ class Prompt:
     placeholders: dict[str, str] = field(default_factory=dict)
 
 
-CHAT, DRAFTING, SIDECAR = 'Chat and life', 'Character drafting', 'Sidecar'
+CHAT = 'Story'
 PROMPTS = {prompt.name: prompt for prompt in (
-    Prompt('chat-character', CHAT, 'Who the companion is',
-           'Opens every chat reply and first text, before the character sheet, memories and the day. '
-           'Staying in character and OOC answers are also enforced by the app, so they keep working '
-           'whatever this says.',
-           constant('dungeon.memory.context', 'GUIDANCE'),
-           {'name': "the companion's name", 'relationship': 'the relationship framing from the character'}),
-    Prompt('chat-personality', CHAT, 'How the companion acts',
-           "Follows the character sheet in every chat reply and first text: one line of behaviour for each of the "
-           "companion's personality sliders that isn't in the middle (Character > Life details > Personality).",
-           constant('dungeon.memory.context', 'PERSONALITY'),
-           {'lines': 'what their personality sliders say, one behaviour per line'}),
-    Prompt('our-history', CHAT, 'Your history together',
-           'Opens the line-a-week (then a month, then a year) record of your whole time together in every chat reply. '
-           'The lines come from what happened and your corrections in the scrapbook\'s "All of it" view.',
-           constant('dungeon.memory.history', 'INTRO')),
-    Prompt('life-phrasing', CHAT, 'Phrasing life events',
-           'Turns a life sim moment into a sentence and a feed caption. A reply that changes the facts or '
-           'breaks the JSON shape is thrown away and the template wording kept.',
-           constant('dungeon.life.synthesis', 'RULES'),
-           {'name': "the companion's name"}),
-    Prompt('memory-suggestions', CHAT, 'Suggesting memories',
-           'Asks the memory model which facts in your messages are worth remembering. What it finds is saved '
-           'automatically and can be corrected on the Memories page; replies in the wrong shape are ignored.',
-           constant('dungeon.memory.suggest', 'RULES')),
-    Prompt('self-facts', CHAT, "Noting the companion's own facts",
-           "Asks the memory model what the companion's replies say about their own life (people, pets, team, "
-           'work), so later replies keep those the same. Answers must use the reply\'s own words.',
-           constant('dungeon.memory.self_suggest', 'RULES'), {'name': "the companion's name"}),
-    Prompt('picture-description', CHAT, 'Describing your pictures',
-           'Sent with each picture you send, to the "Seeing pictures" model. The description is what the '
-           'companion sees.',
-           constant('dungeon.pictures', 'DESCRIBE')),
     Prompt('story-narrator', CHAT, 'The Story narrator',
-           'Opens every reply in the Story tab: who the narrator is and its contract with the game (the facts are '
+           'Opens every reply in the story: who the narrator is and its contract with the game (the facts are '
            "fixed, the player's words are expanded, everyone else lives their own life). The scene, the "
            'narration format and the intensity follow it, and the app decides them. OOC answers are also '
            'enforced by the app.',
@@ -93,39 +57,9 @@ PROMPTS = {prompt.name: prompt for prompt in (
            'also checked by the app after every reply, and rewritten before you see them.',
            constant('dungeon.narration.prompt', 'CRAFT')),
     Prompt('authors-note', CHAT, "Author's note",
-           "Goes right before your author's note, the last thing the model reads before your message in a chat "
-           'that has a note switched on. Your note follows this line.',
+           "Goes right before your author's note, the last thing the model reads before your message while "
+           'the note is switched on. Your note follows this line.',
            constant('dungeon.authors_note', 'HEADER')),
-    Prompt('character-rules.md', DRAFTING, 'What makes a character believable', 'Sent with every draft and rewrite.',
-           drafting_file('character-rules.md')),
-    Prompt('character-draft.md', DRAFTING, 'Drafting a whole character',
-           'The quick start. Asks for the full character as JSON.', drafting_file('character-draft.md'),
-           {'rules': 'the believable-character prompt', 'picks': 'your idea and choices',
-            'city': 'the home city', 'careers': 'occupations to choose from', 'names': 'common names there',
-            'emotional': 'whether emotional edges are allowed',
-            'perception': 'the bank of how others see them and how they see themselves'}),
-    Prompt('character-field.md', DRAFTING, 'Rewriting one field', 'The "Help me write" buttons in the character form.',
-           drafting_file('character-field.md'),
-           {'rules': 'the believable-character prompt', 'character': 'the character as it stands',
-            'city': 'the home city', 'emotional': 'the emotional-edges rule', 'field': "the field's name",
-            'field_guide': 'what that field is for', 'field_shape': "the field's JSON shape",
-            'request': 'what you asked for, if anything'}),
-    Prompt('character-split.md', DRAFTING, 'Splitting a character you paste in',
-           'The paste box on the quick start and the character helper. Splits a whole character into the fields.',
-           drafting_file('character-split.md'),
-           {'rules': 'the believable-character prompt', 'pasted': 'the character you pasted', 'city': 'the home city',
-            'careers': 'occupations to choose from', 'names': 'common names there',
-            'emotional': 'whether emotional edges are allowed'}),
-    Prompt('character-repair.md', DRAFTING, 'Retrying an unusable reply', 'Sent once when a reply could not be used.',
-           drafting_file('character-repair.md'), {'problem': 'what was wrong with the reply'}),
-    Prompt('sidecar.md', SIDECAR, 'The sidecar',
-           'The chat beside the app that reads the character, the conversation and the memories and proposes '
-           'changes you apply or dismiss. Only you see it; the companion never does.',
-           drafting_file('sidecar.md'),
-           {'name': "the companion's name", 'view': 'where you are in the app', 'character': 'the character',
-            'city': 'the home city', 'conversation': 'the recent conversation', 'memories': 'the memories',
-            'rules': 'the believable-character prompt', 'emotional': 'the emotional-edges rule',
-            'fields': 'the character fields it may change', 'note': "the chat's author's note"}),
 )}
 
 

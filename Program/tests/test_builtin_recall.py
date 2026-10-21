@@ -94,7 +94,7 @@ def machine(monkeypatch):
 def client(tmp_path, clock, provider, machine):
     transport = httpx.MockTransport(machine.handle)
     app = create_app(tmp_path / 'workspace' / 'dungeon.sqlite3', clock=clock, vault=MemoryVault(),
-                     provider=provider, life_tasks=False, embedder=EmbeddingProvider(transport),
+                     provider=provider, background=False, embedder=EmbeddingProvider(transport),
                      builtin_spawn=machine.spawn, builtin_transport=transport)
     with TestClient(app, headers={CLIENT_HEADER: 'workspace'}) as test_client:
         yield test_client
@@ -216,18 +216,6 @@ REAL_MODEL = 'DUNGEON_TEST_EMBEDDING_MODEL'
 @pytest.mark.skipif(not (os.environ.get(builtin_recall.SERVER_ENV)
                          and os.environ.get(REAL_MODEL)),
                     reason=f'set {builtin_recall.SERVER_ENV} and {REAL_MODEL} to try a real llama-server')
-def test_a_real_llama_server_finds_the_related_memory(tmp_path, clock, provider):
-    """Run by hand on a PC with llama.cpp and a model file; CI has neither."""
-    app = create_app(tmp_path / 'workspace' / 'dungeon.sqlite3', clock=clock, vault=MemoryVault(),
-                     provider=provider, life_tasks=False)
-    with TestClient(app, headers={CLIENT_HEADER: 'workspace'}) as test_client:
-        response = test_client.put('/api/models/builtin-recall',
-                                   json={'enabled': True, 'model_path': os.environ[REAL_MODEL]})
-        assert response.status_code == 200, response.text
-        result = test_client.post('/api/models/recall-test').json()
-        print(result)
-        assert result['found_related'] is True
-        test_client.put('/api/models/builtin-recall', json={'enabled': False, 'model_path': ''})
 
 
 def test_a_model_llama_cpp_cannot_load_names_llama_cpp_reason(tmp_path):

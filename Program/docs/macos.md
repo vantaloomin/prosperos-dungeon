@@ -65,10 +65,10 @@ The `.command` files only start the matching script in `Program/scripts/macos/`,
 
 ## Where your data lives
 
-Your companion's workspace is in `~/Library/Application Support/ProsperoDungeon` (to see it in
+Your workspace is in `~/Library/Application Support/ProsperoDungeon` (to see it in
 Finder, press Cmd+Shift+G and paste that path). It is separate from the project folder, so deleting
-or re-downloading the project keeps your companion. Backups, private city packs (`city-packs/`),
-pictures and logs live there too. `DUNGEON_DATA_DIR` points it elsewhere.
+or re-downloading the project keeps your worlds. Backups, private city packs (`city-packs/`)
+and logs live there too. `DUNGEON_DATA_DIR` points it elsewhere.
 
 To keep it with the project instead, for example on an external drive, use **Settings > Data >
 Move into the app folder**. On the next start the app copies the workspace into a `Data` folder
@@ -84,10 +84,8 @@ by Homebrew), macOS may ask once whether `python` may use that keychain item; ch
 
 | Feature | On a Mac |
 | --- | --- |
-| Chat, life simulation, memories, feed, cities, backups | Same as on Windows. Covered by the full test suite on macOS in CI. |
+| The story, worlds, cities, backups | Same as on Windows. Covered by the full test suite on macOS in CI. |
 | Packaged app, installer, automatic restore of a failed upgrade | Windows only for now. A signed and notarized Mac app needs an Apple Developer account and is not planned yet. |
-| Character LoRA maker (training) | **Not available.** Training is set up for an NVIDIA GPU (CUDA), which Macs do not have; the app says so when you configure it. Train on a Windows or Linux PC and add the finished adapter. |
 | Pictures with ComfyUI and Krea 2 | The app only talks to a ComfyUI address, so a ComfyUI on another computer works. ComfyUI does run on Apple Silicon, but whether Krea 2 (16 to 24 GB) runs well there is untested. |
 | Pictures with the Codex CLI or hosted services | Should work as on Windows; untested. The `codex` command must be one Terminal can find. |
-| Phone access (Tailscale) | Should work; untested. The app finds Tailscale's command line inside `/Applications/Tailscale.app` when it is not on PATH. |
 | Timezone | Read from the Mac's setting (`/etc/localtime`), as on Linux. |

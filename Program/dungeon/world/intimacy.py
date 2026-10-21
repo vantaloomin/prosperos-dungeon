@@ -19,8 +19,8 @@ import json
 import re
 from functools import cache
 
-from dungeon.database import optional, settings
-from dungeon.world import catalog, dating, generators, mix, newcomers, townsfolk
+from dungeon.database import settings
+from dungeon.world import catalog, dating, generators, mix
 
 ADULT_AT = 18
 # How many interests each level draws, and the boldest tier it reaches.
@@ -132,21 +132,6 @@ def who(definition: dict) -> str:
     return WHO[best if counts[best] and counts['she'] != counts['he'] else 'they']
 
 
-def rolled_for_companion(connection, companion_id: str, townsfolk_key: str | None, definition: dict) -> dict | None:
-    """What the seed gives a companion before anything the user set; None when their sheet reads as under 18."""
-    if reads_as_minor(definition):
-        return None
-    if townsfolk_key and connection is not None:
-        sheet = townsfolk.find(newcomers.city_for(connection, definition), townsfolk_key)
-        if sheet:
-            return for_sheet(sheet)
-    ages = [age for age in stated_ages(definition) if age >= ADULT_AT]
-    found = roll(companion_id, ages[0] if ages else 30, who(definition))
-    if found and definition.get('relationship') == 'romance':
-        found['orientation'] = ''
-    return found
-
-
 def merged(rolled: dict | None, chosen: dict | None) -> dict | None:
     """The rolled side with what the user set on the form winning field by field."""
     if rolled is None:
@@ -162,13 +147,6 @@ def merged(rolled: dict | None, chosen: dict | None) -> dict | None:
 
 def turned_on(connection) -> bool:
     return bool((settings(connection) or {}).get('adult_side'))
-
-
-def for_companion(connection, companion_id: str, definition: dict) -> dict | None:
-    row = optional(connection, 'SELECT townsfolk_key FROM companions WHERE id=?', (companion_id,)) \
-        if connection is not None else None
-    rolled = rolled_for_companion(connection, companion_id, (row or {}).get('townsfolk_key'), definition)
-    return merged(rolled, definition.get('intimacy'))
 
 
 def own_text(found: dict | None) -> str:
@@ -190,20 +168,6 @@ def own_text(found: dict | None) -> str:
     if found.get('note'):
         lines.append(f"- {found['note'].strip()}")
     return '\n'.join(lines)
-
-
-def prompt_text(connection, version: dict) -> str:
-    """Their own private lines when the switch is on, else ''."""
-    if connection is None or not version.get('companion_id') or not turned_on(connection):
-        return ''
-    return own_text(for_companion(connection, version['companion_id'], version['definition']))
-
-
-def setting_text(connection, version: dict) -> str:
-    """The adults-only setting line for their own chat prompt when the switch is on, else ''."""
-    if connection is None or not turned_on(connection) or reads_as_minor(version['definition']):
-        return ''
-    return SETTING
 
 
 def view(found: dict | None) -> dict | None:

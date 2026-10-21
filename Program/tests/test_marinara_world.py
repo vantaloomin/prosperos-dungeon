@@ -1,8 +1,6 @@
 """Bring your Marinara world (dungeon/world/marinara.py): a Marinara Engine world map becomes a city and world lore,
 with no review step. The sample is small and invented; real exports are private and stay out of the repo."""
-import base64
 import copy
-import json
 
 import pytest
 
@@ -140,59 +138,6 @@ def test_a_city_name_no_zone_knows_keeps_utc():
     assert any('uses UTC' in note for note in made['notes'])
 
 
-def test_importing_adds_the_city_and_its_lore_at_once(client, companion):
-    response = client.post('/api/world/import/marinara', json=sample())
-    assert response.status_code == 200, response.text
-    made = response.json()
-    assert (made['id'], made['origin'], made['category']) == ('lisbon', 'user', 'custom')
-    assert made['book']['world'] is True and made['book']['entries'] == len(marinara.convert(sample(), TODAY)['book']
-                                                                            ['entries'])
-    assert any('Timezone set to Europe/Lisbon.' == note for note in made['import_notes'])
-    assert 'lisbon' in {city['id'] for city in client.get('/api/world/cities').json()}
-    books = client.get('/api/lore').json()['books']
-    assert [book['name'] for book in books if book['world']] == ['Harbourlight, chapter 3']
-    # The same map again is refused, so its lore is never offered twice; a changed map is a second city.
-    again = client.post('/api/world/import/marinara', json=sample())
-    assert again.status_code == 409 and 'already came in as Lisbon' in again.text
-    changed = copy.deepcopy(sample())
-    changed['definition']['locations'].append(place('extra', changed['definition']['locations'][0]['id'],
-                                                    'Tram Museum', 'building'))
-    assert client.post('/api/world/import/marinara', json=changed).json()['id'] == 'lisbon-2'
-
-
-@pytest.mark.parametrize('broken', [{'name': 123}, {'icon': 7}, {'links': 5}])
-def test_odd_field_types_are_a_plain_refusal(client, companion, broken):
-    value = copy.deepcopy(sample())
-    value['definition']['locations'][1].update(broken)
-    response = client.post('/api/world/import/marinara', json=value)
-    assert response.status_code in (200, 422), response.text
-
-
-def test_a_chain_of_places_nested_past_any_real_map_is_refused(client, companion):
-    value = copy.deepcopy(sample())
-    locations = value['definition']['locations']
-    parent = locations[0]['id']
-    for number in range(1500):
-        locations.append(place(f'deep{number}', parent, f'Room {number}', 'room'))
-        parent = f'deep{number}'
-    response = client.post('/api/world/import/marinara', json=value)
-    assert response.status_code in (200, 422), response.text
-
-
-def test_a_map_that_cannot_become_a_city_adds_no_lore(client, companion):
-    value = copy.deepcopy(sample())
-    value['definition']['locations'] = []
-    response = client.post('/api/world/import/marinara', json=value)
-    assert response.status_code == 422
-    assert not [book for book in client.get('/api/lore').json()['books'] if book['world']]
-
-
-def test_bring_your_characters_points_a_world_map_to_cities(client, companion):
-    data = base64.b64encode(json.dumps(sample()).encode()).decode()
-    response = client.post('/api/import/character', json={'filename': 'harbour.world-map.json', 'data': data})
-    assert response.status_code == 422 and 'Marinara world map' in response.text
-
-
 def world_books(client) -> list[str]:
     return [book['name'] for book in client.get('/api/lore').json()['books'] if book['world']]
 
@@ -202,29 +147,6 @@ def settle_in(client, world_id: str, city_id: str):
     assert client.post(f"/api/worlds/{world_id}/switch").status_code == 200
     made = client.post('/api/companion', json={'name': 'Wren', 'timezone': 'Europe/Lisbon', 'home_city': city_id})
     assert made.status_code == 200, made.text
-
-
-def test_the_lore_follows_the_city_into_a_new_world(client, companion):
-    assert client.post('/api/world/import/marinara', json=sample()).status_code == 200
-    made = client.post('/api/worlds', json={'city_id': 'lisbon'})
-    assert made.status_code == 200, made.text
-    elsewhere = client.post('/api/worlds', json={})
-    settle_in(client, made.json()['id'], 'lisbon')
-    assert world_books(client) == ['Harbourlight, chapter 3']
-    [book] = [book for book in client.get('/api/lore').json()['books'] if book['world']]
-    assert any(entry['title'] == 'Copper Kettle' for entry in book['entries'])
-    settle_in(client, elsewhere.json()['id'], 'baltimore')
-    assert world_books(client) == [], 'a world in another city does not get it'
-
-
-def test_deleting_the_city_deletes_its_lore_in_every_world(client, companion):
-    assert client.post('/api/world/import/marinara', json=sample()).status_code == 200
-    made = client.post('/api/worlds', json={'city_id': 'lisbon'}).json()
-    response = client.delete('/api/world/cities/lisbon')
-    assert response.status_code in (200, 204), response.text
-    assert world_books(client) == []
-    settle_in(client, made['id'], 'baltimore')
-    assert world_books(client) == [], 'the copy in the world made there goes too'
 
 
 def test_a_city_with_no_country_takes_it_from_its_time_zone_so_names_are_local():

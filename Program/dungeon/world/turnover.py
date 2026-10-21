@@ -76,14 +76,17 @@ STATE = Levels(Clock())
 
 
 def load(database):
-    """Follow this world's clock (debug time included), its life settings and the levels they held before."""
-    from dungeon.database import many, optional
+    """Follow this world's clock (debug time included) and the levels the town held before. Until worlds carry
+    their own settings (M2), the town moves at the usual pace and people can pass away (Dungeon: death is real)."""
+    from dungeon.database import many
     STATE.clock = database.clock
     with database.connect() as connection:
-        row = optional(connection, 'SELECT * FROM life_settings WHERE id=1') or {}
         earlier = many(connection, 'SELECT * FROM town_levels ORDER BY until_week')
-    STATE.pace, STATE.loss, STATE.families = levels_of(row)
+    STATE.pace, STATE.loss, STATE.families = levels_of(WORLD_LEVELS)
     STATE.before = tuple((item['until_week'], item['pace'], item['loss'], item['families']) for item in earlier)
+
+
+WORLD_LEVELS = {'people_pass_away': 1}
 
 
 def levels_of(row: dict) -> tuple[int, int, int]:

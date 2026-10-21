@@ -1,11 +1,10 @@
-import type { View } from '../../companion'
 import type { StoryPerson } from '../../types'
 import { personLine } from './storyText'
 
-interface Props { people: StoryPerson[]; canSwitch: boolean; go: (view: View) => void; onFind: (key: string) => void }
+interface Props { people: StoryPerson[]; onFind: (key: string) => void }
 
-/** The people the user has met in the story: theirs alone, not the companion's. */
-export function StoryPeople({ people, canSwitch, go, onFind }: Props) {
+/** The people the user has met in the story. */
+export function StoryPeople({ people, onFind }: Props) {
   if (!people.length) return null
   return (
     <details className="story-people">
@@ -18,7 +17,6 @@ export function StoryPeople({ people, canSwitch, go, onFind }: Props) {
             {person.notes.length > 0 && <p className="story-note">{person.notes[person.notes.length - 1]}</p>}
             <div className="form-actions">
               {person.place && <button type="button" className="text-button" onClick={() => onFind(person.key)}>Go to {person.name.split(' ')[0]}</button>}
-              {canSwitch && <button type="button" className="text-button" onClick={() => go(`cast/${encodeURIComponent(person.key)}`)}>Make {person.name.split(' ')[0]} the main character…</button>}
             </div>
           </li>))}
       </ul>

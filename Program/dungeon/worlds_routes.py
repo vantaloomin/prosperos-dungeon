@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Request
 
 from dungeon import worlds
-from dungeon.models import Become, HomeChange, NewPersona, NewWorld, PersonaInput, WorldChange
+from dungeon.models import HomeChange, NewPersona, NewWorld, PersonaInput, WorldChange
 
 router = APIRouter(prefix='/api/worlds')
 
@@ -19,15 +19,8 @@ def listing(request: Request):
 
 @router.post('')
 def create_world(request: Request, body: NewWorld):
-    """A new world, ready at once, where the user makes its first companion. It does not switch to it."""
+    """A new world, ready at once. It does not switch to it."""
     return worlds.create_world(db(request), body.persona_id, body.name, body.city_id)
-
-
-@router.post('/become')
-async def become(request: Request, body: Become):
-    """Start a new life as a townsperson the user or their companion has met: a new world in the same town with
-    them as the persona, and switch to it. Runs on the event loop, like a switch."""
-    return worlds.become(request.app.state, body.key)
 
 
 @router.patch('/{world_id}')

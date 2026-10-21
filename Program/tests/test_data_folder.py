@@ -1,5 +1,4 @@
 """Keeping the workspace in the app's own folder (dungeon/data_folder.py, identity.portable_dir)."""
-import sqlite3
 from pathlib import Path
 
 import pytest
@@ -37,31 +36,6 @@ def test_settings_shows_the_folder_and_schedules_a_move(client, app, app_folder)
     assert moving.status_code == 200, moving.text
     assert moving.json()['pending'] and (workspace / data_folder.PENDING).is_file()
     assert not client.delete('/api/backups/data-folder/move').json()['pending']
-
-
-def test_the_move_copies_checks_and_leaves_the_old_folder(client, app, companion, app_folder):
-    remember = client.post('/api/memories', json={'layer': 'user_fact', 'subject': 'Pet', 'value': 'Biscuit'})
-    assert remember.status_code == 200, remember.text
-    (app.state.database.path.parent / 'images').mkdir(exist_ok=True)
-    (app.state.database.path.parent / 'images' / 'a.png').write_bytes(b'png')
-    assert client.post('/api/backups/data-folder/move').status_code == 200
-    workspace = app.state.database.path.parent
-    client.close()
-
-    told = data_folder.apply_pending(workspace)
-
-    target = app_folder / 'Data'
-    assert 'Moved your data' in told
-    assert (target / 'images' / 'a.png').read_bytes() == b'png'
-    connection = sqlite3.connect(target / 'dungeon.sqlite3')
-    try:
-        assert connection.execute("SELECT value FROM memories WHERE subject='Pet'").fetchone()[0] == 'Biscuit'
-    finally:
-        connection.close()
-    assert not (target / data_folder.PENDING).exists() and not (app_folder / 'Data.moving').exists()
-    assert (workspace / 'dungeon.sqlite3').exists() and (workspace / data_folder.MOVED_NOTE).exists()
-    assert data_folder.apply_pending(workspace) is None  # Consumed.
-    assert data_folder.status(target)['portable']
 
 
 def test_a_failed_copy_leaves_everything_where_it_was(client, app, app_folder, monkeypatch):

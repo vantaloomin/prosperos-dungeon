@@ -32,7 +32,7 @@ export function ModelCalls() {
         <p className="subtle">For tracking down a strange reply: every request the app sends to your model, in full, and exactly what came back, one file a day in the logs folder. Keys are never written. Kept 7 days.</p>
       </div>
       <Toggle label="Record model calls" checked={data?.recording === true} disabled={!data} onChange={(checked) => void change({ recording: checked })}
-        hint="The files hold your chats and your companions' prompts word for word. Turn this off once you have what you need, and only share the files with someone you trust." />
+        hint="The files hold your story and the narrator's prompts word for word. Turn this off once you have what you need, and only share the files with someone you trust." />
       {data && data.files > 0 && (
         <div className="form-actions">
           <a className="button" href="/api/model-calls/download" download><Download aria-hidden="true" />Save for support ({size(data.bytes)})</a>

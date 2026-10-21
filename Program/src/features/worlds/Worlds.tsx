@@ -9,7 +9,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { PersonaForm } from './PersonaForm'
 import { CityPick, SOMEWHERE_NEW } from './CityPick'
 import { enter, useWorlds, WORLDS_KEY } from './useWorlds'
-import { companionsLine, initial, personaName, personaRef, personaTitle } from './worldsText'
+import { homeLine, initial, personaName, personaRef, personaTitle } from './worldsText'
 
 type Run = (action: () => Promise<unknown>) => Promise<void>
 
@@ -36,7 +36,7 @@ export function Worlds() {
     <section className="worlds" aria-labelledby="worlds-heading">
       <header className="worlds-header">
         <h1 id="worlds-heading">Worlds</h1>
-        <p className="subtle">{personaName(data.persona) ? <>You are <strong>{personaName(data.persona)}</strong> in </> : <>You're in </>}<strong>{data.world.name}</strong>. Each persona lives in their own worlds, with their own companions, town and history. Your settings and models come with you everywhere.</p>
+        <p className="subtle">{personaName(data.persona) ? <>You are <strong>{personaName(data.persona)}</strong> in </> : <>You're in </>}<strong>{data.world.name}</strong>. Each persona lives in their own worlds, with their own town, people and history. Your settings and models come with you everywhere.</p>
         {busy && <Notice>Opening {busy}…</Notice>}
         {error && <Notice tone="error">{error}</Notice>}
       </header>
@@ -93,7 +93,7 @@ function PersonaWorlds({ persona, cityId, run, store, onSwitch, onSwitchPersona 
         <button type="button" className="button" onClick={() => setDeleting(false)}>Keep</button>
         <button type="button" className="button danger" onClick={() => void run(async () => { store(await api<WorldsData>(`/worlds/personas/${persona.id}`, undefined, 'DELETE')); setDeleting(false) })}>Delete</button>
       </>}>
-        <p>Their {persona.worlds.length === 1 ? 'world goes' : `${persona.worlds.length} worlds go`} with them, with every companion and chat in it. A backup of each is kept in the data folder, under backups/deleted-worlds.</p>
+        <p>Their {persona.worlds.length === 1 ? 'world goes' : `${persona.worlds.length} worlds go`} with them, with everything that happened in it. A backup of each is kept in the data folder, under backups/deleted-worlds.</p>
       </ConfirmDialog>}
     </section>
   )
@@ -149,7 +149,7 @@ function WorldRow({ world, run, store, onSwitch }: { world: World; run: Run; sto
             <button type="submit" className="button">Save</button>
             <button type="button" className="text-button" onClick={() => { setRenaming(false); setName(world.name) }}>Cancel</button>
           </form>
-        : <span className="world-row-text"><strong>{world.name}</strong><span className="subtle">{companionsLine(world)}</span></span>}
+        : <span className="world-row-text"><strong>{world.name}</strong><span className="subtle">{homeLine(world)}</span></span>}
       <span className="world-row-actions">
         {world.active ? <span className="subtle">You are here</span> : <button type="button" className="button" onClick={onSwitch}>Go there</button>}
         {!renaming && <button type="button" className="text-button" onClick={() => setRenaming(true)}>Rename</button>}
@@ -159,7 +159,7 @@ function WorldRow({ world, run, store, onSwitch }: { world: World; run: Run; sto
         <button type="button" className="button" onClick={() => setDeleting(false)}>Keep it</button>
         <button type="button" className="button danger" onClick={() => void run(async () => { store(await api<WorldsData>(`/worlds/${world.id}`, undefined, 'DELETE')); setDeleting(false) })}>Delete</button>
       </>}>
-        <p>{companionsLine(world)} and everything that happened there go with it. A backup is kept in the data folder, under backups/deleted-worlds.</p>
+        <p>Everything that happened there goes with it. A backup is kept in the data folder, under backups/deleted-worlds.</p>
       </ConfirmDialog>}
     </li>
   )

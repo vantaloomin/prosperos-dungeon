@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 /** "Show advanced settings" is a preference of this browser, like a chat draft: off until the user turns it on. */
-export const ADVANCED_KEY = 'companion.advancedSettings'
+export const ADVANCED_KEY = 'dungeon.advancedSettings'
 
 type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | undefined
 

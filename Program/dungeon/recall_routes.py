@@ -5,10 +5,9 @@ from fastapi import APIRouter, Request
 
 from dungeon import logs
 from dungeon.errors import require
-from dungeon.memory.vectors import cosine
 from dungeon.models import Input
 from dungeon.providers import builtin_recall
-from dungeon.providers.embeddings import as_documents, as_query
+from dungeon.providers.embeddings import as_documents, as_query, cosine
 from dungeon.providers.scheduling import CONVERSATION
 from dungeon.text_models import config_for, key_for
 
@@ -49,8 +48,6 @@ async def change(body: BuiltinRecallUpdate, request: Request):
                            (int(body.enabled), path, database.now()))
     await builtin.stop()
     builtin.kick()
-    # A new model means new vectors; the memory worker makes them in the background.
-    request.app.state.memory.kick()
     return overview(request)
 
 
@@ -77,8 +74,8 @@ async def test(request: Request):
             'Nothing does semantic recall yet: turn on built-in recall, or give a profile an embedding model.', 409)
     texts = [as_query(config, TEST_QUERY), *as_documents(config, TEST_DOCUMENTS)]
     started = time.perf_counter()
-    async with state.conversation.scheduler.reserve(config, CONVERSATION):
-        vectors = await state.conversation.embedder.embed(config, key_for(state.vault, config), texts, TEST_SECONDS)
+    async with state.scheduler.reserve(config, CONVERSATION):
+        vectors = await state.embedder.embed(config, key_for(state.vault, config), texts, TEST_SECONDS)
     scores = [round(cosine(vectors[0], vector), 3) for vector in vectors[1:]]
     return {'model': config['embedding_model'], 'dimensions': len(vectors[0]), 'scores': scores,
             'milliseconds': round((time.perf_counter() - started) * 1000), 'found_related': scores[0] > scores[1]}
