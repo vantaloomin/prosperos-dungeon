@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { aroundText, branchLine, journalKind, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats } from '../../src/features/story/storyText.ts'
+import { aroundText, branchLine, journalKind, questState, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -69,4 +69,10 @@ test('a branch says how long it ran', () => {
 test('a journal line names its kind and what it is about', () => {
   assert.equal(journalKind({ kind: 'wound', subject: 'you', truth: 'both' }), 'Wound · you')
   assert.equal(journalKind({ kind: 'secret', subject: 'Gus', truth: 'belief' }), 'Secret · Gus (you believe)')
+})
+
+test('a quest shows the time left, or how it ended', () => {
+  assert.equal(questState({ status: 'open', left: 'about 7 days left' }), 'Underway · about 7 days left')
+  assert.equal(questState({ status: 'open', left: '' }), 'Underway')
+  assert.equal(questState({ status: 'missed', left: '' }), 'Too late')
 })

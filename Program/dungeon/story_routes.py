@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Request
 from pydantic import Field
 
-from dungeon import campaign, ledger, sheet, story
+from dungeon import campaign, ledger, quests, sheet, story, story_clock
 from dungeon.models import Input, PersonaInput
 
 router = APIRouter(prefix='/api/story')
@@ -106,11 +106,16 @@ class JournalChange(Input):
     text: str = Field(min_length=1, max_length=500)
 
 
+def journal_view(connection, database) -> dict:
+    return {'entries': ledger.entries(connection),
+            'quests': quests.view(connection, story_clock.now(connection, database.clock))}
+
+
 @router.get('/journal')
 def journal(request: Request):
     """What the player's character knows, from the ledger (dungeon/ledger.py); hidden truth stays out."""
     with request.app.state.database.connect() as connection:
-        return {'entries': ledger.entries(connection)}
+        return journal_view(connection, request.app.state.database)
 
 
 @router.post('/journal')
@@ -118,7 +123,7 @@ def add_note(request: Request, body: JournalNote):
     database = request.app.state.database
     with database.connect(write=True) as connection:
         ledger.record(connection, 'fact', body.subject, body.text, database.now(), 'player')
-        return {'entries': ledger.entries(connection)}
+        return journal_view(connection, request.app.state.database)
 
 
 @router.patch('/journal/{entry_id}')
@@ -126,7 +131,7 @@ def change_note(request: Request, entry_id: str, body: JournalChange):
     database = request.app.state.database
     with database.connect(write=True) as connection:
         ledger.correct(connection, entry_id, database.now(), body.text)
-        return {'entries': ledger.entries(connection)}
+        return journal_view(connection, request.app.state.database)
 
 
 @router.delete('/journal/{entry_id}')
@@ -134,7 +139,7 @@ def remove_note(request: Request, entry_id: str):
     database = request.app.state.database
     with database.connect(write=True) as connection:
         ledger.correct(connection, entry_id, database.now())
-        return {'entries': ledger.entries(connection)}
+        return journal_view(connection, request.app.state.database)
 
 
 @router.delete('')

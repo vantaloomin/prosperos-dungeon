@@ -126,27 +126,30 @@ def checked(answer: str) -> list[dict] | None:
             and str(item.get('text') or '').strip()]
 
 
-async def ask(state, config: dict, system: str, text: str) -> str:
+async def asked(state, config: dict, system: str, text: str) -> str:
     async with state.scheduler.reserve(config, CONVERSATION):
         return ''.join([chunk.text async for chunk in state.provider.stream(
             config, key_for(state.vault, config), system, [{'role': 'user', 'content': text}])])
 
 
-async def extract(state, user_text: str, reply: dict):
-    """The new facts of a turn, from the Continuity model only when the player chose one for it."""
+async def extract(state, user_text: str, reply: dict, ask: str = '') -> str:
+    """The new facts of a turn, from the Continuity model only when the player chose one for it; `ask` adds a
+    question of another system's (dungeon/quests.py), and the model's whole answer is returned for it."""
     database = state.database
     with database.connect() as connection:
         config = config_for(connection, JOB) if routes(connection).get(JOB) else None
     if config is None:
-        return
+        return ''
     try:
-        facts = checked(await ask(state, config, EXTRACT, f"The player: {user_text}\n\nThe narrator: {reply['text']}"))
+        answer = await asked(state, config, EXTRACT + ask, f"The player: {user_text}\n\nThe narrator: {reply['text']}")
     except Exception:  # noqa: BLE001 - a fact missed is better than a turn lost.
-        return
+        return ''
+    facts = checked(answer)
     with database.connect(write=True) as connection:
         for fact in facts or []:
             record(connection, fact['kind'], fact['subject'], fact['text'], database.now(), 'narrator', fact['truth'],
                    reply['id'])
+    return answer
 
 
 # The story so far --------------------------------------------------------------------------------
@@ -183,7 +186,7 @@ async def fold(state, rows: list[dict]):
     if not chunk or config is None:
         return
     try:
-        text = (await ask(state, config, SUMMARIZE, f"The summary so far:\n{before['text'] or '(none yet)'}\n\n"
+        text = (await asked(state, config, SUMMARIZE, f"The summary so far:\n{before['text'] or '(none yet)'}\n\n"
                                                     f'The new turns:\n{transcript(chunk)}')).strip()
     except Exception:  # noqa: BLE001 - the turns stay word for word until the next try.
         return

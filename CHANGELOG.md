@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Kingswood, the first Vallarith town, and its first quest.** A Post-Reform logging town on the edge of Brynwyr,
+  with 29 places, six named people and three premade characters. "The Heartwood contract" runs seven days of story
+  time; miss it and the stakes land. The border stones and the Heartwood are dangerous: every turn there rolls Luck,
+  and a failure brings a threat. "What you know" shows the quests you know of and the time left.
+- **The story clock.** Once a story starts, it keeps its own time: talk takes minutes, a fight longer, a night's
+  sleep eight hours, a walk across town twenty minutes. The scene, the townsfolk and deadlines follow it,
+  and going back puts it back.
 - **The ledger and the story so far.** The game keeps a record of what is true (deaths, items, wounds, promises,
   places, secrets) and gives it to the narrator every turn. A new Continuity model job lists the facts each narration
   brings in and folds older turns into a rolling summary. "What you know" on the Story screen shows your

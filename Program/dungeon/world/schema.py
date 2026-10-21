@@ -315,7 +315,10 @@ class Notable(Record):
     # What people call them; the first word of `name` when left out.
     given: str = Field(default='', max_length=60)
     pronouns: Literal['she/her', 'he/him', 'they/them'] = 'they/them'
-    age: int = Field(ge=16, le=120)
+    # Real years; past 120 only makes sense for a long-lived `kind` (dungeon/world/lifespans.py).
+    age: int = Field(ge=16, le=5000)
+    # Their kind ('elf', 'half-elf', a city's own); human when left out.
+    kind: Id | None = None
     place: Id
     role: Annotated[str, Field(min_length=1, max_length=80)]
     # Works there (keeps shifts) or only turns up as a regular (keeps visits).

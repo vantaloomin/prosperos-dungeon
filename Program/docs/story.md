@@ -8,10 +8,14 @@ and the rest of the game are built on it from Milestone 1 ([the roadmap](../../d
 
 The app decides the scene (`dungeon/story.py`):
 
-- **Where:** the city and place the user picked under "Go somewhere else…". A new story starts in Haddon
-  Harbor, the city the app ships with, at a cafe or another opening place. Moving adds a line to the story
+- **Where:** the city and place the user picked under "Go somewhere else…". A new story starts in Kingswood,
+  the slice town, at its tavern or another opening place. Moving adds a line to the story
   ("You arrive at …") that the narrator sees as a note.
-- **When:** the app clock (debug time included) in the city's own timezone.
+- **When:** the story clock (`dungeon/story_clock.py`), in the city's own timezone. It starts at campaign start
+  and moves with what the player does: 5 minutes for talk, 10 for a rolled action, 30 for a walk somewhere, the
+  hours they say for "I wait two hours", 8 hours for a night's sleep, 20 minutes to cross town and 6 hours to
+  reach another city. Out-of-character lines take no time. A story with no campaign start runs on the app clock
+  (debug time included), as Companion's did. The clock is branched with the story.
 - **Weather:** the city's typical weather for the date (`generators.conditions`).
 - **Who is there:** the townsfolk rules at that moment (`story.present`): people seeded at the place and
   residents whose routines bring them there. Each world's town has its own seed (`persona.town_seed`), so the
@@ -31,7 +35,7 @@ The narrator stays in the story. Sentences saying it is an AI are dropped (`in_c
 ## Campaign start
 
 A new story opens on "Who are you?" (`dungeon/campaign.py`). The player picks one of the town's premade characters
-(`dungeon/world/data/premades/<city>.json`; Haddon Harbor ships three) or makes their own: a name, gender, age, a
+(`dungeon/world/data/premades/<city>.json`; Kingswood and Haddon Harbor ship three each) or makes their own: a name, gender, age, a
 few lines about them, and MARVEL stats bought from 60 points, each from 4 to 18. Either way the world's persona takes
 on that name and those lines, the stats go on the sheet, and the story opens with "You arrive at …".
 
@@ -78,6 +82,23 @@ folded into one rolling summary (`story_summary`) by the Continuity model, or th
 narrator gets that summary as "The story so far" in their place. The ledger and the summary are branched with the
 story.
 
+## What is happening
+
+A town's adventure file (`dungeon/world/data/adventures/<city>.json`, `dungeon/quests.py`) lists its quests and its
+dangerous places. Kingswood ships "The Heartwood contract" and a hidden one, "The wardens' eyes".
+
+- **Quests** start with the story (campaign start), each with a hook, a hidden truth and a deadline in days of story
+  time. The narrator gets "What is happening" every turn: each open quest, its truth, how long is left and whether
+  the character knows of it yet. It lets them press on the scene and never ends one itself.
+- **Deadlines** are code's: when the story clock passes one with the quest still open, the quest is missed, its
+  stakes go in the ledger, and the narrator is told it is over.
+- **Ending a quest:** with a Continuity model chosen, its question after each turn lists the open quests, and it may
+  answer that the turn settled one (done or failed, with a sentence). Unknown ids are ignored.
+- **Dangerous places:** each turn in one adds a Luck roll at the place's difficulty to the turn's rolls (shown with
+  the dice, like any other). On a failure, the place's threat comes with the outcome for the narrator to write.
+- The player's journal ("What you know") shows the quests they know of and the time left. Quests branch with the
+  story.
+
 ## Going back
 
 Every line the player sends is a save point (`dungeon/timeline.py`): the game state as the line arrives (the scene,
@@ -106,7 +127,7 @@ keeps game state adds its tables to `timeline.SAVED`.
 | `PUT /api/story/sheet` `{stats}` | Changes some or all stats; 422 for an unknown stat or a value outside 1 to 30. |
 | `POST /api/story/back` `{message_id}` | Back to before one of the player's lines, as a new branch; the story comes back with `draft`, the line to send again. 404 for a line not in the branch being played. |
 | `POST /api/story/branches/{id}/switch` | Plays on in another branch, where it was left. 404 for a branch not in this story. |
-| `GET /api/story/journal` | `{entries}`: the facts the player's character knows, newest first. |
+| `GET /api/story/journal` | `{entries, quests}`: the facts the player's character knows, newest first, and the quests they know of with `status`, `hook`, `outcome` and `left` (story time left). |
 | `POST /api/story/journal` `{subject, text}` | Adds the player's own note. |
 | `PATCH /api/story/journal/{id}` `{text}` / `DELETE /api/story/journal/{id}` | Corrects or removes a fact, logged; 404 for hidden truth or a fact not in the journal. |
 | `DELETE /api/story` | Starts a new story: the history, every branch, the ledger and the people met go, the scene stays. |

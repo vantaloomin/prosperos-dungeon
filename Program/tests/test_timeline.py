@@ -76,6 +76,8 @@ def test_an_older_workspace_gains_the_branch_column(tmp_path):
     connection = sqlite3.connect(path)
     connection.execute('CREATE TABLE story_messages (id TEXT PRIMARY KEY, seq INTEGER)')
     connection.execute("INSERT INTO story_messages VALUES ('a', 1)")
+    connection.execute('CREATE TABLE story_rolls (id TEXT PRIMARY KEY)')
     add_columns(connection)
     add_columns(connection)
     assert connection.execute('SELECT branch_id FROM story_messages').fetchall() == [('first',)]
+    assert 'threat' in {row[1] for row in connection.execute('PRAGMA table_info(story_rolls)')}

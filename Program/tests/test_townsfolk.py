@@ -13,6 +13,9 @@ def test_every_place_has_its_own_people_rebuilt_the_same_from_their_key():
         for place in data['places']:
             people = townsfolk.at_place(data, place['id'])
             extra = len(townsfolk.notables_at(data, place['id']))
+            if townsfolk.WILD in place['tags']:
+                assert len(people) == extra  # Nobody lives or works in the wild; only named people turn up.
+                continue
             assert townsfolk.PEOPLE[0] <= len(people) - extra <= townsfolk.PEOPLE[1]
             assert people == townsfolk.at_place(data, place['id'])
             for sheet in people:

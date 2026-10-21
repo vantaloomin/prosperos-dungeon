@@ -2,12 +2,13 @@
 
 A city may ship premade characters (`world/data/premades/<city>.json`), each with a few lines about them and their
 MARVEL stats. Or the player makes their own: a name, a few lines, and stats bought from a pool of points. Either
-way the persona of this world takes them on, and the story opens with the player arriving where the scene is.
+way the persona of this world takes them on, the story clock starts (dungeon/story_clock.py), and the story opens
+with the player arriving where the scene is.
 """
 import json
 from pathlib import Path
 
-from dungeon import sheet, story, timeline, worlds
+from dungeon import quests, sheet, story, story_clock, timeline, worlds
 from dungeon.database import one
 from dungeon.errors import require
 from dungeon.models import PersonaInput
@@ -62,5 +63,7 @@ def begin(database, premade_id: str | None = None, persona: PersonaInput | None 
     worlds.update_persona(database, active['persona_id'], persona)
     with database.connect(write=True) as connection:
         sheet.set_stats(connection, stats, database.now())
+        story_clock.start(connection, database.clock.now())
+        quests.start(connection, city_id, database.clock.now())
         story.arrive(connection, database.now())
     return story.story(database)

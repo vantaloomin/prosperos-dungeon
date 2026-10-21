@@ -37,6 +37,7 @@ top of it, milestone by milestone, as set out in [the roadmap](../../docs/roadma
 | `story_branches`, `story_timeline`, `story_saves` | The story's branches, which one is played, and the game state at each of the player's lines |
 | `character_stats`, `story_rolls` | MARVEL stats, and the rolls of each turn |
 | `ledger_entries`, `ledger_corrections`, `story_summary` | The canon ledger, the player's corrections to it, and the story so far |
+| `story_clock`, `story_quests` | The story's own time, and its quests with their deadlines (`dungeon/quests.py`) |
 | `authors_notes` | The user's note that rides along with every narrator turn |
 | `townsfolk_mix`, `townsfolk_personality`, `birth_dates`, `town_levels` | How the town is generated and how it ages |
 
@@ -51,7 +52,7 @@ changes made from here on. New tables come from `schema.sql`; a column added to 
 | Narrator | `story.py`, `narration/` | Builds the layered narrator prompt, checks the prose in code, and writes each story turn |
 | Odds and rolls | `consequences.py`, `life/chance.py` | Weighted outcomes and seeded rolls, the base for the Milestone 1 dice |
 | Life Cards | `life/deck.py` | The deck of life events, drawn by code |
-| Townsfolk and the town | `world/` | Generates and ages the people and places of a city; Haddon Harbor ships with the app |
+| Townsfolk and the town | `world/` | Generates and ages the people and places of a city; Kingswood and Haddon Harbor ship with the app |
 | Calendar and sky | `almanac/` | Holidays, seasons, sunrise and moon phase for a city's date |
 | Memory recall | `memory/`, `providers/builtin_recall.py` | Hybrid recall (words and embeddings) over long text, ready for the story's memory |
 | Models | `providers/` | Every text model kind, including claude -p and Codex, with queueing and balance |
