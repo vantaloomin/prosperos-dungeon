@@ -1,0 +1,349 @@
+"""Phone access over Tailscale: pairing, what a phone may do, and the Tailscale command line."""
+import json
+import socket
+from datetime import timedelta
+
+import httpx
+import pytest
+from fastapi.testclient import TestClient
+
+from dungeon import backup
+from dungeon.identity import CLIENT_HEADER
+from dungeon.phone import access, lan, tailscale
+
+PHONE_HOST = 'home-vanta.tail1234.ts.net'
+
+
+@pytest.fixture
+def net(monkeypatch):
+    """A signed-in Tailscale that serves whatever it is asked to."""
+    calls = []
+    monkeypatch.setattr(tailscale, 'status', lambda: {
+        'installed': True, 'running': True, 'name': PHONE_HOST, 'ip': '100.90.1.2', 'magic_dns': True,
+        'https': True, 'phones': [{'name': 'pixel-9', 'online': True}], 'install_url': tailscale.INSTALL_URL})
+    monkeypatch.setattr(tailscale, 'served', lambda port: dict.fromkeys(
+        ('https', 'http'), bool(calls) and calls[-1] == ('serve', port)))
+    monkeypatch.setattr(tailscale, 'serve', lambda port: calls.append(('serve', port)))
+    monkeypatch.setattr(tailscale, 'stop', lambda port: calls.append(('stop',)))
+    # Looking this PC's name up can take half a minute on a CI Mac; the home-network tests set their own.
+    monkeypatch.setattr(lan, 'addresses', lambda: ['192.168.1.20'])
+    return calls
+
+
+@pytest.fixture
+def phone(app):
+    """The phone's browser: https on the tailnet name, through the proxy, with its own cookie jar."""
+    return TestClient(app, base_url=f'https://{PHONE_HOST}',
+                      headers={CLIENT_HEADER: 'workspace', 'x-forwarded-for': '100.101.102.103'})
+
+
+@pytest.fixture
+def enabled(client, net):
+    response = client.post('/api/phone/enable')
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def pair(client, phone, name='Pixel'):
+    code = client.post('/api/phone/pairings').json()['code']
+    return phone.post('/api/phone/pair', json={'code': code, 'name': name})
+
+
+def test_this_pc_works_as_before_and_other_hosts_are_refused(client, companion):
+    assert client.get('/api/companion').status_code == 200
+    assert client.get('/api/phone/status').json() == {'remote': False, 'paired': False, 'device': None}
+    assert client.get('/api/companion', headers={'host': 'evil.example'}).status_code == 400
+
+
+def test_a_phone_is_refused_while_phone_access_is_off(phone, companion):
+    response = phone.get('/api/companion')
+    assert response.status_code == 403 and response.json()['code'] == 'phone_off'
+
+
+def test_turning_phone_access_on_shares_this_port_on_the_tailnet(client, net, enabled):
+    assert enabled['enabled'] and enabled['address'] == f'https://{PHONE_HOST}'
+    assert enabled['tailscale']['serving'] and net == [('serve', 80)]
+    assert enabled['backup_address'] == 'http://100.90.1.2:80'
+    off = client.post('/api/phone/disable').json()
+    assert not off['enabled'] and net[-1] == ('stop',)
+
+
+def test_turning_on_needs_tailscale_installed_and_signed_in(client, monkeypatch):
+    monkeypatch.setattr(tailscale, 'status', lambda: {'installed': False, 'running': False, 'name': None,
+                                                      'install_url': tailscale.INSTALL_URL})
+    assert client.post('/api/phone/enable').status_code == 409
+    assert client.post('/api/phone/pairings').status_code == 409
+
+
+def test_an_unpaired_phone_can_only_pair(phone, companion, enabled):
+    assert phone.get('/api/phone/status').json() == {'remote': True, 'paired': False, 'device': None}
+    response = phone.get('/api/companion')
+    assert response.status_code == 401 and response.json()['code'] == 'phone_unpaired'
+    assert phone.post('/api/conversation/messages', json={'text': 'hi', 'client_id': 'abcdefgh'}).status_code == 401
+
+
+def test_a_paired_phone_uses_the_companion(client, phone, companion, enabled):
+    response = pair(client, phone)
+    assert response.status_code == 200, response.text
+    cookie = response.headers['set-cookie']
+    assert 'HttpOnly' in cookie and 'Secure' in cookie and 'samesite=lax' in cookie.lower()
+    status = phone.get('/api/phone/status')
+    assert status.json()['paired'], status.text
+    assert phone.get('/api/companion').json()['companion']['version']['name'] == 'Mira'
+    assert phone.put('/api/settings', json={'chat_style': 'bubbles'}).status_code == 200
+    devices = client.get('/api/phone').json()['devices']
+    assert [device['name'] for device in devices] == ['Pixel'] and 'token_hash' not in devices[0]
+
+
+@pytest.mark.parametrize(('method', 'path'), [
+    ('get', '/api/phone'), ('post', '/api/phone/pairings'), ('get', '/api/backups'), ('post', '/api/backups'),
+    ('post', '/api/import/study/inspect'), ('put', '/api/connection'), ('post', '/api/models/profiles'),
+    ('put', '/api/lora/settings'),
+    ('post', '/api/lora/runs'), ('post', '/api/lora/adapters/import'), ('get', '/api/companion/start-over'),
+    ('post', '/api/companion/start-over'), ('post', '/api/companion/delete'),
+])
+def test_a_paired_phone_cannot_change_what_runs_on_the_pc(client, phone, companion, enabled, method, path):
+    pair(client, phone)
+    response = getattr(phone, method)(path) if method == 'get' else phone.request(method.upper(), path, json={})
+    assert response.status_code == 403 and response.json()['code'] == 'pc_only'
+
+
+def test_a_phone_can_add_an_image_api_but_not_an_address_or_program(client, phone, companion, enabled):
+    pair(client, phone)
+    added = phone.post('/api/images/backends', json={'kind': 'hosted', 'provider': 'openrouter', 'model': 'm',
+                                                     'api_key': 'typed-on-the-phone', 'accept_disclosure': True})
+    assert added.status_code == 200, added.text
+    backend_id = added.json()['id']
+    assert phone.put(f'/api/images/backends/{backend_id}', json={'enabled': False}).status_code == 200
+    for refused in (phone.post('/api/images/backends', json={'kind': 'comfyui', 'base_url': 'http://10.0.0.5:8188'}),
+                    phone.post('/api/images/backends', json={'kind': 'codex', 'cli_path': '/tmp/anything'}),
+                    phone.post('/api/images/backends', json={'kind': 'hosted', 'provider': 'other', 'model': 'm',
+                                                             'base_url': 'https://example.com/v1'}),
+                    phone.put(f'/api/images/backends/{backend_id}', json={'base_url': 'https://example.com/v1'})):
+        assert refused.status_code == 403 and 'Settings > Images' in refused.json()['detail']
+    comfy = client.post('/api/images/backends', json={'kind': 'comfyui', 'base_url': 'http://127.0.0.1:8188'}).json()
+    read = phone.get(f"/api/images/backends/{comfy['id']}/workflows")
+    assert read.status_code == 403 and 'Settings > Images' in read.json()['detail']
+
+
+def test_a_paired_phone_can_still_read_those_settings(client, phone, connected, enabled):
+    pair(client, phone)
+    assert phone.get('/api/connection').status_code == 200
+    assert phone.get('/api/models').status_code == 200
+
+
+def test_a_code_works_once_and_expires(client, phone, companion, enabled, clock):
+    code = client.post('/api/phone/pairings').json()['code']
+    assert phone.post('/api/phone/pair', json={'code': code.lower().replace('-', ''), 'name': ''}).status_code == 200
+    other = TestClient(phone.app, base_url=f'https://{PHONE_HOST}', headers={'x-forwarded-for': '100.1.1.1',
+                                                                             CLIENT_HEADER: 'workspace'})
+    assert other.post('/api/phone/pair', json={'code': code}).json()['code'] == 'pairing_code'
+    late = client.post('/api/phone/pairings').json()['code']
+    clock.advance(access.PAIRING_LIFETIME + timedelta(seconds=1))
+    assert other.post('/api/phone/pair', json={'code': late}).status_code == 403
+
+
+def test_wrong_guesses_withdraw_every_code(client, phone, companion, enabled):
+    code = client.post('/api/phone/pairings').json()['code']
+    for _ in range(access.PAIRING_TRIES):
+        assert phone.post('/api/phone/pair', json={'code': 'AAAA-AAAA'}).status_code == 403
+    assert phone.post('/api/phone/pair', json={'code': code}).status_code == 403
+
+
+def test_pairing_happens_on_the_phone(client, companion, enabled):
+    code = client.post('/api/phone/pairings').json()['code']
+    assert client.post('/api/phone/pair', json={'code': code}).status_code == 409
+
+
+def test_a_removed_or_signed_out_phone_must_pair_again(client, phone, companion, enabled):
+    device = pair(client, phone).json()['device']
+    assert client.delete(f"/api/phone/devices/{device['id']}").json() == {'devices': []}
+    assert phone.get('/api/companion').status_code == 401
+    pair(client, phone, 'Second')
+    assert phone.post('/api/phone/sign-out').json() == {'paired': False}
+    assert phone.get('/api/companion').status_code == 401
+    assert client.get('/api/phone').json()['devices'] == []
+
+
+def test_only_tailnet_names_reach_the_app(phone, companion, enabled):
+    response = phone.get('/api/phone/status', headers={'host': 'evil.example'})
+    assert response.status_code == 400
+
+
+def test_a_restored_workspace_turns_phone_access_off_and_unpairs(client, phone, app, companion, enabled):
+    pair(client, phone)
+    backup.hold_for_review(app.state.database)
+    assert phone.get('/api/companion').json()['code'] == 'phone_off'
+    assert client.get('/api/phone').json()['devices'] == []
+
+
+def test_the_mac_app_bundles_the_tailscale_command(monkeypatch, tmp_path):
+    bundled = tmp_path / 'Tailscale'
+    bundled.write_text('')
+    monkeypatch.setattr(tailscale.shutil, 'which', lambda name: None)
+    monkeypatch.setattr(tailscale, 'MAC_PATHS', (str(bundled),))
+    monkeypatch.setattr(tailscale.sys, 'platform', 'darwin')
+    assert tailscale.binary() == str(bundled)
+    monkeypatch.setattr(tailscale.sys, 'platform', 'linux')
+    assert tailscale.binary() is None
+
+
+def test_serve_passes_on_the_link_to_allow_https(monkeypatch):
+    monkeypatch.setattr(tailscale, 'binary', lambda: 'tailscale')
+    link = 'https://login.tailscale.com/f/serve?node=abc123'
+    monkeypatch.setattr(tailscale, 'run', lambda args, timeout=10: (-1, f'Serve is not enabled.\nTo enable, visit:\n\n'
+                                                                        f'         {link}\n'))
+    with pytest.raises(Exception) as raised:
+        tailscale.serve(8785)
+    assert raised.value.code == 'tailscale_approval' and link in raised.value.message
+
+
+def test_serve_retries_without_yes_on_older_tailscale(monkeypatch):
+    monkeypatch.setattr(tailscale, 'binary', lambda: 'tailscale')
+    calls = []
+
+    def run(args, timeout=10):
+        calls.append(args)
+        return (1, 'flag provided but not defined: -yes') if '--yes' in args else (0, '')
+    monkeypatch.setattr(tailscale, 'run', run)
+    tailscale.serve(8785)
+    assert calls[1] == ['tailscale', 'serve', '--bg', 'http://127.0.0.1:8785']
+    assert calls[-1] == ['tailscale', 'serve', '--bg', '--http=8785', 'http://127.0.0.1:8785']
+
+
+def test_status_and_serving_read_the_json(monkeypatch):
+    monkeypatch.setattr(tailscale, 'binary', lambda: 'tailscale')
+    replies = {
+        'status': '{"BackendState": "Running", "Self": {"DNSName": "home-vanta.tail1234.ts.net."}}',
+        'serve': '{"Web": {"home-vanta.tail1234.ts.net:443": {"Handlers": {"/": {"Proxy": "http://127.0.0.1:8785"}}}}}',
+    }
+    monkeypatch.setattr(tailscale, 'run', lambda args, timeout=10: (0, replies[args[1]]))
+    assert tailscale.status()['name'] == PHONE_HOST and tailscale.status()['running']
+    assert tailscale.serving(8785) and not tailscale.serving(9000)
+
+
+def test_a_phone_can_pair_on_the_plain_http_backup_address(client, app, companion, enabled):
+    pairing = client.post('/api/phone/pairings').json()
+    assert pairing['backup_link'] == f"http://100.90.1.2:80/?pair={pairing['code']}"
+    backup = TestClient(app, base_url='http://100.90.1.2:80', headers={
+        CLIENT_HEADER: 'workspace', 'x-forwarded-for': '100.101.102.103', 'x-forwarded-proto': 'http'})
+    response = backup.post('/api/phone/pair', json={'code': pairing['code'], 'name': 'Pixel'})
+    assert response.status_code == 200, response.text
+    assert 'Secure' not in response.headers['set-cookie']
+    assert backup.get('/api/phone/status').json()['paired']
+    other = TestClient(app, base_url='http://192.168.1.20:80', headers={'x-forwarded-for': '192.168.1.30'})
+    assert other.get('/api/phone/status').status_code == 400
+
+
+def test_status_lists_phones_and_what_the_tailnet_has_switched_on(monkeypatch):
+    monkeypatch.setattr(tailscale, 'binary', lambda: 'tailscale')
+    state = {'BackendState': 'Running', 'CertDomains': ['home-vanta.tail1234.ts.net'],
+             'CurrentTailnet': {'MagicDNSEnabled': False},
+             'Self': {'DNSName': 'home-vanta.tail1234.ts.net.', 'TailscaleIPs': ['100.90.1.2', 'fd7a:115c:a1e0::1']},
+             'Peer': {'a': {'HostName': 'pixel-9', 'OS': 'android', 'Online': False},
+                      'b': {'HostName': 'iPhone', 'OS': 'iOS', 'Online': True},
+                      'c': {'HostName': 'laptop', 'OS': 'windows', 'Online': True}}}
+    monkeypatch.setattr(tailscale, 'run', lambda args, timeout=10: (0, json.dumps(state)))
+    found = tailscale.status()
+    assert found['ip'] == '100.90.1.2' and found['https'] and not found['magic_dns']
+    assert found['phones'] == [{'name': 'iPhone', 'online': True}, {'name': 'pixel-9', 'online': False}]
+
+
+def test_serve_adds_the_http_backup_and_stop_removes_both(monkeypatch):
+    monkeypatch.setattr(tailscale, 'binary', lambda: 'tailscale')
+    calls = []
+    monkeypatch.setattr(tailscale, 'run', lambda args, timeout=10: calls.append(args) or (0, ''))
+    tailscale.serve(8785)
+    assert calls == [['tailscale', 'serve', '--bg', '--yes', 'http://127.0.0.1:8785'],
+                     ['tailscale', 'serve', '--bg', '--yes', '--http=8785', 'http://127.0.0.1:8785']]
+    calls.clear()
+    tailscale.stop(8785)
+    assert calls == [['tailscale', 'serve', '--https=443', 'off'], ['tailscale', 'serve', '--http=8785', 'off']]
+
+
+def test_served_tells_the_https_address_from_the_backup(monkeypatch):
+    monkeypatch.setattr(tailscale, 'binary', lambda: 'tailscale')
+    config = {'Web': {'home-vanta.tail1234.ts.net:443': {'Handlers': {'/': {'Proxy': 'http://127.0.0.1:8785'}}},
+                      'home-vanta.tail1234.ts.net:8785': {'Handlers': {'/': {'Proxy': 'http://127.0.0.1:8785'}}}}}
+    monkeypatch.setattr(tailscale, 'run', lambda args, timeout=10: (0, json.dumps(config)))
+    assert tailscale.served(8785) == {'https': True, 'http': True}
+    del config['Web']['home-vanta.tail1234.ts.net:8785']
+    assert tailscale.served(8785) == {'https': True, 'http': False}
+
+
+@pytest.fixture
+def home(app):
+    """A phone on the home Wi-Fi, through the second listener (dungeon/phone/lan.py)."""
+    return TestClient(lan.marked(app), base_url='http://192.168.1.20:8786', client=('192.168.1.30', 50000),
+                      headers={CLIENT_HEADER: 'workspace'})
+
+
+@pytest.fixture
+def lan_port(monkeypatch):
+    with socket.socket() as probe:
+        probe.bind(('127.0.0.1', 0))
+        number = probe.getsockname()[1]
+    monkeypatch.setenv(lan.PORT_ENV, str(number))
+    monkeypatch.setattr(lan, 'addresses', lambda: ['192.168.1.20'])
+    return number
+
+
+def test_home_wifi_is_off_by_default_and_pairs_like_tailscale(client, home, companion, net, lan_port):
+    assert client.get('/api/phone').json()['lan'] == {'enabled': False, 'running': False, 'port': lan_port,
+                                                      'addresses': [f'http://192.168.1.20:{lan_port}']}
+    assert home.get('/api/companion').json()['code'] == 'lan_off'
+    assert client.post('/api/phone/pairings').status_code == 409
+    on = client.post('/api/phone/lan/enable').json()['lan']
+    assert on['enabled'] and on['running']
+    pairing = client.post('/api/phone/pairings').json()
+    assert pairing['link'] == pairing['lan_link'] == f"http://192.168.1.20:{lan_port}/?pair={pairing['code']}"
+    assert home.get('/api/phone/status').json() == {'remote': True, 'paired': False, 'device': None}
+    assert home.get('/api/companion').status_code == 401
+    response = home.post('/api/phone/pair', json={'code': pairing['code'], 'name': 'Pixel'})
+    assert response.status_code == 200 and 'Secure' not in response.headers['set-cookie']
+    assert home.get('/api/companion').status_code == 200
+    assert home.get('/api/backups').json()['code'] == 'pc_only'
+    keyed = home.post('/api/images/backends', json={'kind': 'hosted', 'provider': 'openrouter', 'model': 'm',
+                                                    'api_key': 'sent-in-the-clear'})
+    assert keyed.status_code == 403 and 'not encrypted' in keyed.json()['detail']
+    off = client.post('/api/phone/lan/disable').json()['lan']
+    assert not off['enabled'] and not off['running']
+    assert home.get('/api/companion').json()['code'] == 'lan_off'
+
+
+def test_home_wifi_answers_only_home_addresses_whatever_the_headers_say(client, app, companion, lan_port):
+    client.post('/api/phone/lan/enable')
+    pretend = TestClient(lan.marked(app), base_url='http://127.0.0.1:8786', client=('192.168.1.30', 50000))
+    assert pretend.get('/api/companion').status_code == 400
+    outside = TestClient(lan.marked(app), base_url='http://192.168.1.20:8786', client=('203.0.113.9', 50000))
+    assert outside.get('/api/phone/status').status_code == 400
+    tailnet = TestClient(lan.marked(app), base_url='http://100.90.1.2:8786', client=('100.101.102.103', 50000))
+    assert tailnet.get('/api/phone/status').status_code == 400
+    # The real listener: this PC's own browser on it is treated as an outsider, not as the PC.
+    response = httpx.get(f'http://127.0.0.1:{lan_port}/api/companion', timeout=5)
+    assert response.status_code == 400
+    client.post('/api/phone/lan/disable')
+    with pytest.raises(httpx.ConnectError):
+        httpx.get(f'http://127.0.0.1:{lan_port}/api/health', timeout=5)
+
+
+def test_a_busy_home_wifi_port_is_explained(client, companion, lan_port):
+    with socket.socket() as taken:
+        taken.bind(('0.0.0.0', lan_port))
+        taken.listen()
+        response = client.post('/api/phone/lan/enable')
+    assert response.status_code == 409 and response.json()['code'] == 'lan_port'
+    assert not client.get('/api/phone').json()['lan']['enabled']
+
+
+def test_a_restore_turns_home_wifi_off(client, home, app, companion, lan_port):
+    client.post('/api/phone/lan/enable')
+    backup.hold_for_review(app.state.database)
+    assert home.get('/api/companion').json()['code'] == 'lan_off'
+    client.post('/api/phone/lan/disable')
+
+
+def test_home_addresses():
+    assert lan.home_address('192.168.1.20') and lan.home_address('10.0.0.5') and lan.home_address('fe80::1%3')
+    assert not lan.home_address('100.90.1.2') and not lan.home_address('127.0.0.1')
+    assert not lan.home_address('8.8.8.8') and not lan.home_address('example.com')

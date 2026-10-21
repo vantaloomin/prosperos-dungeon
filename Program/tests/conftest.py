@@ -1,0 +1,286 @@
+import asyncio
+import json
+import os
+import zlib
+from datetime import UTC, datetime
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+from dungeon import story
+from dungeon.clock import FixedClock
+from dungeon.identity import CLIENT_HEADER
+from dungeon.life import composer
+from dungeon.main import create_app
+from dungeon.memory.context import NOTE_CLOSE, NOTE_OPEN
+from dungeon.providers.chat import Chunk
+from dungeon.providers.vault import MemoryVault
+from dungeon.world import catalog
+
+START = datetime(2026, 10, 5, 12, 0, tzinfo=UTC)
+
+# The app ships one city. The tests load these copies instead, as built-in cities, with the featured list from before, so every era and kind of city
+# they cover stays covered. They live only here: not in the package data.
+SHIPPED_CITIES, SHIPPED_FEATURED = catalog.BUILTIN_CITIES, catalog.FEATURED
+catalog.BUILTIN_CITIES = Path(__file__).parent / 'fixtures' / 'cities'
+catalog.FEATURED = Path(__file__).parent / 'fixtures' / 'featured.json'
+catalog.reload()
+catalog._featured.cache_clear()
+# The tests were written with Baltimore as the city a workspace falls back to; the app's own is the shipped city.
+SHIPPED_DEFAULT_CITY, story.DEFAULT_CITY = story.DEFAULT_CITY, 'baltimore'
+
+
+class FakeProvider:
+    """Records each request and replies with scripted chunks."""
+
+    def __init__(self):
+        self.requests = []
+        self.replies = []
+        self.before_finish = None
+        self.error = None
+        self.respond = None
+        self.delay = 0
+
+    async def stream(self, config, key, system, messages):
+        # `prompt` is what the reply is told besides the conversation: the system prompt and this reply's notes.
+        latest = messages[-1]['content'] if messages and isinstance(messages[-1]['content'], str) else ''
+        notes = latest.split(NOTE_CLOSE)[0] if latest.startswith(NOTE_OPEN) else ''
+        self.requests.append({'config': config, 'key': key, 'system': system, 'messages': messages,
+                              'prompt': f'{system}\n\n{notes}'})
+        if self.delay:
+            await asyncio.sleep(self.delay)
+        if self.error:
+            raise self.error
+        if self.respond:
+            chunks = self.respond(system, messages)
+        else:
+            chunks = self.replies.pop(0) if self.replies else [Chunk('Hello again.'), Chunk('', 'stop')]
+        for chunk in chunks:
+            yield chunk
+        if self.before_finish:
+            self.before_finish()
+
+
+@pytest.fixture(autouse=True)
+def no_pc_timezone(monkeypatch):
+    """Tests run in UTC whatever the machine's zone is; test_local_zone sets one where it needs it."""
+    monkeypatch.setattr('dungeon.local_zone.detect', lambda: None)
+
+
+@pytest.fixture(autouse=True)
+def no_hold_after_replies(monkeypatch):
+    """Background work would wait for the user to pause after each reply; tests/test_scheduling.py checks that."""
+    monkeypatch.setattr('dungeon.providers.scheduling.HOLD_AFTER_REPLY', 0)
+
+
+@pytest.fixture(autouse=True)
+def no_storylines(monkeypatch):
+    """Storylines start on seeded days (dungeon/life/storylines.py) and would add context lines and first
+    messages to unrelated tests; tests/test_storylines.py turns them back on."""
+    monkeypatch.setattr('dungeon.life.storylines.START', (0, 0, 0, 0))
+    # Likewise a birthday seeded by the companion's id (dungeon/life/occasions.py).
+    monkeypatch.setattr('dungeon.life.occasions.SEEDED', False)
+    # And replies held while the companion is busy (dungeon/life/pacing.py), on by default in the app.
+    monkeypatch.setattr('dungeon.life.pacing.ACTIVE', False)
+    # And days going off plan (dungeon/life/disruptions.py), which would move seeded schedules by chance.
+    monkeypatch.setattr('dungeon.life.disruptions.ACTIVE', False)
+    # And friends' gatherings and run-ins (dungeon/life/network.py), which add people met by chance.
+    monkeypatch.setattr('dungeon.life.network.ACTIVE', False)
+    # And townsfolk met around the city (dungeon/life/encounters.py), likewise by chance.
+    monkeypatch.setattr('dungeon.life.encounters.ACTIVE', False)
+    # And new clothes woven into the companion's day (dungeon/life/wardrobe.py), on seeded days.
+    monkeypatch.setattr('dungeon.life.wardrobe.WEAVE', False)
+    # And haircuts, nails and bold looks changes woven into the companion's day (dungeon/life/grooming.py).
+    monkeypatch.setattr('dungeon.life.grooming.WEAVE', False)
+    # And dinners and grocery runs woven into the day (dungeon/life/kitchen.py).
+    monkeypatch.setattr('dungeon.life.kitchen.WEAVE', False)
+    # And books, shows and songs woven into the day (dungeon/life/media.py).
+    monkeypatch.setattr('dungeon.life.media.WEAVE', False)
+    # And pastimes' practice sessions (dungeon/life/hobbies.py).
+    monkeypatch.setattr('dungeon.life.hobbies.WEAVE', False)
+    # Nor rough patches opening from what the user says or misses (dungeon/life/rough_patches.py).
+    monkeypatch.setattr('dungeon.life.rough_patches.ACTIVE', False)
+    # And the Life deck's small moments (dungeon/life/deck.py), drawn on seeded days.
+    monkeypatch.setattr('dungeon.life.deck.ACTIVE', False)
+    # And dreams (dungeon/life/dreams.py), on seeded nights.
+    monkeypatch.setattr('dungeon.life.dreams.ACTIVE', False)
+
+
+@pytest.fixture(autouse=True)
+def no_turnover(monkeypatch):
+    """Townsfolk moving away and newcomers (dungeon/world/turnover.py) would change who unrelated tests meet as
+    their clocks move on; tests/test_turnover.py turns it on. Each test also starts from the usual town levels, since a
+    workspace with Growing families or Life's big turns at zero would otherwise leave them there for the next test."""
+    from dungeon.clock import Clock
+    from dungeon.world import turnover
+    monkeypatch.setattr(turnover, 'ACTIVE', False)
+    monkeypatch.setattr(turnover, 'STATE', turnover.Levels(Clock()))
+
+
+@pytest.fixture(autouse=True)
+def no_grandparents(monkeypatch):
+    """A companion under 40 has a grandparent on top of their circle's size (dungeon/life/circle.py), which would
+    change unrelated tests' circles; tests/test_social_circle.py turns it on."""
+    monkeypatch.setattr('dungeon.life.circle.ELDERS', False)
+
+
+@pytest.fixture(autouse=True)
+def no_new_babies(monkeypatch):
+    """Pregnancies, updates and babysitting in the circle (dungeon/life/families.py) are seeded dice that would add
+    storylines to unrelated tests; tests/test_families.py turns them on."""
+    monkeypatch.setattr('dungeon.life.families.ACTIVE', False)
+
+
+@pytest.fixture(autouse=True)
+def no_kids(monkeypatch):
+    """Companions who already have kids (dungeon/life/kids.py): the engine may give a new companion kids and a
+    co-parent, which would add people to unrelated tests' circles; tests/test_kids.py turns it on."""
+    monkeypatch.setattr('dungeon.life.kids.ACTIVE', False)
+
+
+@pytest.fixture(autouse=True)
+def no_big_days(monkeypatch):
+    """Big days in the circle (dungeon/life/big_days.py) would plan weddings and parties, and their invitations,
+    as unrelated tests' clocks move on; tests/test_big_days.py turns them on."""
+    monkeypatch.setattr('dungeon.life.big_days.ACTIVE', False)
+
+
+@pytest.fixture(autouse=True)
+def no_trips(monkeypatch):
+    """Weekends away (dungeon/life/trips.py) are seeded dice; their own tests turn them on."""
+    from dungeon.life import trips
+    monkeypatch.setattr(trips, 'ACTIVE', False)
+
+
+@pytest.fixture(autouse=True)
+def no_work_life(monkeypatch):
+    """Work weeks, late nights and vacation days (dungeon/life/work.py) would change unrelated tests' days;
+    tests/test_work_life.py turns them on."""
+    monkeypatch.setattr('dungeon.life.work.ACTIVE', False)
+    # And shifts and gigs (dungeon/life/shifts.py); tests/test_shifts.py turns them on.
+    monkeypatch.setattr('dungeon.life.shifts.ACTIVE', False)
+
+
+@pytest.fixture(autouse=True)
+def no_life_admin(monkeypatch):
+    """Seeded appointments, errands and surprises (dungeon/life/admin.py) would take slots in unrelated tests'
+    days; tests/test_life_admin.py turns them on."""
+    monkeypatch.setattr('dungeon.life.admin.ACTIVE', False)
+
+
+@pytest.fixture(autouse=True)
+def no_unasked_pictures(monkeypatch):
+    """Unasked chat pictures are a seeded chance; test_chat_photos turns them on where it needs them."""
+    monkeypatch.setattr('dungeon.images.photos.UNASKED', False)
+
+
+@pytest.fixture(autouse=True)
+def no_character_sheets(monkeypatch):
+    """A Codex picture is made after a character sheet; test_character_sheet turns it on, since the extra
+    call would change the request counts of unrelated tests."""
+    monkeypatch.setattr('dungeon.images.sheet.ENABLED', False)
+
+
+def pytest_collection_modifyitems(config, items):
+    """DUNGEON_TEST_SHARD=2/3 runs the second third of the tests, picked by test name, so a slow CI runner can
+    spread one suite over several jobs (.github/workflows/ci.yml)."""
+    shard = os.environ.get('DUNGEON_TEST_SHARD')
+    if not shard:
+        return
+    index, count = (int(part) for part in shard.split('/'))
+    kept, dropped = [], []
+    for item in items:
+        (kept if zlib.crc32(item.nodeid.encode()) % count == index - 1 else dropped).append(item)
+    config.hook.pytest_deselected(items=dropped)
+    items[:] = kept
+
+
+@pytest.fixture
+def clock():
+    return FixedClock(START)
+
+
+@pytest.fixture
+def provider():
+    return FakeProvider()
+
+
+@pytest.fixture
+def app(tmp_path, clock, provider):
+    return create_app(tmp_path / 'workspace' / 'dungeon.sqlite3', clock=clock, vault=MemoryVault(),
+                      provider=provider, life_tasks=False)
+
+
+@pytest.fixture
+def client(app):
+    with TestClient(app, headers={CLIENT_HEADER: 'workspace'}) as test_client:
+        yield test_client
+
+
+@pytest.fixture
+def companion(client):
+    response = client.post('/api/companion', json={'name': 'Mira', 'personality': 'Warm and curious',
+                                                     'timezone': 'Europe/Lisbon'})
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+@pytest.fixture
+def connected(client, companion):
+    response = client.put('/api/connection', json={'base_url': 'http://127.0.0.1:1234/v1', 'model': 'local-model',
+                                                   'api_key': 'secret-key'})
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def send(client, text, client_id):
+    response = client.post('/api/conversation/messages', json={'text': text, 'client_id': client_id})
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def life_reply(system, messages):
+    if 'Rephrase one ordinary moment' not in system:
+        return [Chunk('Hello again.'), Chunk('', 'stop')]
+    facts = json.loads(messages[-1]['content'])
+    payload = {'summary': f"Phrased: {facts['summary']}", 'post': 'Lovely light today.'}
+    return [Chunk(json.dumps(payload)), Chunk('', 'stop')]
+
+
+@pytest.fixture
+def life(provider, connected, monkeypatch):
+    """A connected model that phrases events, with no randomly quiet slots or plans, so counts are exact."""
+    monkeypatch.setattr(composer, 'QUIET_SHARE', 0)
+    monkeypatch.setattr(composer, 'PLAN_SHARE', 0)
+    monkeypatch.setattr(composer, 'THREAD_SHARE', 0)
+    provider.respond = life_reply
+    return provider
+
+
+def reconcile(client):
+    response = client.post('/api/life/reconcile', json={'mode': 'return'})
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def show(client, **values):
+    """Turn on Hidden values (show_moods, show_news); they are off by default."""
+    response = client.put('/api/settings', json=values)
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def set_life(client, **values):
+    response = client.put('/api/life/settings', json=values)
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def intimate(client):
+    """Makes the next reply read intimate (dungeon/memory/sides.py), through the chat's author's note: with the
+    adult side on it then carries the adult side and no child."""
+    companion = client.get('/api/companion').json()['companion']
+    response = client.put(f"/api/authors-notes/companion:{companion['id']}",
+                          json={'text': 'Slow, sensual, the two of you alone in the bedroom.'})
+    assert response.status_code == 200, response.text

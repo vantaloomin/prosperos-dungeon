@@ -1,0 +1,171 @@
+"""The Today view: the companion's routine, plans and what changed since the last visit (PRD Today, C5)."""
+from dungeon import events
+from dungeon import moods as feelings
+from dungeon.characters import require_current
+from dungeon.clock import parse, stamp, zone
+from dungeon.database import decode, many, optional, settings
+from dungeon.life import (
+    admin,
+    agenda,
+    circle,
+    composer,
+    deck,
+    dreams,
+    mood,
+    occasions,
+    routine,
+    simulation,
+    thoughts,
+)
+from dungeon.memory.records import OPEN_PLANS, eligible
+
+AVAILABILITY = {'sleep': 'asleep', 'work': 'working', 'study': 'working', 'errand': 'out', 'social': 'out'}
+RECENT_LIMIT = 10
+
+
+def availability(slot: dict | None) -> dict:
+    """Availability explains a slow or short reply; it never locks the conversation (C5). It reads the
+    precomputed day, so a holiday or a sick day is not work, and a block out with the user is free."""
+    if slot is None:
+        return {'state': 'free', 'label': '', 'until': None}
+    block = slot['block']
+    state = 'free' if block.get('sick_day') or block.get('with_user') else AVAILABILITY.get(block['kind'], 'free')
+    return {'state': state, 'label': block['label'], 'until': slot['ends_at']}
+
+
+AGENDA = ("SELECT slot_key, local_date, block, starts_at, ends_at FROM life_agenda WHERE timeline_id=? "
+          "AND subject='companion' AND {where} ORDER BY starts_at {order} LIMIT 1")
+
+
+def agenda_slot(row: dict | None) -> dict | None:
+    return row and {'key': row['slot_key'], 'block': decode(row['block']), 'local_date': row['local_date'],
+                    'starts_at': row['starts_at'], 'ends_at': row['ends_at']}
+
+
+def day_now(connection, companion, now) -> tuple[dict | None, dict | None, bool]:
+    """(current, next, default schedule): the precomputed agenda's blocks where it has them (Thanksgiving is a
+    day off, not work), else the routine's."""
+    version, timeline_id, moment = companion['version'], companion['active_timeline_id'], stamp(now)
+    schedule, default = routine.blocks(version['definition'])
+    current, upcoming = routine.current_and_next(schedule, version['timezone'], now)
+    planned_now = agenda_slot(optional(connection, AGENDA.format(where='starts_at<=? AND ends_at>?', order='DESC'),
+                                       (timeline_id, moment, moment)))
+    planned_next = agenda_slot(optional(connection, AGENDA.format(where='starts_at>?', order=''),
+                                        (timeline_id, moment)))
+    if planned_next and upcoming and parse(planned_next['starts_at']) > upcoming.starts_at:
+        planned_next = None
+    return (planned_now or (current.view() if current else None),
+            planned_next or (upcoming.view() if upcoming else None), default)
+
+
+def last_seen(connection, timeline_id) -> str | None:
+    row = optional(connection, 'SELECT last_seen_at FROM visits WHERE timeline_id=?', (timeline_id,))
+    return row['last_seen_at'] if row else None
+
+
+def event_view(row, definition: dict) -> dict:
+    """An event as Today shows it: its summary with the companion's own pronouns (dungeon/life/composer.said)."""
+    found = events.view(row)
+    return {**found, 'summary': composer.said(found['summary'], definition)}
+
+
+def changes(connection, timeline_id, since, definition: dict) -> list[dict]:
+    """Events committed since the last visit, or the latest few on a first visit."""
+    if since:
+        rows = many(connection, "SELECT * FROM life_events WHERE timeline_id=? AND status='committed' "
+                    'AND decided_at>? ORDER BY starts_at DESC LIMIT ?', (timeline_id, since, RECENT_LIMIT))
+    else:
+        rows = many(connection, "SELECT * FROM life_events WHERE timeline_id=? AND status='committed' "
+                    'ORDER BY starts_at DESC LIMIT ?', (timeline_id, RECENT_LIMIT))
+    return [event_view(row, definition) for row in rows]
+
+
+def plans(connection, companion, now) -> dict:
+    timeline_id = companion['active_timeline_id']
+    user_plans = [{'id': memory['id'], 'subject': memory['subject'], 'value': memory['value'],
+                   'status': memory['plan_status'], 'applies_from': memory['applies_from'],
+                   'applies_until': memory['applies_until']}
+                  for memory in eligible(connection, companion, timeline_id, stamp(now))
+                  if memory['layer'] == 'plan' and memory['plan_status'] in OPEN_PLANS]
+    companion_plans = many(connection, "SELECT * FROM life_events WHERE timeline_id=? AND status='committed' "
+                           "AND kind='plan' AND ends_at>=? ORDER BY starts_at", (timeline_id, stamp(now)))
+    # Open threads whose outcome is not committed yet.
+    threads = many(connection, "SELECT * FROM life_events WHERE timeline_id=? AND status='committed' "
+                   "AND kind='thread' AND json_extract(details, '$.state')='open' AND NOT EXISTS (SELECT 1 "
+                   "FROM life_events settled WHERE settled.kind='thread' AND settled.status='committed' "
+                   "AND json_extract(settled.details, '$.state')='settled' AND json_extract(settled.details, "
+                   "'$.thread_key')=json_extract(life_events.details, '$.thread_key')) "
+                   'ORDER BY starts_at DESC LIMIT 5', (timeline_id,))
+    # Older versions could plan one slot twice; it is shown once.
+    shown, seen = [], set()
+    for row in companion_plans:
+        slot = decode(row['details']).get('target_slot') or row['id']
+        if slot not in seen:
+            seen.add(slot)
+            shown.append(row)
+    definition = companion['version']['definition']
+    return {'shared': user_plans, 'companion': [event_view(row, definition) for row in shown],
+            'threads': [event_view(row, definition) for row in threads],
+            # Appointments, errands and chores in the week ahead (dungeon/life/admin.py).
+            'admin': admin.today_items(connection, companion, now)}
+
+
+def day(connection, timeline_id, local_date) -> dict:
+    """The companion's local day: typical weather, the city's annual events and circle birthdays."""
+    found = agenda.day_on(connection, timeline_id, local_date)
+    birthdays = [{'id': person['id'], 'name': person['name']} for person in circle.people(connection, timeline_id)
+                 if circle.birthday(person['id']) == local_date[5:]]
+    return {'date': local_date, **found, 'birthdays': birthdays}
+
+
+def view(database) -> dict:
+    now = database.clock.now()
+    with database.connect() as connection:
+        companion = require_current(connection)
+        timeline_id, version = companion['active_timeline_id'], companion['version']
+        workspace, life = settings(connection), simulation.life_settings(connection)
+        since = last_seen(connection, timeline_id)
+        review = many(connection, "SELECT * FROM life_events WHERE timeline_id=? AND status='proposed' "
+                      'ORDER BY starts_at', (timeline_id,))
+        latest_run = optional(connection, 'SELECT * FROM life_runs WHERE timeline_id=? ORDER BY created_at DESC '
+                              'LIMIT 1', (timeline_id,))
+        position = simulation.cursor(connection, timeline_id)
+        result = {
+            'now': stamp(now), 'last_seen_at': since,
+            'user_timezone': workspace['user_timezone'], 'companion_timezone': version['timezone'],
+            'companion_local_time': now.astimezone(zone(version['timezone'])).isoformat(timespec='minutes'),
+            'paused': workspace['paused_at'] is not None, 'paused_at': workspace['paused_at'],
+            'changes': changes(connection, timeline_id, since, version['definition']),
+            'review': [event_view(row, version['definition']) for row in review],
+            'plans': plans(connection, companion, now),
+            'last_run': simulation.run_view(latest_run),
+            'simulated_through': position['simulated_through'],
+            'clock_behind': now < parse(position['simulated_through']),
+            'limits': simulation.settings_view(life),
+            # Hidden values: how they feel stays unseen unless the user turns it on (dungeon/moods.py).
+            'mood': mood.active(connection, companion, now) if workspace['show_moods'] else None,
+            'feeling': feelings.view(connection, f"companion:{companion['id']}", {feelings.USER: 'you'}, now)
+            if workspace['show_moods'] else None,
+            'day': day(connection, timeline_id, now.astimezone(zone(version['timezone'])).date().isoformat()),
+            'occasions': occasions.occasions(connection, companion, now),
+        }
+        current, upcoming, default = day_now(connection, companion, now)
+    result['routine'] = {'default_schedule': default, 'current': current, 'next': upcoming}
+    result['availability'] = availability(current)
+    result['mind'] = thoughts.view(database)
+    result['moments'] = deck.view(database)
+    result['dreams'] = dreams.view(database)
+    if not workspace['show_moods']:
+        result['day']['body'] = None  # Hidden values: "Mira is tired" shows only with moods shown.
+    return result
+
+
+def mark_seen(database) -> dict:
+    """Records that the user looked at Today. It never moves backward with the clock."""
+    with database.connect(write=True) as connection:
+        companion = require_current(connection)
+        connection.execute('INSERT INTO visits (timeline_id, last_seen_at) VALUES (?, ?) ON CONFLICT(timeline_id) '
+                           'DO UPDATE SET last_seen_at=MAX(last_seen_at, excluded.last_seen_at)',
+                           (companion['active_timeline_id'], database.now()))
+        return {'last_seen_at': last_seen(connection, companion['active_timeline_id'])}
+

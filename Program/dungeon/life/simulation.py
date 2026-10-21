@@ -1,0 +1,878 @@
+"""Time reconciliation and bounded catch-up (PRD T3–T7).
+
+Each timeline keeps a cursor: the real instant its fictional life has been simulated through.
+Reconciling compares the cursor with now. A return after a long enough gap plans one batch of
+routine slots that ended inside the window, capped by the user's limits however long the absence
+was, and moves the cursor to now in the same transaction. The cursor never moves backward, so a
+clock rollback, a restart or a second launch can never simulate the same real interval twice.
+Every event's idempotency key is its timeline plus routine slot, so a batch resumed after a crash
+only finishes what it had not committed.
+
+Generation time (`created_at`), event time (`starts_at`/`ends_at`) and the window a batch covers
+are stored separately: a catch-up synthesizes missed fiction now and never claims it ran while
+the app was closed (T4).
+
+Everyone keeps living: the companions out of focus get the same batches, under the same settings and caps,
+a few of them at a time in turn (`cast_turn`), so switching to one shows the days she had. Their events use
+template wording only, so a long cast costs no model calls; the one in focus is phrased as before.
+"""
+import asyncio
+import logging
+import random
+from datetime import date, timedelta
+
+from dungeon import events, logs, news, troubleshoot
+from dungeon.characters import by_id, current, for_timeline
+from dungeon.clock import parse, stamp
+from dungeon.database import decode, encode, identifier, many, one, optional, settings
+from dungeon.errors import DomainError, require
+from dungeon.life import (
+    agenda,
+    ages,
+    circle,
+    composer,
+    deck,
+    dreams,
+    feed,
+    hobbies,
+    mood,
+    pets,
+    routine,
+    thoughts,
+    upkeep,
+)
+from dungeon.life.synthesis import PROMPT_VERSION, SynthesisInvalid, phrase
+from dungeon.life.world import EmptyWorld
+from dungeon.models import EventProposal
+from dungeon.providers.scheduling import BackgroundInterrupted
+from dungeon.text_models import config_for, key_for
+from dungeon.workspace import overlapping_pause
+from dungeon.world import turnover
+
+LOG = logging.getLogger(__name__)
+
+LEASE = timedelta(minutes=10)
+MAX_ATTEMPTS = 3
+# Companions out of focus looked at per turn (each tick, and after each return to the app).
+CAST_PER_TURN = 3
+# Columns that record a one-time switch to a new default, not settings.
+MARKERS = ('events_on_by_default', 'loss_by_preset')
+FLAGS = ('automatic_events', 'catch_up_on_return', 'phrase_with_model', 'paced_replies', 'day_shifts',
+         'on_her_mind', 'pets_can_die', 'friends_fall', 'breakups', 'people_pass_away')
+NEWS_EVERY = timedelta(minutes=10)
+UNFINISHED = ('planned', 'running', 'interrupted')
+
+
+# Settings ---------------------------------------------------------------------------------------
+
+def life_settings(connection) -> dict:
+    return one(connection, 'SELECT * FROM life_settings WHERE id=1')
+
+
+def settings_view(row: dict) -> dict:
+    view = {key: value for key, value in row.items() if key not in MARKERS}
+    return {**view, **{flag: bool(row[flag]) for flag in FLAGS}}
+
+
+def read_settings(database) -> dict:
+    with database.connect() as connection:
+        return settings_view(life_settings(connection))
+
+
+def update_settings(database, body) -> dict:
+    """Allowing or revoking automatic events advances the permission revision (T3, T7)."""
+    changes = body.model_dump(exclude_none=True)
+    with database.connect(write=True) as connection:
+        row = life_settings(connection)
+        changed = {key: int(value) if isinstance(value, bool) else value
+                   for key, value in changes.items() if row[key] != value}
+        if changed:
+            timestamp = database.now()
+            if {'life_turns', 'growing_families', 'people_pass_away', 'loss'} & set(changed):
+                turnover.record(connection, row, database.clock.now().date(), timestamp)
+            columns = ', '.join(f'{key}=?' for key in changed)
+            connection.execute(f'UPDATE life_settings SET {columns}, updated_at=? WHERE id=1',
+                               (*changed.values(), timestamp))
+            if 'automatic_events' in changed:
+                connection.execute('UPDATE workspace_settings SET permission_revision=permission_revision+1, '
+                                   'updated_at=? WHERE id=1', (timestamp,))
+            if {'pets_realism', 'pets_can_die'} & set(changed):
+                pets.settings_changed(connection, database.clock.now())
+            if 'upkeep_realism' in changed:
+                upkeep.settings_changed(connection, database.clock.now())
+            if 'hobbies_realism' in changed:
+                hobbies.settings_changed(connection, database.clock.now(), row['hobbies_realism'])
+            if {'people_pass_away', 'loss'} & set(changed):
+                from dungeon.life import loss
+                loss.settings_changed(connection)
+        found = settings_view(life_settings(connection))
+    if {'life_turns', 'growing_families', 'people_pass_away', 'loss'} & set(changed):
+        turnover.load(database)  # The town follows Life's big turns, babies (dungeon/world/couples.py) and Loss.
+    return found
+
+
+# Cursor and runs --------------------------------------------------------------------------------
+
+def cursor(connection, timeline_id) -> dict:
+    """A timeline's life starts when it was created or last chosen; nothing earlier is simulated."""
+    row = optional(connection, 'SELECT * FROM life_cursors WHERE timeline_id=?', (timeline_id,))
+    if row:
+        return row
+    timeline = one(connection, 'SELECT COALESCE(activated_at, created_at) AS since FROM timelines WHERE id=?',
+                   (timeline_id,))
+    return {'timeline_id': timeline_id, 'simulated_through': timeline['since'], 'last_reconciled_at': None,
+            'updated_at': None, 'new': True}
+
+
+def save_cursor(connection, timeline_id, through, timestamp, open_slot=None):
+    connection.execute(
+        'INSERT INTO life_cursors (timeline_id, simulated_through, last_reconciled_at, updated_at, open_slot) '
+        'VALUES (?, ?, ?, ?, ?) ON CONFLICT(timeline_id) DO UPDATE SET '
+        'simulated_through=MAX(simulated_through, excluded.simulated_through), '
+        'last_reconciled_at=excluded.last_reconciled_at, updated_at=excluded.updated_at, open_slot=excluded.open_slot',
+        (timeline_id, through, timestamp, timestamp, open_slot))
+
+
+def slot_mark(slot) -> str:
+    """Names one slot exactly: a timezone change can give another slot the same key at another time."""
+    return f'{slot.key}|{stamp(slot.starts_at)}'
+
+
+def in_progress(companion, now) -> str | None:
+    version = companion['version']
+    schedule, _default = routine.blocks(version['definition'])
+    going = [slot for slot in routine.slots(schedule, version['timezone'], now, now + timedelta(microseconds=1))
+             if slot.block.kind not in routine.RESTING and slot.starts_at < now < slot.ends_at]
+    return slot_mark(going[-1]) if going else None
+
+
+def touch_cursor(connection, timeline_id, timestamp):
+    connection.execute('UPDATE life_cursors SET last_reconciled_at=?, updated_at=? WHERE timeline_id=?',
+                       (timestamp, timestamp, timeline_id))
+
+
+def run_view(row: dict | None) -> dict | None:
+    if row is None:
+        return None
+    return {key: value for key, value in row.items() if key not in {'owner', 'lease_until'}} | {
+        'plan': decode(row['plan']), 'results': decode(row['results'])}
+
+
+def runs(database, limit=20) -> list[dict]:
+    with database.connect() as connection:
+        companion = current(connection)
+        if companion is None:
+            return []
+        return [run_view(row) for row in many(
+            connection, 'SELECT * FROM life_runs WHERE timeline_id=? ORDER BY created_at DESC LIMIT ?',
+            (companion['active_timeline_id'], limit))]
+
+
+def event_key(timeline_id, slot_key) -> str:
+    return f'life:{timeline_id}:{slot_key}'
+
+
+# Planning ---------------------------------------------------------------------------------------
+
+def background_used(connection, timeline_id, now) -> int:
+    since = stamp(now - timedelta(days=1))
+    return one(connection, "SELECT COUNT(*) AS n FROM life_events WHERE timeline_id=? AND created_at>? "
+               "AND json_extract(inputs, '$.mode')='background'", (timeline_id, since))['n']
+
+
+def candidates(connection, companion, through, now, lookback_hours, open_slot=None) -> list[routine.Slot]:
+    """Completed, simulatable slots that start after the cursor and inside the lookback, plus the slot that
+    was still going when the cursor last moved (`open_slot`), so a block is not lost for being in progress. A bold
+    change to their looks is kept from further back too (up to the agenda's backfill), so it is always posted
+    however long the user was away."""
+    version = companion['version']
+    schedule, _default = routine.blocks(version['definition'])
+    earliest = now - timedelta(hours=lookback_hours)
+    result = []
+    for slot in routine.slots(schedule, version['timezone'], max(earliest - BOLD_BACK, min(earliest, through - DAY)),
+                              now):
+        if slot.block.kind in routine.RESTING or slot.ends_at > now:
+            continue
+        if slot.starts_at < earliest and not bold_looks(connection, companion['active_timeline_id'], slot.key):
+            continue
+        if slot.starts_at < through and not (slot_mark(slot) == open_slot and slot.ends_at > through):
+            continue
+        if overlapping_pause(connection, stamp(slot.starts_at), stamp(slot.ends_at)):
+            continue
+        if optional(connection, 'SELECT id FROM life_events WHERE idempotency_key=?',
+                    (event_key(companion['active_timeline_id'], slot.key),)):
+            continue
+        result.append(slot)
+    return result
+
+
+BOLD_BACK, DAY = timedelta(days=30), timedelta(days=1)
+
+
+def bold_looks(connection, timeline_id, slot_key) -> bool:
+    return bool(optional(connection, "SELECT id FROM life_agenda WHERE timeline_id=? AND subject='companion' "
+                         "AND slot_key=? AND json_extract(entry, '$.looks.bold')=1", (timeline_id, slot_key)))
+
+
+def plan_for(connection, timeline_id, slot_key) -> dict | None:
+    return optional(connection, "SELECT * FROM life_events WHERE timeline_id=? AND kind='plan' AND status='committed' "
+                    "AND json_extract(details, '$.target_slot')=? ORDER BY revision DESC LIMIT 1",
+                    (timeline_id, slot_key))
+
+
+def settle_key(thread_key: str) -> str:
+    return f'settled:{thread_key}'
+
+
+OPEN_THREADS = ("SELECT * FROM life_events WHERE timeline_id=? AND kind='thread' AND status IN ({statuses}) "
+                "AND json_extract(details, '$.state')='open' AND NOT EXISTS (SELECT 1 FROM life_events settled "
+                "WHERE settled.idempotency_key='settled:' || json_extract(life_events.details, '$.thread_key'))")
+
+
+def due_thread(connection, timeline_id, local_date) -> dict | None:
+    """A committed open thread that may settle on this local date."""
+    row = optional(connection, OPEN_THREADS.format(statuses="'committed'") +
+                   " AND json_extract(details, '$.settles_on')<=? ORDER BY starts_at LIMIT 1",
+                   (timeline_id, local_date))
+    return events.view(row) if row else None
+
+
+def unsettled_thread(connection, timeline_id) -> dict | None:
+    return optional(connection, OPEN_THREADS.format(statuses="'proposed','committed'") + ' LIMIT 1', (timeline_id,))
+
+
+def recent_threads(connection, timeline_id, local_date: str) -> list[str]:
+    """Threads opened in the last few months; they are not opened again yet (a second leaky faucet a month
+    after the first reads as the app repeating itself)."""
+    since = (date.fromisoformat(local_date) - timedelta(days=composer.THREAD_REPEAT_DAYS)).isoformat()
+    rows = many(connection, "SELECT details FROM life_events WHERE timeline_id=? AND kind='thread' "
+                "AND json_extract(details, '$.state')='open' AND json_extract(details, '$.local_date')>=?",
+                (timeline_id, since))
+    return [decode(row['details']).get('thread') for row in rows]
+
+
+def recommended(connection, timeline_id, slot_key) -> bool:
+    """The slot holds a session of a recommendation or a plan the companion made in chat, or a bold change to their
+    looks (dungeon/life/grooming.py) or a milestone in a pastime (dungeon/life/hobbies.py), which they would post
+    about."""
+    return bool(optional(connection, "SELECT id FROM life_agenda WHERE timeline_id=? AND subject='companion' "
+                         "AND slot_key=? AND (json_extract(entry, '$.recommendation.id') IS NOT NULL "
+                         "OR json_extract(entry, '$.own_plan.id') IS NOT NULL OR json_extract(entry, '$.outing.id') "
+                         "IS NOT NULL OR json_extract(entry, '$.trip.id') IS NOT NULL OR "
+                         "json_extract(entry, '$.looks.bold')=1 OR json_extract(entry, '$.hobby.milestone') IS NOT NULL)",
+                         (timeline_id, slot_key)))
+
+
+def choose(connection, timeline_id, slots: list, count: int, seed: str) -> list:
+    """Slots a committed plan names come first, so a plan happens when its time comes; then sessions of
+    something the user recommended or plans the companion made in chat, so the companion's account follows
+    them. Slots photographed in chat are always kept, even past the cap, so the moment the user saw becomes
+    an event however long the catch-up was."""
+    photographed = [slot for slot in slots if feed.photographed(connection, event_key(timeline_id, slot.key))]
+    planned = photographed + [slot for slot in slots if slot not in photographed and (
+        plan_for(connection, timeline_id, slot.key) or recommended(connection, timeline_id, slot.key))
+    ][:max(0, count - len(photographed))]
+    rest = spread([slot for slot in slots if slot not in planned], count - len(planned), seed)
+    return sorted(planned + rest, key=lambda slot: slot.starts_at)
+
+
+def spread(slots: list, count: int, seed: str) -> list:
+    """One slot from each of `count` consecutive groups, so a batch covers the window evenly."""
+    if count <= 0 or not slots:
+        return []
+    if len(slots) <= count:
+        return list(slots)
+    chooser, size, chosen = random.Random(seed), len(slots) / count, []
+    for index in range(count):
+        group = slots[int(index * size):int((index + 1) * size)]
+        chosen.append(chooser.choice(group))
+    return chosen
+
+
+def due_at(through, life, mode):
+    if mode == 'background':
+        return through + timedelta(minutes=life['background_interval_minutes'])
+    return through + timedelta(hours=life['return_gap_hours'])
+
+
+PREPARE_AHEAD = 2
+
+
+def may_extend(workspace, mode) -> bool:
+    """Precomputing the agenda is cheap and needs no model, so only a pause stops it (T6)."""
+    return workspace['paused_at'] is None
+
+
+def blocked(workspace, life, mode) -> str | None:
+    if workspace['paused_at'] is not None:
+        return 'paused'
+    if mode == 'return' and not life['catch_up_on_return']:
+        return 'disabled'
+    return None
+
+
+def decide(connection, owner, mode, now, companion_id=None) -> dict:
+    """Claim an unfinished batch or plan a new one, for the companion in focus or `companion_id`. Runs inside
+    one write transaction."""
+    companion = by_id(connection, companion_id) if companion_id else current(connection)
+    if companion is None:
+        return {'state': 'no_companion'}
+    workspace, life = settings(connection), life_settings(connection)
+    timeline_id, timestamp = companion['active_timeline_id'], stamp(now)
+    if state := blocked(workspace, life, mode):
+        return {'state': state}
+    for run in many(connection, f'SELECT * FROM life_runs WHERE timeline_id=? AND status IN {UNFINISHED} '
+                    'ORDER BY created_at', (timeline_id,)):
+        if run['status'] == 'running' and run['owner'] != owner and run['lease_until'] > timestamp:
+            return {'state': 'in_progress', 'run_id': run['id']}
+        claim(connection, run['id'], owner, now)
+        return {'state': 'resumed', 'run_id': run['id']}
+    position = cursor(connection, timeline_id)
+    through = parse(position['simulated_through'])
+    if now < through:
+        return {'state': 'clock_behind', 'simulated_through': position['simulated_through']}
+    if now < due_at(through, life, mode):
+        if not position.get('new'):
+            touch_cursor(connection, timeline_id, timestamp)
+        return {'state': 'not_due', 'due_at': stamp(due_at(through, life, mode))}
+    return {'state': 'started', 'run_id': plan_run(connection, owner, mode, now, companion, workspace, life, position)}
+
+
+def plan_run(connection, owner, mode, now, companion, workspace, life, position) -> str:
+    """Fix the batch's slots and move the cursor to now in the same transaction."""
+    timeline_id, timestamp = companion['active_timeline_id'], stamp(now)
+    run_key = f"{timeline_id}:{position['simulated_through']}"
+    if mode == 'background':
+        limit = min(1, max(0, life['background_daily_events'] - background_used(connection, timeline_id, now)))
+    else:
+        limit = life['catch_up_max_events']
+    through = parse(position['simulated_through'])
+    plan = choose(connection, timeline_id, candidates(connection, companion, through, now,
+                                                      life['catch_up_lookback_hours'], position.get('open_slot')),
+                  limit, run_key)
+    run_id = insert_run(connection, owner, companion, workspace, mode, run_key, position['simulated_through'],
+                        timestamp, plan, now)
+    save_cursor(connection, timeline_id, timestamp, timestamp, in_progress(companion, now))
+    return run_id
+
+
+def insert_run(connection, owner, companion, workspace, mode, run_key, window_start, window_end, plan, now) -> str:
+    run_id, timestamp = identifier(), stamp(now)
+    connection.execute(
+        'INSERT INTO life_runs (id, timeline_id, run_key, mode, status, window_start, window_end, plan, '
+        'character_version_id, permission_revision, owner, lease_until, attempts, created_at, started_at) '
+        "VALUES (?, ?, ?, ?, 'running', ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
+        (run_id, companion['active_timeline_id'], run_key, mode, window_start, window_end,
+         encode([slot.view() for slot in plan]), companion['active_version_id'], workspace['permission_revision'],
+         owner, stamp(now + LEASE), timestamp, timestamp))
+    return run_id
+
+
+def plan_pause(connection, owner, pause_id, now) -> dict:
+    """Catching up a paused interval is a separate, deliberate action (T6). It runs once per pause,
+    within the same caps as a return, and marks the pause so its events pass the commit check."""
+    companion = current(connection)
+    require(companion is not None, 'Create a companion first.', 409)
+    workspace, life = settings(connection), life_settings(connection)
+    require(workspace['paused_at'] is None, 'Resume before catching up a paused interval.', 409)
+    pause = one(connection, 'SELECT * FROM pauses WHERE id=?', (pause_id,))
+    require(pause['ended_at'] is not None, 'This pause has not ended.', 409)
+    run_key = f'pause:{pause_id}'
+    existing = optional(connection, 'SELECT id FROM life_runs WHERE run_key=?', (run_key,))
+    if existing:
+        return {'state': 'already_done', 'run_id': existing['id']}
+    connection.execute('INSERT OR IGNORE INTO pause_catch_ups (pause_id, requested_at) VALUES (?, ?)',
+                       (pause_id, stamp(now)))
+    start, end = parse(pause['started_at']), parse(pause['ended_at'])
+    plan = choose(connection, companion['active_timeline_id'], candidates(
+        connection, companion, start, end, life['catch_up_lookback_hours']), life['catch_up_max_events'], run_key)
+    run_id = insert_run(connection, owner, companion, workspace, 'return', run_key, pause['started_at'],
+                        pause['ended_at'], plan, now)
+    return {'state': 'started', 'run_id': run_id}
+
+
+def pauses(database) -> list[dict]:
+    with database.connect() as connection:
+        rows = many(connection, 'SELECT pauses.*, pause_catch_ups.requested_at AS catch_up_requested_at, '
+                    "life_runs.id AS catch_up_run_id FROM pauses LEFT JOIN pause_catch_ups ON pause_id=pauses.id "
+                    "LEFT JOIN life_runs ON run_key='pause:' || pauses.id ORDER BY started_at DESC")
+        return rows
+
+
+def cast_turn(connection, offset: int, limit=CAST_PER_TURN) -> tuple[list[str], int]:
+    """The companions out of focus to look at this turn, in a fixed round, and where the next turn starts."""
+    rows = many(connection, 'SELECT id FROM companions WHERE slot IS NULL AND active_version_id IS NOT NULL '
+                'AND active_timeline_id IS NOT NULL ORDER BY created_at, id')
+    if not rows:
+        return [], 0
+    start = offset % len(rows)
+    chosen = (rows[start:] + rows[:start])[:limit]
+    return [row['id'] for row in chosen], (start + len(chosen)) % len(rows)
+
+
+def claim(connection, run_id, owner, now):
+    connection.execute("UPDATE life_runs SET status='running', owner=?, lease_until=?, attempts=attempts+1, "
+                       'started_at=COALESCE(started_at, ?) WHERE id=?',
+                       (owner, stamp(now + LEASE), stamp(now), run_id))
+
+
+# Execution --------------------------------------------------------------------------------------
+
+class LifeEngine:
+    """Runs batches for one process. The lock keeps this process to one batch at a time; across
+    processes the cursor transaction and event idempotency keys keep work unique."""
+
+    def __init__(self, database, vault, provider, scheduler, world=None):
+        self.database = database
+        self.world = world or EmptyWorld()
+        self.vault = vault
+        self.provider = provider
+        self.scheduler = scheduler
+        self.owner = identifier()
+        self.lock = asyncio.Lock()
+        self.preparing = None
+        # Where the next round of companions out of focus starts, and the round running after a return.
+        self.cast_offset = 0
+        self.casting = None
+        # When news last travelled (dungeon/news.py).
+        self.news_at = None
+
+    def now(self):
+        return self.database.clock.now()
+
+    # Database work and composition run on a worker thread (asyncio.to_thread), as chat context
+    # building does, so a long catch-up never holds up a streaming reply. Only model calls stay on the loop.
+
+    async def reconcile(self, mode='return', companion_id=None) -> dict:
+        async with self.lock:
+            decision = await asyncio.to_thread(self.decide, mode, companion_id)
+            if decision['state'] in {'started', 'resumed'}:
+                await self.execute(decision['run_id'])
+            return await asyncio.to_thread(self.outcome, decision)
+
+    async def look_in(self, mode='return') -> dict:
+        """The user came back: the companion in focus first, then the rest of the cast's turn without waiting."""
+        outcome = await self.reconcile(mode)
+        if self.casting is None or self.casting.done():
+            self.casting = asyncio.get_running_loop().create_task(self.quietly_cast(mode))
+        return outcome
+
+    async def reconcile_cast(self, mode) -> list[dict]:
+        """One turn of the companions out of focus, under the same settings as the one in focus."""
+        with self.database.connect() as connection:
+            turn, self.cast_offset = cast_turn(connection, self.cast_offset)
+        return [await self.reconcile(mode, companion_id) for companion_id in turn]
+
+    def extend_agenda(self, mode) -> None:
+        """Precompute the agenda now, so a slot composed outside a run (a chat photo of the current
+        moment) is composed the way the run will later write it."""
+        with self.database.connect(write=True) as connection:
+            companion = current(connection)
+            if companion and may_extend(settings(connection), mode):
+                agenda.extend(connection, companion, self.world, self.now())
+
+    def decide(self, mode, companion_id=None) -> dict:
+        with self.database.connect() as connection:
+            stepped = may_extend(settings(connection), mode)
+            paused = settings(connection)['paused_at'] is not None
+        if mode == 'return' and not companion_id and not paused:
+            # Birthdays since the last tick move ages on before the agenda is written (dungeon/life/ages.py).
+            with self.database.connect(write=True) as connection:
+                ages.sync(connection, self.now())
+        if stepped:
+            agenda.catch_up_in_steps(self.database, companion_id, self.world, self.now())
+        with self.database.connect(write=True) as connection:
+            companion = by_id(connection, companion_id) if companion_id else current(connection)
+            if mode == 'return' and companion and not companion_id:
+                mood.note_return(connection, self.now())
+            if companion and may_extend(settings(connection), mode):
+                agenda.extend(connection, companion, self.world, self.now())
+            return decide(connection, self.owner, mode, self.now(), companion_id)
+
+    async def catch_up_pause(self, pause_id) -> dict:
+        async with self.lock:
+            decision = await asyncio.to_thread(self.plan_pause, pause_id)
+            if decision['state'] == 'started':
+                await self.execute(decision['run_id'])
+            return await asyncio.to_thread(self.outcome, decision)
+
+    def plan_pause(self, pause_id) -> dict:
+        with self.database.connect(write=True) as connection:
+            return plan_pause(connection, self.owner, pause_id, self.now())
+
+    def outcome(self, decision) -> dict:
+        run = None
+        if decision.get('run_id'):
+            with self.database.connect() as connection:
+                run = run_view(one(connection, 'SELECT * FROM life_runs WHERE id=?', (decision['run_id'],)))
+        return {**{key: value for key, value in decision.items() if key != 'run_id'}, 'run': run}
+
+    async def execute(self, run_id):
+        run = await asyncio.to_thread(self.load_run, run_id)
+        results = {result['slot']: result for result in decode(run['results'])}
+        try:
+            for slot in decode(run['plan']):
+                if slot['key'] in results:
+                    continue
+                results[slot['key']] = await self.simulate(run, slot)
+                await asyncio.to_thread(self.save, run_id, results, 'running')
+            await asyncio.to_thread(self.save, run_id, results, 'completed')
+        except BackgroundInterrupted:
+            await asyncio.to_thread(self.save, run_id, results, 'interrupted',
+                                    'Paused for the conversation; it resumes on the next visit.')
+        except DomainError as error:
+            # A model outage leaves the batch resumable a few times before it is given up.
+            await asyncio.to_thread(self.save, run_id, results,
+                                    'interrupted' if run['attempts'] < MAX_ATTEMPTS else 'failed', error.message)
+        except Exception as error:  # noqa: BLE001 - a failed batch must still leave a visible state.
+            LOG.exception('A life batch failed unexpectedly.')
+            await asyncio.to_thread(self.save, run_id, results, 'failed', troubleshoot.describe(
+                "Couldn't finish", 'their day', error, str(logs.file_path())))
+
+    def load_run(self, run_id):
+        with self.database.connect() as connection:
+            return one(connection, 'SELECT * FROM life_runs WHERE id=?', (run_id,))
+
+    def save(self, run_id, results, status, error=None):
+        with self.database.connect(write=True) as connection:
+            finished = stamp(self.now()) if status != 'running' else None
+            connection.execute('UPDATE life_runs SET results=?, status=?, error=?, lease_until=?, finished_at=? '
+                               'WHERE id=?', (encode(list(results.values())), status, error,
+                                              stamp(self.now() + LEASE), finished, run_id))
+            if status == 'completed':
+                run = one(connection, 'SELECT * FROM life_runs WHERE id=?', (run_id,))
+                feed.publish_run(connection, run, list(results.values()), stamp(self.now()))
+
+    async def simulate(self, run, slot) -> dict:
+        """One routine slot: compose it, record it as a proposal, and commit it if permitted."""
+        step = await asyncio.to_thread(self.compose_step, run, slot)
+        if 'result' in step:
+            return step['result']
+        written, phrasing = await self.phrase(step['config'], step['life'], step['version'], step['slot'],
+                                              step['composed'], step['prepared'])
+        return await asyncio.to_thread(self.record_step, run, step, written, phrasing)
+
+    def compose_step(self, run, slot) -> dict:
+        """Everything before the model: either a finished result or what phrasing needs."""
+        key = event_key(run['timeline_id'], slot['key'])
+        with self.database.connect() as connection:
+            companion = for_timeline(connection, run['timeline_id'])
+            if companion is None:
+                return {'result': {'slot': slot['key'], 'outcome': 'skipped',
+                                   'reason': 'The companion is no longer in this workspace.'}}
+            workspace, life = settings(connection), life_settings(connection)
+            # Only the companion in focus is phrased by the model; the rest of the cast keeps template wording.
+            config = config_for(connection, 'life') if companion['slot'] == 1 else None
+            existing = optional(connection, 'SELECT * FROM life_events WHERE idempotency_key=?', (key,))
+            recent = events.committed(connection, run['timeline_id'])[-5:]
+            plan = plan_for(connection, run['timeline_id'], slot['key'])
+            precomputed = agenda.companion_entry(connection, run['timeline_id'], slot['key'],
+                                                 companion['version']['id'])
+        if existing:
+            return {'result': self.settle(events.view(existing), life)}
+        if workspace['permission_revision'] != run['permission_revision'] or workspace['paused_at']:
+            return {'result': {'slot': slot['key'], 'outcome': 'skipped', 'reason': 'Activity permissions changed.'}}
+        if companion['active_timeline_id'] != run['timeline_id']:
+            return {'result': {'slot': slot['key'], 'outcome': 'skipped',
+                               'reason': 'The timeline is no longer active.'}}
+        if run['mode'] == 'background' and not workspace['background_activity']:
+            # Life goes on while the app is open either way; only background model use needs the permission,
+            # so without it a background batch keeps the rule-built wording and makes no model calls (Vanta,
+            # 2026-10-08).
+            config = None
+        version = companion['version']
+        composed, slot, prepared = self.compose_slot(slot, version, key, plan, precomputed, recent)
+        if composed is None:
+            return {'result': {'slot': slot['key'], 'outcome': 'quiet', 'reason': 'Nothing notable happened.',
+                               **self.follow_threads(run, slot, version, life, key)}}
+        return {'key': key, 'config': config, 'life': life, 'version': version, 'slot': slot, 'plan': plan,
+                'composed': composed, 'prepared': prepared}
+
+    def record_step(self, run, step, written, phrasing) -> dict:
+        key, life, version, slot, plan, composed = (step[name] for name in (
+            'key', 'life', 'version', 'slot', 'plan', 'composed'))
+        block = slot['block']
+        event = events.propose(self.database, EventProposal(
+            idempotency_key=key, kind='ordinary', summary=written['summary'],
+            details={'slot': slot['key'], 'block': block['key'], 'label': block['label'],
+                     'block_kind': block['kind'], 'activity': composed['activity'], 'place': composed['place'],
+                     'local_date': slot['local_date'], 'timezone': version['timezone'],
+                     'post': written['post'], 'mood': composed['mood'], 'with': composed.get('with'),
+                     'fulfils': composed.get('fulfils'), 'weather': composed.get('weather'),
+                     'body': block.get('body'), 'recommendation': composed.get('recommendation'),
+                     'own_plan': composed.get('own_plan'), 'outing': composed.get('outing'),
+                     'trip': composed.get('trip'), 'pet_photo': composed.get('pet_photo'),
+                     'hobby': composed.get('hobby')},
+            starts_at=slot['starts_at'], ends_at=slot['ends_at'],
+            inputs={'run_id': run['id'], 'mode': run['mode'], 'slot': slot, 'world': self.world.name,
+                    'composer_version': composed['composer_version'], 'template': {
+                        'summary': composed['summary'], 'post': composed['post']},
+                    'character_version_id': version['id'], **phrasing}), run['timeline_id'])
+        if event['character_version_id'] != version['id']:
+            events.reject(self.database, event['id'])
+            return {'slot': slot['key'], 'outcome': 'rejected', 'event_id': event['id'],
+                    'reason': 'The character changed while this event was written.'}
+        result = self.settle(event, life)
+        if result['outcome'] in {'proposed', 'committed'} and not plan:
+            result.update(self.plan_ahead(run, slot, version, life, key))
+        if result['outcome'] in {'proposed', 'committed'}:
+            result.update(self.follow_threads(run, slot, version, life, key))
+        return result
+
+    def compose_slot(self, slot, version, key, plan, precomputed, recent) -> tuple:
+        """(composed, slot, prepared wording): a committed plan's outing unless the slot holds a plan made in
+        chat, else the precomputed entry,
+        else a fresh composition. The precomputed block can differ from the routine's, for example
+        a work block that became a day off on a public holiday."""
+        if plan and not (precomputed and (precomputed['entry'] or {}).get('own_plan')):
+            return composer.fulfil(events.view(plan), version['definition']), slot, None
+        if precomputed:
+            return precomputed['entry'], {**slot, 'block': decode(precomputed['block'])}, precomputed['prepared']
+        recent_keys = [decode(event['details']).get('activity') for event in recent]
+        return composer.compose(slot, version['definition'], self.world, key, recent_keys), slot, None
+
+    def follow_threads(self, run, slot, version, life, key) -> dict:
+        """Settle an open thread whose day has come, or now and then open one (PRD T2). At most one
+        thread is open at a time, and each waits for review like any event."""
+        timeline_id = run['timeline_id']
+        with self.database.connect() as connection:
+            due = due_thread(connection, timeline_id, slot['local_date'])
+            busy = due or unsettled_thread(connection, timeline_id)
+            used = [] if busy else recent_threads(connection, timeline_id, slot['local_date'])
+        common = {'slot': slot['key'], 'local_date': slot['local_date'], 'timezone': version['timezone'],
+                  'post': '', 'mood': ''}
+        if due:
+            settled = composer.settle_thread(due, version['definition'])
+            proposal = EventProposal(
+                idempotency_key=settle_key(due['details']['thread_key']), kind='thread', summary=settled['summary'],
+                details={**common, 'state': 'settled', 'thread': settled['thread'],
+                         'thread_key': due['details']['thread_key']},
+                starts_at=slot['starts_at'], ends_at=slot['ends_at'],
+                inputs={'run_id': run['id'], 'mode': run['mode'], 'settles': due['id'],
+                        'composer_version': settled['composer_version'], 'character_version_id': version['id']})
+        elif not busy and (opened := composer.open_thread(
+                version['definition'], key, slot['local_date'], used,
+                composer.thread_era(circle.city_data(version['definition'], self.world)))):
+            thread_key = f"thread:{timeline_id}:{slot['key']}"
+            proposal = EventProposal(
+                idempotency_key=thread_key, kind='thread', summary=opened['summary'],
+                details={**common, 'state': 'open', 'thread': opened['thread'], 'thread_key': thread_key,
+                         'settles_on': opened['settles_on']},
+                starts_at=slot['starts_at'], ends_at=slot['ends_at'],
+                inputs={'run_id': run['id'], 'mode': run['mode'], 'composer_version': opened['composer_version'],
+                        'character_version_id': version['id']})
+        else:
+            return {}
+        settled = self.settle(events.propose(self.database, proposal, run['timeline_id']), life)
+        return {'thread_event_id': settled['event_id'], 'thread_outcome': settled['outcome']}
+
+    def plan_ahead(self, run, slot, version, life, key) -> dict:
+        """At most one plan per event, for an upcoming slot; it waits for review like any event."""
+        now = self.now()
+        schedule, _default = routine.blocks(version['definition'])
+        future = [item.view() for item in routine.slots(schedule, version['timezone'], now + timedelta(days=1),
+                                                        now + timedelta(days=7))]
+        with self.database.connect() as connection:
+            upcoming = {row['slot_key']: decode(row['entry']) if row['entry'] else None for row in many(
+                connection, "SELECT slot_key, entry FROM life_agenda WHERE timeline_id=? AND subject=? "
+                "AND status='upcoming' AND basis=?", (run['timeline_id'], agenda.COMPANION, version['id']))}
+            # A slot that already has a plan (made during an earlier slot) is not planned again.
+            planned_slots = {row['slot'] for row in many(
+                connection, "SELECT json_extract(details, '$.target_slot') AS slot FROM life_events WHERE "
+                "timeline_id=? AND kind='plan' AND status IN ('proposed', 'committed')", (run['timeline_id'],))}
+        future = [slot for slot in future if slot['key'] not in planned_slots]
+        planned = composer.plan_ahead(version['definition'], self.world, key, future, upcoming)
+        if planned is None:
+            return {}
+        target = planned['target']
+        event = events.propose(self.database, EventProposal(
+            idempotency_key=f"plan:{run['timeline_id']}:{slot['key']}", kind='plan', summary=planned['summary'],
+            details={'target_slot': target['key'], 'label': target['block']['label'], 'activity': planned['activity'],
+                     'place': planned['place'], 'with': planned['with'], 'local_date': target['local_date'],
+                     'timezone': version['timezone'], 'post': '', 'mood': ''},
+            starts_at=target['starts_at'], ends_at=target['ends_at'],
+            inputs={'run_id': run['id'], 'mode': run['mode'], 'made_during': slot['key'], 'world': self.world.name,
+                    'composer_version': planned['composer_version'], 'character_version_id': version['id']}), run['timeline_id'])
+        settled = self.settle(event, life)
+        return {'plan_event_id': event['id'], 'plan_outcome': settled['outcome']}
+
+    async def phrase(self, config, life, version, slot, composed, prepared=None) -> tuple[dict, dict]:
+        """Template wording unless the user allows model phrasing and a model is connected. Any
+        model problem keeps the template wording; only a conversation interrupts the batch. Wording
+        prepared earlier for this entry is used when it came from the same model and prompt."""
+        template = {'summary': composed['summary'], 'post': composed['post']}
+        if config is None or not life['phrase_with_model']:
+            return template, {'wording': 'template'}
+        record = {'wording': 'model', 'model': config['model'], 'base_url': config['base_url'],
+                  'prompt_version': PROMPT_VERSION}
+        if prepared and all(prepared.get(key) == record[key] for key in ('model', 'base_url', 'prompt_version')):
+            return {'summary': prepared['summary'], 'post': prepared['post']}, {**record, 'prepared': True}
+        try:
+            return await phrase(self.provider, self.scheduler, config, key_for(self.vault, config), version, slot,
+                                composed, self.database), record
+        except BackgroundInterrupted:
+            raise
+        except (SynthesisInvalid, DomainError) as problem:
+            reason = str(problem) if isinstance(problem, SynthesisInvalid) else problem.message
+            return template, {**record, 'wording': 'template', 'phrasing_error': reason}
+
+    def prepare(self) -> dict:
+        """Start preparing likely work while the user types or idles (T9), without waiting for it."""
+        if self.preparing and not self.preparing.done():
+            return {'state': 'in_progress'}
+        self.preparing = asyncio.get_running_loop().create_task(self.prepare_now())
+        return {'state': 'started'}
+
+    async def prepare_now(self, limit=PREPARE_AHEAD) -> dict:
+        """Bring the agenda up to date, then phrase the companion's next few entries at background
+        priority. A conversation interrupts this; the rest waits for the next call."""
+        ready = await asyncio.to_thread(self.due_for_preparing, limit)
+        if ready is None:
+            return {'prepared': 0}
+        config, life, version, due = ready
+        if config is None or not life['phrase_with_model']:
+            return {'prepared': 0}
+        key, count = key_for(self.vault, config), 0
+        for row in due:
+            slot = {'key': row['slot_key'], 'block': row['block'], 'local_date': row['local_date'],
+                    'starts_at': row['starts_at'], 'ends_at': row['ends_at']}
+            try:
+                written = await phrase(self.provider, self.scheduler, config, key, version, slot, row['entry'],
+                                       self.database)
+            except BackgroundInterrupted:
+                break
+            except (SynthesisInvalid, DomainError):
+                continue
+            await asyncio.to_thread(self.save_prepared, row['id'], {
+                **written, 'model': config['model'], 'base_url': config['base_url'],
+                'prompt_version': PROMPT_VERSION, 'prepared_at': stamp(self.now())})
+            count += 1
+        return {'prepared': count}
+
+    def due_for_preparing(self, limit):
+        with self.database.connect(write=True) as connection:
+            companion = current(connection)
+            workspace, life = settings(connection), life_settings(connection)
+            if companion is None or not may_extend(workspace, 'return'):
+                return None
+            agenda.extend(connection, companion, self.world, self.now())
+            version = companion['version']
+            return (config_for(connection, 'life'), life, version,
+                    agenda.unprepared(connection, companion['active_timeline_id'], version['id'], self.now(), limit))
+
+    def save_prepared(self, row_id, prepared):
+        with self.database.connect(write=True) as connection:
+            agenda.save_prepared(connection, row_id, prepared)
+
+    def settle(self, event, life) -> dict:
+        if event['status'] == 'proposed' and life['automatic_events']:
+            event = events.commit(self.database, event['id'])
+        outcome = {'proposed': 'proposed', 'committed': 'committed', 'superseded': 'committed'}.get(
+            event['status'], 'rejected')
+        result = {'slot': event['details'].get('slot'), 'outcome': outcome, 'event_id': event['id']}
+        if event.get('rejection'):
+            result['reason'] = event['rejection']
+        return result
+
+    async def run_forever(self, tick_seconds=60):
+        """Catch up once on open, then tick while the process runs. Ticks use the event loop's
+        monotonic timer. Background batches always run, rule-built; model phrasing and preparation in
+        the background need the user's permission (T4)."""
+        with self.database.pin():
+            await self.quietly_life('return')
+        while True:
+            # A fast debug clock (dungeon/debug_time.py) ticks more often in real time to keep up.
+            await asyncio.sleep(self.database.clock.wait(tick_seconds))
+            with self.database.pin():  # A tick finishes in the world it began in, even across a switch.
+                await self.tick()
+
+    async def tick(self):
+        await self.quietly_life('background')
+        await self.quietly_spread()
+        with self.database.connect() as connection:
+            background = settings(connection)['background_activity']
+        if background:
+            await self.quietly_prepare()
+            await self.quietly_think()
+
+    async def quietly_prepare(self):
+        try:
+            await self.prepare_now()
+        except Exception:  # noqa: BLE001 - preparation is optional work.
+            pass
+
+    async def quietly_spread(self):
+        """Word of the companions' news gets around (dungeon/news.py), rules only, every NEWS_EVERY. It runs
+        whatever background activity says, as the rest of their rule-built lives do; never while paused."""
+        now = self.now()
+        if self.news_at is not None and now - self.news_at < NEWS_EVERY:
+            return
+        self.news_at = now
+        try:
+            await asyncio.to_thread(self.spread_news)
+        except Exception:  # noqa: BLE001 - the news travels on a later tick.
+            LOG.exception('News could not travel.')
+
+    def spread_news(self):
+        with self.database.connect(write=True) as connection:
+            paused = settings(connection)['paused_at'] is not None
+            if not paused:
+                news.sync(connection, self.now())
+                ages.sync(connection, self.now())  # Birthdays move everyone's age on (dungeon/life/ages.py).
+                deck.sync(connection, self.now())
+                dreams.sync(connection, self.now())
+
+    async def quietly_think(self):
+        """Polish one thought on someone's mind (dungeon/life/thoughts.py) in the model's words, when model
+        phrasing is on. A conversation interrupts it; the template wording stays until a later tick."""
+        try:
+            await self.think()
+        except BackgroundInterrupted:
+            pass
+        except Exception:  # noqa: BLE001 - the template wording is already shown.
+            LOG.exception('A thought could not be polished.')
+
+    async def think(self):
+        due = await asyncio.to_thread(self.due_thought)
+        if due is None:
+            return
+        config, row, name = due
+        try:
+            text = await thoughts.polish(self.provider, self.scheduler, config, key_for(self.vault, config), row, name)
+        except DomainError:
+            text = None
+        await asyncio.to_thread(self.save_thought, row, text)
+
+    def due_thought(self):
+        with self.database.connect(write=True) as connection:
+            config, life = config_for(connection, 'life'), life_settings(connection)
+            if config is None or not life['phrase_with_model'] or not thoughts.enabled(connection):
+                return None
+            companion = current(connection)
+            if companion is not None and settings(connection)['paused_at'] is None:
+                thoughts.catch_up(connection, companion, self.now())
+            row = thoughts.unpolished(connection)
+            if row is None:
+                return None
+            return config, row, by_id(connection, row['companion_id'])['version']['definition']['name']
+
+    def save_thought(self, row, text):
+        with self.database.connect(write=True) as connection:
+            thoughts.save_polish(connection, row, text)
+
+    async def quietly_life(self, mode):
+        """The companion in focus, then this turn of everyone else."""
+        await self.quietly(mode)
+        await self.quietly_cast(mode)
+
+    async def quietly(self, mode):
+        try:
+            await self.reconcile(mode)
+        except Exception:  # noqa: BLE001 - one failed tick must not stop later ones.
+            pass
+
+    async def quietly_cast(self, mode):
+        try:
+            await self.reconcile_cast(mode)
+        except Exception:  # noqa: BLE001 - the rest of the cast catches up on a later turn.
+            LOG.exception("A turn of the cast's lives failed.")

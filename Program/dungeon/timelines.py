@@ -1,0 +1,386 @@
+"""Alternative timelines: historical edits, switching and freezing (PRD C4, T7, M6).
+
+Branching from a message, or editing one of the user's earlier messages, never rewrites the live
+relationship. It creates a separate, inactive timeline holding a copy of everything up to that
+message (before it, for an edit): the conversation, the companion's
+committed events and the posts showing them, the circle and the circle's diary. The edited words
+wait on the new timeline as its draft until they are sent there. Memories are not copied; a
+timeline sees what its ancestors remembered before the fork (dungeon/lineage.py).
+
+Only the active timeline advances with real time. Choosing another one freezes the active one:
+its unreviewed events are rejected, its unfinished batches stop, its hidden upcoming agenda is
+dropped, and replies still being written there are stopped and withheld. Both revisions advance,
+so any work that finishes later is revalidated and cannot reach the newly active companion (T7).
+A timeline's life resumes from the moment it is chosen; time spent frozen is never filled in.
+"""
+import re
+
+from dungeon import consequences, pictures
+from dungeon.characters import require_current
+from dungeon.database import decode, encode, identifier, many, one, optional
+from dungeon.errors import require
+from dungeon.life import (
+    big_days,
+    big_turns,
+    custody,
+    encounters,
+    families,
+    feed,
+    grooming,
+    hobbies,
+    home,
+    kids,
+    kitchen,
+    loss,
+    love_life,
+    media,
+    network,
+    own_family,
+    shifts,
+    steps,
+    storylines,
+    traditions,
+    upkeep,
+    wardrobe,
+)
+from dungeon.memory import history
+from dungeon.voice import notes as voice_notes
+
+ID = re.compile(r'\b[0-9a-f]{32}\b')
+FROZEN_EVENT = 'The timeline was frozen before this event was reviewed.'
+FROZEN_RUN = 'The timeline was frozen before this batch finished.'
+FROZEN_IMAGE = 'The timeline was set aside before this image started.'
+
+
+def view(connection, row: dict, active_id: str) -> dict:
+    stats = one(connection, "SELECT COUNT(*) AS messages, MAX(created_at) AS last_message_at FROM messages "
+                "WHERE timeline_id=? AND redacted_at IS NULL AND (role='user' OR status='complete')", (row['id'],))
+    latest = optional(connection, "SELECT text FROM messages WHERE timeline_id=? AND role='user' "
+                      'AND redacted_at IS NULL ORDER BY seq DESC LIMIT 1', (row['id'],))
+    label = row['label'] or ('Original' if row['parent_id'] is None else 'Alternative')
+    return {'id': row['id'], 'label': label, 'status': row['status'], 'active': row['id'] == active_id,
+            'parent_id': row['parent_id'], 'fork_message_id': row['fork_message_id'], 'forked_at': row['forked_at'],
+            'created_at': row['created_at'], 'activated_at': row['activated_at'], 'frozen_at': row['frozen_at'],
+            'draft': row['draft'], 'messages': stats['messages'], 'last_message_at': stats['last_message_at'],
+            'latest_text': (latest['text'][:160] if latest else '')}
+
+
+def listing(database) -> dict:
+    with database.connect() as connection:
+        companion = require_current(connection)
+        rows = many(connection, 'SELECT * FROM timelines WHERE companion_id=? ORDER BY created_at, rowid',
+                    (companion['id'],))
+        return {'active_id': companion['active_timeline_id'],
+                'timelines': [view(connection, row, companion['active_timeline_id']) for row in rows]}
+
+
+def timeline(connection, companion, timeline_id) -> dict:
+    row = optional(connection, 'SELECT * FROM timelines WHERE id=? AND companion_id=?',
+                   (timeline_id, companion['id']))
+    require(row is not None, 'That timeline could not be found.', 404)
+    return row
+
+
+def update(database, timeline_id, body) -> dict:
+    with database.connect(write=True) as connection:
+        companion = require_current(connection)
+        timeline(connection, companion, timeline_id)
+        if body.label is not None:
+            connection.execute('UPDATE timelines SET label=? WHERE id=?', (body.label.strip(), timeline_id))
+        if body.clear_draft:
+            connection.execute('UPDATE timelines SET draft=NULL WHERE id=?', (timeline_id,))
+        return view(connection, timeline(connection, companion, timeline_id), companion['active_timeline_id'])
+
+
+# Forking ----------------------------------------------------------------------------------------
+
+def fork(database, body) -> dict:
+    """A new inactive timeline branching off at `message_id`. The timeline the message is on is left
+    exactly as it was.
+
+    Branch from here (no text) keeps everything up to and including the message, the user's or the
+    companion's. Edit (text, the user's own messages only) keeps everything before the message and
+    waits with the edited words as its draft; the companion's replies are edited in place instead
+    (dungeon/message_edits.py)."""
+    with database.connect(write=True) as connection:
+        companion = require_current(connection)
+        message = optional(connection, 'SELECT * FROM messages WHERE id=?', (body.message_id,))
+        require(message is not None, 'That message could not be found.', 404)
+        parent = timeline(connection, companion, message['timeline_id'])
+        require(message['redacted_at'] is None, 'This message was deleted.', 409)
+        editing = body.text is not None
+        require(not editing or message['role'] == 'user',
+                "Only your own messages are edited in a new timeline. Edit a reply in place instead.", 422)
+        require(message['status'] != 'streaming', 'Wait for this reply to finish, or stop it, before branching from it.', 409)
+        timestamp, new_id = database.now(), identifier()
+        if editing:
+            through, cutoff = message['seq'] - 1, message['created_at']
+        else:
+            through, cutoff = message['seq'], branch_cutoff(connection, message, timestamp)
+        count = one(connection, 'SELECT COUNT(*) AS n FROM timelines WHERE companion_id=?', (companion['id'],))['n']
+        connection.execute(
+            'INSERT INTO timelines (id, companion_id, parent_id, forked_after_seq, status, created_at, label, '
+            "fork_message_id, forked_at, draft) VALUES (?, ?, ?, ?, 'frozen', ?, ?, ?, ?, ?)",
+            (new_id, companion['id'], parent['id'], through, timestamp,
+             body.label.strip() or f'Timeline {count + 1}', message['id'], cutoff, body.text))
+        ids = copy_history(connection, parent['id'], new_id, through, cutoff)
+        if not editing and message['role'] == 'companion':
+            show_chosen_reply(connection, ids[message['id']], message['reply_to'])
+        return view(connection, timeline(connection, companion, new_id), companion['active_timeline_id'])
+
+
+def branch_cutoff(connection, message, timestamp) -> str:
+    """Branching at a message keeps what happened until the next one was written: the memories and life
+    in between belong to the branch. At the newest message that is everything until now."""
+    following = optional(connection, 'SELECT created_at FROM messages WHERE timeline_id=? AND seq>? '
+                         'ORDER BY seq LIMIT 1', (message['timeline_id'], message['seq']))
+    return following['created_at'] if following else timestamp
+
+
+def show_chosen_reply(connection, copy_id, reply_to):
+    """Branching at one version of a reply makes that version the one shown in the branch."""
+    if reply_to:
+        connection.execute('UPDATE messages SET active=0 WHERE timeline_id=(SELECT timeline_id FROM messages '
+                           'WHERE id=?) AND reply_to=(SELECT reply_to FROM messages WHERE id=?)', (copy_id, copy_id))
+    connection.execute('UPDATE messages SET active=1 WHERE id=?', (copy_id,))
+
+
+def columns(connection, table) -> list[str]:
+    return [row[1] for row in connection.execute(f'PRAGMA table_info({table})')]
+
+
+def insert(connection, table, rows: list[dict]):
+    if not rows:
+        return
+    names = columns(connection, table)
+    marks = ', '.join('?' * len(names))
+    connection.executemany(f'INSERT INTO {table} ({", ".join(names)}) VALUES ({marks})',
+                           [tuple(row.get(name) for name in names) for row in rows])
+
+
+def remap(value, ids: dict):
+    """Rewrite identities inside a stored text (keys, JSON details) to their copies."""
+    if value is None:
+        return None
+    return ID.sub(lambda match: ids.get(match.group(), match.group()), value)
+
+
+def copied_key(key: str, ids: dict, new_id: str) -> str:
+    changed = remap(key, ids)
+    return changed if changed != key else f'fork:{new_id}:{key}'
+
+
+def copy_history(connection, parent_id, new_id, through_seq, cutoff) -> dict:
+    """Copy the parent's history into the new timeline: messages up to `through_seq`, and life up to
+    `cutoff`. Returns the copies' ids by original id."""
+    ids = {parent_id: new_id}
+    messages = many(connection, 'SELECT * FROM messages WHERE timeline_id=? AND seq<=? ORDER BY seq',
+                    (parent_id, through_seq))
+    events = many(connection, "SELECT * FROM life_events WHERE timeline_id=? AND status='committed' "
+                  "AND (ends_at<=? OR (kind='plan' AND created_at<=?)) ORDER BY starts_at", (parent_id, cutoff, cutoff))
+    people = many(connection, 'SELECT * FROM circle_people WHERE timeline_id=? ORDER BY ordinal', (parent_id,))
+    for row in messages + events + people:
+        ids[row['id']] = identifier()
+    recommended = [row for row in many(connection, 'SELECT * FROM recommendations WHERE timeline_id=?', (parent_id,))
+                   if row['message_id'] in ids]
+    for row in recommended:
+        ids[row['id']] = identifier()
+    # A post links the version of an event it was made with; a corrected event's earlier versions
+    # point at the copy of its current one, so the post carries over showing the correction.
+    for row in many(connection, "SELECT id FROM life_events WHERE timeline_id=? AND status='superseded'",
+                    (parent_id,)):
+        current = feed.current_revision(connection, row['id'])
+        if current and current['id'] in ids:
+            ids[row['id']] = ids[current['id']]
+    posts = [post for post in many(connection, 'SELECT * FROM feed_posts WHERE timeline_id=?', (parent_id,))
+             if all(link['event_id'] in ids for link in post_links(connection, post['id']))]
+    for post in posts:
+        ids[post['id']] = identifier()
+    copy_messages(connection, messages, ids, new_id)
+    insert(connection, 'life_events', [{
+        **row, 'id': ids[row['id']], 'timeline_id': new_id, 'supersedes_id': None,
+        'idempotency_key': copied_key(row['idempotency_key'], ids, new_id), 'details': remap(row['details'], ids),
+    } for row in events])
+    insert(connection, 'circle_people', [{**row, 'id': ids[row['id']], 'timeline_id': new_id} for row in people])
+    home.copy(connection, parent_id, new_id, cutoff, ids)
+    wardrobe.copy(connection, parent_id, new_id, cutoff, ids)
+    upkeep.copy(connection, parent_id, new_id, cutoff)
+    grooming.copy(connection, parent_id, new_id, cutoff, ids)
+    kitchen.copy(connection, parent_id, new_id, cutoff)
+    media.copy(connection, parent_id, new_id, cutoff)
+    hobbies.copy(connection, parent_id, new_id, cutoff)
+    shifts.copy(connection, parent_id, new_id, cutoff)
+    traditions.copy(connection, parent_id, new_id, ids)
+    copy_posts(connection, posts, ids, new_id)
+    insert(connection, 'recommendations', [{**row, 'id': ids[row['id']], 'timeline_id': new_id,
+                                            'message_id': ids[row['message_id']]} for row in recommended])
+    copy_storylines(connection, parent_id, new_id, ids, cutoff[:10])
+    families.copy(connection, parent_id, new_id, ids, cutoff[:10])
+    own_family.copy(connection, parent_id, new_id, ids)
+    kids.copy(connection, parent_id, new_id, ids)
+    copy_chapters(connection, parent_id, new_id, ids, cutoff[:10])
+    copy_steps(connection, parent_id, new_id, cutoff)
+    steps.copy_open(connection, parent_id, new_id, cutoff, ids)
+    love_life.copy(connection, parent_id, new_id, ids, cutoff[:10])
+    loss.copy(connection, parent_id, new_id, ids, cutoff[:10])
+    big_days.copy(connection, parent_id, new_id, ids, cutoff)  # After what its sources name (loss.py's funerals).
+    custody.copy(connection, parent_id, new_id, ids)
+    copy_recall(connection, parent_id, new_id, ids, cutoff[:10])
+    network.copy(connection, parent_id, new_id, cutoff)
+    encounters.copy(connection, parent_id, new_id, cutoff)
+    agenda = many(connection, "SELECT * FROM life_agenda WHERE timeline_id=? AND status IN ('happened','skipped') "
+                  'AND ends_at<=?', (parent_id, cutoff))
+    insert(connection, 'life_agenda', [{
+        **row, 'id': identifier(), 'timeline_id': new_id, 'subject': ids.get(row['subject'], row['subject']),
+        'entry': remap(row['entry'], ids), 'prepared': None} for row in agenda])
+    return ids
+
+
+def copy_storylines(connection, parent_id, new_id, ids, cutoff_date):
+    """Storylines that had started by the fork carry over with their cast; later starts are the copy's own."""
+    rows = [row for row in many(connection, 'SELECT * FROM storylines WHERE timeline_id=? AND started_on<=?',
+                                (parent_id, cutoff_date))
+            if all(person in ids for person in decode(row['cast_ids']))]
+    copies = []
+    for row in rows:
+        copy_id = identifier()
+        copies.append({**row, 'id': copy_id, 'timeline_id': new_id,
+                       'cast_ids': encode([ids[person] for person in decode(row['cast_ids'])]),
+                       'stages': encode(storylines.fork_stages(connection, row, copy_id, new_id, cutoff_date))})
+    insert(connection, 'storylines', copies)
+    if optional(connection, 'SELECT through FROM storyline_days WHERE timeline_id=?', (parent_id,)):
+        connection.execute('INSERT INTO storyline_days (timeline_id, through) VALUES (?, ?)', (new_id, cutoff_date))
+
+
+def copy_chapters(connection, parent_id, new_id, ids, cutoff_date):
+    """Life chapters begun by the fork carry over with how they went; later ones are the copy's own."""
+    rows = many(connection, 'SELECT * FROM life_chapters WHERE timeline_id=? AND started_on<=?', (parent_id, cutoff_date))
+    # A big turn as it stood on the fork's day (big_turns.fork_row), with the copies of its people and home items.
+    copies = [big_turns.fork_row(connection, row, identifier(), new_id, cutoff_date) for row in rows]
+    insert(connection, 'life_chapters', [{
+        **row, 'undo': remap(row['undo'], ids), 'details': remap(row['details'], ids),
+        'consequence_id': row['consequence_id'] and consequences.copy(
+            connection, row['consequence_id'], new_id, f"chapter:{new_id}:{row['started_on']}")} for row in copies])
+    if optional(connection, 'SELECT through FROM chapter_days WHERE timeline_id=?', (parent_id,)):
+        connection.execute('INSERT INTO chapter_days (timeline_id, through) VALUES (?, ?)', (new_id, cutoff_date))
+
+
+def copy_steps(connection, parent_id, new_id, cutoff):
+    """Steps reached by the fork carry over (dungeon/life/steps.py), as they stood then: one reached later that same
+    day (a yes after the message branched from) is the parent's alone, and one taken back after the fork still holds.
+    What was brought up and not answered stays open (steps.copy_open)."""
+    cutoff_date = cutoff[:10]
+    rows = many(connection, 'SELECT * FROM relationship_steps WHERE timeline_id=? AND reached_on<=? AND created_at<?',
+                (parent_id, cutoff_date, cutoff))
+    insert(connection, 'relationship_steps', [
+        {**row, 'id': identifier(), 'timeline_id': new_id, 'ask_id': None,
+         'undone_at': row['undone_at'] if row['undone_at'] and row['undone_at'] < cutoff else None} for row in rows])
+
+
+def copy_recall(connection, parent_id, new_id, ids, cutoff_date):
+    """What "Your history together" (dungeon/memory/history.py) is built from that lives beside the messages: the
+    day summaries of copied messages, the trips begun by the fork and the user's own words for lines before it (left-out
+    lines included), so a branch remembers that time the way the user said it went."""
+    insert(connection, 'memory_summaries', [
+        {**row, 'id': identifier(), 'timeline_id': new_id, 'basis': '',
+         'source_message_ids': encode([ids[source] for source in decode(row['source_message_ids'])])}
+        for row in many(connection, 'SELECT * FROM memory_summaries WHERE timeline_id=? AND day<=?', (parent_id, cutoff_date))
+        if all(source in ids for source in decode(row['source_message_ids']))])
+    insert(connection, 'trips', [{**row, 'id': identifier(), 'timeline_id': new_id, 'company': remap(row['company'], ids),
+                                  'message_id': ids.get(row['message_id'])}
+                                 for row in many(connection, 'SELECT * FROM trips WHERE timeline_id=? AND start_date<=?',
+                                                 (parent_id, cutoff_date))])
+    insert(connection, 'history_corrections', [
+        {**row, 'timeline_id': new_id} for row in many(connection, 'SELECT * FROM history_corrections WHERE timeline_id=?',
+                                                       (parent_id,)) if history.key_start(row['period_key']) <= cutoff_date])
+
+
+def post_links(connection, post_id) -> list[dict]:
+    return many(connection, 'SELECT * FROM feed_post_events WHERE post_id=? ORDER BY position', (post_id,))
+
+
+def copy_messages(connection, messages, ids, new_id):
+    insert(connection, 'messages', [{
+        **row, 'id': ids[row['id']], 'timeline_id': new_id, 'client_id': None,
+        'reply_to': ids.get(row['reply_to']) if row['reply_to'] else None,
+        'status': 'incomplete' if row['status'] == 'streaming' else row['status'],
+        'receipt': remap(row['receipt'], ids), 'origin_id': row['origin_id'] or row['id'],
+    } for row in messages])
+    for row in messages:
+        # The same text has the same embedding, so recall in the fork needs no new requests.
+        connection.execute(
+            'INSERT OR IGNORE INTO memory_vectors (owner_kind, owner_id, model, digest, vector, created_at) '
+            "SELECT owner_kind, ?, model, digest, vector, created_at FROM memory_vectors "
+            "WHERE owner_kind='message' AND owner_id=?", (ids[row['id']], row['id']))
+    pictures.copy(connection, {row['id']: ids[row['id']] for row in messages})
+    voice_notes.copy(connection, {row['id']: ids[row['id']] for row in messages})
+
+
+def copy_posts(connection, posts, ids, new_id):
+    copies = []
+    for post in posts:
+        drawn = post['image_status'] == 'completed' and post['image_ref']
+        copies.append({**post, 'id': ids[post['id']], 'timeline_id': new_id,
+                       'idempotency_key': copied_key(post['idempotency_key'], ids, new_id),
+                       'image_status': 'completed' if drawn else 'none', 'image_job_id': None,
+                       'image_ref': post['image_ref'] if drawn else None, 'image_error': None})
+    insert(connection, 'feed_posts', copies)
+    for post in posts:
+        insert(connection, 'feed_post_events', [{**link, 'post_id': ids[post['id']], 'event_id': ids[link['event_id']]}
+                                                for link in post_links(connection, post['id'])])
+    sent = many(connection, 'SELECT * FROM chat_photos')
+    insert(connection, 'chat_photos', [
+        {**photo, 'message_id': ids[photo['message_id']], 'post_id': ids[photo['post_id']],
+         'event_key': remap(photo['event_key'], ids)}
+        for photo in sent if photo['message_id'] in ids and photo['post_id'] in ids])
+
+
+# Switching --------------------------------------------------------------------------------------
+
+def activate(database, timeline_id) -> dict:
+    """Choose a timeline. The previously active one is frozen and its pending work reconciled.
+
+    Returns the timelines and the reply attempts that were still being written on the frozen
+    timeline, which the caller stops; they could never become active there anyway."""
+    with database.connect(write=True) as connection:
+        companion = require_current(connection)
+        target = timeline(connection, companion, timeline_id)
+        previous, stopped = companion['active_timeline_id'], []
+        if target['id'] != previous:
+            timestamp = database.now()
+            stopped = freeze(connection, previous, timestamp)
+            connection.execute("UPDATE timelines SET status='active', frozen_at=NULL, activated_at=? WHERE id=?",
+                               (timestamp, timeline_id))
+            connection.execute('UPDATE companions SET active_timeline_id=? WHERE id=?', (timeline_id, companion['id']))
+            # Life resumes now: the time this timeline spent frozen is never simulated.
+            connection.execute(
+                'INSERT INTO life_cursors (timeline_id, simulated_through, last_reconciled_at, updated_at) '
+                'VALUES (?, ?, NULL, ?) ON CONFLICT(timeline_id) DO UPDATE SET '
+                'simulated_through=MAX(simulated_through, excluded.simulated_through), updated_at=excluded.updated_at',
+                (timeline_id, timestamp, timestamp))
+            connection.execute('UPDATE agenda_cursors SET through=MAX(through, ?) WHERE timeline_id=?',
+                               (timestamp, timeline_id))
+            connection.execute('UPDATE workspace_settings SET permission_revision=permission_revision+1, '
+                               'memory_revision=memory_revision+1, updated_at=? WHERE id=1', (timestamp,))
+    result = listing(database)
+    return {**result, 'stopped_reply_ids': stopped}
+
+
+def freeze(connection, timeline_id, timestamp) -> list[str]:
+    connection.execute("UPDATE timelines SET status='frozen', frozen_at=? WHERE id=?", (timestamp, timeline_id))
+    connection.execute("UPDATE life_events SET status='rejected', rejection=?, decided_at=? "
+                       "WHERE timeline_id=? AND status='proposed'", (FROZEN_EVENT, timestamp, timeline_id))
+    connection.execute("UPDATE life_runs SET status='failed', error=?, finished_at=?, lease_until=NULL "
+                       "WHERE timeline_id=? AND status IN ('planned','running','interrupted')",
+                       (FROZEN_RUN, timestamp, timeline_id))
+    # Images not started yet are cancelled; one already being made finishes on the frozen post only.
+    for job in many(connection, "SELECT id, post_id FROM image_jobs WHERE timeline_id=? AND status='queued'",
+                    (timeline_id,)):
+        connection.execute("UPDATE image_jobs SET status='cancelled', error=?, error_code='cancelled', finished_at=? "
+                           'WHERE id=?', (FROZEN_IMAGE, timestamp, job['id']))
+        feed.apply_image(connection, job['post_id'], job['id'], 'cancelled', timestamp, error=FROZEN_IMAGE)
+    # Hidden upcoming entries are rebuilt from the moment the timeline is chosen again.
+    connection.execute("DELETE FROM life_agenda WHERE timeline_id=? AND status='upcoming'", (timeline_id,))
+    connection.execute('UPDATE agenda_cursors SET through=MIN(through, ?) WHERE timeline_id=?', (timestamp, timeline_id))
+    return [row['id'] for row in many(connection, "SELECT id FROM messages WHERE timeline_id=? AND status='streaming'",
+                                      (timeline_id,))]

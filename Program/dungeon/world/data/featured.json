@@ -1,0 +1,8 @@
+{
+ "schema_version": 1,
+ "release": "0.8",
+ "title": "Haddon Harbor",
+ "note": "The town the app ships with. Add your own cities in Settings.",
+ "cities": ["haddon-harbor"],
+ "new_cities": []
+}

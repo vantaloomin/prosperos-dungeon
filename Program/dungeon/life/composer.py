@@ -1,0 +1,711 @@
+"""Deterministic event composition (PRD T2, T3).
+
+A routine slot becomes an ordinary event without any model call: the block's kind selects an
+activity, the world source supplies a real place for it, and fixed templates write the summary,
+caption and mood. The same slot always composes the same event, so a resumed batch is stable.
+A model may later rephrase the wording, but never chooses the place, activity or facts.
+
+Some slots are deliberately quiet: an uneventful stretch is a valid outcome, not a failure.
+"""
+import random
+import re
+from dataclasses import dataclass
+from datetime import date, timedelta
+
+from dungeon.life import body, money, occasions, pronouns
+
+COMPOSER_VERSION = 'compose-7'
+QUIET_SHARE = 0.2
+OUTDOOR = {'park', 'waterfront', 'beach'}
+RAINY_CAPTIONS = ('Rain on the window all day.', 'Good day to stay in.', 'Listening to the rain.')
+
+
+@dataclass(frozen=True)
+class Activity:
+    key: str
+    place_kinds: tuple[str, ...]
+    summaries: tuple[str, ...]
+    captions: tuple[str, ...]
+    moods: tuple[str, ...]
+    generic: str = ''
+    together: tuple[str, ...] = ()
+
+
+
+# Words that make a routine block's label read as a stretch of time ("the free time after work").
+SPAN_WORDS = {'morning', 'afternoon', 'evening', 'night', 'day', 'lunch', 'break', 'shift', 'time', 'hours',
+              'weekend', 'session', 'class', 'commute', 'off'}
+
+
+def span(block: dict) -> str:
+    """The block as a stretch of time for "during the {label}". A label that names an activity or a
+    job ("Solo gaming", "Stage performer") reads as the shift, study session or part of the day instead."""
+    label = block['label'].lower()
+    # Whole words only: "Night shift" is a stretch of time, "Night-shift nurse" is a job.
+    if set(re.findall(r"[a-z]+(?:-[a-z]+)*", label)) & SPAN_WORDS:
+        return label
+    if block.get('kind') == 'work':
+        return 'shift'
+    if block.get('kind') == 'study':
+        return 'study session'
+    hour = int((block.get('start') or '18:00')[:2])
+    return 'morning' if hour < 12 else 'afternoon' if hour < 17 else 'evening'
+
+def activity(key, place_kinds, summaries, captions, moods, generic='', together=()) -> Activity:
+    """`generic` stands in for " at <place>" when the world has no matching place. `together` are
+    summaries naming a circle member ({friend}) who is free at the time."""
+    return Activity(key, tuple(place_kinds), tuple(summaries), tuple(captions), tuple(moods), generic,
+                    tuple(together))
+
+
+# {name} is the companion, {label} the routine block, {at} " at <place>" or "", {place} the place
+# name or a generic word, {area} " in <neighborhood>" or "".
+CATALOG = {
+    'work': (
+        activity('steady-shift', (), ['{name} worked through the {label} at a steady pace.',
+                                      '{name} spent the {label} getting through the usual work.'],
+                 ['Head down, list done.', 'A good, ordinary day of work.'], ['focused', 'steady']),
+        activity('busy-shift', (), ['{name} had a busy {label}, with one rush after another.',
+                                    'Work got hectic during the {label}, but {name} kept up.'],
+                 ['That was a lot. Feet up now.', 'Survived the rush.'], ['tired', 'busy']),
+        activity('lunch-out', ('cafe', 'restaurant'), ['{name} took a proper lunch break{at} during the {label}.'],
+                 ['Lunch away from the desk, for once.', 'Worth stepping out for.'], ['refreshed'], ' nearby'),
+    ),
+    'study': (
+        activity('library', ('library', 'college'), ['{name} studied{at} through the {label}.',
+                                                     '{name} worked through readings{at}.'],
+                 ['Quiet corner, long notes.', 'Finally made sense of it.'], ['focused', 'satisfied'], ' at the library'),
+        activity('study-cafe', ('cafe',), ['{name} studied{at}, nursing one coffee for hours.'],
+                 ['Office for the afternoon.', 'Caffeine and flashcards.'], ['focused'], ' at a café'),
+    ),
+    'errand': (
+        activity('groceries', ('grocery', 'market'), ['{name} did the grocery run{at}.',
+                                                      '{name} stocked up on food{at}.'],
+                 ['Fridge: full. Me: proud.', 'Found the good bread.'], ['practical', 'content'], ' at the store'),
+        activity('chores', (), ['{name} spent the {label} on laundry and small chores.',
+                                '{name} caught up on chores around home.'],
+                 ['Small wins.', 'Everything folded, for now.'], ['productive']),
+        activity('browse', ('shop', 'bookstore'), ['{name} ran errands and browsed{at} on the way back.'],
+                 ['Just looking. Mostly.', 'Came home with one more book than planned.'], ['content'], ' at a few shops'),
+    ),
+    'social': (
+        activity('dinner', ('restaurant',), ['{name} met an old friend for dinner{at}.',
+                                             '{name} caught up with friends over food{at}.'],
+                 ['Good food, better company.', 'We closed the place down.'], ['happy', 'warm'], '',
+                 ['{name} had dinner with {friend}{at}.', '{name} caught up with {friend} over food{at}.']),
+        activity('drinks', ('bar',), ['{name} met a couple of friends for drinks{at}.'],
+                 ['One drink turned into three stories.', 'Laughed too much.'], ['cheerful'], '',
+                 ['{name} met {friend} for drinks{at}.']),
+        activity('show', ('venue',), ['{name} went to see a show{at} with a friend.'],
+                 ['Still humming it.', 'Live music hits different.'], ['excited'], '',
+                 ['{name} went to see a show{at} with {friend}.']),
+    ),
+    'leisure': (
+        activity('walk', ('park', 'waterfront', 'beach'), ['{name} went for a long walk{at}.',
+                                                           '{name} spent the {label} walking{at}{area}.'],
+                 ['Needed that air.', 'The light was perfect today.'], ['calm', 'content'], ' around the neighborhood'),
+        activity('coffee', ('cafe',), ['{name} read for a while{at} with a coffee.',
+                                       '{name} sat{at} people-watching over a coffee.'],
+                 ['Best seat in the house.', 'Coffee and a chapter.'], ['relaxed'], ' at a café'),
+        activity('museum', ('museum', 'attraction'), ['{name} spent the {label}{at}.',
+                                                      '{name} wandered around{at} for a couple of hours.'],
+                 ['Could have stayed all day.', 'Saw something new.'], ['curious', 'inspired'], ' at a museum'),
+        activity('market', ('market',), ['{name} browsed the stalls{at}.'],
+                 ['Came for one thing, left with five.', 'Market finds.'], ['cheerful'], ' at the market'),
+        activity('workout', ('gym', 'park'), ['{name} fit in a workout{at}.'],
+                 ['Sore tomorrow, worth it today.', 'Done and dusted.'], ['energized'], ''),
+        activity('home-cooking', (), ['{name} cooked something new at home during the {label}.',
+                                      '{name} stayed in and tried a new recipe.'],
+                 ['It mostly worked!', 'Kitchen chaos, tasty result.'], ['proud', 'cozy']),
+        activity('reading', (), ['{name} stayed in and read through most of the {label}.'],
+                 ['Couldn\'t put it down.', 'Blanket, book, done.'], ['cozy']),
+    ),
+    'rest': (
+        activity('nap', (), ['{name} took it easy and napped through part of the {label}.'],
+                 ['Recharged.', 'Zero regrets.'], ['rested']),
+        activity('slow', (), ['{name} had a slow, lazy {label} at home.'],
+                 ['Doing nothing, beautifully.', 'Slow day.'], ['relaxed']),
+    ),
+    # Time at a parent's they care for (dungeon/life/health_turns.py): an errand block themed 'caring', whose label
+    # names the place ("Evening at Mom's").
+    'care': (
+        activity('care-dinner', (), ['{name} spent the {label}, cooking dinner and keeping them company.',
+                                     '{name} spent the {label}, cooking enough for the next few days too.'],
+                 ['Fed, fussed over, home.', 'Tupperware tower: complete.'], ['tired', 'warm']),
+        activity('care-chores', (), ['{name} spent the {label} on laundry, the dishes and sorting the week\'s pills.',
+                                     '{name} spent the {label} doing the jobs around the house that had piled up.'],
+                 ['Everything sorted for the week.', 'Small jobs, big help.'], ['tired', 'useful']),
+        activity('care-company', (), ['{name} spent the {label} watching an old film together and talking.',
+                                      '{name} spent the {label}, going through old photos together.'],
+                 ['Good one tonight.', 'Old photos, new stories.'], ['warm', 'thoughtful']),
+        activity('care-errands', ('grocery', 'pharmacy'), ['{name} picked up groceries and a prescription{at} '
+                                                          'before the {label}.'],
+                 ['Fridge stocked, pills collected.', 'Running the errands for two.'], ['practical'], ' on the way'),
+    ),
+}
+
+
+# A cold keeps the companion home (dungeon/life/body.py); a low day after a late night keeps
+# plans small.
+SICK = activity('sick-day', (), ['{name} stayed home with a cold, sleeping most of the {label}.',
+                                 '{name} spent the {label} on the sofa with tea, tissues and a cold.'],
+                ['Tea, blanket, tissues. Repeat.', 'Officially a couch creature today.', 'Send soup.'],
+                ['under the weather'])
+CALM = {'reading', 'home-cooking', 'coffee', 'walk', 'slow', 'nap'}
+LOW_SHARE = 0.5
+
+
+# A city's annual event, on the day it is held, can draw the companion out for part of a leisure or
+# social block. The event comes from the world data; the wording names it and nothing else.
+FESTIVAL = activity('festival', (), ['{name} joined the crowds for {event}{area}.',
+                                     '{name} spent a few hours out for {event}{area}.'],
+                    ['The whole city came out.', 'Worth the crowds.', 'Already looking forward to next year.'],
+                    ['excited', 'happy'], '', ['{name} and {friend} joined the crowds for {event}{area}.',
+                                               '{name} went out for {event}{area} with {friend}.'])
+FESTIVAL_SHARE = 0.5
+FESTIVAL_KINDS = {'leisure', 'social'}
+
+
+# A circle member's birthday: the companion celebrates with them when both are free, or calls a
+# relative who lives out of town.
+BIRTHDAY = activity('birthday', ('restaurant', 'bar'), [],
+                    ['Happy birthday to the best.', 'Cake was had.', 'Another year, same favorite person.'],
+                    ['warm', 'happy'], '', ["{name} celebrated {friend}'s birthday{at}.",
+                                            "{name} took {friend} out{at} for their birthday."])
+CALL = ("{name} called {friend} to wish them a happy birthday.",
+        "{name} spent a while on the phone with {friend}, who turned a year older today.")
+BIRTHDAY_KINDS = {'leisure', 'social'}
+
+
+# The companion's own birthday (dungeon/life/occasions.py): a free evening goes to celebrating.
+OWN_BIRTHDAY = activity('own-birthday', ('restaurant', 'bar'), ['{name} treated themselves{at} for their birthday.'],
+                        ['Another trip around the sun.', 'Birthday dinner, birthday cake.', 'Older, not wiser.'],
+                        ['happy', 'warm'], '',
+                        ['{name} celebrated their birthday{at} with {friend}.',
+                         '{name} went out{at} with {friend} for their birthday.'])
+
+
+# A milestone birthday (30, 40, 50 ...: dungeon/life/ages.py) is a party rather than a dinner. No pronouns, so the
+# lines read right whoever they are.
+MILESTONE_PARTY = activity('own-birthday', ('bar', 'restaurant'), ['{name} threw a party{at} for turning {age}.',
+                                                                   '{name} marked turning {age} with a party{at}.'],
+                           ['{age} and thriving.', 'Big birthday, bigger cake.', 'A new decade starts tonight.',
+                            'Turns out {age} is a party.', 'Everyone came. Best night in ages.'],
+                           ['happy', 'excited', 'warm'], '',
+                           ['{name} threw a party{at} for turning {age}, with {friend} and a crowd of friends.',
+                            '{name} marked turning {age}{at} with {friend} and a crowd of friends.'])
+
+
+def own_birthday(slot: dict, definition: dict, world, seed: str, recent_activities, company, conditions):
+    """On the companion's birthday, a leisure or social slot is a celebration, with a free friend if any; a milestone
+    birthday is a party."""
+    mine = definition.get('own_birthday')
+    if not mine or not occasions.on(date.fromisoformat(slot['local_date']), mine) \
+            or slot['block']['kind'] not in BIRTHDAY_KINDS or slot['block']['start'] < '12:00' \
+            or OWN_BIRTHDAY.key in set(recent_activities):
+        return None
+    rng = random.Random(f'{seed}:own-birthday')
+    age = (definition.get('milestones') or {}).get(slot['local_date'])
+    kind = MILESTONE_PARTY if age else OWN_BIRTHDAY
+    friend = company[0] if company else None
+    places = find_places(world, definition, slot, kind.place_kinds)
+    place = rng.choice(places) if places else None
+    at = f' at {place.name}' if place else ''
+    summary = (rng.choice(kind.together).format(name=definition['name'], friend=friend['name'], at=at, age=age)
+               if friend else rng.choice(kind.summaries).format(name=definition['name'], at=at, age=age))
+    return {'summary': summary, 'post': rng.choice(kind.captions).format(age=age), 'mood': rng.choice(kind.moods),
+            'activity': OWN_BIRTHDAY.key, 'place': place.view() if place else None,
+            'with': {'id': friend['id'], 'name': friend['name']} if friend else None,
+            'weather': conditions, 'composer_version': COMPOSER_VERSION}
+
+
+def birthday(slot: dict, definition: dict, world, seed: str, recent_activities, celebrants, conditions):
+    """On a circle member's birthday, a leisure or social slot goes to them. `celebrants` are those
+    having a birthday ({id, name, local}); local ones are only passed when free at the slot."""
+    if not celebrants or slot['block']['kind'] not in BIRTHDAY_KINDS or BIRTHDAY.key in set(recent_activities):
+        return None
+    rng = random.Random(f'{seed}:birthday')
+    friend = celebrants[0]
+    who = {'id': friend['id'], 'name': friend['name']}
+    if not friend.get('local', True):
+        summary, place = rng.choice(CALL).format(name=definition['name'], friend=friend['name']), None
+    else:
+        places = find_places(world, definition, slot, BIRTHDAY.place_kinds)
+        place = rng.choice(places) if places else None
+        summary = rng.choice(BIRTHDAY.together).format(name=definition['name'], friend=friend['name'],
+                                                      at=f' at {place.name}' if place else '')
+    return {'summary': summary, 'post': rng.choice(BIRTHDAY.captions), 'mood': rng.choice(BIRTHDAY.moods),
+            'activity': BIRTHDAY.key, 'place': place.view() if place else None, 'with': who,
+            'weather': conditions, 'composer_version': COMPOSER_VERSION}
+
+
+# A family tradition (dungeon/life/traditions.py): on the holiday, the day's free time goes to it.
+TRADITION = activity('tradition', (), ['{name} spent {holiday} at their {role} {host}\'s, the way they always do.',
+                                       '{name} went home to their {role} {host}\'s for {holiday}.'],
+                     ['Same table, same stories.', 'Full. So full.', 'Family, food and the usual chaos.',
+                      'Home for the holiday.'], ['warm', 'happy', 'content'])
+TRADITION_ALONE = ('{name} hosted {holiday} at their place, the way they always do.',
+                   '{name} spent {holiday} with friends, the way they always do.')
+
+
+def tradition(slot: dict, definition: dict, seed: str) -> dict | None:
+    """On a holiday the family keeps, a free afternoon or evening goes to the tradition."""
+    found = (definition.get('traditions') or {}).get(slot['local_date'])
+    block = slot['block']
+    if not found or block['kind'] not in BIRTHDAY_KINDS or (block['start'] < block['end'] < '14:00'):
+        return None
+    rng = random.Random(f'{seed}:tradition')
+    host = found.get('host')
+    if host and not found.get('friends'):
+        summary = TRADITION.summaries[0 if host['local'] else 1].format(
+            name=definition['name'], holiday=found['name'], role=host['role'], host=host['name'])
+    elif host:
+        summary = f"{definition['name']} spent {found['name']} with {host['name']}, the way they always do."
+    else:
+        summary = TRADITION_ALONE[found.get('friends', False)].format(name=definition['name'], holiday=found['name'])
+    return {'summary': summary, 'post': rng.choice(TRADITION.captions), 'mood': rng.choice(TRADITION.moods),
+            'activity': TRADITION.key, 'place': None, 'holiday': found['holiday'],
+            'with': {'id': host['id'], 'name': host['name']} if host and host['local'] else None,
+            'weather': block.get('weather'), 'composer_version': COMPOSER_VERSION}
+
+
+# Phrases about the companion in the tradition, own birthday and thread lines here, said with their own pronouns when
+# those are known (dungeon/life/pronouns.py). `said` runs when an event is read, so events already written read right
+# too. "at their" is only theirs in a tradition line, which its closing words mark, and "for their birthday" only in
+# their own birthday's lines (not "took Jo out for their birthday").
+TRADITION_MARK = 'the way they always do'
+TRADITION_OWN = ((' at their ', ' at {their} '), (TRADITION_MARK, 'the way {they} always {do}'))
+OWN_BIRTHDAY_LINE = re.compile(r' (?:treated themselves.*|went out\b.* with .+) for their birthday\.$')
+OWN_BIRTHDAY_SAID = (('treated themselves', 'treated {themselves}'), ('for their birthday', 'for {their} birthday'))
+OWN = (('went home to their ', 'went home to {their} '), ('celebrated their birthday', 'celebrated {their} birthday'),
+       ('retracing their steps', 'retracing {their} steps'), ('a cafe they stopped at', 'a cafe {they} stopped at'),
+       ('one they like almost', 'one {they} like{s} almost'),
+       # Looks that change (dungeon/life/grooming.py).
+       ('had their nails done', 'had {their} nails done'), ('painted their nails', 'painted {their} nails'),
+       ('dyed their hair', 'dyed {their} hair'), ('had their hair ', 'had {their} hair '),
+       ('grow their hair out', 'grow {their} hair out'))
+# Looks changes are stored saying "their"; ones written before kept "her" or "his", which read wrong in a post ("I had
+# her nails done") and beside product copy ("they had her nails done").
+OLD_LOOKS = re.compile(r'\b(?:had (?:her|his) (?:nails done|hair (?:put in|cut into|restyled into|dyed|split-dyed))|'
+                       r'painted (?:her|his) nails|dyed (?:her|his) hair|grow (?:her|his) hair out)\b')
+
+
+def neutral_looks(text: str | None) -> str | None:
+    """A looks change as stored now: "had her nails done" is "had their nails done"."""
+    return OLD_LOOKS.sub(lambda found: re.sub(r'\b(?:her|his)\b', 'their', found.group(0)), text) if text else text
+
+
+def said(text: str | None, definition: dict, found: dict | None = None) -> str | None:
+    """A day event's summary with the companion's own pronouns, when those are known (`found` gives other forms)."""
+    text = neutral_looks(text)
+    if text and TRADITION_MARK in text:
+        text = pronouns.said(text, TRADITION_OWN, definition, found)
+    if text and OWN_BIRTHDAY_LINE.search(text):
+        text = pronouns.said(text, OWN_BIRTHDAY_SAID, definition, found)
+    return pronouns.said(text, OWN, definition, found)
+
+
+# A post is written by the one it is about, so the line under it says "I" (dungeon/life/feed.py): the
+# summaries name them in the third person. A name that starts a clause is "I", anywhere else "me"; "Sam's" is "my".
+SUBJECT_BEFORE = r'(?:^|[.;:!?,] |\b(?:but|and|so|while|because|when|that|then) )'
+I_VERBS = {'is': 'am', 'has': 'have', 'does': 'do', 'goes': 'go', "isn't": "aren't", "hasn't": "haven't",
+           "doesn't": "don't", 'was': 'was', "wasn't": "wasn't"}
+# Words between the subject and its verb that leave the verb as it is: "Sam often goes" is "I often go".
+ADVERBS = ('always', 'often', 'usually', 'never', 'still', 'also', 'just', 'really', 'finally', 'rarely',
+           'sometimes', 'already', 'even', 'only')
+# Endings that take -es: "watches", "fixes", "misses", "buzzes", "goes".
+ES = re.compile(r'(?:ch|sh|ss|x|zz|o)es$')
+
+
+def first_person(verb: str) -> str:
+    """A verb after "I": "goes" is "go", "watches" "watch", "tries" "try", "wins" "win"; past tense stays."""
+    lower = verb.lower()
+    if lower in I_VERBS:
+        return I_VERBS[lower]
+    if not re.fullmatch(r'[a-z]+s', lower) or lower.endswith(('ss', 'us', 'is')):
+        return verb
+    if lower.endswith('ies') and len(lower) > 4:
+        return verb[:-3] + 'y'
+    return verb[:-2] if ES.search(lower) else verb[:-1]
+
+
+def mine(text: str | None, name: str) -> str | None:
+    """A summary about `name` (the companion or a circle member) said by them: "Sam kept up" reads "I kept up",
+    "Sam goes" "I go", and "Sam's" is "my" ("My" only to start a sentence)."""
+    if not text or not name:
+        return text
+    text = said(text, {}, pronouns.FIRST)
+    names = sorted({name.strip(), name.strip().split()[0]}, key=len, reverse=True)
+    who = '(?:' + '|'.join(re.escape(each) for each in names if each) + ')'
+    adverbs = '|'.join(ADVERBS)
+    text = re.sub(rf'^{who} and ((?:[A-Z][\w.\'-]*)(?: [A-Z][\w.\'-]*)*) ', r'\1 and I ', text)
+    text = re.sub(rf"(^|[.!?] ){who}'s\b", lambda found: found.group(1) + 'My', text)
+    text = re.sub(rf"\b{who}'s\b", 'my', text)
+    text = re.sub(rf"({SUBJECT_BEFORE}){who} ((?:(?:{adverbs}) )?)([\w']+)\b",
+                  lambda found: f'{found.group(1)}I {found.group(2)}{first_person(found.group(3))}', text)
+    text = re.sub(rf'\b{who}\b', 'me', text)
+    return text[0].upper() + text[1:]
+
+
+def happenings(world, definition: dict, local_date: str) -> list[dict]:
+    """The city's annual events held on this date, from the world data. [] when the world has none."""
+    lookup, city = getattr(world, 'happenings', None), home_city(definition)
+    found = lookup(city, date.fromisoformat(local_date)) if lookup and city else []
+    return [{key: item[key] for key in ('id', 'name', 'neighborhood', 'city')} for item in found]
+
+
+def festival(slot: dict, definition: dict, world, seed: str, recent_activities, company, conditions) -> dict | None:
+    """Sometimes, the slot is spent at one of the day's annual events."""
+    block = slot['block']
+    if block['kind'] not in FESTIVAL_KINDS or FESTIVAL.key in set(recent_activities):
+        return None
+    events = block.get('happenings') or happenings(world, definition, slot['local_date'])
+    rng = random.Random(f'{seed}:festival')
+    if not events or rng.random() >= FESTIVAL_SHARE / (2 if harsh(conditions) else 1):
+        return None
+    event = rng.choice(events)
+    values = {'name': definition['name'], 'event': event['name'],
+              'area': f" in {event['neighborhood']}" if event['neighborhood'] and event['neighborhood'] not in
+              event['name'] else ''}
+    friend = company[int(rng.random() * len(company))] if company else None
+    summary = rng.choice(FESTIVAL.together).format(**values, friend=friend['name']) if friend else \
+        rng.choice(FESTIVAL.summaries).format(**values)
+    return {'summary': summary, 'post': rng.choice(FESTIVAL.captions), 'mood': rng.choice(FESTIVAL.moods),
+            'activity': FESTIVAL.key, 'place': {**event, 'kind': 'event'}, 'with': friend, 'weather': conditions,
+            'composer_version': COMPOSER_VERSION}
+
+
+# Words in the character's interests or life themes that make an activity more likely (PRD T3).
+# A word matches a stem it starts with ("reading", "books"); stems of three letters or fewer ("art",
+# "tea") must match the whole word.
+LEANINGS = {
+    'reading': ('read', 'book', 'novel', 'poetry', 'literature'), 'browse': ('book', 'shopping', 'vintage', 'thrift'),
+    'library': ('read', 'book', 'study', 'research', 'history'), 'coffee': ('coffee', 'cafe', 'café', 'tea'),
+    'museum': ('art', 'museum', 'history', 'science', 'painting', 'gallery'),
+    'show': ('music', 'concert', 'theater', 'theatre', 'gig', 'band', 'comedy', 'jazz'),
+    'workout': ('fitness', 'gym', 'running', 'run', 'yoga', 'climbing', 'sport', 'lifting'),
+    'home-cooking': ('cook', 'cooking', 'baking', 'bake', 'recipe', 'food'), 'market': ('food', 'market', 'cooking'),
+    'walk': ('nature', 'hiking', 'walk', 'walking', 'outdoors', 'beach', 'birds', 'photography'),
+    'dinner': ('food', 'restaurant', 'dining'), 'drinks': ('cocktail', 'wine', 'beer', 'bar'),
+}
+LEANING_WEIGHT = 3
+
+
+def matching(phrases) -> set[str]:
+    """Activity keys whose stems the words in these phrases match."""
+    words = set()
+    for phrase in phrases:
+        words |= {word.strip('.,;:!?()"\'').casefold() for word in phrase.split()}
+    return {key for key, stems in LEANINGS.items()
+            if any(word == stem or len(stem) > 3 and word.startswith(stem) for word in words for stem in stems)}
+
+
+def leanings(definition: dict) -> set[str]:
+    """Activity keys the character's interests, life themes and own stated likes point toward."""
+    tastes = definition.get('self_tastes') or {}
+    return matching([*definition.get('interests', ()), *definition.get('life_themes', ()), *tastes.get('likes', ())])
+
+
+def aversions(definition: dict) -> set[str]:
+    """Activity keys the character has said they dislike ("I hate running")."""
+    return matching((definition.get('self_tastes') or {}).get('dislikes', ()))
+
+
+def choose(rng, options, definition: dict):
+    """An activity, with the character's interests weighing in and stated dislikes left out. Without
+    a matching interest the choice is uniform, exactly as before interests counted."""
+    options = [option for option in options if option.key not in aversions(definition)] or options
+    favored = leanings(definition)
+    if not favored & {option.key for option in options}:
+        return rng.choice(options)
+    weights = [LEANING_WEIGHT if option.key in favored else 1 for option in options]
+    return rng.choices(options, weights)[0]
+
+
+def day_part(start: str) -> str:
+    """The world data's part of the day for a block starting at this local "HH:MM"."""
+    hour = int(start.split(':')[0])
+    if 5 <= hour < 12:
+        return 'morning'
+    if 12 <= hour < 17:
+        return 'afternoon'
+    if 17 <= hour < 22:
+        return 'evening'
+    return 'late'
+
+
+def home_city(definition: dict) -> str:
+    return definition.get('home_city') or definition.get('location') or ''
+
+
+def weather(world, definition: dict, local_date: str) -> dict | None:
+    """Typical weather in the character's city on this date, from the world's climate data (the same
+    for everyone in the city). None when the world or city has no climate."""
+    lookup, city = getattr(world, 'weather', None), home_city(definition)
+    found = lookup(city, date.fromisoformat(local_date)) if lookup and city else None
+    # `observed` is left from real-weather lookups, which the app no longer makes.
+    return found and {key: found[key] for key in ('season', 'high_f', 'low_f', 'rain', 'note', 'observed')
+                      if key in found}
+
+
+def harsh(conditions: dict | None) -> bool:
+    """Rain or extreme heat or cold, when outdoor plans give way to indoor ones."""
+    return bool(conditions) and (conditions['rain'] or conditions['high_f'] >= 93 or conditions['high_f'] <= 38)
+
+
+def find_places(world, definition: dict, slot: dict, kinds) -> list:
+    """Places in the character's home city, or the city its location names, that are open at the
+    slot's time of day and in season on its date, everyday ones near home; a circle member's haunts first."""
+    city = home_city(definition)
+    if not city or not kinds:
+        return []
+    # Everyday places stay near home: a circle member's own neighborhood, else the character's location.
+    found = world.places(city, kinds, day_part=day_part(slot['block']['start']),
+                        day=date.fromisoformat(slot['local_date']),
+                        near=definition.get('near') or definition.get('location') or None)
+    # A circle member's regular haunts come first when one fits.
+    haunts = set(definition.get('haunts') or ())
+    return [place for place in found if place.name in haunts] or found
+
+
+def sick_day(rng, block: dict, definition: dict) -> dict:
+    return {'summary': rng.choice(SICK.summaries).format(name=definition['name'], label=span(block)),
+            'post': rng.choice(SICK.captions), 'mood': SICK.moods[0], 'activity': SICK.key, 'place': None,
+            'with': None, 'weather': block.get('weather'), 'composer_version': COMPOSER_VERSION}
+
+
+def within_reach(options, state: str | None, block: dict):
+    """A low day keeps leisure and social time close to home; a sore one skips the workout."""
+    if state in body.LOW and block['kind'] in {'leisure', 'social'}:
+        return [option for option in options if option.key in CALM] or CATALOG['rest']
+    if state == 'sore':
+        return [option for option in options if option.key != 'workout'] or options
+    return options
+
+
+def compose(slot: dict, definition: dict, world, seed: str, recent_activities=(), company=(),
+            celebrants=()) -> dict | None:
+    """The event for one slot, or None when the slot stays quiet. `company` are circle members
+    free at the time ({id, name}); a social activity may name one of them. `celebrants` are circle
+    members whose birthday it is."""
+    rng = random.Random(seed)
+    block = slot['block']
+    options = CATALOG['care'] if 'caring' in (block.get('themes') or ()) else CATALOG.get(block['kind'])
+    if not options or rng.random() < QUIET_SHARE:
+        return None
+    state = (block.get('body') or {}).get('state')
+    if block.get('sick_day'):
+        return sick_day(rng, block, definition)
+    # Prefer activities that did not just happen, so variety comes from the routine, not drama.
+    conditions = block.get('weather') or weather(world, definition, slot['local_date'])
+    if outing := (own_birthday(slot, definition, world, seed, recent_activities, company, conditions)
+                  or birthday(slot, definition, world, seed, recent_activities, celebrants, conditions)):
+        return outing
+    low = state in body.LOW
+    if not low and (outing := festival(slot, definition, world, seed, recent_activities, company, conditions)):
+        return outing
+    options = within_reach(options, state, block)
+    if harsh(conditions):
+        # Bad weather moves the day indoors: no walks, and no workout in the park.
+        options = [option for option in options if not option.place_kinds or set(option.place_kinds) - OUTDOOR] \
+            or options
+    # Money hook: on a tight day an outing that costs money gives way to a free one.
+    options = [option for option in options if money.affordable(definition, option.key, slot['local_date'])] or options
+    fresh = [option for option in options if option.key not in set(recent_activities)] or list(options)
+    chosen = choose(rng, fresh, definition)
+    places = find_places(world, definition, slot, chosen.place_kinds)
+    if harsh(conditions):
+        places = [place for place in places if place.kind not in OUTDOOR]
+    place = rng.choice(places) if places else None
+    values = {'name': definition['name'], 'label': span(block),
+              'at': f' at {place.name}' if place else chosen.generic, 'place': place.name if place else '',
+              'area': f' in {place.neighborhood}' if place and place.neighborhood and place.neighborhood not in
+              place.name else ''}
+    friend = company[int(rng.random() * len(company))] if company and chosen.together else None
+    if friend:
+        summary = rng.choice(chosen.together).format(**values, friend=friend['name'])
+    else:
+        summary = rng.choice(chosen.summaries).format(**values)
+    post = rng.choice(chosen.captions)
+    if conditions and conditions['rain'] and not chosen.place_kinds and random.Random(f'{seed}:rain').random() < 0.5:
+        post = random.Random(f'{seed}:rain').choice(RAINY_CAPTIONS)
+    mood = rng.choice(chosen.moods)
+    if state and random.Random(f'{seed}:body').random() < LOW_SHARE:
+        mood = body.MOODS[state]
+    return {'summary': summary[0].upper() + summary[1:], 'post': post, 'mood': mood, 'activity': chosen.key, 'place': place.view() if place else None,
+            'with': friend, 'weather': conditions, 'composer_version': COMPOSER_VERSION}
+
+
+# Plans (PRD T2): a planned outing is not a completed outing. A plan names a future routine slot;
+# when that slot is simulated, the outing happens as planned and links back to the plan.
+PLAN_SHARE = 0.15
+PLANNABLE = {
+    'walk': ('go for a walk{at}', 'went for a walk{at}'),
+    'coffee': ('get coffee{at}', 'got coffee{at}'),
+    'museum': ('spend a few hours{at}', 'spent a few hours{at}'),
+    'market': ('browse the stalls{at}', 'browsed the stalls{at}'),
+    'dinner': ('have dinner with an old friend{at}', 'had dinner with an old friend{at}'),
+    'drinks': ('meet friends for drinks{at}', 'met friends for drinks{at}'),
+    'show': ('see a show{at}', 'saw a show{at}'),
+    'workout': ('fit in a workout{at}', 'fit in a workout{at}'),
+}
+PLANNING_KINDS = {'leisure', 'social'}
+
+
+def find_activity(key) -> Activity:
+    return next(option for options in CATALOG.values() for option in options if option.key == key)
+
+
+PLANNABLE_TOGETHER = {
+    'dinner': ('have dinner with {friend}{at}', 'had dinner with {friend}{at}'),
+    'drinks': ('meet {friend} for drinks{at}', 'met {friend} for drinks{at}'),
+    'show': ('see a show{at} with {friend}', 'saw a show{at} with {friend}'),
+}
+
+
+def outing_text(key: str, tense: int, at: str, friend: dict | None) -> str:
+    if friend and key in PLANNABLE_TOGETHER:
+        return PLANNABLE_TOGETHER[key][tense].format(at=at, friend=friend['name'])
+    return PLANNABLE[key][tense].format(at=at)
+
+
+def plan_ahead(definition: dict, world, seed: str, future_slots: list[dict], upcoming=None) -> dict | None:
+    """Sometimes, a plan for one upcoming leisure or social slot. `upcoming` maps slot keys to the
+    precomputed agenda entry (None when that slot is quiet), so a plan reveals what was already
+    going to happen instead of contradicting it."""
+    upcoming = upcoming or {}
+    rng = random.Random(f'plan:{seed}')
+    targets = [slot for slot in future_slots if slot['block']['kind'] in PLANNING_KINDS and (
+        slot['key'] not in upcoming or (upcoming[slot['key']] or {}).get('activity') in PLANNABLE)]
+    if not targets or rng.random() >= PLAN_SHARE:
+        return None
+    target = rng.choice(targets)
+    entry = upcoming.get(target['key'])
+    if entry:
+        chosen, place, friend = find_activity(entry['activity']), entry['place'], entry.get('with')
+    else:
+        options = [option for option in CATALOG[target['block']['kind']] if option.key in PLANNABLE]
+        chosen = rng.choice(options)
+        places = find_places(world, definition, target, chosen.place_kinds)
+        place = rng.choice(places).view() if places else None
+        friend = None
+    at = f" at {place['name']}" if place else chosen.generic
+    day = date.fromisoformat(target['local_date']).strftime('%A')
+    summary = f"{definition['name']} is planning to {outing_text(chosen.key, 0, at, friend)} on {day} " \
+              f"({target['block']['label'].lower()})."
+    return {'summary': summary, 'activity': chosen.key, 'place': place, 'with': friend,
+            'target': target, 'composer_version': COMPOSER_VERSION}
+
+
+def fulfil(plan: dict, definition: dict) -> dict:
+    """The outing a committed plan described, happening in its slot."""
+    details = plan['details']
+    place, friend = details.get('place'), details.get('with')
+    chosen = find_activity(details['activity'])
+    at = f" at {place['name']}" if place else chosen.generic
+    summary = f"{definition['name']} {outing_text(chosen.key, 1, at, friend)}, as planned."
+    rng = random.Random(f"fulfil:{plan['id']}")
+    return {'summary': summary, 'post': rng.choice(chosen.captions), 'mood': rng.choice(chosen.moods),
+            'activity': chosen.key, 'place': place, 'with': friend, 'composer_version': COMPOSER_VERSION,
+            'fulfils': plan['id']}
+
+
+# Unresolved threads (PRD T2): a small open question in the companion's life that settles a few days
+# later, one way or the other. They stay ordinary in scale; nothing here is a major life change.
+THREAD_SHARE = 0.1
+
+
+@dataclass(frozen=True)
+class Thread:
+    key: str
+    opening: str
+    endings: tuple[str, ...]
+    days: tuple[int, int] = (2, 5)
+    # The eras of the home city it fits ('any' for every one): no record player or video in Camelot.
+    eras: tuple[str, ...] = ('any',)
+
+
+MODERN_ONLY = ('modern',)
+# Cities with shops, cafes, novels and houseplants.
+TOWN_ERAS = ('modern', 'jazz-age', 'victorian', 'steampunk')
+OLD_ERAS = ('medieval', 'fantasy', 'frontier', 'victorian', 'steampunk')
+THREADS = (
+    Thread('repair', '{name} reported a leaky faucet to the landlord and is waiting for the repair.',
+           ('The landlord finally sent someone to fix {name}\'s leaky faucet.',
+            '{name} gave up waiting and fixed the leaky faucet with the help of a video.'), eras=MODERN_ONLY),
+    Thread('parcel', '{name} ordered a secondhand record player and is waiting for it to arrive.',
+           ('{name}\'s record player arrived, and it works.',
+            'The record player arrived with a cracked lid, but it still plays.'), eras=MODERN_ONLY),
+    Thread('waitlist', '{name} joined the waitlist for an evening pottery class.',
+           ('A spot opened up in the pottery class, and {name} took it.',
+            'The pottery class filled up, so {name} is on the list for next term.'), eras=MODERN_ONLY),
+    Thread('novel', '{name} started a long novel for a friend\'s book club.',
+           ('{name} finished the novel just in time for book club.',
+            '{name} went to book club only halfway through the novel and enjoyed it anyway.'), eras=TOWN_ERAS),
+    Thread('friend-visit', 'An old friend of {name}\'s might come to visit, but nothing is settled yet.',
+           ('The friend booked the trip, and {name} is already making a list of places to go.',
+            'The friend\'s visit fell through for now; they promised to try again in the spring.')),
+    Thread('plant', '{name} is trying to rescue a drooping houseplant.',
+           ('{name}\'s houseplant perked up with new leaves.',
+            'The houseplant did not make it; {name} kept a cutting just in case.'), eras=TOWN_ERAS),
+    Thread('lost-scarf', '{name} lost a favorite scarf somewhere around town and is retracing their steps.',
+           ('Someone had handed in {name}\'s scarf at a cafe they stopped at.',
+            '{name} gave up on the scarf and found a new one they like almost as much.'), eras=TOWN_ERAS),
+    Thread('noisy-neighbor', 'A neighbor of {name}\'s started a noisy renovation.',
+           ('The neighbor\'s renovation wrapped up, and it is quiet again.',
+            '{name} and the neighbor agreed on quiet hours, and it is better now.'), eras=('modern', 'jazz-age')),
+    Thread('recipe', '{name} is trying to get a tricky recipe right after two failed attempts.',
+           ('The third try worked, and {name} is proud of it.',
+            '{name} shelved the recipe for now after another flop.')),
+    Thread('tickets', '{name} is hoping to get tickets to a show that sold out fast.',
+           ('{name} found resale tickets to the show at a fair price.',
+            'No luck with the tickets; {name} will catch the show next time.'), eras=MODERN_ONLY),
+    Thread('gift', '{name} is hunting for the right birthday present for a friend.',
+           ('{name} found the perfect present at a little shop.',
+            '{name} settled on a handwritten card and a small present.')),
+    # Older and made-up worlds, in place of the parcels, classes and tickets above.
+    Thread('letter', '{name} sent a letter to a cousin far away and is waiting on a reply.',
+           ('A reply from {name}\'s cousin finally came, full of family news.',
+            'No reply yet; {name} hears the cousin has been traveling and will write again soon.'), (4, 9),
+           eras=OLD_ERAS),
+    Thread('mending', '{name} left a torn cloak with the tailor and is waiting to have it back.',
+           ('The tailor mended {name}\'s cloak so well the tear barely shows.',
+            'The tailor could only patch the cloak, but {name} likes the patch.'), eras=OLD_ERAS),
+    Thread('lost-glove', '{name} lost a good glove somewhere about town and is retracing their steps.',
+           ('A neighbor found {name}\'s glove by the well and brought it round.',
+            '{name} gave up on the glove and is knitting a new pair.'), eras=OLD_ERAS),
+)
+# A thread is not opened again within this many days of the last time, so a long run does not repeat itself.
+THREAD_REPEAT_DAYS = 120
+
+
+def find_thread(key) -> Thread:
+    return next(thread for thread in THREADS if thread.key == key)
+
+
+def thread_era(city: dict | None) -> str:
+    """The home city's era for threads: 'modern' for today's and future cities and any city the world does not know."""
+    era = (city or {}).get('era') or 'modern'
+    return 'modern' if era == 'future' else era
+
+
+def open_thread(definition: dict, seed: str, local_date: str, used=(), era: str = 'modern') -> dict | None:
+    """Sometimes, a new open thread that fits the home city's era; never one of the keys in `used`."""
+    rng = random.Random(f'thread:{seed}')
+    options = [thread for thread in THREADS if thread.key not in set(used)
+               and ('any' in thread.eras or era in thread.eras)]
+    if not options or rng.random() >= THREAD_SHARE:
+        return None
+    chosen = rng.choice(options)
+    settles = date.fromisoformat(local_date) + timedelta(days=rng.randint(*chosen.days))
+    return {'summary': chosen.opening.format(name=definition['name']), 'thread': chosen.key,
+            'settles_on': settles.isoformat(), 'composer_version': COMPOSER_VERSION}
+
+
+def settle_thread(thread: dict, definition: dict) -> dict:
+    """How a committed open thread turned out, seeded by the thread so a retry agrees."""
+    details = thread['details']
+    rng = random.Random(f"settle:{details['thread_key']}")
+    ending = rng.choice(find_thread(details['thread']).endings)
+    return {'summary': ending.format(name=definition['name']), 'thread': details['thread'],
+            'composer_version': COMPOSER_VERSION}

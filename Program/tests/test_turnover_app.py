@@ -1,0 +1,150 @@
+"""The town changes hands, seen from the app (dungeon/world/turnover.py): someone who has left is nowhere in town,
+can't take over or be become, a newcomer is their age from the day they
+arrived, and the paper and a companion's losses read the companion's own town."""
+from datetime import UTC, date, datetime, time, timedelta
+
+import pytest
+from test_cast import chatty, met_someone, ok, steady  # noqa: F401 (fixtures)
+
+from dungeon.characters import require_current
+from dungeon.life import ages, citymap, encounters, network, web
+from dungeon.world import paper, townsfolk, turnover
+
+
+@pytest.fixture(autouse=True)
+def active(monkeypatch):
+    monkeypatch.setattr(turnover, 'ACTIVE', True)
+
+
+def town(client) -> dict:
+    with client.app.state.database.connect() as connection:
+        return network.city(connection, require_current(connection))
+
+
+def after(clock, found: dict):
+    """Moves the app clock to a week after they left."""
+    clock.instant = datetime.combine(date.fromisoformat(found['day']) + timedelta(days=7), time(12), UTC)
+
+
+def test_someone_who_left_is_nowhere_in_town_and_cant_take_over(client, clock, chatty):  # noqa: F811
+    _mira, person = met_someone(client, clock)
+    data = town(client)
+    found = townsfolk.gone(townsfolk.find(data, person['key']), data, clock.now().date() + timedelta(days=36500))
+    assert found
+    after(clock, found)
+    seen = ok(client.get('/api/life/townsfolk/person', params={'key': person['key']}))
+    assert seen['now'] is None
+    known = next(item for item in ok(client.get('/api/life/townsfolk')) if item['key'] == person['key'])
+    assert known['left'] is None or known['left']['day'] == found['day']
+    for response in (client.get('/api/companion/cast/draft', params={'key': person['key']}),
+                     client.post('/api/worlds/become', json={'key': person['key']})):
+        assert response.status_code == 409 and response.json()['code'] == 'left_town', response.text
+        assert response.json()['detail'].startswith(f"{person['name']} ") and ", so you can't " in response.json()['detail']
+
+
+def test_the_map_and_who_knows_who_leave_out_where_someone_used_to_be(monkeypatch):
+    regular = {'key': 'town:x:bar:2', 'name': 'Dana', 'full': 'Dana Ruiz', 'kind': 'regular', 'staff': False,
+               'role': 'regular', 'place': {'id': 'bar', 'name': 'The Bar'}, 'neighborhood': 'Canton'}
+    staff = [{**regular, 'key': f'town:x:bar:{n}', 'name': f'Sam{n}', 'staff': True, 'role': 'barkeep',
+              'first_place': 'The Bar'} for n in (0, 1)]
+    left = {'why': 'moved', 'day': '2028-01-03', 'text': 'moved away'}
+    graph = web.Web()
+    graph.add('companion:1', 'Mira', 'companion')
+    web.add_townsfolk(graph, 'companion:1', [staff[0] | {'left': left}, staff[1]])
+    assert not [link for link in graph.links.values() if link['kind'] == 'work']
+    assert graph.nodes[staff[0]['key']]['detail'] == 'formerly barkeep at The Bar; moved away'
+    monkeypatch.setattr(encounters, 'known', lambda *_args: [regular, regular | {'key': 'town:x:bar:3', 'name': 'Lee',
+                                                                                  'left': left}])
+    assert citymap.regulars(None, {}, None) == {'bar': ['Dana']}
+
+
+def test_the_paper_reads_the_companions_own_town(client, clock, chatty, monkeypatch):  # noqa: F811
+    mira, person = met_someone(client, clock)
+    ok(client.post('/api/companion/town', json={'fresh': True}))
+    seen = {}
+
+    def issue(_connection, data, _world, day):
+        seen.update(data)
+        return {'townsfolk': []}
+    monkeypatch.setattr(paper, 'issue', issue)
+    ok(client.get('/api/life/paper'))
+    assert seen['town'] and 'kept' in seen and seen['town'] == town(client)['town']
+
+
+def test_a_companion_hears_of_a_loss_in_their_own_town(client, clock, chatty, monkeypatch):  # noqa: F811
+    from dungeon.life import loss
+    met_someone(client, clock)
+    ok(client.post('/api/companion/town', json={'fresh': True}))
+    towns = []
+    monkeypatch.setattr(encounters, 'history_for', lambda _c, _companion, _cast, _now: towns.append(_cast) or {})
+    resolved = []
+    real = encounters.town_cast
+
+    def cast(connection, companion, data):
+        resolved.append(data.get('town'))
+        return real(connection, companion, data)
+    monkeypatch.setattr(encounters, 'town_cast', cast)
+    with client.app.state.database.connect(write=True) as connection:
+        companion = require_current(connection)
+        loss.town(connection, companion, clock.now().date(), clock.now())
+    assert resolved == [companion['town_seed']] and resolved[0]
+
+
+def test_a_newcomer_is_their_age_from_the_day_they_arrived(monkeypatch):
+    monkeypatch.setattr(ages, 'stored', lambda *_args: None)
+    monkeypatch.setattr(ages, 'town_began', lambda _connection: date(2026, 10, 19))
+    sheet = {'key': 'town:x:bar:1001', 'seed': 'x', 'age': 30, 'arrived': '2034-03-06'}
+    assert ages.town_age(None, sheet, date(2034, 3, 6)) == 30
+    assert ages.town_age(None, sheet, date(2036, 3, 6)) in (31, 32)
+    assert ages.town_age(None, sheet | {'arrived': None}, date(2034, 3, 6)) >= 37
+
+
+def test_changing_the_sliders_moves_the_town_on_from_then_and_keeps_its_past(client, clock, chatty):  # noqa: F811
+    met_someone(client, clock)
+    data = town(client)
+    first = [sheet for place in data['places'] for sheet in townsfolk.at_place(data, place['id'], turnover.START)]
+    clock.instant = datetime.combine(turnover.START + timedelta(days=3 * 365), time(12), UTC)
+    today = clock.now().date()
+
+    def departures(until):
+        return {sheet['key']: found['day'] for sheet in first
+                if (found := townsfolk.gone(sheet, data, until))}
+    past, future = departures(today), departures(today + timedelta(days=30 * 365))
+    staff_now = {place['id']: [sheet['key'] for sheet in townsfolk.at_place(data, place['id'], today)]
+                 for place in data['places']}
+    for body in ({'life_turns': 3}, {'people_pass_away': True, 'loss': 3}, {'life_turns': 0, 'people_pass_away': False}):
+        ok(client.put('/api/life/settings', json=body))
+        assert departures(today) == past
+        assert {place['id']: [sheet['key'] for sheet in townsfolk.at_place(data, place['id'], today)]
+                for place in data['places']} == staff_now
+    # With Life's big turns at none nobody else leaves, once the year of their stay under way has run out.
+    assert departures(today + timedelta(days=30 * 365)) != future
+    assert all(day <= (today + timedelta(days=372)).isoformat()
+               for day in departures(today + timedelta(days=30 * 365)).values())
+
+
+def test_someone_who_left_is_spoken_of_in_the_worlds_terms():
+    sheet = {'name': 'Casey', 'kind': 'staff', 'place': {'name': 'Walters Art Museum'}}
+    data = {'name': 'Baltimore'}
+    lines = [townsfolk.gone_line(sheet, data, {'why': why}) for why in ('moved', 'new job', 'retired', 'passed')]
+    assert lines == ['Casey moved away from Baltimore', 'Casey left for a job elsewhere',
+                     'Casey retired from Walters Art Museum', 'Casey passed away']
+
+
+def test_someone_known_well_who_left_lately_stays_in_the_context_for_four_weeks(monkeypatch):
+    now = datetime(2027, 6, 30, 12, tzinfo=UTC)
+    today = now.date()
+
+    def person(key, times, left_days_ago=None):
+        left = {'day': (today - timedelta(days=left_days_ago)).isoformat(), 'why': 'moved', 'text': 'moved away'} \
+            if left_days_ago is not None else None
+        return {'key': key, 'times': times, 'left': left}
+    seen = [person(f'recent:{index}', 1) for index in range(encounters.CONTEXT_LIMIT)]
+    older = [person('well:left-lately', 3, 10), person('slight:left-lately', 2, 10), person('well:left-long-ago', 5, 40),
+             person('well:still-here', 4)]
+    monkeypatch.setattr(encounters, 'ACTIVE', True)
+    monkeypatch.setattr(encounters, 'known', lambda *_args: seen + older)
+    monkeypatch.setattr(encounters, 'text', lambda found: found['key'])
+    companion = {'version': {'timezone': 'UTC'}}
+    keys = [key for key, _line in encounters.context_lines(None, companion, now)]
+    assert keys == [*(found['key'] for found in seen), 'well:left-lately']

@@ -1,0 +1,31 @@
+import type { PairStage, PairTie } from '../../types'
+
+/** The stages a companion and someone else can be at, the same five as closeness with the user. */
+export const PAIR_STAGES = ['Just met', 'Getting to know each other', 'Comfortable', 'Close', 'Deeply close']
+
+/** "Close", or "Close · Maya feels Comfortable" when the two feel differently. */
+export function stageText(stage: PairStage, other: string): string {
+  return stage.level === stage.their_level ? stage.name : `${stage.name} · ${other} feels ${stage.their_name}`
+}
+
+/** "Sally and Billy: Comfortable", or both directions when they differ. */
+export function tieText(name: string, tie: PairTie): string {
+  const first = name.split(' ')[0]
+  const other = tie.name.split(' ')[0]
+  if (tie.feels.level === tie.they_feel.level) return `${first} and ${other}: ${tie.feels.name}`
+  return `${first} feels ${tie.feels.name} with ${other}; ${other} feels ${tie.they_feel.name}`
+}
+
+/** How they know each other, as the user reads it: the app's suggestion is written for the model ("only know each
+ * other through the user", dungeon/memory/pairs.py), so on screen "the user" is you. */
+export function howText(how: string): string {
+  return how.replace(/\b([Tt])he user's\b/g, (_, t: string) => (t === 'T' ? 'Your' : 'your'))
+    .replace(/\b([Tt])he user\b/g, (_, t: string) => (t === 'T' ? 'You' : 'you'))
+}
+
+/** What their stage comes from, so it reads as history rather than a setting. */
+export function tieWhy(tie: PairTie): string {
+  const parts = []
+  if (tie.meetings) parts.push(`ran into each other ${tie.meetings === 1 ? 'once' : `${tie.meetings} times`}`)
+  return parts.length ? parts.join(', ') : ''
+}
