@@ -1,10 +1,11 @@
-# Image generation
+# Image backends
 
 [Back to the README](../../README.md)
 
-Moments of the companion's life (posts, dungeon/life/feed.py) can carry an illustration made by one of three kinds of backend (PRD F3 to F9). Every
-backend is off until the user sets it up, and text never waits for an image. The code is in
-`dungeon/images/`.
+Three kinds of image backend can be set up (PRD F5 to F9). Every backend is off until the user sets it up. The
+code is in `dungeon/images/`. Since Milestone 0 nothing asks for a picture: the companion's photos and post
+pictures are gone, and the story's own pictures come back in a later milestone (see
+[the roadmap](../../docs/roadmap.md)). The backend setup, checks and content routing below are kept for it.
 
 ## Backends (F5, F7 to F9)
 
@@ -182,183 +183,12 @@ asks a service. `routing.py` then decides where it may go:
   On the shipped city data that is 4 of 3,749 names and descriptions; the composer's own captions
   produce none (`tests/test_images.py`).
 
-## Prompts
-
-`dungeon/images/prompts.py` writes one descriptive paragraph in the shape Krea 2's guide asks for
-(github.com/krea-ai/krea-2, `docs/prompting.md`), with no model: the style line as the medium (or a
-chat photo's selfie or view framing), then the person as a camera would see them, what they wear in
-this moment, what they are doing (a fixed present-tense line per activity, `prompts.PICTURES`; a
-corrected event or one without an activity uses its summary) and where, an expression for the event's mood, the light for the
-local hour and weather, and camera details when the style is a plain photograph. The character's
-name is said as she, he or they (read from the appearance description; "they" when it never says),
-impressions ("looks like someone who...") are dropped and backstory is cut from a clause ("a scar
-from a derby fall" keeps the scar). The post's caption is not in the prompt: the feed shows it
-under the picture. Other backends get the same paragraph, which reads as a plain description.
-
-**Looks sheet.** Before the appearance description comes their looks sheet in words
-(`dungeon/world/looks.py`, banks in `world/data/looks.json`): "A tall, athletic woman in her early
-thirties with olive skin, an oval face, a defined jawline, a straight nose, almond-shaped hazel eyes,
-dark brown hair in a ponytail and freckles." The sheet holds apparent age, height, weight, build, skin,
-face shape, jaw and chin, nose, eye colour and shape, hair, facial hair and one noticeable feature. On
-the character form (Show details > Looks) each field is optional: what the user sets wins, and an empty
-field is drawn from the companion's id, coloured by the heritage their description names and with
-weight worked out from height and build inside a plausible body-mass range (`bmi_limits`), so a roll
-never pairs 4'10" with 350 lb. A drawn field is left out where the appearance text already speaks of
-it, so a picture never gets two hair colours. Weight stays out of the picture (the build word carries
-it) but is in their own prompt as "Looks:", so they answer "how tall are you?" the way their pictures
-show them. Townsfolk draw height, build, hair, eye colour and their feature from their seeded looks
-(`dungeon/world/dating.py`), so every picture of them and a townsperson who becomes the main
-character all show one person; becoming the main character copies the whole sheet onto the form.
-
-**Style per backend.** Each backend can have its own **Style** (stored as `style` in its config), since
-each model wants its own opening: a photo line for Krea 2, a tag-style line for an anime model, a
-plainer one for GPT Image. A request is built with the general style from Settings > Images; when
-it starts on a backend, `prompts.restyle` swaps the opening style line (and the camera details that
-follow from a plain photo style) for that backend's own, or back to the general one for a backend
-without one, so a retry or fallback elsewhere starts from the general style (`general_style` in
-the inputs). The job records the prompt as sent. Memes keep their own opening. Profile pictures
-use the chosen backend's style too. A backend's style is classified when saved: one that is not
-plainly safe is refused on any backend that does not accept NSFW requests, as style LoRAs are.
-
-## Jobs (F3, F4)
-
-A job freezes its inputs: the prompt and negatives, the aspect, a seed, the events and their
-revisions, the character version and appearance. It records the classification and its reasons,
-the routing reason, the backend, provider, model, workflow, the appearance version and identity
-method (the text description, or the adopted LoRA on ComfyUI; see [the LoRA maker](lora.md)), the
-seed where the backend takes one, the output size and usage.
-
-- States are `queued`, `running`, `completed`, `failed`, `cancelled` and `interrupted`. A refused
-  request is stored as a `failed` job with the reason, so the post shows why.
-- The post points at its current job. Queuing a new one makes it current; choosing an earlier
-  finished version makes that one current. A result that arrives for a job that is no longer
-  current is kept as another version and never replaces the choice.
-- Retry repeats the original inputs. Choosing current settings, or a different backend, rebuilds
-  them. If an event changed since, retrying the original is refused (M3) and a queued job for it
-  is cancelled at dispatch.
-- Fallback to the next eligible backend after a failure is off by default.
-- After a restart, queued and running jobs become `interrupted`; nothing resumes on its own.
-- Automatic images (off by default) need background activity on and no pause. They cover single
-  event posts made after the setting was turned on, up to `daily_limit` in any 24 hours, never
-  catch-up digests and never older posts. A refusal is not retried.
-- At most `queue_limit` jobs wait or run at once.
-- Images are saved in `images/` beside the workspace database. Backups hold the job records but
-  not the image files. A restored workspace has its image keys cleared and automatic images off.
-
-## Photos, selfies and memes in chat
-
-Asked what they're up to ("what are you up to?", "wyd", "send me a pic"), the companion can answer
-with a photo of the moment (`dungeon/images/photos.py`). "Send me a selfie" gets a selfie of the
-same moment, "a pic of the view" a first-person photo with nobody in it (and so no likeness), and
-"send me a meme", "make me laugh" or "cheer me up" a meme. The app decides from a fixed list of
-phrasings, not the model, and a question about another time ("tomorrow", "tonight", "been up to")
-asks for no photo.
-
-- A selfie or view is another version of the moment's picture, on the same post. Each reply keeps
-  the version it sent, the feed shows the newest, and asking again for the same kind in the same
-  moment shows the one already made.
-- A meme is a joke, not an event. Its captions come from templates that fit the companion's day
-  (`dungeon/images/memes.py`: what their routine has them doing, rain, late night or morning), and
-  the last few are not repeated. The picture is the companion pulling a face or a simple fictional
-  scene, made square on a post of its own that never reaches the feed. The interface draws the
-  captions over it; the image model is never asked for text. Captions are classified with the rest.
-- Pictures nobody asked for: now and then a reply comes with a photo or selfie of a moment not yet
-  sent in chat (a seeded chance per reply), and a meme is likely when the user sounds bored or down.
-  At most three a day, two hours apart, and the reply knows it chose to send it. Settings > Images >
-  "Let them send pictures without being asked" turns them off.
-
-- The photo shows the companion's current routine slot, composed the way the simulation will
-  compose it: the same agenda entry, plan and seed, and the wording prepared ahead for that entry
-  when the current life model prepared it. Nothing asks a model to write anything.
-- The image is made on a feed post keyed `photo:<event key>`. It has no event yet, so it stays out
-  of the feed. When the simulation writes that slot's event, the event joins the photo's post
-  instead of getting a post of its own or a place in a digest, so the feed shows the same picture
-  and the event is told once. A batch picks photographed slots first, like planned ones.
-- The request is classified and routed like any other (F6). With nowhere allowed to send it
-  (no backend, only safe-only backends for an NSFW moment, or the prohibited tier) no photo is sent,
-  and the reply is not told about one. Sleep, quiet slots, a pause and the setting being off send
-  none either.
-- A reply that sends a photo gets one context section with the moment, so it can mention the photo.
-  Asking again in the same slot shows the same photo without making another.
-- `chat_photos` in the image settings turns it off (on by default; it still needs a backend).
-- In the chat, each style shows the picture under the reply with a line while it is on its way.
-  The Visual novel stage also shows the latest photo (not meme) behind the portrait.
-
-## Profile pictures
-
-Right after a companion is created, when an image backend is enabled, the app offers three
-pictures of them (`dungeon/lora/portraits.py`, page `src/features/appearance/Portraits.tsx`). The
-step can be skipped and run again from the Character page (**Profile pictures**).
-
-1. **Profile picture**: waist up, facing the camera, in an everyday outfit, with an expression that
-   fits their personality.
-2. **Three-quarter view** in a second everyday outfit, made from picture 1.
-3. **Face close-up**, also made from picture 1.
-
-- The expression comes from words in their personality, identity and voice (shy, wry, playful,
-  warm and so on) and the two outfits are a fixed pick for that companion from a short list. No
-  model writes anything; the description and all three shots can be edited before sending.
-- Pictures 2 and 3 each send picture 1 along as a reference, so the set shows one person. The whole set goes to the first enabled backend that can take a reference picture:
-  **Codex** (attached with `codex exec --image`), a **chat-style API** such as OpenRouter (the
-  picture goes in the message), the **OpenAI API** (`/images/edits`), or a **ComfyUI** server with
-  its *reference workflow*, the built-in one or the user's own with `{{reference_image}}` as a
-  LoadImage node's image (the app uploads the picture through `/upload/image`). Google's OpenAI-compatible endpoint and other `images`-style APIs
-  cannot take one.
-- When no enabled backend can, nothing is sent and the page says so. The user can choose to make
-  all three from the description alone; the page then says they may not look like one person.
-- Each picture is classified and routed like any image: NSFW goes only to a backend that accepts it and
-  Prohibited is refused. When picture 1 fails or is refused, the other two are not made. **Make
-  this one again** remakes that picture with a new seed; remaking picture 1 remakes all three.
-- Finished pictures are kept as they are ready (**Keep** shows again only if keeping failed): this adds them to the character's reference pictures (as
-  `generated`, for training) and makes picture 1 the companion's picture: in the conversation
-  header, the Community style's avatars and the Visual novel stage. Any reference picture can be
-  chosen instead in Look and LoRA, and removing it brings back their initial.
-- The set runs through the LoRA maker's generation runner (one picture at a time, the shared
-  backend limits and the single Codex slot) as a `lora_generations` row of kind `portraits`, which
-  the LoRA maker's own list leaves out.
-- Every reference path has only been tested against stand-ins (a fake `codex`, mocked HTTP for
-  OpenRouter, OpenAI and ComfyUI), not a real backend.
-- On Codex, picture 1 is made from the companion's character sheet (below).
-
-## Character sheet (Codex)
-
-Before the first picture of a companion goes to a **Codex** backend, the app asks Codex for a
-character reference sheet (`dungeon/images/sheet.py`): one landscape picture, 1536 x 1024, in three
-panels on a grey studio background: a close-up of the face, a front view from the neck down, and a
-back view from head to feet. The sheet is saved as the companion's identity reference (in
-`images/sheets/`, table `character_sheets`) and never posted. The picture that was asked for is
-then made with the sheet attached, so the first picture of someone costs two Codex calls. Every
-later Codex picture of them (feed posts, chat photos and selfies, memes of them, profile picture 1
-and the LoRA maker's prepared pictures) attaches the same sheet and asks Codex to keep the face,
-hair, skin tone and build and to take the outfit, pose and setting from its own description.
-
-- The sheet's prompt is a fixed template (Vanta's production reference-sheet prompt, 2026-10-11),
-  filled without a model: their looks sheet and the visible part of their appearance, the profile
-  picture's everyday outfit unless the appearance says what they wear, and the backend's picture
-  style (`backends.style_for`). It asks for the largest landscape size Codex makes rather than 16K.
-- When they already have a profile picture, it is attached and the sheet follows it; otherwise the
-  description is the reference.
-- Editing their looks or appearance makes a new sheet the next time a Codex picture of them is made.
-- The sheet is classified and must be eligible for the backend like any request. When it is not, or
-  it fails for a reason other than sign-in, the picture is made from the description alone. A
-  sign-in error fails the picture and stops the Codex queue as usual.
-- The sheet and the picture run one after the other inside the single Codex slot, so Codex calls
-  stay serial. Views (pictures of what they see), memes of something else, and other backends
-  make no sheet.
-- Pictures that follow the sheet record "text description and their character sheet" as how they
-  drew the character. Sheets go with the character (kept by Start over, removed with the companion)
-  and are carried in backups.
-
 ## Interface
 
-Settings has an **Images** section: add a ComfyUI server, a Codex backend or an image API, accept
-what it receives, order, check, enable or remove each one, and set automatic images, fallback,
-the daily limit, the shape and a style line. A blocked Codex backend shows the sign-in step and a
-**Signed in again** button. Finished pictures of moments show in Our year and, for a photo a reply
-sent, in the chat. The image API (`/api/images/jobs`, `/api/images/preview`) still lists every request
-for a post with its backend, model, likeness method, content check, routing, seed and prompt, and can
-pick between finished versions; no screen offers that by hand since the feed went.
-Display logic that needs no browser is in `src/features/images/imageState.ts`.
+Settings has an **Images** section: add a ComfyUI server, a Codex backend or an image API, accept what it
+receives, order, check, enable or remove each one, and give each its own style line. A blocked Codex backend
+shows the sign-in step and a **Signed in again** button. Display logic that needs no browser is in
+`src/features/images/imageState.ts`.
 
 ## API
 
@@ -366,7 +196,6 @@ All writes need the `x-dungeon-client: workspace` header.
 
 | Method and path | Purpose |
 | --- | --- |
-| `GET`, `PUT /api/images/settings` | `automatic_images`, `chat_photos`, `daily_limit` (0 to 24), `queue_limit` (1 to 20), `fallback`, `aspect` (`square`, `landscape`, `portrait`), `style` |
 | `GET /api/images/backends` | Backends in order, with `local`, `accepts_nsfw`, `allows_nsfw`, `nsfw_switch` (whether the switch is offered), `disclosure`, `blocked_reason`, `has_key`, `model_files` (ComfyUI); never a key |
 | `POST /api/images/backends` | `{kind, provider?, label?, base_url?, model?, workflow?, reference_workflow?, unet_name?, clip_name?, clip_type?, vae_name?, cli_path?, api_style?, api_key?, controlled_machine?, allows_nsfw?, concurrency?, enabled?, accept_disclosure?}` |
 | `PUT /api/images/backends/{id}` | The same fields; saving a key clears a sign-in block; changing the address or turning `allows_nsfw` on needs the disclosure again |
@@ -378,15 +207,3 @@ All writes need the `x-dungeon-client: workspace` header.
 | `GET /api/images/backends/{id}/files` | ComfyUI only: `{ok, error, family, defaults, sampler_defaults, options, matching, character_lora}`, the files the server offers each of the family's built-in loaders (`unet_name`, `clip_name`, `clip_type`, `vae_name`, Krea 2's `ref_unet_name`, or `ckpt_name`), its LoRAs (`lora`, without the character's own) and KSampler's `sampler_name` and `scheduler` lists, the family's own first and listed in `matching` |
 | `GET /api/images/model-links` | `{links: [{name, role, file, url, licence, family}]}`: download pages for each family's built-in workflow files |
 | `POST /api/images/backends/{id}/unblock` | The user signed in to Codex again |
-| `POST /api/images/preview` | `{post_id, marked_nsfw?}`: the prompt, classification and route, without queuing |
-| `POST /api/images/jobs` | `{post_id, backend_id?, marked_nsfw?}`: queue a manual image |
-| `GET /api/images/jobs?post_id=` | Every job for a post, newest first |
-| `GET /api/images/jobs/{id}` | One job |
-| `POST /api/images/jobs/{id}/cancel` | Cancel a queued or running job |
-| `POST /api/images/jobs/{id}/retry` | `{current_settings?, backend_id?}` |
-| `POST /api/images/jobs/{id}/select` | Make a finished version the post's image |
-| `GET /api/images/jobs/{id}/file` | The image file |
-| `GET /api/images/photos/{message_id}` | The picture a reply sent: `{post_id, kind, summary, top_text, bottom_text, status, job_id, ref, error, in_feed}` |
-
-A post's `image` is `{status, job_id, ref, error, updated_at}`: `ref` is the id of the job whose
-file is shown, which can differ from `job_id` while a replacement is queued, running or failed.

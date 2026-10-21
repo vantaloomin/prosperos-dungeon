@@ -120,7 +120,7 @@ A `beside-the-study` job installs Prospero's Study from its repository (pinned t
 starts it on 8765, installs the Dungeon and runs `scripts/package/beside-study-test.ps1`: a
 Dungeon pointed at the Study's port refuses and stops nothing, the Dungeon runs on 8785 while
 the Study keeps answering, neither data folder holds the other's files, and the Study's database
-never gains the Companion's identity marker.
+never gains the Dungeon's identity marker.
 
 The bundle and setup are not code signed yet, so Windows SmartScreen may warn on first launch. Signing is an
 open release decision.
@@ -180,8 +180,7 @@ draft handling) sits in plain `.ts` modules beside the components that use it.
 Settings is split into tabs listed in `src/features/settings/sections.ts`, with the section
 headings and keywords its search box looks through. A new settings section goes in that list and
 in `TabContent` in `Settings.tsx`. Tabs are deep-linkable: `go('settings/models')` from any view,
-or `#settings/<tab>` in the address; an unknown tab, or one that needs a companion before there is
-one, opens the first tab available.
+or `#settings/<tab>` in the address; an unknown tab opens the first tab available.
 
 ## Workspace and identity
 
@@ -200,8 +199,7 @@ file, including a Study database, is refused with a read-only check before anyth
 
 ### Upgrades
 
-The marker also records the schema version, the app version and a digest of `schema.sql` plus
-`ADDED_COLUMNS`, so any schema change is noticed without anyone bumping a number. When a workspace
+The marker also records the schema version, the app version and a digest of `schema.sql`, so any schema change is noticed without anyone bumping a number. When a workspace
 was written with a different digest, `dungeon/upgrade.py` runs before the server listens:
 
 1. A workspace from a newer schema version, or another app's database, is refused untouched.
@@ -213,23 +211,16 @@ was written with a different digest, `dungeon/upgrade.py` runs before the server
 
 Bump `SCHEMA_VERSION` only when older releases must refuse the new schema.
 
+Schema version 2 is Milestone 0's fresh schema. A version 1 workspace (the companion's) is not migrated: step 3
+builds a new workspace instead and copies across only the user's settings, models, persona and cities
+(`upgrade.fresh`); the pre-upgrade backup keeps everything else.
+
 ### Backups and restore
 
-`POST /api/backups` writes `backups/companion-<time>.zip` (archive format 2): the database snapshot
-plus the files its records name, at their workspace paths and each with its SHA-256 in
-`manifest.json`: finished images (`images/`, `images/raw/`) and adapters that have not been removed
-(`lora/adapters/`). Training reference pictures (`lora/references/`) are included only with
-`?include_datasets=true`. Training work folders (`lora/runs/`, checkpoints and trainer logs) are
-never included; a chosen checkpoint is already copied into `lora/adapters/`.
-
-Restoring checks the marker, the schema version and every digest before writing anything, refuses
-any path outside those folders, and then checks each record's file: completed images, reference
-pictures and adapters (with their digests), and whether the selected appearance version's adapter
-came back. Queued or running images and evaluations become interrupted, and a running training job
-becomes interrupted without its old process id. Replacing a workspace keeps its current settings,
-connections and paired phones instead of the backup's. With no workspace to replace (a new computer), the
-restored one is paused for review: automatic memory, background activity and automatic images are off,
-saved keys and context tool approvals are dropped, and nothing resumes until the user reviews it.
+`POST /api/backups` writes `backups/dungeon-<time>.zip`: the database snapshot with its SHA-256 in
+`manifest.json`. Restoring checks the marker, the schema version and the digest before writing anything. Replacing
+a workspace keeps its current settings and connections instead of the backup's (`restore.KEPT_SETTINGS`). With no
+workspace to replace (a new computer), saved keys are dropped, so the user enters them again.
 
 In the app, Settings > Backups lists the archives in `backups/` (`GET /api/backups`, read from
 their manifests) and **Restore…** chooses one (`POST /api/backups/{name}/restore`, which verifies
@@ -238,15 +229,12 @@ replace its own open workspace, so the choice is recorded in `pending-restore.js
 launcher applies it on the next start, before the workspace opens; the request is consumed whether
 or not the restore succeeds, so a failure is reported once and never retried. Outside the app, close
 it and run the launcher with `--restore <backup.zip>` (`"Prospero Dungeon.cmd" --restore <file>`
-in the bundle). The current workspace moves to
-`replaced-<time>/` beside it, not deleted, and moves back if the restore fails. Its deletion
-records then apply to the restored workspace, so memories deleted and messages redacted after the
-backup was made stay gone (PRD M5). Pre-upgrade backups hold only the database, since an upgrade
-never changes media.
+in the bundle). The current workspace moves to `replaced-<time>/` beside it, not deleted, and moves back if the
+restore fails.
 
 ### Logs
 
-`python -m dungeon.launch` logs to its window and to `logs/companion.log` in the data directory
+`python -m dungeon.launch` logs to its window and to `logs/dungeon.log` in the data directory
 (1 MB, three older files kept). Request logging is off, since a URL can carry a search query, and
 `dungeon/logs.py` masks anything shaped like a credential (bearer tokens, `api_key=` values,
 `sk-`/`hf_`-style keys) in messages and tracebacks before a line is written. The app itself never
@@ -254,8 +242,7 @@ logs message text. An unexpected error returns `{"code": "server_error"}` with a
 full path, and the page shows "Open the log folder" under it on the PC (`POST /api/logs/open-folder`).
 
 **Record model calls** (Settings > Debug, PC only, off by default; `dungeon/model_calls.py`) is the one
-exception: while it is on, every chat model call (one-on-one, Story, life wording, memory
-suggestions, picture descriptions, the character helper) is appended in full to
+exception: while it is on, every text model call (the narrator and anything else that asks a model) is appended in full to
 `logs/model-calls/YYYY-MM-DD.jsonl`: which part of the app asked, provider, model, address without its query
 string, the system prompt, messages and exact request body, and the streamed text, thinking, finish reason, usage
 or error, with timing. Keys travel in headers and are never written. Files older than seven days are deleted.
@@ -299,9 +286,6 @@ changes made.
 | `dungeon/imports/formats.py` | `server/library_formats/json_formats.py` (signatures), `native_characters.py` (field maps), `containers.py` (ZIP checks), `charx.py`, `byaf.py` | One plain shape (character, lorebook, picture) instead of Library proposals; lighter BYAF validation; no asset review |
 | `dungeon/imports/lorebooks.py` | `server/library_formats/native_lorebooks.py`, `card_lore.py`, `server/lore/import_rules.py` | Entries are used straight away; pattern entries stay off instead of awaiting review |
 | `dungeon/lore.py` (keyword matching) | `server/lore/matching.py` | Whole-word, case-insensitive literal keywords only |
-| `src/features/sidecar/`, its CSS in `src/styles.css` | `src/features/collaborator/` (Collaborator dock, composer, edit proposals), `src/styles/collaborator.css` | Rewritten for Dungeon: a docked panel that proposes edits to the character, replies and memories (Apply, Dismiss, Undo); no saved threads, pinned sources, pop-out window or profile override |
-| `src/components/TextComparison.tsx` | `src/features/textEdits/EditPresentation.tsx` (`TextComparison`) | Unchanged |
-| `tests/test_study_import.py` (`STUDY_SCHEMA`) | `server/schema.sql` | Library, story, Sidebar, profile and backup tables only, as a test fixture |
 
-The Study's `assemble_memory` was not copied: it assumes an accepted Story path. The Dungeon
-context builder in `dungeon/memory/context.py` replaces it.
+The Study's `assemble_memory` was not copied: it assumes an accepted Story path. The Dungeon's
+narrator prompt is built in `dungeon/narration/prompt.py`.

@@ -142,14 +142,19 @@ def start(database: Database):
 # Personas in a world ------------------------------------------------------------------------------------
 
 def write_persona(connection, persona: dict, timestamp: str, home: dict | None = None):
-    """Who the user is in this world, and where they live in it (`home`, the world's: dungeon/world/where.py)."""
+    """Who the user is in this world, and where they live in it (`home`, the world's: dungeon/world/where.py). The
+    world's town seed is its own, set once by `build`, so it is never overwritten here."""
     home = home or {}
-    connection.execute('INSERT OR REPLACE INTO persona (id, persona_id, name, gender, age, about, birthday, '
-                       'updated_at, townsfolk_key, town_seed, home_city_id, home_neighbourhood, kind, lifespan) '
-                       'VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    connection.execute('INSERT INTO persona (id, persona_id, name, gender, age, about, birthday, updated_at, '
+                       'townsfolk_key, home_city_id, home_neighbourhood, kind, lifespan) '
+                       'VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET '
+                       'persona_id=excluded.persona_id, name=excluded.name, gender=excluded.gender, age=excluded.age, '
+                       'about=excluded.about, birthday=excluded.birthday, updated_at=excluded.updated_at, '
+                       'townsfolk_key=excluded.townsfolk_key, home_city_id=excluded.home_city_id, '
+                       'home_neighbourhood=excluded.home_neighbourhood, kind=excluded.kind, lifespan=excluded.lifespan',
                        (persona['id'], persona['name'], persona['gender'], persona['age'], persona['about'],
                         persona.get('birthday') or '', timestamp, persona.get('townsfolk_key', ''),
-                        persona.get('town_seed', ''), home.get('city_id', ''), home.get('neighbourhood', ''),
+                        home.get('city_id', ''), home.get('neighbourhood', ''),
                         persona.get('kind') or '', persona.get('lifespan')))
 
 
@@ -273,6 +278,7 @@ def build(database: Database, path: Path, persona: dict, city_id: str, seed: str
         if town_mix != mix.DEFAULTS:
             mix.write(connection, town_mix, made.now())
         write_persona(connection, persona, made.now(), home)
+        connection.execute('UPDATE persona SET town_seed=? WHERE id=1', (seed[:16],))
         data = story.city_for(connection, city_id, seed[:16])
     lore.carry_city_lore(path, database.path, data)
 
@@ -444,12 +450,12 @@ def set_aside(database: Database, world: dict) -> str:
 
 def delete_world(database: Database, world_id: str) -> dict:
     """A world goes with everything in it, after a backup. Not the one the user is in, nor the first world, whose
-    folder holds all the others (Start over empties it instead)."""
+    folder holds all the others."""
     data = registry(database)
     world = found(data['worlds'], world_id, 'world')
     require(world['id'] != data['active'], 'Switch to another world before deleting this one.', 409)
-    require(bool(world['folder']), 'The first world holds the others, so it stays. Settings > Start over can empty '
-            'it instead.', 409)
+    require(bool(world['folder']), 'The first world holds the others, so it stays. Start a new story in it instead.',
+            409)
     if world_path(database.home, world).exists():
         set_aside(database, world)
     shutil.rmtree(database.root / world['folder'], ignore_errors=True)

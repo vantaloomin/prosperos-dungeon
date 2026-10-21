@@ -33,24 +33,11 @@ from dungeon.providers.vault import credential_for
 
 CHAT = 'chat'
 JOBS = [
-    {'key': CHAT, 'name': 'Conversation', 'detail': 'Replies in chat. Every other job uses this profile '
-     'unless you choose another.'},
-    {'key': 'life', 'name': 'Life phrasing', 'detail': "Words the companion's day in the background, when model "
-     'phrasing is on in Life settings.'},
-    {'key': 'memory', 'name': 'Memory suggestions', 'detail': 'Suggests memories from your messages in the '
-     'background, when model suggestions are on.'},
-    {'key': 'drafting', 'name': 'Character drafting', 'detail': 'Quick start, Help me write and splitting a character '
-     'you paste in.'},
-    {'key': 'sidecar', 'name': 'Sidecar', 'detail': 'The chat beside the app that evaluates and edits replies, '
-     'memories and the character for you.'},
-    {'key': 'vision', 'name': 'Seeing pictures', 'detail': 'Describes pictures you send, once, so the companion '
-     'sees them. Needs a model that can look at images, such as GPT-4o, Claude, Gemini, or a vision model in LM '
-     'Studio or Ollama.'},
-    {'key': 'story', 'name': 'Story narrator', 'detail': 'Tells your story in the Story tab, apart from the '
-     'companion.'},
-    {'key': 'recall', 'name': 'Semantic recall', 'detail': 'Embeddings that find related memories, from a recall '
-     'profile (Settings > Models > Recall) or built-in recall when it is on. Without either, recall matches keywords '
-     'only.'},
+    {'key': CHAT, 'name': 'Default', 'detail': 'Every job uses this profile unless you choose another.'},
+    {'key': 'story', 'name': 'Story narrator', 'detail': 'Tells your story.'},
+    {'key': 'recall', 'name': 'Semantic recall', 'detail': 'Embeddings that find related parts of the story, from a '
+     'recall profile (Settings > Models > Recall) or built-in recall when it is on. Without either, recall matches '
+     'keywords only.'},
 ]
 JOB_KEYS = {job['key'] for job in JOBS}
 

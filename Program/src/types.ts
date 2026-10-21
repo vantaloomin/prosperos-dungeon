@@ -201,7 +201,7 @@ export interface StoryPerson {
   key: string; name: string; role: string; city: string; meetings: number; last_met_at: string; notes: string[]
   doing: string; place: { id: string; name: string; city_id: string } | null
 }
-export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; can_switch: boolean }
+export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean }
 
 /** Record model calls (dungeon/model_calls.py), Settings > Debug. */
 export interface ModelCallLog { recording: boolean; folder: string; keep_days: number; files: number; bytes: number }

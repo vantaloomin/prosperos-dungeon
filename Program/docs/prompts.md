@@ -10,47 +10,13 @@ for comparison.
 
 | Prompt | Used for | Default lives in |
 | --- | --- | --- |
-| Who the companion is | The opening of every chat reply, before the character sheet | `GUIDANCE` in `dungeon/memory/context.py` |
-| How the companion acts | After the character sheet: one behaviour line per personality slider away from the middle ([character-drafting.md](character-drafting.md#personality-sliders)) | `PERSONALITY` in `dungeon/memory/context.py` |
-| Your history together | Opens the line-a-week (then month, then year) record of the whole relationship in every chat reply, built from what happened and the user's corrections in the scrapbook's "All of it" view | `INTRO` in `dungeon/memory/history.py` |
-| Phrasing life events | Life sim moments into a sentence and a caption | `RULES` in `dungeon/life/synthesis.py` |
-| Suggesting memories | The memory model's fact suggestions | `RULES` in `dungeon/memory/suggest.py` |
-| Noting the companion's own facts | The memory model reading its replies for their people, team, work | `RULES` in `dungeon/memory/self_suggest.py` |
-| Describing your pictures | The "Seeing pictures" model | `DESCRIBE` in `dungeon/pictures.py` |
-| The Story narrator | Every reply in the Story tab: who the narrator is and its contract with the game ([story.md](story.md)) | `CORE` in `dungeon/narration/prompt.py` |
+| The Story narrator | Every narrator turn: who the narrator is and its contract with the game ([story.md](story.md)) | `CORE` in `dungeon/narration/prompt.py` |
 | The narrator's writing rules | After the Story narrator: craft, dialogue rules, phrases never to use; small-context models get `CRAFT_COMPACT` instead | `CRAFT` in `dungeon/narration/prompt.py` |
-| Character drafting (5) | The quick start, "Help me write" and the paste box | `dungeon/prompts/character-*.md` ([character-drafting.md](character-drafting.md)) |
-| Sidecar | The sidecar's replies and proposed changes ([sidecar.md](sidecar.md)) | `dungeon/prompts/sidecar.md` |
+| Author's note | The line in front of the user's note ([authors-note.md](authors-note.md)) | `HEADER` in `dungeon/authors_note.py` |
 
 `dungeon/prompt_library.py` is the list. Defaults are read from the constants above when needed,
 so changing one in code is the new default at once. The constants are written for `str.format`;
-the library shows and fills them in the `{{placeholder}}` form the drafting files already use.
-
-## How a chat reply's prompt is laid out
-
-Every chat reply is built so that most of it is the same as the request
-before it. Local servers (llama.cpp, LM Studio, Ollama, KoboldCpp) and hosted providers can then reuse the work
-they already did on that part (prompt caching), so a reply starts sooner and costs less. It is also easier on
-small local models, which follow facts best when they sit right next to the message they answer.
-
-1. **The system prompt**: who the companion is (the prompt above; in their own chat, while Settings > Realism >
-   Adult side of life is on and they read as an adult, followed by the adults-only setting line `SETTING` in
-   `dungeon/world/intimacy.py`), then the sections that change rarely, in
-   `HEADINGS` in `dungeon/memory/context.py`: the user's persona, always-on lore, home, the circle, how close you are and your history together (a line a week lately, a month or a year further back; it changes once a week), today's calendar, weather, money and housework, then what
-   grows during a chat (memories, what they have said about themselves, plans, recent life).
-2. **The conversation**: at least the last 20 messages. Its first message moves forward 12 messages at a time,
-   not one, so the start of the conversation stays the same for several replies; older messages stay recallable.
-3. **The notes for this reply**, in front of the latest message (`NOW` in `context.py`), between two lines in
-   square brackets: the time and what the companion is doing right now, what the people in their life are up
-   to, what they have on, lorebook entries whose keywords just came up, the "you keep repeating" nudge, recalled memories, and anything saved since
-   the conversation's first message (marked "new in this conversation"; it joins the system prompt when that
-   first message moves on). A busy note, an out-of-character note or a reminder for a redraft is added here too.
-
-The notes are never saved with the message. A new section belongs in the system prompt only if it stays the same
-from one reply to the next; anything that changes with the time of day or with the message goes in `NOW`.
-
-Claude (Anthropic, or `anthropic/` models on OpenRouter) caches only what a request marks, so those requests mark
-the system prompt and the message before the latest one. Other providers cache on their own.
+the library shows and fills them in the `{{placeholder}}` form.
 
 ## Storage and updates
 
@@ -68,7 +34,6 @@ Saving is refused, with a message naming the problem, when the wording:
 - writes a placeholder with single braces, such as `{name}`.
 
 Only the wording is editable. These stay code and run whatever a prompt says: the in-character
-sentence filter and retry (`dungeon/in_character.py`), OOC handling, the NSFW check before
-image generation, and the validation of every model reply (drafts, life phrasing and memory
-suggestions in the wrong shape are discarded as before). Image generation prompts and the
-in-character retry reminder are not editable.
+sentence filter and retry (`dungeon/in_character.py`), OOC handling, the prose checks
+(`dungeon/narration/prose.py`) and the NSFW check before image generation. The in-character retry
+reminder is not editable.

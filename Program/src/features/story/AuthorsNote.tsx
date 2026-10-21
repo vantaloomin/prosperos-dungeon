@@ -92,7 +92,7 @@ function useNote(chat: string) {
     saveNote(chat, value.text, value.enabled).then((saved) => {
       setError(null)
       client.setQueryData(noteKey(chat), saved)
-      // Saved as typed: the stored note shows again (so a change the sidecar applies later shows too), unless more
+      // Saved as typed: the stored note shows again, unless more
       // was typed while it saved.
       if (!pending.current) setDraft(null)
     }, setError)

@@ -64,7 +64,7 @@ def test_a_saved_key_never_follows_a_changed_address(client, app):
 def test_deleting_a_profile_removes_its_key_and_jobs(client, app):
     local = add(client, LOCAL)
     claude = add(client, ANTHROPIC, api_key='sk-ant')
-    client.put('/api/models/routes', json={'job': 'life', 'profile_id': claude['id']})
+    client.put('/api/models/routes', json={'job': 'story', 'profile_id': claude['id']})
     result = client.delete(f"/api/models/profiles/{claude['id']}").json()
     assert result['routes'] == {'chat': local['id']} and app.state.vault.secrets == {}
 
@@ -183,16 +183,16 @@ def test_hosted_providers_need_a_key():
 def test_duplicating_a_profile_copies_its_settings_and_key_but_not_its_jobs(client, app):
     local = add(client, LOCAL)
     claude = add(client, {**ANTHROPIC, 'temperature': 0.4}, name='Claude', api_key='sk-ant')
-    client.put('/api/models/routes', json={'job': 'drafting', 'profile_id': claude['id']})
+    client.put('/api/models/routes', json={'job': 'story', 'profile_id': claude['id']})
     copy = client.post(f"/api/models/profiles/{claude['id']}/duplicate")
     assert copy.status_code == 201
     copy = copy.json()
     assert copy['name'] == 'Claude copy' and copy['config'] == claude['config'] and copy['has_saved_key']
     assert client.post(f"/api/models/profiles/{claude['id']}/duplicate").json()['name'] == 'Claude copy 2'
-    assert client.get('/api/models').json()['routes'] == {'chat': local['id'], 'drafting': claude['id']}
+    assert client.get('/api/models').json()['routes'] == {'chat': local['id'], 'story': claude['id']}
     # A new key on the copy leaves the original's alone; deleting one keeps the other's key.
     client.put(f"/api/models/profiles/{copy['id']}", json={'name': 'Claude copy', 'config': copy['config'],
                                                           'api_key': 'sk-other', 'expected_revision': 1})
     client.delete(f"/api/models/profiles/{copy['id']}")
     with app.state.database.connect() as connection:
-        assert text_models.key_for(app.state.vault, text_models.config_for(connection, 'drafting')) == 'sk-ant'
+        assert text_models.key_for(app.state.vault, text_models.config_for(connection, 'story')) == 'sk-ant'

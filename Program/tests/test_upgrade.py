@@ -1,4 +1,5 @@
 import sqlite3
+import zipfile
 
 import pytest
 
@@ -92,3 +93,31 @@ def test_only_recent_pre_upgrade_backups_are_kept(tmp_path):
     upgrade.prune(directory)
     assert sorted(item.name for item in directory.iterdir()) == [
         'pre-upgrade-20261003T000000.zip', 'pre-upgrade-20261004T000000.zip', 'pre-upgrade-20261005T000000.zip']
+
+
+def test_a_workspace_from_before_milestone_0_starts_fresh_and_keeps_the_settings(tmp_path):
+    path = tmp_path / 'dungeon.sqlite3'
+    database = Database(path)
+    with database.connect(write=True) as connection:  # As the companion's schema (version 1) left it.
+        connection.execute("UPDATE workspace_settings SET color_scheme='moss'")
+        connection.execute("UPDATE app_identity SET value='1' WHERE key='schema_version'")
+        connection.execute("DELETE FROM app_identity WHERE key='schema_digest'")
+        connection.execute('CREATE TABLE companions (id TEXT PRIMARY KEY)')
+        connection.execute("INSERT INTO story_messages (id, seq, role, text, city_id, place_id, created_at) "
+                           "VALUES ('m1', 1, 'user', 'Hello', 'baltimore', 'cafe', 'x')")
+
+    database = Database(path)
+
+    assert 'companions' not in tables(path)
+    with database.connect() as connection:
+        assert connection.execute('SELECT color_scheme FROM workspace_settings').fetchone()[0] == 'moss'
+        assert connection.execute('SELECT COUNT(*) FROM story_messages').fetchone()[0] == 0
+        marker = dict(connection.execute('SELECT key, value FROM app_identity').fetchall())
+    assert marker['schema_version'] == str(upgrade.FRESH_FROM)
+    # What happened before is kept in the pre-upgrade backup.
+    saved = list((tmp_path / 'backups').glob('pre-upgrade-*.zip'))
+    assert len(saved) == 1
+    with zipfile.ZipFile(saved[0]) as archive:
+        name = next(item for item in archive.namelist() if item.endswith('.sqlite3'))
+        archive.extract(name, tmp_path / 'old')
+    assert 'companions' in tables(tmp_path / 'old' / name)

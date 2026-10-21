@@ -9,10 +9,12 @@ It builds on [Prospero's Companion](https://github.com/vantaloomin/prosperos-com
 
 ## Status
 
-No game features are built yet. The code in `Program` is a clean copy of Prospero's Companion v0.15.0
-(without its history), renamed to Dungeon so both can be installed and run side by side. It still behaves
-like the Companion until the Dungeon's own systems replace or reshape those parts. See
-[the requirements](docs/requirements.md) and [the build roadmap](docs/roadmap.md) for what is planned.
+Milestone 0 is done: the code in `Program` started as a clean copy of Prospero's Companion v0.15.0, and the
+companion itself (its chat, phone, daily life, memories and the rest) has been removed. What is left is the
+Story, a narrator telling your story in Haddon Harbor, on the engines the game is built from: odds and rolls,
+Life Cards, the townsfolk and world generators, the calendar, memory recall, models, image backends and voice.
+No game rules are built yet. See [the requirements](docs/requirements.md) and [the build roadmap](docs/roadmap.md)
+for what comes next.
 
 It runs on your computer and talks to whichever model you choose: a hosted API (OpenAI, Anthropic, Google,
 OpenRouter, any OpenAI-compatible service, your Codex login) or a local model through LM Studio, Kobold or any
@@ -53,7 +55,7 @@ the others' data by mistake:
 | --- | --- | --- | --- |
 | Prospero's Study | 8765 | 5173 | its own |
 | Prospero's Companion | 8775 (phone LAN 8776) | 5175 | `%LOCALAPPDATA%\ProsperoCompanion` |
-| Prospero's Dungeon | 8785 (phone LAN 8786) | 5177 | `%LOCALAPPDATA%\ProsperoDungeon` |
+| Prospero's Dungeon | 8785 | 5177 | `%LOCALAPPDATA%\ProsperoDungeon` |
 
 Environment variables use the `DUNGEON_` prefix (for example `DUNGEON_DATA_DIR`, `DUNGEON_PORT`).
 
@@ -85,11 +87,12 @@ Each script has a Mac twin in `Mac` with the same name ending in `.command`.
 - [Development](Program/docs/development.md)
 - [Backbone architecture](Program/docs/architecture.md)
 - [Models](Program/docs/models.md)
-- [Life simulation API](Program/docs/life-api.md)
+- [The story](Program/docs/story.md)
+- [Worlds and personas](Program/docs/worlds.md)
 - [World data](Program/docs/world-data.md)
+- [Image backends](Program/docs/images.md)
+- [Safety](Program/docs/safety.md)
 - [Changelog](CHANGELOG.md)
-
-The other guides in `Program/docs` came with the Companion code and describe Companion features.
 
 ## License
 

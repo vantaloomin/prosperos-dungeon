@@ -120,8 +120,8 @@ CREATE TABLE IF NOT EXISTS debug_time (
 
 -- Who the user is in this world (dungeon/worlds.py): the persona the world belongs to, copied from worlds.json
 -- in the data folder whenever the world opens or the persona changes. The narrator's prompt reads it here.
--- `townsfolk_key` and `town_seed` are set when the user became a townsperson; the home is the world's
--- (dungeon/world/where.py).
+-- `town_seed` is the world's own, set once when the world is made ('' in the first world); `townsfolk_key` names a
+-- townsperson the user plays. The home is the world's (dungeon/world/where.py).
 CREATE TABLE IF NOT EXISTS persona (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   persona_id TEXT NOT NULL,

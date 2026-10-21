@@ -10,7 +10,7 @@ from pathlib import Path
 APP_ID = 'prospero-dungeon'
 APP_NAME = 'Prospero Dungeon'
 VERSION = '0.1.0'
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # 2: Milestone 0's fresh schema, without the companion (dungeon/upgrade.py FRESH_FROM).
 CREDENTIAL_SERVICE = 'Prospero Dungeon'
 ARCHIVE_FORMAT = 'prospero-dungeon-archive'
 ARCHIVE_VERSION = 2

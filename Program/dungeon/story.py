@@ -45,7 +45,7 @@ def city_data(connection, city_id: str) -> dict:
 
 
 def town_seed(connection) -> str:
-    """The seed of this world's town (dungeon/worlds.py build): '' before the world has a persona."""
+    """The seed of this world's town (dungeon/worlds.py build): '' in the first world, so each world has its own people."""
     row = optional(connection, 'SELECT town_seed FROM persona WHERE id=1')
     return row['town_seed'] or '' if row else ''
 

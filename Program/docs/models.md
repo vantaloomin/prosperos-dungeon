@@ -71,13 +71,9 @@ five minutes, and Check connection asks again. Nothing polls in the background.
 
 | Job | What uses it |
 | --- | --- |
-| Conversation | Chat replies. Every other job uses this profile unless given its own, like the Study's Primary Writer. |
-| Life phrasing | Wording the companion's day in the background (`phrase_with_model`). |
-| Memory suggestions | Model memory suggestions in the background. |
-| Character drafting | Quick start and Help me write. |
-| Seeing pictures | Describes each picture you send in chat, once, before the reply (OpenAI, Anthropic, Google, OpenRouter, NanoGPT, local or compatible profiles with a vision model; Kobold and Codex cannot look at pictures here). |
-| Story narrator | Replies in the Story tab ([story.md](story.md)). |
-| Semantic recall | Embeddings, from a recall profile, or from built-in recall when it is on ([architecture](architecture.md#built-in-recall)). Recall profiles (`purpose: recall`) have their own section, Settings > Models > Recall: an OpenAI, NanoGPT, local or compatible service and an `embedding_model`, with no text model. They do this job and no other, text profiles never do it, and the first one saved takes the job when recall has none. Without one, recall matches keywords only. |
+| Default | Every job uses this profile unless given its own, like the Study's Primary Writer. |
+| Story narrator | Narrator turns ([story.md](story.md)). |
+| Semantic recall | Embeddings, from a recall profile, or from built-in recall when it is on. Recall profiles (`purpose: recall`) have their own section, Settings > Models > Recall: an OpenAI, NanoGPT, local or compatible service and an `embedding_model`, with no text model. They do this job and no other, text profiles never do it, and the first one saved takes the job when recall has none. Without one, recall matches keywords only. |
 
 There is no automatic fallback to another profile when a request fails; like the Study, a failed
 request reports its error, and OpenRouter requests forbid OpenRouter's own provider fallbacks. The one
@@ -88,27 +84,13 @@ their own settings under Images.
 
 ## Prompt caching
 
-Chat requests are laid out so that the start of each one matches the one before it
-([how a chat prompt is laid out](prompts.md#how-a-chat-replys-prompt-is-laid-out)), which local servers and
-providers reuse instead of reading it again. With a local server this matters most: on a mid-size model a
-reused prompt answers in a moment, where reading it fresh can take many seconds.
-
-Background jobs (memory suggestions, life phrasing) send different prompts, and a local server that keeps only
-one prompt in memory would drop the chat's cached prompt for each of them. So on a local server
-(`dungeon/providers/scheduling.py`) background work waits until 90 seconds after the last chat reply: a quick
-back-and-forth keeps reusing the chat's prompt, and the background work catches up when the user pauses. Pointing
-the background jobs at a profile on a different server lets them run at once.
-
-### Instant replies on local models
-
-A local server keeps what it read for one prompt at a time, so going from one companion to another (or to a
-group, or a background job) means the next reply reads its whole prompt again. With llama.cpp's server
-(`llama-server`) started with `--slot-save-path <folder>`, the app keeps each companion's prompt start in that
-folder and puts it back before they reply (`dungeon/providers/prompt_cache.py`): coming back to someone is as
-quick as if you never left. It turns itself on when the server answers like llama.cpp's (`/props`) and accepts a
-save, and stays off otherwise; nothing is saved while the same companion keeps talking, only when the server is
-about to read someone else's prompt. There is one file per companion (and per model), each overwritten in place.
-Short prompts are not worth a file. A failure here only means the prompt is read again, never a failed reply.
+Narrator requests are laid out so that the start of each one matches the one before it, which local servers and
+providers reuse instead of reading it again. With a local server this matters most: on a mid-size model a reused
+prompt answers in a moment, where reading it fresh can take many seconds. On a local server
+(`dungeon/providers/scheduling.py`) background work waits until 90 seconds after the last reply, so a quick
+back-and-forth keeps reusing the story's prompt. With llama.cpp's server started with `--slot-save-path <folder>`,
+the app can also save a prompt's start and put it back later (`dungeon/providers/prompt_cache.py`); a failure there
+only means the prompt is read again, never a failed reply.
 
 ## This computer
 
