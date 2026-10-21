@@ -43,7 +43,7 @@ small local models, which follow facts best when they sit right next to the mess
    not one, so the start of the conversation stays the same for several replies; older messages stay recallable.
 3. **The notes for this reply**, in front of the latest message (`NOW` in `context.py`), between two lines in
    square brackets: the time and what the companion is doing right now, what the people in their life are up
-   to, what they have on, lorebook entries whose keywords just came up, the "you keep repeating" nudge, recalled memories, lookups, and anything saved since
+   to, what they have on, lorebook entries whose keywords just came up, the "you keep repeating" nudge, recalled memories, and anything saved since
    the conversation's first message (marked "new in this conversation"; it joins the system prompt when that
    first message moves on). A busy note, an out-of-character note or a reminder for a redraft is added here too.
 

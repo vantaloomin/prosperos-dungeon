@@ -115,7 +115,7 @@ def target(database: Database, hours: float | None, local: str | None) -> dateti
 async def walk(database: Database, life, landing: datetime, progress: dict):
     """Step through to `landing` as if the app had stayed open, then look in as opening the app does.
     Background batches run only when the user allows background activity; first messages follow their own
-    setting. Optional work (pre-phrasing, real-world lookups for a spoofed day) is skipped."""
+    setting. Optional work (pre-phrasing) is skipped."""
     clock, start_at = database.clock, database.clock.now()
     total = max((landing - start_at).total_seconds(), 1)
     try:

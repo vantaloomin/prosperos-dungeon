@@ -513,37 +513,6 @@ class NotificationCheck(Input):
     focused: bool = False
 
 
-class ContextLocation(Input):
-    """The user's own city or region, typed by hand (PRD X1). Coordinates are optional."""
-    user_place: str = Field(default='', max_length=120)
-    user_latitude: float | None = Field(default=None, ge=-90, le=90)
-    user_longitude: float | None = Field(default=None, ge=-180, le=180)
-
-
-class ContextService(Input):
-    name: str = Field(min_length=1, max_length=80)
-    transport: Literal['stdio', 'http']
-    # The program and its arguments, one item each (stdio only).
-    command: list[Annotated[str, Field(max_length=1000)]] = Field(default_factory=list, max_length=40)
-    url: str = Field(default='', max_length=2000)
-    secret: str = Field(default='', max_length=4000)
-    # The environment variable (stdio) or header (HTTP) that carries the key.
-    secret_name: str = Field(default='', max_length=100)
-    clear_secret: bool = False
-
-
-class ContextLinks(Input):
-    read_links: bool
-
-
-class ContextPreset(Input):
-    preset: Literal['parallel', 'exa', 'firecrawl']
-
-
-class ContextBuiltin(Input):
-    kind: Literal['weather', 'pulse', 'culture']
-
-
 class ToolArgument(Input):
     source: Literal['place', 'latitude', 'longitude', 'topic', 'date', 'literal', 'url', 'session']
     value: str | int | float | bool | None = None
@@ -558,13 +527,6 @@ class ToolMapping(Input):
 
 class ToolApproval(Input):
     digest: str = Field(min_length=64, max_length=64)
-
-
-class ContextLookup(Input):
-    """A lookup the user starts from Settings to try a mapping."""
-    category: Literal['weather', 'news', 'local_events']
-    purpose: Literal['conversation', 'companion_city'] = 'conversation'
-    topic: str = Field(default='', max_length=80)
 
 
 class TimelineFork(Input):

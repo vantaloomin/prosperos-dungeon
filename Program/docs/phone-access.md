@@ -63,7 +63,7 @@ because they run programs or read files there, restore data, or could send a sav
 
 - Phone access itself (turning it on or off, pairing, removing phones)
 - Backups and restores, and importing from Prospero's Study
-- Changing model connections and profiles, real-world lookup services, image backends, and LoRA training
+- Changing model connections and profiles, image backends, and LoRA training
   settings, runs and adapter imports (these can still be viewed)
 
 Restoring a backup turns phone access off and unpairs every phone.

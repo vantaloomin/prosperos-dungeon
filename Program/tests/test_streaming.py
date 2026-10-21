@@ -125,7 +125,7 @@ class GatedEmbedder:
         return [[1.0, 0.0] for _ in texts]
 
 
-def test_send_without_waiting_returns_before_recall_and_lookups(app, client, companion, provider):
+def test_send_without_waiting_returns_before_recall(app, client, companion, provider):
     client.put('/api/connection', json={'base_url': 'http://127.0.0.1:1234/v1', 'model': 'local-model',
                                         'embedding_model': 'embed'})
     embedder = GatedEmbedder()

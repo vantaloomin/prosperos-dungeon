@@ -2,7 +2,7 @@
 
 Seeded changes come from the city and the month alone, so every run and every generator sees the same ones and
 nothing needs storing. The workspace keeps only what a seed cannot know: changes the user adds, seeded ones the
-user dismisses, and headlines remembered from real local-event lookups (deleted with their lookup). `apply` gives
+user dismisses. `apply` gives
 a city as it stands on one day, which is what CatalogWorld hands the life simulation, so a closed place drops out
 of outings, a new one can be picked, and road works slow trips through their neighbourhood. Changes are dated,
 so events composed before a change keep the place they happened at.
@@ -32,7 +32,6 @@ KINDS = ('opening', 'closing', 'renovation', 'roadworks', 'news')
 # What chat context still mentions: permanent changes this many days on, reopenings a week on, at most LIMIT.
 RECENT, REOPENED, LIMIT = 30, 7, 6
 # How long a headline from a real lookup stays something the companion has heard about, and how many per lookup.
-NEWS_DAYS, HEADLINES = 14, 3
 SOURCE_ID = 'city-changes'
 SOURCE = {'kind': 'curated', 'title': 'Changes to the city since its data was written (seeded, or added by you)',
           'license': 'CC0-1.0', 'retrieved': '2026-10-05', 'url': None, 'note': ''}
@@ -315,41 +314,6 @@ def refresh_agenda(connection, data: dict, starts_on: str, now: str) -> None:
         connection.execute('UPDATE agenda_cursors SET through=MIN(through, ?) WHERE timeline_id=?', (now, timeline_id))
 
 
-# --- Headlines from real local-event lookups ---
-
-def headlines(content: str) -> list[str]:
-    """Up to HEADLINES event lines from a lookup's text: list items and short lines, not headings or prose."""
-    found = []
-    for line in (content or '').splitlines():
-        text = re.sub(r'^\s*(?:[-*•]|\d+[.)])\s*', '', line).strip().strip('*_#').strip()
-        if 12 <= len(text) <= 200 and not text.endswith(':') and text not in found:
-            found.append(text)
-        if len(found) == HEADLINES:
-            break
-    return found
-
-
-def remember(database, observation: dict) -> None:
-    """Keep headlines from a readable local-events lookup for the companion's real city, so they can inspire talk
-    and plans for a while after the lookup expires. They are deleted with the lookup and never count as attended."""
-    location = observation.get('location') or {}
-    if (observation.get('category') != 'local_events' or observation.get('purpose') != 'companion_city'
-            or observation.get('status') != 'ok' or not location.get('city')):
-        return
-    day = date.fromisoformat((observation.get('retrieved_at') or database.now())[:10])
-    since, ends = (day - timedelta(days=NEWS_DAYS)).isoformat(), (day + timedelta(days=NEWS_DAYS)).isoformat()
-    details = encode({'service': observation.get('service_name') or '', 'retrieved_at': observation['retrieved_at']})
-    with database.connect(write=True) as connection:
-        for text in headlines(observation.get('content', '')):
-            if optional(connection, "SELECT id FROM world_changes WHERE city_id=? AND kind='news' AND name=? AND "
-                        'starts_on>=?', (location['city'], text, since)):
-                continue
-            connection.execute(
-                'INSERT INTO world_changes (id, city_id, kind, origin, name, details, announced_on, starts_on, '
-                "ends_on, observation_id, created_at) VALUES (?, ?, 'news', 'real', ?, ?, ?, ?, ?, ?, ?)",
-                (identifier(), location['city'], text, details, day.isoformat(), day.isoformat(), ends,
-                 observation['id'], database.now()))
-
 
 # --- Chat context ---
 
@@ -398,11 +362,7 @@ def context_lines(connection, version: dict, now: datetime) -> list[tuple[str, s
             break
     if not data:
         return []
-    from dungeon.mcp.lookups import fresh_city_events
     day = now.astimezone(zone(version['timezone'])).date()
-    # Headlines of the latest fresh lookup are already given whole (the real_events section).
-    fresh = (fresh_city_events(connection, now) or {}).get('id')
-    found = [change for change in known(data, day, stored(connection, data['id'])) if newsworthy(change, day)
-             and not (fresh and change.get('observation') == fresh)]
+    found = [change for change in known(data, day, stored(connection, data['id'])) if newsworthy(change, day)]
     found.sort(key=lambda change: change['starts'], reverse=True)
     return [(change['id'], change_text(change, data, day)) for change in found[:LIMIT]]

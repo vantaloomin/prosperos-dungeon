@@ -232,8 +232,8 @@ A newcomer takes the spot a few weeks later, keyed by the spot's number plus 100
 at a place or on a street depends on the day; nothing is stored. The user's own townsperson and townsfolk who
 became companions never leave. The paper reports departures, arrivals and town couples' babies.
 
-Weather here is climate, not a forecast. Real current conditions belong to the MCP context tools
-(PRD X1–X3); a life event built from climate must not be presented as today's weather.
+Weather here is climate, not a forecast; a life event built from climate must not be presented as today's
+weather.
 
 ### The composer's world source
 
@@ -271,12 +271,8 @@ them under `works`). Changes are dated, so events composed before a change keep 
 `CatalogWorld.changes(city, day)` lists every change heard of by that day.
 
 The workspace keeps what a seed can't know (tables `world_changes` and `world_change_dismissals`): changes the
-user adds, seeded changes the user dismisses (they never happen), and headlines from real local-event lookups.
-When the user has allowed local-event lookups for the companion's real city, up to three lines of each readable
-result are kept as `news` for two weeks after the lookup goes stale, quoted with their source and date. They are
-something the companion has heard about, never something they attended, and they are deleted with their
-lookup. Chat context gets one section, "Changes around your city", with up to six recent, current or coming
-changes; the latest fresh lookup is left out there because the real events section already quotes it whole.
+user adds and seeded changes the user dismisses (they never happen). Chat context gets one section, "Changes
+around your city", with up to six recent, current or coming changes.
 
 ## HTTP API
 

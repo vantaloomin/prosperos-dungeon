@@ -214,16 +214,13 @@ def model_failure(config: dict, failure: DomainError) -> str:
 
 
 class Conversation:
-    def __init__(self, database, vault, provider=None, scheduler=None, after_turn=lambda: None, embedder=None,
-                 lookups=None):
+    def __init__(self, database, vault, provider=None, scheduler=None, after_turn=lambda: None, embedder=None):
         self.database = database
         self.vault = vault
         # Every chat model call goes through here, written down in full while Record model calls is on.
         self.provider = model_calls.Recording(provider or ChatProvider(), database)
         self.embedder = embedder or EmbeddingProvider()
         self.scheduler = scheduler or RequestScheduler()
-        # Current-context lookups the user enabled (PRD X1-X3); the app, not the model, decides when they run.
-        self.lookups = lookups
         # Photos in chat (dungeon/images/photos.py); the app, not the model, decides when one is sent.
         self.photos = None
         # Pictures the user sends, described once before the reply (dungeon/pictures.py).
@@ -282,21 +279,9 @@ class Conversation:
             return None
         return {'model': vector_model(config), 'vector': vector}
 
-    async def outside(self, user) -> list[dict]:
-        """Lookups the message asks for; a failure of the lookup machinery never blocks the reply."""
-        if self.lookups is None:
-            return []
-        with self.database.connect() as connection:
-            if config_for(connection, CHAT) is None:
-                return []  # No reply will be written, so nothing is sent out.
-        try:
-            return await self.lookups.for_message(user)
-        except Exception:  # noqa: BLE001 - the companion continues without tools (X3).
-            return []
-
     async def respond(self, user, wait: bool = True) -> dict:
         """The attempt is saved before anything waits on a model service, so `wait=false` returns at once;
-        recall and lookups for the reply happen in its own task (PRD responsiveness target)."""
+        recall for the reply happens in its own task (PRD responsiveness target)."""
         prepared = self.prepare(user)
         if prepared['connection'] != 'ready':
             self.after_turn()
@@ -389,12 +374,12 @@ class Conversation:
         photo = self.photos.for_message(user, prepared['attempt_id']) if self.photos else None
         shown = await self.seer.look(user, lambda: step('looking'))
         step('preparing')
-        # Recall also looks for what the pictures show; lookups answer only what the user wrote.
+        # Recall also looks for what the pictures show.
         seen = {**user, 'text': pictures.with_pictures(user['text'], shown)} if shown else user
-        semantic, outside = await asyncio.gather(self.query_vector(seen), self.outside(user))
-        return await asyncio.to_thread(self.build_packet, prepared, semantic, outside, photo)
+        semantic = await self.query_vector(seen)
+        return await asyncio.to_thread(self.build_packet, prepared, semantic, photo)
 
-    def build_packet(self, prepared, semantic, outside, photo=None) -> dict:
+    def build_packet(self, prepared, semantic, photo=None) -> dict:
         """Runs off the event loop: at 10,000 messages the build takes a few hundred milliseconds and
         would otherwise hold every other request. The read is one snapshot, so the recorded revision
         is the one the packet reflects; a change committed after it withholds the reply."""
@@ -403,7 +388,7 @@ class Conversation:
             companion = chat_owner(connection, user['timeline_id'])
             packet = context.build(connection, companion, self.database.clock.now(),
                                    config['context_tokens'] - config['max_output_tokens'], user['seq'], semantic,
-                                   outside, photo)
+                                   photo=photo)
             if not in_character.out_of_character(user['text']):
                 packet = context.steer(packet, authors_note.prompt_text(connection, f"companion:{companion['id']}"))
             revision = settings(connection)['memory_revision']

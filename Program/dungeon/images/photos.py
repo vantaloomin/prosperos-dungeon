@@ -1,6 +1,6 @@
 """Pictures in chat: asked what they are up to, or for a selfie or a meme, the companion can send one.
 
-The app decides when, not the model: fixed phrasings ask for a picture, the way lookups are chosen
+The app decides when, not the model: fixed phrasings ask for a picture
 (X3). A photo, selfie or view shows the companion's current routine slot composed exactly as the
 simulation will compose it (the same agenda entry, plan and seed), so the reply, the picture and the
 event that slot becomes all tell one account. It is made on a feed post keyed to that future event

@@ -14,7 +14,7 @@ Every table in the schema is in exactly one group below (tests/test_start_over.p
   look (reference pictures, adapters, training and test pictures). Starting over keeps it;
   deleting removes it.
 - HISTORY is everything that happened: every timeline with its chats, memories, life, feed,
-  circle, home, closeness, the people the user mentioned and the real-world lookups made for them. Both remove it.
+  circle, home, closeness and the people the user mentioned. Both remove it.
 
 With one companion in the workspace, a group is cleared whole. When the user has switched main
 characters (dungeon/cast.py), only the main character's rows go: those on their timelines, or naming
@@ -35,7 +35,7 @@ from dungeon.voice.notes import files_of as voice_files
 WORKSPACE = (
     'app_identity', 'workspace_settings', 'pauses', 'pause_catch_ups', 'connection', 'model_profiles',
     'model_routes', 'life_settings', 'world_cities', 'world_changes', 'world_change_dismissals', 'townsfolk_mix', 'townsfolk_personality', 'town_levels', 'image_settings',
-    'image_backends', 'context_settings', 'context_services', 'context_tools', 'lora_settings', 'notification_settings', 'notification_deliveries', 'prompt_overrides', 'phone_settings',
+    'image_backends', 'lora_settings', 'notification_settings', 'notification_deliveries', 'prompt_overrides', 'phone_settings',
     'phone_devices', 'phone_push', 'deletion_markers', 'debug_time', 'builtin_recall', 'voice_settings', 'story_scene', 'story_messages', 'story_people',
     'pair_backstories', 'authors_notes',
     'moods', 'local_programs', 'persona', 'lore_entries', 'lore_books',
@@ -51,7 +51,7 @@ CHARACTER = (
 # drawn from them (world_changes with origin 'real') goes with them by ON DELETE CASCADE; changes
 # the user made to a city stay.
 HISTORY = (
-    'away_recaps', 'context_uses', 'context_observations', 'notifications', 'chat_photos',
+    'away_recaps', 'notifications', 'chat_photos',
     'feed_post_events', 'image_jobs', 'feed_posts', 'memory_sources', 'memory_declines', 'memory_jobs',
     'memory_candidates', 'memory_vectors', 'memory_summaries', 'memory_proposals', 'memory_activity',
     'birth_dates', 'closeness_jokes', 'closeness_settings', 'step_settings', 'big_days', 'losses', 'step_asks', 'relationship_steps', 'love_partners', 'openers', 'self_fact_jobs', 'self_facts', 'companion_plans', 'rough_patch_promises', 'rough_patches', 'calls', 'together_asks', 'outings', 'trips', 'recommendations', 'life_chapters', 'chapter_days', 'thoughts', 'life_moments', 'dreams', 'news_holders', 'news', 'marks', 'consequences', 'storylines',
@@ -79,8 +79,6 @@ PET_KEYS = ("pet_key IN (SELECT 'home:' || id FROM home_items WHERE timeline_id 
             "OR pet_key IN (SELECT 'circle:' || id || ':0' FROM circle_people WHERE timeline_id IN gone_timelines)")
 # How a table without its own timeline or companion column finds one companion's rows; None keeps them.
 OWN = {
-    'context_uses': 'message_id IN gone_messages',
-    'context_observations': None,
     'notifications': 'post_id IN gone_posts',
     'chat_photos': 'message_id IN gone_messages OR post_id IN gone_posts OR job_id IN gone_jobs',
     'feed_post_events': 'post_id IN gone_posts OR event_id IN gone_events',

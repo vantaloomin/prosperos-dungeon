@@ -55,7 +55,6 @@ LEASE = timedelta(minutes=10)
 MAX_ATTEMPTS = 3
 # Companions out of focus looked at per turn (each tick, and after each return to the app).
 CAST_PER_TURN = 3
-BACKGROUND_LOOKUP_DEADLINE = 20.0
 # Columns that record a one-time switch to a new default, not settings.
 MARKERS = ('texts_first_on_by_default', 'events_on_by_default', 'loss_by_preset')
 FLAGS = ('automatic_events', 'catch_up_on_return', 'phrase_with_model', 'texts_first', 'paced_replies', 'day_shifts',
@@ -435,8 +434,7 @@ class LifeEngine:
         # Where the next round of companions out of focus starts, and the round running after a return.
         self.cast_offset = 0
         self.casting = None
-        # Current-context lookups (dungeon/mcp) and first messages (dungeon/life/openers.py); set by the app.
-        self.lookups = None
+        # First messages (dungeon/life/openers.py); set by the app.
         self.openers = None
         # When news last travelled (dungeon/news.py).
         self.news_at = None
@@ -784,7 +782,7 @@ class LifeEngine:
 
     async def run_forever(self, tick_seconds=60):
         """Catch up once on open, then tick while the process runs. Ticks use the event loop's
-        monotonic timer. Background batches always run, rule-built; model phrasing, lookups and preparation in
+        monotonic timer. Background batches always run, rule-built; model phrasing and preparation in
         the background need the user's permission (T4)."""
         with self.database.pin():
             await self.quietly_life('return')
@@ -800,32 +798,11 @@ class LifeEngine:
         with self.database.connect() as connection:
             background = settings(connection)['background_activity']
         if background:
-            if not self.database.clock.shifted:  # Real weather and events would not match a spoofed day.
-                await self.quietly_observe()
             await self.quietly_prepare()
             await self.quietly_think()
         # First messages have their own setting (texts_first), so the companion can text while the
         # app is closed even when background activity is off; the open app also asks each minute.
         await self.quietly_text()
-
-    async def quietly_observe(self):
-        """Real weather and local events for the companion's city, when the user allowed lookups for their
-        simulated day, and the daily culture digest when they turned it on. Fresh results are reused (an hour for
-        weather, twelve for events, a day for the digest); never while paused."""
-        if self.lookups is None:
-            return
-        with self.database.connect() as connection:
-            if settings(connection)['paused_at'] is not None:
-                return
-        for category in ('weather', 'local_events'):
-            try:
-                await self.lookups.run(category, 'companion_city', None, BACKGROUND_LOOKUP_DEADLINE)
-            except Exception:  # noqa: BLE001 - the day keeps its typical weather and its own plans.
-                pass
-        try:
-            await self.lookups.ambient(BACKGROUND_LOOKUP_DEADLINE)
-        except Exception:  # noqa: BLE001 - the companion just knows less about what's out today.
-            pass
 
     async def quietly_text(self):
         """A first message from one companion: one a tick."""

@@ -18,8 +18,7 @@ const SECTIONS: { key: string; label: (name: string) => string; unit?: [string, 
   { key: 'wearing', label: (name) => `What ${name} has on` },
   { key: 'companion_life', label: (name) => `${name}'s recent life`, unit: ['event', 'events'] },
   { key: 'photo', label: (name) => `What ${name} is doing now, for the photo` },
-  { key: 'outside', label: () => 'Real-world lookups', unit: ['lookup', 'lookups'] },
-  { key: 'real_events', label: (name) => `Real events in ${name}'s city` },
+  { key: 'outside', label: () => 'What the app could not show' },
   { key: 'recalled', label: () => 'Possibly relevant memories', unit: ['memory', 'memories'] },
 ]
 export const PREVIEW_KEY = ['context-preview']

@@ -1,6 +1,6 @@
 /** Settings is split into tabs; this lists them, what each holds, and the words a search finds them by. */
 
-export type SettingsTab = 'general' | 'models' | 'life' | 'realism' | 'memory' | 'lookups' | 'images' | 'notifications' | 'phone' | 'data' | 'debug' | 'advanced'
+export type SettingsTab = 'general' | 'models' | 'life' | 'realism' | 'memory' | 'images' | 'notifications' | 'phone' | 'data' | 'debug' | 'advanced'
 
 export interface SettingsSection {
   /** The id of the section's heading, used to land on it from a search result. */
@@ -61,11 +61,6 @@ export const SETTINGS_TABS: SettingsTabInfo[] = [
   {
     id: 'memory', label: 'Memory', sections: [
       { heading: 'memory-heading', title: 'Memory', keywords: 'memory remember automatic sensitive suggestions timelines privacy' },
-    ],
-  },
-  {
-    id: 'lookups', label: 'Real-world lookups', sections: [
-      { heading: 'context-heading', title: 'Real-world lookups', keywords: 'weather search web links urls mcp tools news current' },
     ],
   },
   {

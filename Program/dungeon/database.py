@@ -131,7 +131,6 @@ ADDED_COLUMNS = (
     ('messages', 'origin_id', 'TEXT'),
     ('workspace_settings', 'user_timezone_source',
      "TEXT NOT NULL DEFAULT 'default' CHECK (user_timezone_source IN ('default', 'pc', 'chosen'))"),
-    ('context_settings', 'read_links', 'INTEGER NOT NULL DEFAULT 1 CHECK (read_links IN (0, 1))'),
     ('workspace_settings', 'chat_style',
      "TEXT NOT NULL DEFAULT 'feed' CHECK (chat_style IN ('feed', 'bubbles', 'community', 'retro', 'novel'))"),
     ('workspace_settings', 'chat_sounds', 'INTEGER NOT NULL DEFAULT 0 CHECK (chat_sounds IN (0, 1))'),
@@ -352,7 +351,6 @@ def initialize(connection, timestamp: str):
     claim_identity(connection)
     connection.executescript(SCHEMA)
     add_columns(connection)
-    widen_context_categories(connection)
     widen_checks(connection)
     connection.execute('CREATE INDEX IF NOT EXISTS life_admin_day ON life_admin(timeline_id, status, local_date)')
     connection.execute('CREATE INDEX IF NOT EXISTS relationship_steps_pair ON relationship_steps(timeline_id, other, ladder)')
@@ -366,7 +364,7 @@ def initialize(connection, timestamp: str):
     from dungeon.text_models import adopt_legacy, split_recall
     adopt_legacy(connection, timestamp)
     split_recall(connection, timestamp)
-    for table in ('workspace_settings', 'life_settings', 'image_settings', 'context_settings', 'lora_settings',
+    for table in ('workspace_settings', 'life_settings', 'image_settings', 'lora_settings',
                   'notification_settings', 'phone_settings', 'builtin_recall', 'voice_settings'):
         connection.execute(f'INSERT OR IGNORE INTO {table} (id, updated_at) VALUES (1, ?)', (timestamp,))
     connection.execute('UPDATE life_settings SET texts_first=1, texts_first_on_by_default=1 '
@@ -436,20 +434,6 @@ def preset_upgrade(connection, upgrade: dict, unless_moved: str = '1'):
     if picked:
         connection.execute(f"UPDATE life_settings SET {', '.join(f'{key}=?' for key in picked)} WHERE id=1",  # noqa: S608
                            tuple(picked.values()))
-
-
-def widen_context_categories(connection):
-    """Workspaces from before link reading limited lookup categories with a CHECK, which SQLite cannot alter:
-    the table is copied into the current definition, keeping every mapping."""
-    row = connection.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='context_tools'").fetchone()
-    if not row or "'local_events')" not in row[0]:
-        return
-    definition = re.search(r'CREATE TABLE IF NOT EXISTS context_tools \((.*?)\n\);', SCHEMA, re.S).group(1)
-    columns = 'service_id, category, tool, arguments, run_in, enabled, approved, updated_at'
-    connection.execute(f'CREATE TABLE context_tools_widened ({definition})')
-    connection.execute(f'INSERT INTO context_tools_widened ({columns}) SELECT {columns} FROM context_tools')
-    connection.execute('DROP TABLE context_tools')
-    connection.execute('ALTER TABLE context_tools_widened RENAME TO context_tools')
 
 
 def widen_checks(connection):

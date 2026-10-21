@@ -144,7 +144,6 @@ textarea { resize: vertical; line-height: 1.6; }
 .prose p { white-space: pre-wrap; margin-bottom: 1em; }
 .prose p:last-child { margin-bottom: 0; }
 .message-user .prose { color: var(--user-text, #cfc9bd); }
-.link-notes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; list-style: none; padding: 0; }
 .link-note { padding: 2px 8px; border-radius: 999px; border: 1px dashed var(--border); background: var(--raised); font-family: var(--ui-font); font-size: 0.75rem; color: var(--muted); }
 .link-note.failed { color: var(--danger); border-color: var(--danger-border); }
 .message-companion.inactive .prose { color: var(--muted); }
@@ -235,8 +234,6 @@ textarea { resize: vertical; line-height: 1.6; }
 .field > label, .traits legend { font-size: 0.875rem; font-weight: 500; color: var(--label, #d6d0c4); }
 .field small, .toggle small { color: var(--muted); font-size: 0.8125rem; line-height: 1.5; }
 .form-actions { display: flex; gap: 12px; align-items: center; }
-.preset-list { display: grid; gap: 10px; list-style: none; padding: 0; margin: 0; }
-.preset-list li { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .traits { min-width: 0; border: 1px solid var(--border); border-radius: 9px; padding: 16px; margin: 0; display: flex; flex-direction: column; gap: 12px; }
 .traits legend { padding: 0 6px; }
 .trait-row > * { min-width: 0; }
@@ -687,28 +684,6 @@ textarea { resize: vertical; line-height: 1.6; }
 .backend-form { padding: 12px; border: 1px solid var(--border); border-radius: 10px; }
 @media (max-width: 720px) { .image-provenance div { grid-template-columns: 1fr; } }
 
-/* Real-world lookups (PRD X1–X3) */
-.context-mapping { display: grid; gap: 6px; padding: 10px 12px; border-left: 3px solid var(--border); }
-/* A tool's fields: 16px between field groups, 4px from a label to its control (subsection-spacing.md). */
-.context-mapping.form-stack { gap: 16px; }
-.context-mapping .field, .argument-choice { gap: 4px; }
-.argument-choice { min-width: 0; margin: 0; padding: 0; border: 0; display: grid; }
-.argument-choice legend { padding: 0; margin-bottom: 4px; font-size: 0.875rem; font-weight: 500; color: var(--label, #d6d0c4); }
-.argument-choice small { color: var(--muted); font-size: 0.8125rem; line-height: 1.5; }
-.service-hint-from { font-weight: 600; }
-@media (max-width: 720px) { .argument-choice .segmented { width: 100%; } }
-.disclosure { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 0.875rem; }
-.lookup-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--card-gap); }
-.lookup-list > li { display: grid; gap: 6px; padding: var(--card-pad); border: 1px solid var(--border); border-radius: 8px; }
-.lookup-content { margin: 0; white-space: pre-wrap; font-size: 0.875rem; max-height: 9em; overflow: auto; }
-.lookup-stale, .lookup-failed { opacity: 0.8; }
-.lookup-sent > summary { cursor: pointer; color: var(--muted); font-size: 0.8125rem; justify-self: start; }
-.lookup-sent[open] > summary { margin-bottom: 6px; }
-.lookup-sent dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; font-size: 0.875rem; }
-.lookup-sent dd { margin: 0; color: var(--muted); overflow-wrap: anywhere; }
-.lookup-tool { display: block; margin-top: 4px; color: var(--muted); font-size: 0.8125rem; }
-.lookup-foot { display: grid; grid-template-columns: 1fr auto; align-items: start; gap: 12px; }
-
 /* Character LoRA maker (docs/lora.md) */
 .stepper { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 24px; }
 .stepper button { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font-size: 0.875rem; }
@@ -1087,7 +1062,6 @@ input[type='range'], input[type='checkbox'], input[type='radio'] { accent-color:
 /* A companion who texts in bursts: each paragraph is its own bubble. */
 .chat-bubbles .message-companion .prose.bursts { background: none; padding: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .chat-bubbles .message-companion .prose.bursts p.burst { margin: 0; padding: 9px 14px; border-radius: 18px; border-bottom-left-radius: 5px; background: var(--raised); }
-.chat-bubbles .message-user .link-notes { justify-content: flex-end; order: 3; }
 .chat-bubbles .system-note { order: 3; }
 .chat-bubbles .chat-photo { margin-top: 4px; }
 .chat-bubbles .chat-photo-frame { border-radius: 18px; }

@@ -204,7 +204,7 @@ def _add_pack(path: Path, result: dict, errors: list) -> None:
 @cache
 def _library() -> tuple[dict[str, dict], tuple[dict, ...]]:
     """Every city that loads, and what went wrong with each file that did not. One bad file must never take every
-    city list, and everything built on them (lookups, the life sim), down with it.
+    city list, and everything built on them (the life sim), down with it.
 
     The shipped cities load strictly. A file that is not one of them, such as a city a tester dropped among the
     built-in ones, loads like a pack, mended, and anything that still fails is reported (Settings > Cities >

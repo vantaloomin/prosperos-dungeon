@@ -11,7 +11,6 @@ import { Toggle } from '../../components/Fields'
 import { MemoryCard, type MemoryActions } from './MemoryCard'
 import { RememberForm, type NewMemory } from './RememberForm'
 import { ContextReceipt } from './ContextReceipt'
-import { LookedUp } from './LookedUp'
 import { Suggestions } from './Suggestions'
 import { MergeProposals } from './MergeProposals'
 import { Closeness } from './Closeness'
@@ -114,7 +113,6 @@ export function Memories({ companion, go }: { companion: Companion; go: (view: V
       <MergeProposals run={run} />
       <Closeness name={name} memories={all} run={run} />
       <ContextReceipt name={name} memories={all} />
-      <LookedUp name={name} />
       <div className="memory-toolbar"><Toggle label="Show earlier values" checked={history} onChange={setHistory} /></div>
       <div aria-live="polite">{feedback && <Notice tone={feedback.tone}>{feedback.text}</Notice>}</div>
       {memories.isPending && <Loading label="Loading memories" />}

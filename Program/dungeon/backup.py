@@ -241,9 +241,6 @@ def hold_for_review(database: Database):
         connection.execute('DELETE FROM phone_push')
         connection.execute("UPDATE notifications SET status='cancelled', reason='Restored from a backup.' "
                            "WHERE status='queued'")
-        # Context lookups send data out, so a restored workspace asks again before any run.
-        connection.execute('UPDATE context_services SET credential_ref=NULL')
-        connection.execute('UPDATE context_tools SET enabled=0, approved=NULL')
         connection.execute("UPDATE messages SET status='incomplete', active=0 WHERE status='streaming'")
         # Training in progress when the backup was taken never resumes on its own. Its process id
         # belonged to the machine that made the backup, so it is dropped rather than checked.

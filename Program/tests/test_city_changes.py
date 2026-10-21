@@ -96,9 +96,6 @@ def test_context_lines_read_like_local_news():
     lines = [changes.change_text(change, data, day) for change in changes.known(data, day)
              if changes.newsworthy(change, day)]
     assert lines and all(line.startswith('- ') for line in lines)
-    assert changes.headlines('Events this week:\n- Night market at the pier, 6-10pm\n* Jazz on the lawn, Sunday\n'
-                             '1. Free museum day at the gallery\n- Another one at the pier!') == [
-        'Night market at the pier, 6-10pm', 'Jazz on the lawn, Sunday', 'Free museum day at the gallery']
 
 
 def test_users_add_changes_and_dismiss_seeded_ones(client):

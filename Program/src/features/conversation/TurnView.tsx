@@ -9,7 +9,6 @@ import { CrisisNote } from '../../components/Safety'
 import { sidecar } from '../sidecar/store'
 import { useMessageSheet, type Act, type Action } from './useMessageSheet'
 import { waitsUntilLater } from './held'
-import { LinkNotes } from './LinkNotes'
 import { SentPictures } from './SentPictures'
 import { usePortrait } from './portrait'
 import { shownAttempt, statusDetail, unfinished, type Turn } from './turns'
@@ -89,7 +88,7 @@ function Leads({ messages, name, highlight, onStop, onRemember, onEdit, onBranch
 
 function TurnUser({ turn, name, highlight, onRemember, onDecline, onEdit, onBranch, onMoment }: { turn: Turn; name: string; highlight?: string | null; onRemember: Act; onDecline: Act; onEdit: Act; onBranch: Act; onMoment: Act }) {
   if (!turn.user) return null
-  return <UserMessage message={turn.user} name={name} found={highlight === turn.user.id} settled={turn.attempts.map((item) => item.status).join()} onRemember={onRemember} onDecline={onDecline} onEdit={onEdit} onBranch={onBranch} onMoment={onMoment} />
+  return <UserMessage message={turn.user} name={name} found={highlight === turn.user.id} onRemember={onRemember} onDecline={onDecline} onEdit={onEdit} onBranch={onBranch} onMoment={onMoment} />
 }
 
 /** A message's actions: shown on hover or focus with a mouse. On a touch screen the message is pressed and held
@@ -108,7 +107,7 @@ function MessageActions({ message, actions, onSheet, children }: { message: Mess
   )
 }
 
-function UserMessage({ message, name, found, settled, onRemember, onDecline, onEdit, onBranch, onMoment }: { message: Message; name: string; found: boolean; settled: string; onRemember: Act; onDecline: Act; onEdit: Act; onBranch: Act; onMoment: Act }) {
+function UserMessage({ message, name, found, onRemember, onDecline, onEdit, onBranch, onMoment }: { message: Message; name: string; found: boolean; onRemember: Act; onDecline: Act; onEdit: Act; onBranch: Act; onMoment: Act }) {
   const actions: Action[] = message.redacted ? [] : [
     ['Remember this', <BookmarkPlus key="icon" aria-hidden="true" />, onRemember],
     [MOMENT, <HeartHandshake key="icon" aria-hidden="true" />, onMoment],
@@ -127,7 +126,6 @@ function UserMessage({ message, name, found, settled, onRemember, onDecline, onE
       </header>
       <div className="prose">{message.redacted ? <p className="subtle">This message was deleted.</p> : <Paragraphs text={message.text} />}</div>
       {!message.redacted && <SentPictures message={message} name={name} />}
-      <LinkNotes message={message} settled={settled} />
       {sheet.sheet}
     </article>
   )

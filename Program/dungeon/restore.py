@@ -4,7 +4,7 @@ The current workspace is never overwritten: its database, images and adapters mo
 `replaced-<time>/` beside it first, and move back if the restore fails. A backup can be older
 than deletions made since, so the deletion records the current workspace keeps are applied to
 the restored one: deleted memories stay deleted and redacted messages stay redacted. Settings are not rolled
-back either (Vanta, 2026-10-08): the current workspace's settings, model connections, image backends, lookups and
+back either (Vanta, 2026-10-08): the current workspace's settings, model connections, image backends and
 paired phones carry over, so nothing is switched off or paused. Restoring with no current workspace (a new
 computer) still holds the restored one for review, since its connections belonged to another machine
 (backup.hold_for_review).
@@ -25,8 +25,7 @@ from dungeon.memory import records
 MOVED = ('images', 'lora')
 # What "settings" means for a restore, parents before the tables that refer to them.
 KEPT_SETTINGS = ('workspace_settings', 'connection', 'model_profiles', 'model_routes', 'life_settings',
-                 'image_settings', 'image_backends', 'context_settings', 'context_services', 'context_tools',
-                 'lora_settings', 'notification_settings', 'phone_settings', 'phone_devices', 'phone_push',
+                 'image_settings', 'image_backends', 'lora_settings', 'notification_settings', 'phone_settings', 'phone_devices', 'phone_push',
                  'builtin_recall', 'voice_settings', 'prompt_overrides', 'debug_time', 'local_programs')
 
 

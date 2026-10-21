@@ -443,7 +443,7 @@ def weather(world, definition: dict, local_date: str) -> dict | None:
     for everyone in the city). None when the world or city has no climate."""
     lookup, city = getattr(world, 'weather', None), home_city(definition)
     found = lookup(city, date.fromisoformat(local_date)) if lookup and city else None
-    # `observed` marks real weather looked up for the city that day (dungeon/mcp/weather.py).
+    # `observed` is left from real-weather lookups, which the app no longer makes.
     return found and {key: found[key] for key in ('season', 'high_f', 'low_f', 'rain', 'note', 'observed')
                       if key in found}
 

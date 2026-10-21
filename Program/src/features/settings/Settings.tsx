@@ -10,7 +10,6 @@ import { DataFolder } from './DataFolder'
 import { DebugSettings } from './DebugSettings'
 import { TownsfolkMix } from './TownsfolkMix'
 import { ChatStyleSettings } from './ChatStyleSettings'
-import { ContextSettings } from './ContextSettings'
 import { ImageSettings } from './ImageSettings'
 import { LifeSettings } from './LifeSettings'
 import { AdultSideSettings, ClosenessSettings, HomeLifeSettings, LoveSettings, PaceSettings, RealismIntro } from './RealismSettings'
@@ -99,7 +98,6 @@ function TabContent({ tab, companion }: { tab: SettingsTab; companion: Companion
     life: <><LifeSettings name={name} /><Cities /></>,
     realism: <><RealismIntro /><PaceSettings /><LoveSettings /><HomeLifeSettings /><ClosenessSettings name={name} /><AdultSideSettings /><HiddenValues name="" /></>,
     memory: <MemorySettings />,
-    lookups: <ContextSettings name={name} />,
     images: <ImageSettings />,
     notifications: <NotificationSettings />,
     phone: <PhoneSettings />,

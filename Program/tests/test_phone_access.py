@@ -98,7 +98,7 @@ def test_a_paired_phone_uses_the_companion(client, phone, companion, enabled):
 @pytest.mark.parametrize(('method', 'path'), [
     ('get', '/api/phone'), ('post', '/api/phone/pairings'), ('get', '/api/backups'), ('post', '/api/backups'),
     ('post', '/api/import/study/inspect'), ('put', '/api/connection'), ('post', '/api/models/profiles'),
-    ('post', '/api/context/services'), ('put', '/api/lora/settings'),
+    ('put', '/api/lora/settings'),
     ('post', '/api/lora/runs'), ('post', '/api/lora/adapters/import'), ('get', '/api/companion/start-over'),
     ('post', '/api/companion/start-over'), ('post', '/api/companion/delete'),
 ])

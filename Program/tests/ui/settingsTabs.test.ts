@@ -18,7 +18,7 @@ test('a deep link opens its tab, and an unknown or unavailable one opens the fir
 test('search finds sections by title, tab name or keyword, needing every word', () => {
   const found = (query: string, hasCompanion = true) => searchSettings(query, hasCompanion).map((match) => match.section.heading)
   assert.deepEqual(found('timezone'), ['time-heading'])
-  assert.deepEqual(found('WEATHER'), ['context-heading'])
+  assert.deepEqual(found('TIMEZONE'), ['time-heading'])
   assert.deepEqual(found('restore'), ['backup-heading'])
   assert.deepEqual(found('full logging'), ['model-calls-heading'])
   assert.deepEqual(searchSettings('logging', true, true), [])

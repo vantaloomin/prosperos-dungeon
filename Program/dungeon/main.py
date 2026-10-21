@@ -64,9 +64,6 @@ from dungeon.lora import generation as lora_generation
 from dungeon.lora import maker_enabled as lora_maker_enabled
 from dungeon.lora import routes as lora_routes
 from dungeon.lora import training as lora_training
-from dungeon.mcp import routes as context_routes
-from dungeon.mcp import weather as observed_weather
-from dungeon.mcp.lookups import Lookups
 from dungeon.memory import closeness_routes, history_routes, people_routes
 from dungeon.memory.worker import MemoryWorker
 from dungeon.phone import access as phone_access
@@ -83,7 +80,6 @@ from dungeon.routes import router
 from dungeon.text_model_routes import router as model_router
 from dungeon.voice.notes import VoiceNotes
 from dungeon.voice_routes import router as voice_router
-from dungeon.world import changes as city_changes
 from dungeon.world import routes as world_routes
 from dungeon.world.source import CatalogWorld
 
@@ -175,7 +171,7 @@ async def lifespan(app):
 
 def create_app(database_path: str | Path | None = None, *, clock=None, vault=None, provider=None,
                life_tasks=True, world=None, embedder=None, image_adapters=None,
-               context_transports=None, trainer_spawn=None, link_reader=None, push_transport=None,
+               trainer_spawn=None, push_transport=None,
                lora_maker=None, builtin_spawn=None, builtin_transport=None, hardware=None, voice_transport=None,
                voice_runner=None, launcher=None) -> FastAPI:
     app = FastAPI(title=APP_NAME, version=VERSION, lifespan=lifespan)
@@ -183,12 +179,8 @@ def create_app(database_path: str | Path | None = None, *, clock=None, vault=Non
     worlds.start(app.state.database)  # The world the user was last in; the first run makes the first world.
     workspace.adopt_pc_timezone(app.state.database, local_zone.detect())
     app.state.vault = vault or SystemVault()
-    world = observed_weather.ObservedWorld(world or CatalogWorld(app.state.database), app.state.database)
-    app.state.lookups = Lookups(app.state.database, app.state.vault, world, context_transports, link_reader)
-    app.state.lookups.listeners.append(lambda observation: observed_weather.apply(app.state.database, observation))
-    app.state.lookups.listeners.append(lambda observation: city_changes.remember(app.state.database, observation))
-    app.state.conversation = Conversation(app.state.database, app.state.vault, provider, embedder=embedder,
-                                          lookups=app.state.lookups)
+    world = world or CatalogWorld(app.state.database)
+    app.state.conversation = Conversation(app.state.database, app.state.vault, provider, embedder=embedder)
     app.state.builtin_recall = BuiltinRecall(app.state.database, builtin_spawn, builtin_transport)
     app.state.launcher = launcher or Launcher(app.state.database)
     app.state.conversation.embedder.builtin = app.state.builtin_recall
@@ -203,7 +195,6 @@ def create_app(database_path: str | Path | None = None, *, clock=None, vault=Non
                                     provider=app.state.conversation.provider)
     app.state.life = LifeEngine(app.state.database, app.state.vault, app.state.conversation.provider,
                                 app.state.conversation.scheduler, world)
-    app.state.life.lookups = app.state.lookups
     app.state.openers = Openers(app.state.database, app.state.vault, app.state.conversation.provider,
                                 app.state.conversation.scheduler)
     app.state.life.openers = app.state.openers
@@ -269,7 +260,6 @@ def create_app(database_path: str | Path | None = None, *, clock=None, vault=Non
     app.include_router(life_routes.today_router)
     app.include_router(world_routes.router)
     app.include_router(image_routes.router)
-    app.include_router(context_routes.router)
     app.include_router(story_routes.router)
     app.include_router(authors_note_routes.router)
     app.include_router(export_routes.router)

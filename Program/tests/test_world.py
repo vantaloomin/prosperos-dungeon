@@ -179,7 +179,7 @@ def test_a_generated_schedule_drives_the_life_routine(client):
 
 def test_the_catalog_answers_the_life_composer(app):
     from dungeon.world.source import CatalogWorld
-    assert isinstance(app.state.life.world.world, CatalogWorld)  # wrapped for observed weather (dungeon/mcp/weather.py)
+    assert isinstance(app.state.life.world, CatalogWorld)
     world = CatalogWorld()
     waterfront = world.places('baltimore', ['waterfront'])
     assert waterfront and all(place.kind == 'waterfront' and place.city == 'Baltimore' for place in waterfront)
@@ -244,8 +244,8 @@ def test_a_saved_city_that_no_longer_validates_leaves_the_others_listed(app, cli
 
 
 def test_a_saved_city_that_crashes_while_loading_leaves_the_others_listed(app, client, monkeypatch):
-    """A tester's Settings > Life & cities said "Something went wrong" and Real-world lookups stayed blank: any
-    error loading one saved city, not only a validation error, failed the city list and every lookup with it."""
+    """A tester's Settings > Life & cities said "Something went wrong": any error loading one saved city, not
+    only a validation error, failed the city list."""
     template = client.get('/api/world/template').json()
     assert client.post('/api/world/cities', json=template | {'id': 'odd-town', 'name': 'Odd Town'}).status_code == 200
     real = catalog.mending.mend
@@ -258,12 +258,11 @@ def test_a_saved_city_that_crashes_while_loading_leaves_the_others_listed(app, c
     listed = client.get('/api/world/cities')
     assert listed.status_code == 200 and 'odd-town' not in {city['id'] for city in listed.json()}
     assert [item['id'] for item in client.get('/api/world/broken-cities').json()] == ['odd-town']
-    assert client.get('/api/context').status_code == 200
 
 
 def test_a_city_dropped_among_the_built_in_ones_loads_like_a_pack(client, tmp_path, monkeypatch):
     """A Mac tester put a Los Angeles file among the built-in cities. Loaded strictly, its one job the app lacked
-    failed every city list, so Real-world lookups went blank and Life & cities showed errors.
+    failed every city list, so Life & cities showed errors.
     Such a file now loads like a pack, mended, and one that still cannot load is left out and named."""
     folder = tmp_path / 'cities'
     folder.mkdir()
@@ -281,7 +280,6 @@ def test_a_city_dropped_among_the_built_in_ones_loads_like_a_pack(client, tmp_pa
         assert [item['id'] for item in report['loaded']] == ['harbor-town']
         listed = client.get('/api/world/cities')
         assert listed.status_code == 200 and {'baltimore', 'harbor-town'} <= {city['id'] for city in listed.json()}
-        assert client.get('/api/context').status_code == 200
     finally:
         monkeypatch.undo()
         catalog.reload()

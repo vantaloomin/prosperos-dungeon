@@ -545,81 +545,6 @@ CREATE TABLE IF NOT EXISTS image_jobs (
 CREATE INDEX IF NOT EXISTS image_jobs_post ON image_jobs(post_id, created_at);
 CREATE INDEX IF NOT EXISTS image_jobs_status ON image_jobs(status, created_at);
 
--- Current context through MCP (PRD X1-X3). The user's own location is kept here, apart from the
--- companion's fictional location in its character definition.
-CREATE TABLE IF NOT EXISTS context_settings (
-  id INTEGER PRIMARY KEY CHECK (id = 1),
-  user_place TEXT NOT NULL DEFAULT '',
-  user_latitude REAL,
-  user_longitude REAL,
-  -- Links pasted in chat are opened on this computer so the companion can talk about them.
-  read_links INTEGER NOT NULL DEFAULT 1 CHECK (read_links IN (0, 1)),
-  updated_at TEXT NOT NULL
-);
-
--- MCP servers the user configured. Nothing runs until a category on it is enabled.
-CREATE TABLE IF NOT EXISTS context_services (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  transport TEXT NOT NULL CHECK (transport IN ('stdio', 'http')),
-  command TEXT,
-  url TEXT,
-  credential_ref TEXT,
-  secret_name TEXT NOT NULL DEFAULT '',
-  tools TEXT NOT NULL DEFAULT '[]',
-  server_info TEXT,
-  checked_at TEXT,
-  check_error TEXT,
-  cooldown_until TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
--- Which tool answers a category, which arguments it receives and when it may run. `approved`
--- is the digest of the disclosure the user confirmed; a changed mapping needs a new confirmation.
-CREATE TABLE IF NOT EXISTS context_tools (
-  service_id TEXT NOT NULL REFERENCES context_services(id) ON DELETE CASCADE,
-  -- The categories are checked by the app (dungeon/mcp/services.py CATEGORIES).
-  category TEXT NOT NULL,
-  tool TEXT NOT NULL,
-  arguments TEXT NOT NULL,
-  run_in TEXT NOT NULL DEFAULT '["conversation"]',
-  enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)),
-  approved TEXT,
-  updated_at TEXT NOT NULL,
-  PRIMARY KEY (service_id, category)
-);
-
--- Every lookup attempt with what was sent, where, when and how long it counts as fresh.
-CREATE TABLE IF NOT EXISTS context_observations (
-  id TEXT PRIMARY KEY,
-  service_id TEXT REFERENCES context_services(id) ON DELETE SET NULL,
-  service_name TEXT NOT NULL,
-  category TEXT NOT NULL,
-  purpose TEXT NOT NULL,
-  tool TEXT NOT NULL,
-  arguments TEXT NOT NULL,
-  destination TEXT NOT NULL,
-  location TEXT,
-  status TEXT NOT NULL CHECK (status IN ('ok', 'failed', 'refused')),
-  content TEXT NOT NULL DEFAULT '',
-  structured TEXT,
-  error_code TEXT,
-  error TEXT,
-  attempts INTEGER NOT NULL DEFAULT 1,
-  requested_at TEXT NOT NULL,
-  retrieved_at TEXT,
-  fresh_until TEXT
-);
-CREATE INDEX IF NOT EXISTS context_observations_recent ON context_observations (category, requested_at);
-
--- Which observations a user message's reply was given.
-CREATE TABLE IF NOT EXISTS context_uses (
-  message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
-  observation_id TEXT NOT NULL REFERENCES context_observations(id) ON DELETE CASCADE,
-  PRIMARY KEY (message_id, observation_id)
-);
-
 -- Character LoRA maker (PRD "Character LoRA maker requirements"). Files live in `lora/` beside the
 -- workspace database; these tables hold what they are, where they came from and who chose them.
 CREATE TABLE IF NOT EXISTS lora_settings (
@@ -940,9 +865,8 @@ CREATE TABLE IF NOT EXISTS self_facts (
   UNIQUE (message_id, key)
 );
 CREATE INDEX IF NOT EXISTS self_facts_message ON self_facts(message_id);
--- Changes to a city the workspace keeps (dungeon/world/changes.py): the user's own, and headlines remembered
--- from real local-event lookups, deleted with their lookup. Seeded changes are computed from the city and month,
--- not stored; one the user dismisses is listed in world_change_dismissals and never happens.
+-- Changes to a city the workspace keeps (dungeon/world/changes.py): the user's own (`observation_id` is left from
+-- real-world lookups and stays empty). Seeded changes are computed from the city and month, not stored; one the user dismisses is listed in world_change_dismissals and never happens.
 CREATE TABLE IF NOT EXISTS world_changes (
   id TEXT PRIMARY KEY,
   city_id TEXT NOT NULL,
@@ -956,7 +880,7 @@ CREATE TABLE IF NOT EXISTS world_changes (
   announced_on TEXT NOT NULL,
   starts_on TEXT NOT NULL,
   ends_on TEXT,
-  observation_id TEXT REFERENCES context_observations(id) ON DELETE CASCADE,
+  observation_id TEXT,
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS world_changes_city ON world_changes(city_id, starts_on);

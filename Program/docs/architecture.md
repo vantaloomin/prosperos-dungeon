@@ -22,7 +22,6 @@ can never be confused.
 | `memory_declines`, `deletion_markers` | Don't-remember choices and non-content deletion markers | Block re-extraction and reintroduction |
 | `memory_jobs`, `memory_candidates`, `memory_activity` | Queued extraction, extracted candidates and suggestions, and an activity log of identities and reason codes | Candidates are not memories until committed |
 | `workspace_settings`, `pauses` | Permissions, memory revision and pause intervals | Revisions make queued work detectably stale |
-| `context_settings`, `context_services`, `context_tools` | The user's own location, MCP servers and confirmed tool mappings (X1) | A mapping runs only while its confirmed disclosure still matches |
 | `context_observations`, `context_uses` | Every lookup attempt and which reply used it (X2, X3) | External data with freshness; never a personal memory |
 
 ## Revisions and stale work
@@ -47,7 +46,7 @@ Alternatives keep the earlier wording; they are offered for the latest message o
 ### Streaming replies
 
 Sending (or asking for an alternative) with `?wait=false` returns as soon as the user's message
-and the reply attempt are saved; the attempt is `streaming`. The query embedding, current-context lookups
+and the reply attempt are saved; the attempt is `streaming`. The query embedding
 and context assembly happen afterwards in the reply's own task, so a slow service or background work
 never delays acceptance. A context that cannot fit marks the attempt `failed` with the reason. The client then follows
 `GET /api/conversation/replies/{id}/events`, a server-sent event stream with four events:
@@ -158,7 +157,7 @@ timeline that the current conversation does not use (`in_timeline: false`).
 That is the order sections are offered for the budget. The prompt itself is written in a different
 order, by how often each section changes (`HEADINGS`): the character, boundaries, what the user told
 the companion, its own facts and its home first; daily things (calendar, weather, diary, storylines)
-next; then the circle (each person's "right now"), the clock, the wording nudge, lookups and
+next; then the circle (each person's "right now"), the clock, the wording nudge and
 recalled memories last. Consecutive replies then share a long unchanged start,
 which llama.cpp, LM Studio, Ollama and hosted providers reuse instead of processing it again
 (prompt caching). New sections go in the group that matches how often they change.
@@ -586,7 +585,7 @@ never replaces the post's chosen image. See [image generation](images.md).
 
 `POST /api/backups` writes a zip with a manifest and a consistent SQLite snapshot beside the
 workspace. Restore only targets a new path and checks the format marker and digest. Replacing a workspace keeps
-its settings (`restore.keep_settings`: settings, model connections, image backends, lookups, paired phones and
+its settings (`restore.keep_settings`: settings, model connections, image backends, paired phones and
 prompt edits carry over, so nothing is switched off or paused). A restore with no workspace to replace (a new
 computer) leaves it paused with automatic memory and background activity off and its saved key reference
 cleared; enabling memory or background activity there requires marking the review complete.
@@ -596,22 +595,12 @@ cleared; enabling memory or background activity there requires marking the revie
 `dungeon/start_over.py`, from the bottom of the Character page (PC only). The user types the
 companion's name; a full backup with reference pictures (`before-reset-*.zip` or
 `before-delete-*.zip`) is written and verified before anything is removed. Every table is in one
-group: WORKSPACE (settings, connections, backends, lookup services, cities, phones) always stays,
+group: WORKSPACE (settings, connections, backends, cities, phones) always stays,
 CHARACTER (companion, versions, look and LoRA) stays on start over, HISTORY (timelines and all
-they hold, plus every real-world lookup and the city news drawn from it) is cleared by both. A test fails when a new table is in no group. Starting over gives
+they hold) is cleared by both. A test fails when a new table is in no group. Starting over gives
 the companion a fresh active timeline that begins now; deleting also removes `images/` and the
 LoRA folders, and waits while an adapter trains. Both bump the permission and memory revisions,
 stop replies being written and vacuum the database.
-
-## Current context (X1–X3)
-
-`dungeon/mcp/` looks up real weather, news and local events through MCP servers the user
-configures, under a disclosure the user confirms. The app decides when to look something up from
-the user's message; the model never gets tools. Lookups are recorded in `context_observations`
-with their tool, arguments, destination, location and freshness, quoted into the reply's context
-as external data, and listed in the reply's receipt under `outside`. Details, limits and the tested
-transports are in [current context tools](context-tools.md). A same-day lookup for the companion's
-real city can replace that day's typical weather in the life simulation (`ObservedWorld`).
 
 ## Character drafting
 
