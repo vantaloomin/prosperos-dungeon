@@ -379,6 +379,23 @@ Decided 2026-10-21.
   for backup or moving machines, importable again. The story of one branch also exports as a
   readable book in Markdown, EPUB or PDF.
 
+## Art
+
+Decided 2026-10-21. Builds on Companion's image pipeline. Art is opt-in per image, so play never
+waits on it and costs nothing unless the player asks.
+
+- **Anything can be illustrated, on request.** VN-style character portraits with expressions,
+  location backgrounds by time of day, full scene illustrations, and a button to illustrate any
+  passage. Nothing is generated automatically. Images are saved with their chapter, are reused
+  until something changes, and go into the book export.
+- **Every named character gets one reference image.** The first portrait of a named character
+  becomes their reference, reused in every later image so they keep looking like themselves. No
+  LoRA training is required (Companion's trainer stays available as an optional upgrade).
+- **Portraits show full live state.** Images are built from what code tracks: wounds, scars and
+  maims, gear, cleanliness, clothing condition, state of dress, and mood from the NPC feeling
+  axes. When that state changes, the portrait is marked out of date, and the player can refresh
+  it with one click.
+
 ## World packages (proposed)
 
 The three bases arrive in three shapes: Mabry (canon / hidden / continuity markdown plus dice
