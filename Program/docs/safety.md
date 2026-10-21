@@ -30,10 +30,12 @@ nothing is sent anywhere.
   local emergency number in an emergency.
 - **What doesn't happen.** The message is never blocked or changed, the character's reply carries on as usual, and
   nothing about it leaves your computer. There is no setting that turns the note off.
-- **What the characters are told.** Every character's standing instructions (Settings > Advanced, "Who the companion
-  is", and the Story narrator) include a rule never to encourage, praise or help with self-harm or suicide, never to
-  describe ways to do it, and to answer with real care when someone says they want to hurt themselves. Those
-  instructions can be reworded in Settings > Advanced; the crisis note is code and shows whatever they say.
+- **What the characters are told.** A companion's standing instructions (Settings > Advanced, "Who the companion
+  is") include a rule never to encourage, praise or help with self-harm or suicide, never to describe ways to do it,
+  and to answer with real care when someone says they want to hurt themselves. The Story narrator has no such rule:
+  Dungeon's stories are dark fiction for adults with no hard lines beyond adults only, and a character in them may
+  come to harm. The crisis note is about the real player's own words, so it is code and shows whatever any prompt
+  says.
 - **Limits.** A list of phrases misses some ways of saying things and catches some jokes ("this exam makes me want to
   die"). It leans toward showing the note: a false alarm costs one note, a missed one costs much more.
 

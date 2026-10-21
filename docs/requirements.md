@@ -546,6 +546,82 @@ Decided 2026-10-21:
   elsewhere, the beats wait or quietly lapse, and the player's choices can take canon somewhere
   else entirely.
 
+## Narrator prompting
+
+Decided 2026-10-21. Vanta's three writing documents are the inspiration (kept verbatim in the
+project files under `dungeon/prompting/`): the adult literary fiction instructions, the AI-ism
+blocklist and the writing ruleset. Dungeon adapts them for turn-by-turn play rather than copying
+them. Code is `Program/dungeon/narration/`.
+
+- **A layered prompt, short enough for local models.** In order: the core (who the narrator is
+  and its contract with the code), the craft rules, the player's narration format, intensity and
+  voice, the persona, the scene, then this turn's outcomes, so the facts sit nearest the player's
+  words. The core and craft run to about 900 words; models with a context window under 16k tokens
+  get a compact craft layer of about 110 words instead. Both layers can be reworded in Settings >
+  Advanced like Companion's other prompts.
+- **Code decides, the model narrates.** The core says the outcomes are fixed: write the band the
+  code gives, no better and no worse, and never invent rolls, numbers, items, money, prices,
+  wounds, deaths or moves. If the story needs something the facts don't settle, leave it open.
+  Hidden rolls are never mentioned in the prose; shown rolls may be named.
+- **The player's words are expanded, not replaced.** "I taunt the demon and attack" becomes the
+  taunt in the persona's voice and the attack landing as the band says. The narrator adds no
+  decisions, speeches or feelings the player did not ask for, apart from reflexes and sensation.
+- **The two always-on rules map onto the systems.** "A living world" becomes the NPC rules
+  (everyone pursues their own goals, lies on the page as dialogue, can be influenced but never
+  ordered, helps only at a cost) and feeds from NPC minds and off-page beats. "Two steps forward,
+  one back" sits on top of the outcome ladder: the bands decide how a roll went, and the narrator
+  makes wins carry a bill and never resolves a scene entirely.
+- **Format is a player setting.** Point of view (first, second or close third), tense (past or
+  present) and length (short, medium, long). The default for a persona is close third person,
+  past tense, as in Mabry Curve and Vanta's guide. Story mode, which has no persona yet, keeps
+  second person and present tense. Inner thoughts use single-quoted italics; game windows go in
+  code blocks.
+- **Content.** Adults only is absolute and stated in the core. Nothing else is a hard line; the
+  intensity layer tells the narrator how far each category goes (off the page, restrained,
+  mature, unflinching) and which topics are veiled. Until worlds set defaults, every category is
+  unflinching. The Story narrator no longer carries Companion's self-harm rule, since characters
+  in a dark story may come to harm; the app's crisis note on the real player's own words stays.
+- **Prose rules that code can check are checked in code** after every narration, before the
+  player sees it (`prose.py`), the same principle as rewriting ledger contradictions:
+  - **Hard:** em dashes in any form (the character, a double hyphen, a spaced hyphen or en dash).
+    Always fixed: the rewrite pass first, then a mechanical replacement that cannot fail.
+  - **Strong:** dialogue echoes, reported speech, more than four bare lines of dialogue in a row,
+    scene-closing tells, stock intimacy phrases, thinking tics, performed emotion, emotional
+    shorthand, filler, and unambiguous AI vocabulary. Any of these asks the model for one rewrite
+    of the flagged wording, used only if it keeps roughly the same length and has fewer problems.
+  - **Watch:** words with ordinary literal uses in a game world (a merchant's ledger, a tapestry
+    on a wall, navigating a river), the echo chamber, punctuation collapse, and dialogue with no
+    question. Logged only, per the guide's "scrutinize, don't ban."
+  - Phrases inside quoted dialogue are a character's own voice and are not flagged. Game windows
+    in code blocks are left alone. A setting will skip the rewrite pass for slow local models
+    (the dash fix always runs). Vanta chose this strictness (rewrite strong tells only) on
+    2026-10-21.
+- **Not yet wired:** the narration format, intensity and rewrite settings arrive with the player
+  settings in Milestone 1; until then Story mode uses the defaults above.
+
+### What the model CLIs send
+
+Dungeon's prompt should be the only instruction a model gets. Checked by capturing the real
+requests (Claude Code 2.1.306, Codex CLI 0.163.0):
+
+- **claude -p:** `--system-prompt-file` replaces Claude Code's prompt; no built-in tools, an
+  explicitly empty strict MCP config, no settings sources (so no user or project hooks, plugins
+  or permissions), no slash commands or skills, one turn, no session saved, and `--safe-mode` plus
+  `--permission-prompts none` when the installed CLI lists them. Environment variables turn off
+  CLAUDE.md, auto memory, git instructions and @-file attachments, and a parent Claude Code
+  session's own variables are not passed on. Left over, with no switch: a one-line Claude Code
+  identity and a short environment note (folder, platform, model, date). `--bare` would remove
+  more but ignores the plan login, so it is not used.
+- **Codex (ChatGPT login):** before, Dungeon's prompt rode in the transcript under Codex's own
+  21,000-character coding-agent prompt, a skills catalog, AGENTS.md files and seven tools. Now
+  `model_instructions_file` replaces Codex's prompt, and AGENTS.md from the folder, the
+  environment, permissions, apps, collaboration, skills and memories notes, and the extra tools
+  are off. Left over: the global `~/.codex/AGENTS.md` if the player has one (always loaded; the
+  prompt tells the model to ignore it) and two tools Codex always registers, which can't act in a
+  read-only folder.
+- **Later:** both CLIs accept a JSON schema for structured output (`--json-schema`,
+  `--output-schema`), which the Referee and fact extraction can use.
+
 ## Turn loop (proposed, from Mabry Curve)
 
 1. Player writes intent only.

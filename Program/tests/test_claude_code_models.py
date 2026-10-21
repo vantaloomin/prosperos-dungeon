@@ -16,13 +16,17 @@ STAND_IN = '''
 import json, os, sys
 from pathlib import Path
 arguments = sys.argv[1:]
+if arguments == ["--help"]:
+    print(os.environ.get("STAND_IN_HELP", "  --safe-mode   Start with all customizations disabled"))
+    sys.exit(0)
 if arguments[:2] == ["auth", "status"]:
     state = os.environ.get("STAND_IN_LOGIN", "in")
     print(json.dumps({"loggedIn": state != "out", "authMethod": "api_key" if state == "key" else "claude.ai"}))
     sys.exit(1 if state == "out" else 0)
 system = Path(arguments[arguments.index("--system-prompt-file") + 1]).read_text(encoding="utf-8")
 seen = {"arguments": arguments, "system": system, "stdin": sys.stdin.read(), "cwd": os.getcwd(),
-        "api_key": os.environ.get("ANTHROPIC_API_KEY")}
+        "api_key": os.environ.get("ANTHROPIC_API_KEY"),
+        "environment": {name: value for name, value in os.environ.items() if "CLAUDE" in name}}
 Path(__file__).with_name("seen.json").write_text(json.dumps(seen))
 mode = os.environ.get("STAND_IN_MODE", "stream")
 print(json.dumps({"type": "system", "subtype": "init"}))
@@ -53,6 +57,7 @@ def stand_in(tmp_path, monkeypatch):
     monkeypatch.setattr(claude_code, 'executable_path', lambda _config: sys.executable)
     monkeypatch.setattr(asyncio, 'create_subprocess_exec', run)
     monkeypatch.setenv('ANTHROPIC_API_KEY', 'sk-ant-not-for-the-cli')
+    monkeypatch.setattr(claude_code, '_help_texts', {})
     return tmp_path
 
 
@@ -82,8 +87,36 @@ def test_a_reply_streams_from_claude_p_with_tools_off_and_the_plan_login(stand_i
     assert {'--strict-mcp-config', '--disable-slash-commands', '--no-session-persistence'} <= set(arguments)
     assert seen['system'] == 'You are Sally.'
     assert seen['stdin'] == 'User: Hi\n\nAssistant: Hey!\n\nUser: How are you?\n\nAssistant:'
-    assert 'companion-claude-' in seen['cwd']
+    assert 'dungeon-claude-' in seen['cwd']
     assert seen['api_key'] is None  # a key set for the Anthropic provider never replaces the plan
+
+
+def test_only_dungeons_prompt_reaches_the_model(stand_in, monkeypatch):
+    """The harness's own context is off: settings files, MCP servers, CLAUDE.md, memory and a parent session."""
+    monkeypatch.setenv('CLAUDECODE', '1')
+    monkeypatch.setenv('CLAUDE_CODE_SESSION_ID', 'parent-session')
+    monkeypatch.setenv('CLAUDE_CODE_OAUTH_TOKEN', 'the-users-own-token')
+    monkeypatch.setenv('CLAUDE_CODE_USE_BEDROCK', '1')
+    reply()
+    seen = json.loads((stand_in / 'seen.json').read_text())
+    arguments = seen['arguments']
+    assert arguments[arguments.index('--setting-sources') + 1] == ''
+    assert json.loads(arguments[arguments.index('--mcp-config') + 1]) == {'mcpServers': {}}
+    assert arguments[arguments.index('--max-turns') + 1] == '1'
+    assert '--safe-mode' in arguments and '--permission-prompts' not in arguments  # only what --help lists
+    assert '--append-system-prompt' not in arguments and '--bare' not in arguments
+    environment = seen['environment']
+    assert {name: environment[name] for name in claude_code.QUIET_ENV} == claude_code.QUIET_ENV
+    assert 'CLAUDECODE' not in environment and 'CLAUDE_CODE_SESSION_ID' not in environment
+    assert environment['CLAUDE_CODE_OAUTH_TOKEN'] == 'the-users-own-token'
+    assert environment['CLAUDE_CODE_USE_BEDROCK'] == '1'
+
+
+def test_an_older_cli_gets_no_flags_it_does_not_list(stand_in, monkeypatch):
+    monkeypatch.setenv('STAND_IN_HELP', '  --tools <tools...>   Specify the list of available tools')
+    reply()
+    arguments = json.loads((stand_in / 'seen.json').read_text())['arguments']
+    assert '--safe-mode' not in arguments and '--permission-prompts' not in arguments
 
 
 def test_a_cli_that_does_not_stream_still_gives_the_whole_reply(stand_in, monkeypatch):

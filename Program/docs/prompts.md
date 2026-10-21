@@ -17,7 +17,8 @@ for comparison.
 | Suggesting memories | The memory model's fact suggestions | `RULES` in `dungeon/memory/suggest.py` |
 | Noting the companion's own facts | The memory model reading its replies for their people, team, work | `RULES` in `dungeon/memory/self_suggest.py` |
 | Describing your pictures | The "Seeing pictures" model | `DESCRIBE` in `dungeon/pictures.py` |
-| The Story narrator | Every reply in the Story tab, before the scene ([story.md](story.md)) | `NARRATOR` in `dungeon/story.py` |
+| The Story narrator | Every reply in the Story tab: who the narrator is and its contract with the game ([story.md](story.md)) | `CORE` in `dungeon/narration/prompt.py` |
+| The narrator's writing rules | After the Story narrator: craft, dialogue rules, phrases never to use; small-context models get `CRAFT_COMPACT` instead | `CRAFT` in `dungeon/narration/prompt.py` |
 | Character drafting (5) | The quick start, "Help me write" and the paste box | `dungeon/prompts/character-*.md` ([character-drafting.md](character-drafting.md)) |
 | Sidecar | The sidecar's replies and proposed changes ([sidecar.md](sidecar.md)) | `dungeon/prompts/sidecar.md` |
 
