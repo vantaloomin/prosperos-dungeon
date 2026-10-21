@@ -5,9 +5,10 @@ name: Package
 # The bundle is a workflow artifact only: nothing here tags or publishes a release. release.yml calls
 # this workflow and publishes its windows-release artifact once every job here has passed.
 
-# Manual only while the repository is private and has no Actions minutes (2026-10-21): checks run locally
-# before each push instead. Put the pull_request and push (main) triggers back once minutes are available.
 on:
+  pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
   workflow_call:
 
