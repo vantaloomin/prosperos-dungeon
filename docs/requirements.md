@@ -344,6 +344,23 @@ decides what the narrator sees each turn.
   recent turns, recalled facts, then summaries. It trims from the bottom. A setting caps tokens
   per turn to control cost and speed on paid models.
 
+Round 2, decided 2026-10-21:
+
+- **Contradictions are rewritten before the player sees them.** If a narration clashes with the
+  ledger (a dead NPC waves, spent coin reappears), code has the narrator redo that passage first.
+  A setting skips the check for speed on slow local models.
+- **Chapters close at scene breaks.** Code starts a new chapter on a location change, time skip,
+  rest, or the end of a fight or quest step, and summarizes the one that ended. The player can
+  also close a chapter themselves and name it. Chapters give the story view and branch view
+  their structure.
+- **Branches are sealed, except a player notebook.** Each branch forks the ledger at the branch
+  point (with new dice). The character and NPCs know only what happened on their branch. A
+  player-only notebook spans every branch, and no model ever reads it as character knowledge.
+- **Characters forget, but grudges stick.** The ledger keeps every fact. What NPCs and the player
+  character are treated as remembering fades by importance and age, while big events (betrayal,
+  a death, a debt) stay. Memories tied to strong feelings (fear, hatred, love) stay sharp
+  regardless of age. A roll can recall a faded detail.
+
 ## World packages (proposed)
 
 The three bases arrive in three shapes: Mabry (canon / hidden / continuity markdown plus dice
