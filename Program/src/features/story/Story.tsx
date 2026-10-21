@@ -20,6 +20,8 @@ import { StoryJournal } from './StoryJournal'
 import { StoryGear } from './StoryGear'
 
 const STORY_KEY = ['story']
+/** Matches the stylesheet's breakpoint for the side panel. */
+const WIDE = '(min-width: 1100px)'
 const OUT_OF_STORY = 'To step out of the story, start a message with OOC: or wrap it in ((double parentheses)).'
 
 /** The story: the user's own story around the cities, told by a narrator. */
@@ -39,17 +41,21 @@ export function Story({ go }: { go: (view: View) => void }) {
     finally { setPending(null); await Promise.all([client.invalidateQueries({ queryKey: STORY_KEY }), client.invalidateQueries({ queryKey: ['story-journal'] }), client.invalidateQueries({ queryKey: ['story-gear'] })]) }
   }
   const send = (text: string) => run(text, () => api('/story/messages', { text, client_id: newId() }))
+  const change = (request: () => Promise<StoryData>) => run(null, () => request().then(update))
   return (
     <section className="story" aria-labelledby="story-heading">
-      <StoryHeader story={story.data} change={(request) => run(null, () => request().then(update))} />
-      {!story.data.ready && <NoModel go={go} />}
-      {!story.data.messages.length && pending === null ? <StoryStart onStarted={update} /> : <>
-        <StoryLog messages={story.data.messages} pending={pending} onRetry={() => void run(null, () => api('/story/retry', {}))}
-          onBack={(id) => void run(null, () => api<StoryBack>('/story/back', { message_id: id }).then((data) => { update(data); setDraft({ text: data.draft, at: Date.now() }) }))} />
-        {error && <div className="story-notice"><Notice tone="error">{error}</Notice></div>}
-        <StoryComposer key={draft.at} busy={pending !== null} draft={draft.text} onSend={(text) => void send(text)} />
-      </>}
-      <NewStory empty={!story.data.messages.length} onClear={() => run(null, () => api<StoryData>('/story', undefined, 'DELETE').then(update))} />
+      <div className="story-main">
+        <StoryHeader story={story.data} change={change} />
+        {!story.data.ready && <NoModel go={go} />}
+        {!story.data.messages.length && pending === null ? <StoryStart onStarted={update} /> : <>
+          <StoryLog messages={story.data.messages} pending={pending} onRetry={() => void run(null, () => api('/story/retry', {}))}
+            onBack={(id) => void run(null, () => api<StoryBack>('/story/back', { message_id: id }).then((data) => { update(data); setDraft({ text: data.draft, at: Date.now() }) }))} />
+          {error && <div className="story-notice"><Notice tone="error">{error}</Notice></div>}
+          <StoryComposer key={draft.at} busy={pending !== null} draft={draft.text} onSend={(text) => void send(text)} />
+        </>}
+        <NewStory empty={!story.data.messages.length} onClear={() => run(null, () => api<StoryData>('/story', undefined, 'DELETE').then(update))} />
+      </div>
+      <StoryPanel story={story.data} change={change} />
     </section>
   )
 }
@@ -59,21 +65,34 @@ function NoModel({ go }: { go: (view: View) => void }) {
     Add a text model in Settings &gt; Models to tell the story.</Notice></div>
 }
 
-/** The scene, the sheet, the people met and the other branches; `change` runs a request that returns the story. */
+/** The title, where and when the story is, and the fight. */
 function StoryHeader({ story, change }: { story: StoryData; change: (request: () => Promise<StoryData>) => Promise<void> }) {
-  const client = useQueryClient()
-  const refresh = () => client.invalidateQueries({ queryKey: STORY_KEY })
+  const fight = fightText(story.fight)
   return (
     <header className="story-header">
       <h1 id="story-heading">Story</h1>
       <p className="subtle">Your own story around town, told by a narrator.</p>
       <SceneBar scene={story.scene} onMove={(body) => change(() => api<StoryData>('/story/scene', body, 'PUT'))} />
-      {fightText(story.fight) && <p className={story.fight.fight || story.fight.dead ? 'story-fight' : 'subtle'} role="status">{fightText(story.fight)}</p>}
-      {!!story.messages.length && <><StorySheet /><StoryGear onTrade={() => void refresh()} /><StoryJournal /></>}
+      {fight && <p className={story.fight.fight || story.fight.dead ? 'story-fight' : 'subtle'} role="status">{fight}</p>}
+    </header>
+  )
+}
+
+/** The fixed side panel (beside the story on a wide screen, above it on a narrow one): the sheet, the pack and the
+ * shop window, the journal, the people met and the other branches. The free grid comes in Milestone 6. */
+function StoryPanel({ story, change }: { story: StoryData; change: (request: () => Promise<StoryData>) => Promise<void> }) {
+  const client = useQueryClient()
+  const refresh = () => client.invalidateQueries({ queryKey: STORY_KEY })
+  // Beside the story there is room to show the sheet, pack and journal open; above it they start folded.
+  const [wide] = useState(() => window.matchMedia?.(WIDE).matches ?? false)
+  if (!story.messages.length && !story.people.length && story.branches.length < 2) return null
+  return (
+    <aside className="story-panel" aria-label="Your character and what you know">
+      {!!story.messages.length && <><StorySheet open={wide} /><StoryGear open={wide} onTrade={() => void refresh()} /><StoryJournal open={wide} /></>}
       <StoryPeople people={story.people} onFind={(key) => void change(() => api<StoryData>('/story/find', { key }))} />
       <StoryBranches branches={story.branches}
         onSwitch={(id) => void change(() => api<StoryData>(`/story/branches/${encodeURIComponent(id)}/switch`, {}))} />
-    </header>
+    </aside>
   )
 }
 
