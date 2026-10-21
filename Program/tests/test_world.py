@@ -50,7 +50,7 @@ def test_generated_schedules_are_valid_character_routines(city_id):
 @pytest.mark.parametrize('city_id', CITIES)
 def test_shipped_json_matches_its_source_script(city_id):
     script = Path(__file__).parent.parent / 'scripts' / 'world' / f'{city_id.replace("-", "_")}.py'
-    written = json.loads((catalog.DATA / 'cities' / f'{city_id}.json').read_text(encoding='utf-8'))
+    written = json.loads((catalog.BUILTIN_CITIES / f'{city_id}.json').read_text(encoding='utf-8'))
     assert runpy.run_path(str(script))['CITY'] == json.loads(json.dumps(written)), 'Rerun the script.'
 
 
@@ -299,6 +299,9 @@ def test_a_saved_copy_of_a_city_that_is_now_built_in_is_not_listed_twice(app, cl
 
 
 def test_every_shipped_city_loads_strictly():
+    from conftest import SHIPPED_CITIES
+    shipped = catalog.city_files(SHIPPED_CITIES)
+    assert shipped and all(catalog.prepare(path.read_bytes())['id'] == path.stem for path in shipped)
     assert catalog.reload()['errors'] == []
     assert all(data['origin'] == 'builtin' for data in catalog.cities().values() if not data.get('pack_file'))
     assert {path.stem for path in catalog.city_files(catalog.BUILTIN_CITIES)} == \

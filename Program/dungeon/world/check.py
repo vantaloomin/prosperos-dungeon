@@ -35,7 +35,7 @@ def warnings(data: dict) -> list[str]:
 
 def check_file(path: Path) -> dict:
     # Built-in cities load exactly as written; packs and shared files are mended the way the app loads them.
-    builtin = path.resolve().parent == (catalog.DATA / 'cities').resolve()
+    builtin = path.resolve().parent == catalog.BUILTIN_CITIES.resolve()
     try:
         data = catalog.prepare(path.read_bytes(), mend=not builtin)
     except (OSError, ValueError) as error:
@@ -47,7 +47,7 @@ def check_file(path: Path) -> dict:
 
 def targets(paths: list[str]) -> list[Path]:
     if not paths:
-        return catalog.city_files(catalog.DATA / 'cities') + [
+        return catalog.city_files(catalog.BUILTIN_CITIES) + [
             file for folder in catalog.pack_dirs() for file in catalog.city_files(folder)]
     found = []
     for item in map(Path, paths):

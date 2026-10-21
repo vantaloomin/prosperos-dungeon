@@ -3,6 +3,7 @@ import json
 import os
 import zlib
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -14,8 +15,15 @@ from dungeon.main import create_app
 from dungeon.memory.context import NOTE_CLOSE, NOTE_OPEN
 from dungeon.providers.chat import Chunk
 from dungeon.providers.vault import MemoryVault
+from dungeon.world import catalog
 
 START = datetime(2026, 10, 5, 12, 0, tzinfo=UTC)
+
+# The app ships one city. The tests load these copies instead, as built-in cities, so every era and kind of city
+# they cover stays covered. They live only here: not in the package data.
+SHIPPED_CITIES = catalog.BUILTIN_CITIES
+catalog.BUILTIN_CITIES = Path(__file__).parent / 'fixtures' / 'cities'
+catalog.reload()
 
 
 class FakeProvider:
