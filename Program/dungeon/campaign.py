@@ -8,7 +8,7 @@ with the player arriving where the scene is.
 import json
 from pathlib import Path
 
-from dungeon import quests, sheet, story, story_clock, timeline, worlds
+from dungeon import inventory, quests, sheet, story, story_clock, timeline, worlds
 from dungeon.database import one
 from dungeon.errors import require
 from dungeon.models import PersonaInput
@@ -65,5 +65,6 @@ def begin(database, premade_id: str | None = None, persona: PersonaInput | None 
         sheet.set_stats(connection, stats, database.now())
         story_clock.start(connection, database.clock.now())
         quests.start(connection, city_id, database.clock.now())
+        inventory.give_kit(connection, city_id, premade_id)
         story.arrive(connection, database.now())
     return story.story(database)

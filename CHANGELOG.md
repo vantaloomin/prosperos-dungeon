@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Your pack and the first shop.** Your character starts with a purse and the kit that fits them, carries what
+  their Vitality allows, and can buy and sell at Pell's Provisions in Kingswood while someone is behind the
+  counter. The narrator knows what you carry and quotes the shop's real prices.
 - **People have feelings about you.** Everyone you meet keeps trust, affection, respect, fear and desire toward
   your character. Charm, threats and fists aimed at someone move them, and so can the Continuity model, with a
   short reason they remember. Warm people are easier to persuade, cold ones harder. Kingswood's named people chase

@@ -1,4 +1,4 @@
-import type { JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart } from '../../types'
+import type { Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -123,4 +123,20 @@ const QUEST_ENDS: Record<string, string> = { done: 'Done', failed: 'Failed', mis
 export function questState(quest: Pick<JournalQuest, 'status' | 'left'>): string {
   if (quest.status !== 'open') return QUEST_ENDS[quest.status] ?? 'Over'
   return quest.left ? `Underway · ${quest.left}` : 'Underway'
+}
+
+/** "3.40 cr.", from hundredths of the currency. */
+export function moneyText(hundredths: number, currency: Gear['currency']): string {
+  return `${(hundredths / 100).toFixed(2)} ${currency.symbol || currency.name || ''}`.trim()
+}
+
+/** "Rope, fifty feet × 2". */
+export function gearLine(item: { name: string; qty: number }): string {
+  return item.qty > 1 ? `${item.name} × ${item.qty}` : item.name
+}
+
+/** "6.35 of 13 slots". */
+export function slotsText(slots: Gear['slots']): string {
+  const round = (value: number) => Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0$/, '')
+  return `${round(slots.used)} of ${round(slots.max)} slots`
 }

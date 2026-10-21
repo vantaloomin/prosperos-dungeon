@@ -213,6 +213,14 @@ export interface StoryPerson {
   /** How they feel about your character, while the dice are shown (dungeon/feelings.py). */
   feelings: string
 }
+/** The character's purse and pack, and the shop window where the story is (dungeon/inventory.py). Money is in hundredths. */
+export interface GearItem { id: string; item_id: string; name: string; category: string; qty: number; slots: number }
+export interface ShopRow { item_id: string; name: string; category: string; price: number; qty: number; slots: number }
+export interface Shop { place_id: string; open: boolean; keeper: string; stock: ShopRow[]; offers: Record<string, number> }
+export interface Gear {
+  coins: number; currency: { code: string; symbol?: string; name?: string }; slots: { used: number; max: number }
+  items: GearItem[]; shop: Shop | null
+}
 /** A character a town ships to play as (dungeon/campaign.py). */
 export interface Premade { id: string; name: string; gender: PersonaGender; age: number | null; about: string; stats: Record<string, number> }
 /** Campaign start: the town's premades and the point-buy for making your own. */

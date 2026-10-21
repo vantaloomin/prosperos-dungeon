@@ -99,6 +99,25 @@ dangerous places. Kingswood ships "The Heartwood contract" and a hidden one, "Th
 - The player's journal ("What you know") shows the quests they know of and the time left. Quests branch with the
   story.
 
+## Gear and the shop
+
+Code owns every item and coin (`dungeon/inventory.py`). A town's item file (`dungeon/world/data/items/<city>.json`)
+lists its items with base prices in the city's currency (Kingswood: silver crowns, a logger earning 1 to 2 a day),
+its shops with their starting stock, and each premade's starting kit (plus a default kit for a made character).
+
+- **Purse and pack.** Money is kept in hundredths. Each item takes slots (a knife a quarter, a sword one); the
+  character carries 5 plus half their Vitality. The narrator is told what they carry and what is in the purse,
+  and that nothing appears or goes without the game.
+- **The shop window.** In a shop (Kingswood: Pell's Provisions) the Story screen shows "The counter": the stock,
+  its prices and how many are left. The shop is open while one of its staff is at work. Buying takes the item from
+  finite stock; selling gets the shop's sell rate (half the base price) for what it deals in. Each trade is logged
+  (`story_trades`) and adds a line to the story ("You buy Rope, fifty feet for 0.75 cr.").
+- **In the story** the narrator is given the stock and prices to quote exactly; nothing changes hands until the
+  window says so.
+- Everything branches with the story and is cleared by a new story.
+
+Not in v0: haggling rolls, restocking, shopkeeper cash, stolen goods and fences, wear, loot, appearance state.
+
 ## Going back
 
 Every line the player sends is a save point (`dungeon/timeline.py`): the game state as the line arrives (the scene,
@@ -130,6 +149,8 @@ keeps game state adds its tables to `timeline.SAVED`.
 | `GET /api/story/journal` | `{entries, quests}`: the facts the player's character knows, newest first, and the quests they know of with `status`, `hook`, `outcome` and `left` (story time left). |
 | `POST /api/story/journal` `{subject, text}` | Adds the player's own note. |
 | `PATCH /api/story/journal/{id}` `{text}` / `DELETE /api/story/journal/{id}` | Corrects or removes a fact, logged; 404 for hidden truth or a fact not in the journal. |
+| `GET /api/story/gear` | `{coins, currency, slots: {used, max}, items, shop}`. `shop` is null away from a shop, else `{place_id, open, keeper, stock, offers}`; `offers` maps the character's items to what the shop pays. |
+| `POST /api/story/shop/buy` `{item_id, qty?}` / `POST /api/story/shop/sell` `{inventory_id, qty?}` | Trades at the counter. 404 with no shop here or no such item, 409 when closed, out of stock, too dear, too heavy, or not something the shop buys. |
 | `DELETE /api/story` | Starts a new story: the history, every branch, the ledger and the people met go, the scene stays. |
 
 ## People you've met
