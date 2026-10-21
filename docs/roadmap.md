@@ -11,8 +11,15 @@ unneeded features removed.
 
 - Merge PR #1 into `main`. It is waiting on Vanta's squash-or-merge-commit choice in the
   "Companion code fork" thread. Then sync the local `main` on Vanta's PC.
-- Hide the Companion screens the slice doesn't use (companion chat, phone), without deleting code
-  yet. The leftover-code cleanup pass stays optional and can come later.
+- **Fully remove the code Dungeon doesn't use before building** (Vanta, 2026-10-21: better that
+  something breaks early than late). That covers the leftover unreachable code from the removals
+  (big-day invitations, babysitting asks, knocks, companion-started calls, the Guests slider) and
+  the companion-relationship screens and routes the game won't use (companion chat, phone, steps
+  ladder and similar). It also drops the old database columns kept only for Companion
+  workspaces, since Dungeon has no existing saves to migrate. Keep what the slice reuses: Story
+  mode, timelines and lineage, world data and townsfolk, the life engine and Life deck, memory,
+  model providers, the Study importer, LoRA training and voice. Every removal lands with the full
+  test suite and CI green.
 
 ## Milestone 1: Playable slice
 
