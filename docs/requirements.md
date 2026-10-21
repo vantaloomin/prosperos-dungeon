@@ -235,6 +235,38 @@ Decided 2026-10-21.
   player rests, time passes: NPCs act, deadlines tick, rumors spread, shops restock, and wounds
   and stress recover under the Injuries rules.
 
+## Inventory and equipment
+
+Decided 2026-10-21. Code owns every item; the narrator can't add, remove or invent gear.
+
+- **Carrying limits: slots, with a toggle.** Every character has carry slots in every ruleset:
+  more with Vitality (or the ruleset's strength stat), packs, and mounts or vehicles. A dagger
+  takes a fraction of a slot, a sword one, armor several. A campaign setting turns carrying limits
+  off entirely.
+- **Visible gear is tracked.** Code knows what is worn, wielded and on display (a drawn sword,
+  fine silks, a guild badge, blood on your clothes, a stolen ring its owner would recognize).
+  It feeds NPC reactions, guards, thieves, reputation and shop prices.
+- **Wear: breaks on bad rolls.** No durability numbers. Critical failures and heavy hits can
+  damage or break weapons, armor, tools and clothes. Damaged gear works worse until repaired;
+  repairs are a priced shop service (smiths, tailors, tinkers).
+- **Loot: plausible, plus hoards.** Bodies and pockets hold what that person plausibly carried,
+  built by code from who they were (a bandit's few coins, knife and stolen ring; a noble's signet
+  and purse). Lairs, vaults and bosses use the ruleset's own treasure tables (5e SRD treasure,
+  Ironsworn rewards), adapted to the world's currency.
+- **Appearance state (Vanta).** Code tracks how each character looks right now, and the narrator
+  describes it consistently:
+  - **Cleanliness:** clean, worn, grimy, filthy, plus specific marks (blood, mud, sweat, other
+    fluids, scent). Travel, fights, weather, work and sex raise it; washing, baths and laundry
+    clear it. Baths and laundry are priced services.
+  - **Clothing condition:** intact, rumpled, torn, ruined, per garment. Bad rolls, fights and
+    deliberate tearing damage clothes; tailors repair them.
+  - **State of dress:** per clothing layer (outer, under, accessories): worn, loosened, partly
+    off, removed, and where a removed item ended up.
+  - All of it is visible gear, so NPCs react to it. Companion's grooming data (hair, nails and
+    facial hair changing over time,
+    `world/data/grooming.json`) rounds out looks for modern worlds. A world can switch the
+    detail level down (Vallarith might only track cleanliness and condition).
+
 ## World packages (proposed)
 
 The three bases arrive in three shapes: Mabry (canon / hidden / continuity markdown plus dice
