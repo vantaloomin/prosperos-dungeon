@@ -60,10 +60,28 @@ dice. The character's six stats (table `character_stats`, 1 to 30, 10 to start) 
 the Story screen. "Show the dice" in Settings > World shows each roll under the user's line; off, rolls stay
 hidden and the story reads the same.
 
+## The ledger and the story so far
+
+The ledger (`dungeon/ledger.py`, table `ledger_entries`) is what the game holds true: deaths, items, wounds,
+promises, places, secrets, relationships and other facts, each marked as world truth (hidden from the player's
+character), the character's belief, or both. Code records the facts it decides. After each narration the
+**Continuity** model, when one is chosen for that job in Settings > Models, lists the new lasting facts in JSON;
+code keeps the well-formed ones and refuses any about someone the ledger says is dead. "Tell it again" drops the
+old reply's facts with it. The narrator gets the record every turn (every death and promise, then the newest of the
+rest, 40 in all), with hidden truth marked as hidden, and is told never to contradict it.
+
+"What you know" on the Story screen is the player's journal: every fact their character knows. They can correct or
+remove one, or add their own note; each correction is logged in `ledger_corrections`. Hidden truth never shows here.
+
+The narrator reads the latest messages word for word. Once 30 recent ones plus 20 more are waiting, the oldest 20 are
+folded into one rolling summary (`story_summary`) by the Continuity model, or the Default one without it, and the
+narrator gets that summary as "The story so far" in their place. The ledger and the summary are branched with the
+story.
+
 ## Going back
 
 Every line the player sends is a save point (`dungeon/timeline.py`): the game state as the line arrives (the scene,
-the people met and the sheet, the tables in `timeline.SAVED`) is kept in `story_saves`. "Go back here" under any of
+the people met, the sheet, the ledger and the summary: the tables in `timeline.SAVED`) is kept in `story_saves`. "Go back here" under any of
 the player's lines starts a new branch from just before it, puts that state back and returns the line to the
 composer to send again. Nothing is rolled until it is sent, so the dice are always new.
 
@@ -88,7 +106,10 @@ keeps game state adds its tables to `timeline.SAVED`.
 | `PUT /api/story/sheet` `{stats}` | Changes some or all stats; 422 for an unknown stat or a value outside 1 to 30. |
 | `POST /api/story/back` `{message_id}` | Back to before one of the player's lines, as a new branch; the story comes back with `draft`, the line to send again. 404 for a line not in the branch being played. |
 | `POST /api/story/branches/{id}/switch` | Plays on in another branch, where it was left. 404 for a branch not in this story. |
-| `DELETE /api/story` | Starts a new story: the history, every branch and the people met go, the scene stays. |
+| `GET /api/story/journal` | `{entries}`: the facts the player's character knows, newest first. |
+| `POST /api/story/journal` `{subject, text}` | Adds the player's own note. |
+| `PATCH /api/story/journal/{id}` `{text}` / `DELETE /api/story/journal/{id}` | Corrects or removes a fact, logged; 404 for hidden truth or a fact not in the journal. |
+| `DELETE /api/story` | Starts a new story: the history, every branch, the ledger and the people met go, the scene stays. |
 
 ## People you've met
 

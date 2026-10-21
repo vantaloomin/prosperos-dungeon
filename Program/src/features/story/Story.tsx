@@ -16,6 +16,7 @@ import { AuthorsNote } from './AuthorsNote'
 import { StorySheet } from './StorySheet'
 import { StoryStart } from './StoryStart'
 import { StoryBranches } from './StoryBranches'
+import { StoryJournal } from './StoryJournal'
 
 const STORY_KEY = ['story']
 const OUT_OF_STORY = 'To step out of the story, start a message with OOC: or wrap it in ((double parentheses)).'
@@ -34,7 +35,7 @@ export function Story({ go }: { go: (view: View) => void }) {
     setPending(text)
     setError('')
     try { await request() } catch (failure) { setError(failure instanceof Error ? failure.message : 'That did not work. Try again.') }
-    finally { setPending(null); await client.invalidateQueries({ queryKey: STORY_KEY }) }
+    finally { setPending(null); await Promise.all([client.invalidateQueries({ queryKey: STORY_KEY }), client.invalidateQueries({ queryKey: ['story-journal'] })]) }
   }
   const send = (text: string) => run(text, () => api('/story/messages', { text, client_id: newId() }))
   return (
@@ -64,7 +65,7 @@ function StoryHeader({ story, change }: { story: StoryData; change: (request: ()
       <h1 id="story-heading">Story</h1>
       <p className="subtle">Your own story around town, told by a narrator.</p>
       <SceneBar scene={story.scene} onMove={(body) => change(() => api<StoryData>('/story/scene', body, 'PUT'))} />
-      {!!story.messages.length && <StorySheet />}
+      {!!story.messages.length && <><StorySheet /><StoryJournal /></>}
       <StoryPeople people={story.people} onFind={(key) => void change(() => api<StoryData>('/story/find', { key }))} />
       <StoryBranches branches={story.branches}
         onSwitch={(id) => void change(() => api<StoryData>(`/story/branches/${encodeURIComponent(id)}/switch`, {}))} />

@@ -127,6 +127,8 @@ textarea { resize: vertical; line-height: 1.6; }
 .story-sheet { margin-top: 8px; }
 .story-back { font-size: 0.8125rem; color: var(--muted); }
 .story-back svg { width: 14px; height: 14px; }
+.story-note-form { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; margin-top: 8px; }
+.story-people textarea { width: 100%; }
 .story-start { flex: 1; overflow-y: auto; max-width: 760px; width: 100%; margin: 0 auto; padding: 20px 32px; }
 .story-start h2 { margin: 0 0 6px; }
 .story-premades { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 12px; }
@@ -166,6 +168,7 @@ textarea { resize: vertical; line-height: 1.6; }
   .page { padding: 22px 16px 32px; }
   .page-header { flex-wrap: wrap; }
   .composer { padding: 10px 12px 12px; }
+  .story-note-form { grid-template-columns: 1fr; }
   .story-header, .story-log, .story-start, .story-notice, .story-footer { padding-left: 16px; padding-right: 16px; }
 }
 @media (prefers-reduced-motion: reduce) { :root:not([data-motion='full']) *, :root:not([data-motion='full']) *::before, :root:not([data-motion='full']) *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }

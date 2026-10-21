@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Request
 from pydantic import Field
 
-from dungeon import campaign, sheet, story
+from dungeon import campaign, ledger, sheet, story
 from dungeon.models import Input, PersonaInput
 
 router = APIRouter(prefix='/api/story')
@@ -95,6 +95,46 @@ def back(request: Request, body: StoryBack):
 @router.post('/branches/{branch_id}/switch')
 def switch_branch(request: Request, branch_id: str):
     return story.switch_branch(request.app.state.database, branch_id)
+
+
+class JournalNote(Input):
+    subject: str = Field(min_length=1, max_length=120)
+    text: str = Field(min_length=1, max_length=500)
+
+
+class JournalChange(Input):
+    text: str = Field(min_length=1, max_length=500)
+
+
+@router.get('/journal')
+def journal(request: Request):
+    """What the player's character knows, from the ledger (dungeon/ledger.py); hidden truth stays out."""
+    with request.app.state.database.connect() as connection:
+        return {'entries': ledger.entries(connection)}
+
+
+@router.post('/journal')
+def add_note(request: Request, body: JournalNote):
+    database = request.app.state.database
+    with database.connect(write=True) as connection:
+        ledger.record(connection, 'fact', body.subject, body.text, database.now(), 'player')
+        return {'entries': ledger.entries(connection)}
+
+
+@router.patch('/journal/{entry_id}')
+def change_note(request: Request, entry_id: str, body: JournalChange):
+    database = request.app.state.database
+    with database.connect(write=True) as connection:
+        ledger.correct(connection, entry_id, database.now(), body.text)
+        return {'entries': ledger.entries(connection)}
+
+
+@router.delete('/journal/{entry_id}')
+def remove_note(request: Request, entry_id: str):
+    database = request.app.state.database
+    with database.connect(write=True) as connection:
+        ledger.correct(connection, entry_id, database.now())
+        return {'entries': ledger.entries(connection)}
 
 
 @router.delete('')

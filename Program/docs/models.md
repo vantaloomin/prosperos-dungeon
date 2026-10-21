@@ -74,6 +74,7 @@ five minutes, and Check connection asks again. Nothing polls in the background.
 | Default | Every job uses this profile unless given its own, like the Study's Primary Writer. |
 | Story narrator | Narrator turns ([story.md](story.md)). |
 | Referee | Splits each story turn into actions and picks the stat and difficulty of each roll ([story.md](story.md#the-turn-loop)). Off unless a profile is chosen for it: the Default is never borrowed, so a turn costs one narrator call. Without one, keyword rules decide. A small, fast model fits. |
+| Continuity | After each story turn, lists the new facts the narrator brought in for the ledger ([story.md](story.md#the-ledger-and-the-story-so-far)); facts are only kept when a profile is chosen for it. Also folds older turns into the story so far, using the Default when it has none. A small, fast model fits. |
 | Semantic recall | Embeddings, from a recall profile, or from built-in recall when it is on. Recall profiles (`purpose: recall`) have their own section, Settings > Models > Recall: an OpenAI, NanoGPT, local or compatible service and an `embedding_model`, with no text model. They do this job and no other, text profiles never do it, and the first one saved takes the job when recall has none. Without one, recall matches keywords only. |
 
 There is no automatic fallback to another profile when a request fails; like the Study, a failed

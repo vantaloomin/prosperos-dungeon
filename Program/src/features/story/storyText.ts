@@ -1,4 +1,4 @@
-import type { Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart } from '../../types'
+import type { JournalEntry, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -108,4 +108,11 @@ export function branchLine(branch: Pick<StoryBranch, 'turns' | 'last_at'>): stri
   if (!branch.last_at) return turns
   const day = new Date(branch.last_at)
   return `${turns}, last played ${day.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}`
+}
+
+const KINDS: Record<string, string> = { death: 'Death', item: 'Item', wound: 'Wound', promise: 'Promise', location: 'Place', secret: 'Secret', relationship: 'Relationship', fact: 'Fact' }
+
+/** "Wound · you", and whether the character only believes it. */
+export function journalKind(entry: Pick<JournalEntry, 'kind' | 'subject' | 'truth'>): string {
+  return `${KINDS[entry.kind] ?? 'Fact'} · ${entry.subject}${entry.truth === 'belief' ? ' (you believe)' : ''}`
 }

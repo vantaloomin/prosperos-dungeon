@@ -6,8 +6,8 @@
    phrases never to use. prose.py checks the mechanical ones again after every turn.
 3. Settings the player chooses: narration format (point of view, tense, length), intensity per category
    with veils, and the tone's voice.
-4. The turn: the persona, the scene and the outcomes the code decided, written last so they sit nearest
-   the player's words.
+4. The turn: the persona, what the game remembers (the story so far and the ledger), the scene and the outcomes
+   the code decided, written last so they sit nearest the player's words.
 
 CORE and CRAFT are the defaults of the 'story-narrator' and 'narrator-craft' prompts a power user may
 reword (dungeon/prompt_library.py). They hold no braces, so they read the same in either form.
@@ -184,11 +184,11 @@ def outcomes_text(outcomes: list[dict], rolls_shown: bool = False) -> str:
 
 
 def system(core: str, craft: str, *, scene: str = '', persona: str = '', persona_name: str | None = None,
-           narration: Format = Format(), intensity: Intensity = Intensity(), outcomes: list[dict] | None = None,
+           memory: str = '', narration: Format = Format(), intensity: Intensity = Intensity(), outcomes: list[dict] | None = None,
            rolls_shown: bool = False) -> str:
     """The whole system prompt, layer by layer; empty layers are left out."""
     layers = [core, craft, narration.text(persona_name), intensity.text(),
-              f'## The player\'s character\n{persona}' if persona else '', scene,
+              f'## The player\'s character\n{persona}' if persona else '', memory, scene,
               outcomes_text(outcomes or [], rolls_shown)]
     return '\n\n'.join(layer.strip() for layer in layers if layer and layer.strip())
 
