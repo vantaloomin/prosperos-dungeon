@@ -42,8 +42,8 @@ decisions; the language model narrates them.
   player-made personas.
 - **Branching and dice:** going back always brings new dice, even for the same actions.
 - **Progression:** per world, built from track types the engine provides: Rank, XP, Grades, Time,
-  and proposed Reputation, Bonds, Milestones, Corruption, Use-based skill growth, Wealth. A world can
-  use several at once.
+  Reputation, Bonds, Milestones, Corruption, Use-based skill growth, Wealth. A world can use several
+  at once (see "Progression").
 - **Narration format:** a player setting (length, POV, tense), not fixed per world.
 - **Platform:** like Companion: local web app (Python backend, browser UI) on Windows, Mac scripts,
   phone access over the player's own Tailscale.
@@ -449,6 +449,26 @@ and never two or more tiers above it.
   Epic starts high) and a pace from slow burn to fast rise. Pace controls how fast the world's
   track climbs; the tier ladder itself stays the same.
 
+## Progression
+
+Decided 2026-10-21. Each world builds its progression from the engine's track types, and one of
+them sets the player's tier (see "Scaling and tiers").
+
+- **The engine ships all ten track types:** Rank, XP, Grades, Time, Reputation, Bonds,
+  Milestones, Corruption, use-based skill growth and Wealth. Wealth reads from the economy and
+  Time from the world clock, rather than being separate counters, so a merchant-prince or
+  race-the-curse campaign can use either as its tier track.
+- **MARVEL characters grow by use, plus milestones.** A stat used under pressure (a rolled action
+  that mattered) gets marked. At rest, code rolls to raise each marked stat, Basic Roleplaying
+  style. Hitting a milestone or rising a tier also grants a bigger boost or a new ability. 5e and
+  Ironsworn keep their own growth rules (levels, legacy tracks).
+- **Dark tracks bite.** Corruption and tracks like it (addiction, infamy) grant power as they
+  rise. Crossing a threshold also rolls a lasting change to body, mind, or how NPCs and factions
+  treat the character, and the top of the track can cost the player the character. The intensity
+  settings can filter which changes are possible.
+- **Tracks follow the roll visibility toggle.** In hidden mode the sheet shows words ("known on
+  the Docks", "Rank: Journeyman"). In exposed mode it shows numbers and progress bars.
+
 ## World packages (proposed)
 
 The three bases arrive in three shapes: Mabry (canon / hidden / continuity markdown plus dice
@@ -490,6 +510,5 @@ Dungeon would normalize them into one package per world:
 - Exact licenses for Fate, Blades in the Dark and Dungeon World before they are added.
 
 - Off-page characters and their cadence (Mabry uses rolled beats every third turn).
-- Which proposed progression tracks to keep.
 - Which widgets and layout presets ship first.
 - World package file format, and how canon, hidden truth and player knowledge are stored.
