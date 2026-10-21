@@ -60,7 +60,9 @@ def test_an_elf_of_300_has_the_odds_of_a_human_of_48(client):
         assert loss.facts_for(connection, elf, today, None, 2, definition=definition) == \
             loss.facts_for(connection, human, today, None, 2, definition=definition)
         assert loss.facts_for(connection, elf, today, None, 2)['age'] == 48
-        # The companion's own: an elf of 90 is 26 in human terms, for big turns and the family odds alike.
+        # The companion's own: an elf of 90 is 26 in human terms, for big turns and the family odds alike. Read on the
+        # day their date was stored, since a seeded birthday could fall between then and any other day.
+        today = date.fromisoformat(ages.stored(connection, 'companion', companion['id'])['anchored_on'])
         assert ages.companion_age(connection, companion['id'], definition, today) == 90
         assert big_turns.life_age_of(connection, companion, today) == 26
         assert big_turns.facts(connection, companion, today)['age'] == 26
@@ -307,14 +309,13 @@ def test_a_citys_own_kind_shows_on_a_persons_page_and_can_be_picked(client):
 
 
 def test_a_grown_kid_of_an_elf_and_a_human_is_a_half_elf(client, clock, monkeypatch):
-    from datetime import timedelta
-
     from dungeon.life import kids
     monkeypatch.setattr(kids, 'ACTIVE', True)
     make(client, identity='Aerin is an elf, 312. A quiet bookbinder. She/her.', relationship='romance',
          background='Her son Leo, 17, and her daughter Mia, 4.')
     reconcile(client)
-    clock.advance(timedelta(days=370))
+    now = clock.now()  # A year to the day, so Leo's seeded birthday passes once, never twice.
+    clock.advance(now.replace(year=now.year + 1) - now)
     reconcile(client)
     [leo] = [person for person in client.get('/api/life/circle').json() if person['name'] == 'Leo']
     assert leo['role'] == 'son' and leo['age'] == 18 and leo['kind']['kind'] == 'half-elf'
