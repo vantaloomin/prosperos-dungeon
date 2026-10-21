@@ -513,10 +513,13 @@ Decided 2026-10-21:
 - **Existing worlds come in through an importer, with review.** An importer built on Study's reads
   any source shape (Mabry's markdown, Havenbrooke's bibles, Vallarith's lorebook JSON). A model
   drafts each package section, and the author reviews and approves each one before it is used.
-- **Worlds are edited in the app, with a file round-trip.** An in-app world editor covers common
-  edits (cast, lore, tables, settings). For bulk edits, the app exports a world to a folder of
-  Markdown and JSON and imports it back, with a validator checking it before it replaces the
-  database.
+- **Worlds are edited in a built-in DB editor.** Dungeon ships its own world database editor
+  (Vanta, 2026-10-21). It has friendly forms for common things (cast, lore entries, personas,
+  shops and prices, tables, world settings) and a raw table view for everything else, with
+  search, filters, linked records (click an NPC's faction to open it), validation on save, and an
+  undo history. Hidden truths are marked clearly so an author can't leak them by accident. For
+  bulk edits, the app can also export a world to a folder of Markdown and JSON and import it back,
+  with a validator checking it before it replaces the database.
 - **Planned beats are a soft pull.** The director nudges the story toward a world's planned beats
   (Havenbrooke's seasons, Mabry's season events) but never forces them. If the player goes
   elsewhere, the beats wait or quietly lapse, and the player's choices can take canon somewhere
