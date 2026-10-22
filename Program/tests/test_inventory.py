@@ -56,6 +56,8 @@ def test_a_premade_starts_with_their_kit_and_the_narrator_knows_it(client, conne
     narrator = provider.requests[-1]['system']
     assert 'Carrying (kept by the game' in narrator and 'Plain sword' in narrator and 'Purse: 3.40 cr.' in narrator
     assert '## The shop here' in narrator
+    # The symbol is how the game writes money; the narrator is told what it is called ("crowns", not "credits").
+    assert 'Money here is silver crowns (cr. is only how the game writes it)' in narrator
 
 
 def test_buying_and_selling_at_the_counter(client, connected, clock, app):
