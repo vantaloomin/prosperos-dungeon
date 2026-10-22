@@ -96,3 +96,19 @@ def test_a_dangerous_place_rolls_every_turn_and_a_failure_brings_its_threat(clie
     assert rolls is None or rolls[-1]['stat'] == 'Luck'
     # Somewhere safe, nothing is rolled for the place.
     assert quests.danger_action('kingswood', 'felled-oak') is None
+
+
+def test_a_vow_sworn_on_a_quest_is_that_quest_not_a_new_oath(client, app):
+    # Playtest M4b, finding 5: "an oath to the wood under the stump" was filed beside the contract.
+    begin_in_kingswood(client)
+    now = datetime(2026, 10, 22, 9)
+    with app.state.database.connect(write=True) as connection:
+        oath = {'to': 'the wood under the stump', 'text': 'To see the contract stopped.', 'days': 6}
+        kept = quests.vow(connection, 'kingswood', 'I swear an iron vow that the Heartwood contract will fail.', oath,
+                          now)
+        assert kept == 'the-heartwood-contract' and len(quests.rows(connection, 'open')) == 2  # with the wardens' eyes
+        assert any('Swore to see The Heartwood contract through' in row['text'] for row in record.entries(connection))
+        # An oath to someone, about something else, is its own.
+        other = quests.vow(connection, 'kingswood', 'I promise Corin his money.', {'to': 'Corin', 'text': 'Pay Corin.',
+                                                                                   'days': 3}, now)
+        assert other.startswith('oath-')

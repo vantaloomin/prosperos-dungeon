@@ -10,6 +10,7 @@ from pathlib import Path
 
 from dungeon import (
     chapters,
+    combat_brp,
     director,
     inventory,
     legacy,
@@ -199,6 +200,8 @@ def begin(database, premade_id: str | None = None, persona: PersonaInput | None 
         story_clock.start(connection, database.clock.now())
         quests.start(connection, city_id, database.clock.now())
         inventory.give_kit(connection, city_id, premade_id)
+        # A made Percentile character carries their profession's weapons (dungeon/combat_brp.py).
+        combat_brp.arm(connection, city_id, None if premade_id or ruleset != brp.ID else native)
         # How far and how fast the character can rise (dungeon/tiers.py).
         if world := tiers.world_of(city_id):
             tiers.begin(connection, world, arc, pace)

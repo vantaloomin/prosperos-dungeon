@@ -147,6 +147,31 @@ def weapon_of(items: list[dict], action: str) -> dict:
                default=weapons['fist'])
 
 
+def kit_for(sheet: dict) -> list[str]:
+    """The town items that stand for a profession's weapons (a warrior's broadsword is a sword, a noble's rapier one
+    too, by its skill), so a made character carries what their skills cover."""
+    weapons = brp.by_id('weapons')
+    found = []
+    for wanted in sheet.get('weapons') or []:
+        skill = weapons[wanted]['skill'] if wanted in weapons else None
+        item = next((item for item, kind in WEAPONS.items() if kind == wanted), None) or next(
+            (item for item, kind in WEAPONS.items() if skill and weapons[kind]['skill'] == skill), None)
+        if item and item not in found:
+            found.append(item)
+    return found
+
+
+def arm(connection, city_id: str, sheet: dict | None):
+    """A made character's profession weapons added to the town's starting kit, where the town has them."""
+    from dungeon import inventory  # the pack, only at the start of a campaign.
+    if not sheet:
+        return
+    held = {row['item_id'] for row in inventory.carried(connection, city_id)}
+    for item_id in kit_for(sheet):
+        if inventory.item(city_id, item_id) and item_id not in held:
+            inventory.add_item(connection, city_id, item_id)
+
+
 def called(weapon: dict) -> str:
     """A weapon's name in a sentence: "Sword, Broad" is a broad sword."""
     first, _, second = weapon['name'].partition(', ')

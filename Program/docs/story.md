@@ -413,7 +413,9 @@ The same fight on BRP's rules (`dungeon/combat_brp.py`):
   raider or guard a Viking, a wolf a Wolf), else by how tough the MARVEL spec is: hit points, armour, Dodge and their
   first attack.
 - **The character's attack** keeps the turn's d100 against the carried weapon's skill (a sword is Melee Weapon
-  (Sword), bare hands Brawl), and the foe dodges. The Attack and Defense Matrix decides: a dodge at the attack's
+  (Sword), bare hands Brawl), and the foe dodges. A line that dodges and attacks ("I dodge his swing and cut at
+  him") does both. A made character starts with the town's items for their profession's weapons (a warrior's
+  broadsword and bow). The Attack and Defense Matrix decides: a dodge at the attack's
   level or better stops it, and each level short takes the attack down one. Damage is the weapon's dice plus the
   damage modifier (half for a bow or a thrown weapon), less armour; a special impales (the dice twice), a critical
   does the dice's most and ignores armour. The roll card reads "Sword, Broad 59% (special)".
@@ -646,6 +648,8 @@ own text (`kind` job or oath, with `title`, `hook`, `truth`, `missed`), and for 
 - **Oaths.** Every turn the Continuity model is also asked for promises, oaths, threats and bargains the player's
   character made. Each becomes an Oath quest to the one it was sworn to, due in the days it gives (7 if it gives
   none). Broken or let lapse, it costs that person two points of trust and one of respect, and the record keeps it.
+  An oath sworn on a quest the character already knows of, named in the line ("I swear an iron vow the Heartwood
+  contract will fail"), is that quest, now a vow: the record keeps what was sworn, and no second oath is filed.
 
 ## Off-page beats and word getting around
 
