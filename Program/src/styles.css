@@ -737,8 +737,9 @@ img.avatar, img.portrait { object-fit: cover; object-position: center top; paddi
 
 /* The turn receipt (src/features/story/StoryReceipt.tsx): what a turn changed, in quiet chips under its narration. */
 .turn-receipt { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 14px; padding: 0; }
-.receipt-chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border: 1px solid var(--border); border-radius: 999px; font-size: 0.82rem; color: var(--muted); background: var(--surface); }
+.receipt-chip { font: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border: 1px solid var(--border); border-radius: 999px; font-size: 0.82rem; color: var(--muted); background: var(--surface); }
 .receipt-chip svg { width: 13px; height: 13px; flex: none; }
+.receipt-chip:hover, .receipt-chip:focus-visible { color: var(--text); border-color: var(--accent); }
 .receipt-chip.gain svg { color: var(--accent); }
 .receipt-chip.loss svg { color: var(--danger); }
 
@@ -748,3 +749,15 @@ img.avatar, img.portrait { object-fit: cover; object-position: center top; paddi
 .status-item svg { width: 14px; height: 14px; flex: none; }
 .status-item.loss { color: var(--text); }
 .status-item.loss svg { color: var(--danger); }
+/* Entity cards (src/features/story/EntityCard.tsx): a name that opens one, in prose or a list, and the card. */
+.entity-link { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: inherit;
+  text-decoration: underline dotted var(--accent); text-underline-offset: 4px; text-decoration-thickness: 1px; }
+.entity-link:hover, .entity-link:focus-visible { color: var(--accent-hover); }
+.entity-card { width: min(420px, calc(100vw - 32px)); }
+.entity-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.entity-card-head h2 { margin: 0; }
+.entity-card-head p { margin: 2px 0 0; }
+.entity-card .dialog-body { display: flex; flex-direction: column; gap: 8px; }
+.entity-card .dialog-body p { margin: 0; }
+.entity-known { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.entity-actions { margin-top: 6px; }
