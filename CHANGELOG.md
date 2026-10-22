@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Rewrite.** When the game spots a problem it had no time to fix (a dead man waving, a stock phrase), that
+  paragraph is softly marked; the "?" says why, and Rewrite asks the narrator for new words. Select any passage
+  of the story to rewrite it too, with a note if you like. The dice and what happened stay the same, and Switch
+  wording goes back to how it was.
 - **What's in the chest is decided before anyone describes it.** Search a chest, a drawer, a body or a stranger's
   pockets in Kingswood and the game rolls what is there first, keeps it, and notes it in your journal; the
   narrator describes only that, and it is the same the next time you look. A failed search misses it. "I take the

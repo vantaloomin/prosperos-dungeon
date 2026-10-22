@@ -20,6 +20,7 @@ from dungeon import (
     in_character,
     inventory,
     pace,
+    passages,
     prompt_library,
     quests,
     record,
@@ -321,19 +322,22 @@ def add(connection, now: str, role: str, text: str, where: dict, **extra) -> dic
     message_id = identifier()
     connection.execute(
         'INSERT INTO story_messages (id, seq, role, text, client_id, reply_to, status, error, city_id, place_id, '
-        'created_at, branch_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'created_at, branch_id, flags) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         (message_id, next_seq(connection), role, text, extra.get('client_id'), extra.get('reply_to'),
          extra.get('status', 'complete'), extra.get('error'), where['city_id'], where['place_id'], now,
-         timeline.active(connection)))
+         timeline.active(connection), encode(extra.get('flags', []))))
     return one(connection, 'SELECT * FROM story_messages WHERE id=?', (message_id,))
 
 
 def messages(connection, limit: int = HISTORY_LIMIT) -> list[dict]:
     where, values = timeline.visible(connection)
-    rows = many(connection, 'SELECT id, seq, role, text, reply_to, status, error, city_id, place_id, created_at '
-                f'FROM story_messages WHERE {where} ORDER BY seq DESC LIMIT ?', (*values, limit))
-    # The app's crisis note under a user's line that sounds like self-harm (dungeon/safety.py).
-    return [{**row, 'crisis_help': row['role'] == 'user' and safety.crisis(row['text'])} for row in reversed(rows)]
+    rows = many(connection, 'SELECT id, seq, role, text, reply_to, status, error, city_id, place_id, created_at, '
+                f'flags, previous FROM story_messages WHERE {where} ORDER BY seq DESC LIMIT ?', (*values, limit))
+    # The app's crisis note under a user's line that sounds like self-harm (dungeon/safety.py), and a narration's
+    # flagged passages, and whether it can switch back to its wording before a rewrite (dungeon/passages.py).
+    return [{**row, 'crisis_help': row['role'] == 'user' and safety.crisis(row['text']),
+             'flags': passages.shown(decode(row['flags'])), 'previous': row['previous'] is not None}
+            for row in reversed(rows)]
 
 
 def dice_shown(connection) -> bool:
@@ -652,8 +656,10 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
                                                                 getattr(state, 'dice', None))
 
 
-async def told(state, packet: dict, config: dict, in_story: bool, steps: pace.Steps, on_text) -> tuple[str, str | None]:
-    """The narration, then (time allowing) the prose rewrite and, only when it names the dead, the contradiction check."""
+async def told(state, packet: dict, config: dict, in_story: bool, steps: pace.Steps,
+               on_text) -> tuple[str, str | None, list[dict]]:
+    """The narration, then (time allowing) the prose rewrite and, only when it names the dead, the contradiction check;
+    with what the checks left in it, flagged for the player to rewrite (dungeon/passages.py)."""
     since = steps.clock()
     try:
         text, error = await narrate(state, packet, config, in_story, on_text)
@@ -661,7 +667,7 @@ async def told(state, packet: dict, config: dict, in_story: bool, steps: pace.St
         text, error = '', failure.message
     steps.timed('narrator', since)
     if not text or error or not in_story:
-        return text, error
+        return text, error, []
     rewrite = lambda system, messages: complete(state, config, system, messages)  # noqa: E731
     since, timely = steps.clock(), steps.has_time()
     text, _ = await prose.polish(text, rewrite if timely else None)
@@ -671,13 +677,16 @@ async def told(state, packet: dict, config: dict, in_story: bool, steps: pace.St
         steps.skip('rewrite')
     with state.database.connect() as connection:
         names = pace.named_dead(record.dead(connection), text)
+    unchecked = []
     if names and steps.has_time():
         since = steps.clock()
         text = await pace.contradiction(text, names, rewrite)
         steps.timed('contradiction', since)
     elif names:
         steps.skip('contradiction')
-    return text, None
+        unchecked = names
+    with state.database.connect() as connection:
+        return text, None, passages.flags(text, passages.dead_reasons(connection, unchecked))
 
 
 async def afterwards(state, user: dict, reply: dict, packet: dict, steps: pace.Steps):
@@ -725,7 +734,7 @@ async def answer(state, user: dict, on_text=None) -> dict:
     with database.connect() as connection:
         packet = prompt(connection, story_clock.now(connection, database.clock), config, user,
                         turn.outcomes(rolls) if in_story else None, fought, traded, looked)
-    text, error = await told(state, packet, config, in_story, steps, on_text)
+    text, error, flagged = await told(state, packet, config, in_story, steps, on_text)
     status = 'complete' if text and not error else 'failed'
     error = None if status == 'complete' else error or 'The model returned no story text.'
     with database.connect(write=True) as connection:
@@ -734,7 +743,8 @@ async def answer(state, user: dict, on_text=None) -> dict:
             story_people.note_exchange(connection, packet['people'], packet['city_id'], user['text'], text,
                                        database.now(), packet['day'])
             feelings.from_rolls(connection, rolls)
-        reply = add(connection, database.now(), 'narrator', text, user, reply_to=user['id'], status=status, error=error)
+        reply = add(connection, database.now(), 'narrator', text, user, reply_to=user['id'], status=status, error=error,
+                    flags=flagged)
         pace.save(connection, user['id'], steps)
     if status == 'complete' and in_story:
         state.after_turn = After(lambda: afterwards(state, user, reply, packet, steps))
@@ -780,3 +790,64 @@ async def retry(state, on_text=None) -> dict:
         # So are the meetings and feelings it moved; the kept rolls move them again.
         timeline.restore_at(connection, user['id'], ('story_people',))
     return {'message': user, 'reply': await answer(state, user, on_text)}
+
+
+# Rewrite -----------------------------------------------------------------------------------------
+
+def narration(connection, message_id: str) -> dict:
+    """A narration the player may reword: told in the branch being played, so no other branch shares it."""
+    where, values = timeline.visible(connection)
+    row = optional(connection, f"SELECT * FROM story_messages WHERE id=? AND role='narrator' AND status='complete' "
+                               f'AND {where}', (message_id, *values))
+    require(row is not None, 'That part of the story is not there to rewrite.', 404)
+    require(row['branch_id'] == timeline.active(connection),
+            'That part comes from before you went back, and another branch shares it, so it stays as it was.', 409)
+    return row
+
+
+def reworded(state, connection, row: dict, text: str, flagged: list[dict], previous: dict | None):
+    """The narration's new wording saved, and its facts taken again from it once the reply is back (the facts the
+    old wording brought in go with it)."""
+    connection.execute('UPDATE story_messages SET text=?, flags=?, previous=? WHERE id=?',
+                       (text, encode(flagged), encode(previous) if previous else None, row['id']))
+    connection.execute("DELETE FROM record_entries WHERE message_id=? AND source='narrator'", (row['id'],))
+    user = optional(connection, 'SELECT * FROM story_messages WHERE id=?', (row['reply_to'],))
+    if user is not None:
+        state.after_turn = After(lambda: record.extract(state, user['text'], {'id': row['id'], 'text': text}))
+
+
+async def rewritten(state, message_id: str, passage: str, note: str = '') -> dict:
+    """A passage of a narration in new words (dungeon/passages.py): the dice and the record's facts stay."""
+    await settled(state)
+    database = state.database
+    with database.connect() as connection:
+        row, config = narration(connection, message_id), config_for(connection, JOB)
+        if config is None:
+            raise no_model()
+        where = passages.span(row['text'], passage)
+        require(where is not None, 'Select a passage of this part of the story to rewrite.', 422)
+        system = '\n\n'.join(part for part in (passages.SYSTEM, record.prompt_text(connection)) if part)
+    before, flagged = row['text'][where[0]:where[1]], decode(row['flags'])
+    revised = prose.without_dashes((await complete(
+        state, config, system, passages.request(row['text'], before, flagged, note))).strip())
+    require(prose.acceptable(before, revised), 'The rewrite came back too different, so the passage stays as it was. '
+                                               'Try again.', 502)
+    text = row['text'][:where[0]] + revised + row['text'][where[1]:]
+    with database.connect(write=True) as connection:
+        dead, kept = passages.still_dead(flagged, text)
+        reworded(state, connection, row, text, passages.flags(text, dead, kept),
+                 {'text': row['text'], 'flags': flagged})
+    return story(database)
+
+
+async def switched(state, message_id: str) -> dict:
+    """A rewritten narration back to its wording before the rewrite; switching again brings the rewrite back."""
+    await settled(state)
+    database = state.database
+    with database.connect(write=True) as connection:
+        row = narration(connection, message_id)
+        require(row['previous'] is not None, 'That part has not been rewritten.', 409)
+        previous = decode(row['previous'])
+        reworded(state, connection, row, previous['text'], previous['flags'],
+                 {'text': row['text'], 'flags': decode(row['flags'])})
+    return story(database)

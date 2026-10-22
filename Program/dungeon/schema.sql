@@ -229,7 +229,11 @@ CREATE TABLE IF NOT EXISTS story_messages (
   place_id TEXT NOT NULL,
   created_at TEXT NOT NULL,
   -- The branch the message was written in (dungeon/timeline.py); 'first' is the story's first.
-  branch_id TEXT NOT NULL DEFAULT 'first'
+  branch_id TEXT NOT NULL DEFAULT 'first',
+  -- A narration's paragraphs with a problem the checks left in them, and its wording before the player's last
+  -- rewrite as {text, flags} (dungeon/passages.py).
+  flags TEXT NOT NULL DEFAULT '[]',
+  previous TEXT
 );
 
 -- Branches of the story (dungeon/timeline.py). A branch shows its parent's messages before `fork_seq`, then its

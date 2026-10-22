@@ -19,6 +19,7 @@ import { StoryBranches } from './StoryBranches'
 import { StoryJournal } from './StoryJournal'
 import { StoryGear } from './StoryGear'
 import { StoryIntensity } from './StoryIntensity'
+import { StoryNarration } from './StoryNarration'
 
 const STORY_KEY = ['story']
 /** Matches the stylesheet's breakpoint for the side panel. */
@@ -54,6 +55,8 @@ export function Story({ go }: { go: (view: View) => void }) {
         {!story.data.ready && <NoModel go={go} />}
         {!story.data.messages.length && pending === null ? <StoryStart onStarted={update} /> : <>
           <StoryLog messages={story.data.messages} pending={pending} streamed={streamed} onRetry={() => void run('', () => streamApi('/story/retry/stream', {}, grow))}
+            onRewrite={(id, passage, note) => change(() => api<StoryData>(`/story/messages/${id}/rewrite`, { passage, note }))}
+            onSwitch={(id) => change(() => api<StoryData>(`/story/messages/${id}/switch`, {}))}
             onBack={(id) => void run(null, () => api<StoryBack>('/story/back', { message_id: id }).then((data) => { update(data); setDraft({ text: data.draft, at: Date.now() }) }))} />
           {error && <div className="story-notice"><Notice tone="error">{error}</Notice></div>}
           <StoryComposer key={draft.at} busy={pending !== null} draft={draft.text} onSend={(text) => void send(text)} />
@@ -143,15 +146,17 @@ function GoElsewhere({ scene, onDone, onMove }: GoProps) {
   )
 }
 
-interface LogProps { messages: StoryMessage[]; pending: string | null; streamed: string; onRetry: () => void; onBack: (id: string) => void }
+interface Rewrites { onRewrite: (id: string, passage: string, note: string) => Promise<void>; onSwitch: (id: string) => Promise<void> }
+interface LogProps extends Rewrites { messages: StoryMessage[]; pending: string | null; streamed: string; onRetry: () => void; onBack: (id: string) => void }
 
-function StoryLog({ messages, pending, streamed, onRetry, onBack }: LogProps) {
+function StoryLog({ messages, pending, streamed, onRetry, onBack, onRewrite, onSwitch }: LogProps) {
   const end = useRef<HTMLDivElement>(null)
   useEffect(() => { end.current?.scrollIntoView?.({ block: 'end' }) }, [messages.length, pending, streamed])
   const last = messages[messages.length - 1]
   return (
     <div className="story-log" aria-live="polite">
-      {messages.map((message) => <StoryLine key={message.id} message={message} onBack={pending ? undefined : onBack} />)}
+      {messages.map((message) => <StoryLine key={message.id} message={message} onBack={pending ? undefined : onBack}
+        rewrites={pending === null ? { onRewrite, onSwitch } : undefined} />)}
       {pending && <p className="story-user">{pending}</p>}
       {pending !== null && (streamed
         ? <div className="story-narration">{streamed.split(/\n{2,}/).map((part, index) => <p key={index}>{part}</p>)}</div>
@@ -162,8 +167,9 @@ function StoryLog({ messages, pending, streamed, onRetry, onBack }: LogProps) {
   )
 }
 
-/** `onBack` goes back to before a line of the player's, to send it again with new dice. */
-function StoryLine({ message, onBack }: { message: StoryMessage; onBack?: (id: string) => void }) {
+/** `onBack` goes back to before a line of the player's, to send it again with new dice; `rewrites` rewords a
+ *  narration (none while a turn is being told). */
+function StoryLine({ message, onBack, rewrites }: { message: StoryMessage; onBack?: (id: string) => void; rewrites?: Rewrites }) {
   if (message.role === 'scene') return <p className="story-move">{message.text}</p>
   if (message.role === 'user') return <>
     <p className="story-user">{message.text}</p>
@@ -176,7 +182,7 @@ function StoryLine({ message, onBack }: { message: StoryMessage; onBack?: (id: s
     {message.crisis_help && <CrisisNote />}
   </>
   if (message.status === 'failed') return <Notice tone="error">The narrator could not go on: {message.error}</Notice>
-  return <div className="story-narration">{message.text.split(/\n{2,}/).map((part, index) => <p key={index}>{part}</p>)}</div>
+  return <StoryNarration message={message} {...rewrites} />
 }
 
 /** `draft` is a line taken back to send again; a new draft remounts the composer with it. */

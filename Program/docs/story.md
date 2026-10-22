@@ -214,6 +214,25 @@ every step is timed.
 Not in v0: dead and spent items or people elsewhere in the contradiction check (only the dead), a GM view of
 skipped checks, and the dice log.
 
+## Rewrite
+
+`dungeon/passages.py`. The automatic rewrites still run when there is time; whatever the checks find and do not
+fix is flagged for the player instead of lost.
+
+- **Flagged paragraphs.** A strong prose tell the rewrite pass left (or never ran on, over budget), or someone
+  the record says is dead when the contradiction check gave way for time, marks its paragraph with a soft
+  highlight, a "?" that says why, and **Rewrite**. The flags are kept with the narration (`story_messages.flags`).
+- **Why never gives away hidden truth.** A death the character knows of is named ("The record says Old Tom is
+  dead."); one they do not know of says only "It conflicts with the story so far."
+- **Any passage on request.** Select text in a narration and a Rewrite box opens with an optional note ("less
+  purple", "she wouldn't say that"). The narrator's model rewrites only that passage, told to keep every event,
+  outcome and fact and given the record. A rewrite far longer or shorter than the passage is refused.
+- **Wording only.** The rolls and bands stay, so nothing is rolled again; going back is still the way to new
+  dice. The new wording goes through the same checks, so its flags are its own, and the facts the narrator
+  brought in are taken again from it (with a Continuity model chosen). The wording before the last rewrite is
+  kept: **Switch wording** goes back to it and again to the rewrite.
+- A part told before going back is shared with another branch, so it stays as it was.
+
 ## How far the story goes
 
 Intensity v0 (`dungeon/story.py` `intensity`, requirements "Intensity and tone"). The narrator is told how far
@@ -248,6 +267,8 @@ A fixed layout for Milestone 1 (`src/features/story/Story.tsx`); the free grid o
 | `POST /api/story/messages` `{text, client_id}` | Saves the user's line once per `client_id` and returns `{message, reply}`. A failed reply is saved with `status: failed` and its `error`. Sending the same `client_id` again returns the saved reply, or tries again if it failed. 409 `no_connection` without a model; the line stays saved. 409 when the character is dead. |
 | `POST /api/story/find` `{key}` | Moves the story to where someone the user has met is now. 404 if not met, 409 if they are nowhere the story can go. |
 | `POST /api/story/retry` | Tells the reply to the latest user line again, replacing the one there. |
+| `POST /api/story/messages/{id}/rewrite` | Rewrites `passage` of a narration in new words, with an optional `note`; same dice and facts. Returns the story. |
+| `POST /api/story/messages/{id}/switch` | Switches a rewritten narration to its wording before the rewrite, and back. Returns the story. |
 | `POST /api/story/messages/stream` / `POST /api/story/retry/stream` | The same, streamed as newline-delimited JSON: `{"text": piece}` as the narration is written, then `{"done": {message, reply}}` once the reply is saved, or `{"error", "code", "status"}`. Fact extraction runs after `done`. |
 | `GET /api/story/start` | `{premades, points, range, stat_names, meanings}` for "Who are you?" in the scene's city. |
 | `POST /api/story/start` `{premade_id}` or `{persona, stats}` | Starts the story as a premade or a made character; 409 once the story has begun, 404 for a premade not in this town, 422 for a missing name or stats outside the point-buy. |
