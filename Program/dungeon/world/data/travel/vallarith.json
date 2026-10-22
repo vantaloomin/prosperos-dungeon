@@ -1,5 +1,5 @@
 {
- "about": "Vallarith's travel map (dungeon/travel.py, docs/story.md \"Journeys\"): places joined by roads, each road with its hours on foot, terrain and danger, and each region's road encounters. Positions are from the world map (worlds/vallarith/settlements.json). A node is a whole town (its city and arrival place) or a place on the Road (dungeon/world/data/cities/vallarith-road.json).",
+ "about": "Vallarith's travel map (dungeon/travel.py, docs/story.md \"Journeys\"): places joined by roads, each road with its hours on foot, terrain and danger, each region's road encounters, and each region's danger and night-camp encounters for resting out in the open (dungeon/rest.py). Positions are from the world map (worlds/vallarith/settlements.json). A node is a whole town (its city and arrival place) or a place on the Road (dungeon/world/data/cities/vallarith-road.json).",
  "hours_a_day": 10,
  "odds": {"none": 0, "low": 15, "medium": 30, "high": 50},
  "food": ["bread", "dried-meat", "cheese"],
@@ -50,6 +50,30 @@
    {"weight": 2, "text": "Trees older than the kingdom, and a silence so deep the character's own breathing sounds rude."},
    {"weight": 2, "text": "A young elf, curious and armed, watches from the branches and asks a single question."},
    {"weight": 3, "action": "keep to the warden path and out of the wardens' sight", "difficulty": "hard", "threat": {"text": "Wardens close in among the trees, unseen, bows drawn.", "foe": {"name": "warden of Brynwyr", "count": 2, "vitality": 12, "resolve": 12, "weapon": 1, "wants": "capture"}}}
+  ]
+ },
+ "regions": {"kingdom-of-cyrel": {"danger": "low"}, "kingdoms-of-man": {"danger": "low"}, "badlands": {"danger": "high"}, "brynwyr": {"danger": "high"}},
+ "camp": {
+  "kingdom-of-cyrel": [
+   {"weight": 3, "text": "A farm dog barks half the night at something past the firelight, and nothing comes of it."},
+   {"weight": 2, "text": "A shepherd asks to share the fire and talks until he falls asleep in the middle of a sentence."},
+   {"weight": 2, "action": "find a dry hollow before the rain comes in", "difficulty": "normal", "threat": "Rain comes through in the small hours and soaks everything. Nobody sleeps."},
+   {"weight": 2, "action": "wake before the men from the road reach the fire", "difficulty": "normal", "threat": {"text": "Two men from the road creep up on the camp in the dark, knives out.", "foe": {"name": "road thief", "count": 2, "vitality": 9, "resolve": 7, "weapon": 0, "wants": "rob"}}}
+  ],
+  "kingdoms-of-man": [
+   {"weight": 3, "text": "A mage's lamp drifts over the fields at midnight, looking for something, and moves on."},
+   {"weight": 2, "action": "keep the fire hidden from the press gang's night patrol", "difficulty": "normal", "threat": {"text": "An Asanian press gang closes in with a rope and a recruiting sergeant's smile.", "foe": {"name": "press-gang man", "count": 3, "vitality": 10, "resolve": 10, "weapon": 0, "wants": "capture"}}}
+  ],
+  "badlands": [
+   {"weight": 2, "text": "Drums, far off, and then nothing until dawn."},
+   {"weight": 2, "action": "keep the cold off without a fire that shows for miles", "difficulty": "hard", "threat": "The night cold gets into the bones. Nobody sleeps, and morning finds the character stiff and shaking."},
+   {"weight": 3, "action": "hear the raiders before they reach the camp", "difficulty": "hard", "threat": {"text": "Unguruk raiders ride down off the ridge, whooping, blades out.", "foe": {"name": "Unguruk raider", "count": 3, "vitality": 12, "resolve": 12, "weapon": 1, "wants": "kill"}}},
+   {"weight": 1, "action": "keep away from the old ground where the dead walk", "difficulty": "hard", "threat": {"text": "Something long dead and badly buried pulls itself out of the shale.", "foe": {"name": "ward-ghoul", "count": 1, "vitality": 14, "resolve": 20, "weapon": 1, "wants": "kill"}}}
+  ],
+  "brynwyr": [
+   {"weight": 2, "text": "Lights move between the trees all night, silent, never coming closer."},
+   {"weight": 1, "action": "find ground the forest does not mind being slept on", "difficulty": "hard", "threat": "Roots, stones and whispering. The forest does not let the character sleep."},
+   {"weight": 3, "action": "stay out of the wardens' sight", "difficulty": "hard", "threat": {"text": "Wardens close in among the trees, unseen, bows drawn.", "foe": {"name": "warden of Brynwyr", "count": 2, "vitality": 12, "resolve": 12, "weapon": 1, "wants": "capture"}}}
   ]
  }
 }

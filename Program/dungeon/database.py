@@ -120,7 +120,7 @@ SINGLETONS = ('workspace_settings', 'builtin_recall')
 # existing table as it was, so an upgraded workspace gains them here. schema.sql lists them too, for new workspaces.
 ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"),
                  ('story_messages', 'flags', "TEXT NOT NULL DEFAULT '[]'"), ('story_messages', 'previous', 'TEXT'),
-                 ('story_rolls', 'threat', 'TEXT'),
+                 ('story_rolls', 'threat', 'TEXT'), ('story_wounds', 'rested', 'INTEGER NOT NULL DEFAULT 0'),
                  *(('story_people', axis, 'INTEGER NOT NULL DEFAULT 0')
                    for axis in ('trust', 'affection', 'respect', 'fear', 'desire')),
                  ('story_people', 'impressions', "TEXT NOT NULL DEFAULT '[]'"),

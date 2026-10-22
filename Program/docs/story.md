@@ -13,7 +13,7 @@ The app decides the scene (`dungeon/story.py`):
   ("You arrive at …") that the narrator sees as a note.
 - **When:** the story clock (`dungeon/story_clock.py`), in the city's own timezone. It starts at campaign start
   and moves with what the player does: 5 minutes for talk, 10 for a rolled action, 30 for a walk somewhere, the
-  hours they say for "I wait two hours", 8 hours for a night's sleep, 20 minutes to cross town and 6 hours to
+  hours they say for "I wait two hours", the nights of a rest (see "Rest"), 20 minutes to cross town and 6 hours to
   reach another city. Out-of-character lines take no time. A story with no campaign start runs on the app clock
   (debug time included), as Companion's did. The clock is branched with the story.
 - **Weather:** the city's typical weather for the date (`generators.conditions`).
@@ -139,8 +139,8 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
 - **Morale.** A foe at Maimed is down. When one falls or is badly hurt, the rest roll Resolve, and on a failure they
   break: they flee or give up. The fight is won when nobody is left standing and unbroken.
 - **Wounds.** Grazed, Hurt, Wounded, Maimed, Dying. Wounded makes physical actions a step harder; Maimed makes every
-  action a step harder and physical ones two. A night's sleep (eight hours or more, not mid-fight) heals one level,
-  down from Maimed. The narrator is told the character's condition every turn.
+  action a step harder and physical ones two. MARVEL heals gritty: a wound drops one level after nights of rest set
+  by its severity (Grazed 1, Hurt 2, Wounded 4, Maimed 7; see "Rest"), and a new wound starts the count again. The narrator is told the character's condition every turn.
 - **Defeat.** At Dying the character rolls Vitality to cling on (which rules death out), then the defeat table is
   weighted by what the foes want: beasts kill, wardens capture, robbers rob, a brawl ends with the character
   beaten and thrown out, and sometimes someone drags them clear. Death is real: a dead character plays no more
@@ -233,10 +233,31 @@ settlements): a gate, an edge or a ruin to arrive at, until that town is built o
   has not heard of is not reached: the narrator is told they do not know the way.
 - **Time and food.** Walking takes the roads' hours, ten a day; the nights between pass camped on the road (14
   hours each). Each day eats one food from the pack (bread, then dried meat, then cheese); the days without go
-  hungry. The story clock moves by all of it, so wounds heal and deadlines pass on the way.
+  hungry. The story clock moves by all of it, so deadlines pass on the way; walking is no rest, so wounds do not
+  mend on the road.
 - The narrator gets "## The journey" with what happened, and the scene opens with "You arrive at …". The places
   known (`story_map`) are branched with the story; each line's journey is kept (`story_journeys`), so telling it
   again walks no further.
+
+## Rest
+
+`dungeon/rest.py`. A line that beds down ("I sleep", "we make camp", "I rest for three days", "for a week") is a
+rest, decided before the narrator writes it. A journey line is not; a rest with a fight on is refused.
+
+- **Where decides the danger.** A town (a safe place on the travel map, or a city with no map) is safe, unless the
+  place is a dangerous one, whose own danger is rolled every turn as before. Out in the open (the Abandoned Keep,
+  Adlmyr, Brynwyr's forest), each night rolls against the region's danger in the travel map's `regions` (15, 30
+  or 50 in 100). Precautions in the line cut it: a watch kept (half), a hidden camp or no fire (six tenths), an
+  alarm or ward (seven tenths).
+- **One night can go wrong.** The first night that turns something up draws from the region's `camp` table: a
+  sight the narrator weaves in, or a danger to get past, a Luck roll a step harder asleep with no watch. A danger
+  that comes true costs that night's rest; one with foes starts a fight in the dark and the rest ends there,
+  four hours into that night.
+- **Time, food and mending.** One night is 8 hours, each more a day. Out in the open each day after the first eats
+  one food from the pack, and a hungry night does not mend. Each good night counts toward the wound's mending
+  (`combat.mend`, `story_wounds.rested`); the narrator is told how far it has come.
+- The narrator gets "## The rest" with what happened. Each line's rest is kept (`story_rests`), so telling it again
+  sleeps no more.
 
 ## Rewrite
 

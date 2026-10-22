@@ -10,7 +10,8 @@ Code runs the fight; the narrator writes it. One line of the player's is one rou
 - A foe at Maimed is down. When one falls or is badly hurt, the rest roll Resolve, and a failure breaks them: they
   flee or give up. The player wins when no foe is left standing and unbroken.
 - MARVEL wounds: Grazed, Hurt, Wounded, Maimed, Dying. Wounded makes physical actions a step harder; Maimed makes
-  every action a step harder and physical ones two. A night's sleep heals one level, down from Maimed.
+  every action a step harder and physical ones two. MARVEL heals gritty: a wound drops one level after nights of
+  rest set by its severity (dungeon/rest.py), from Maimed down; a new wound starts the count again.
 - At Dying the character rolls Vitality to cling on, then the defeat table, weighted by what the foes want: beasts
   kill, wardens capture, robbers rob, a brawl ends with the character thrown out. Death is real; the player can
   always go back to an earlier line.
@@ -28,6 +29,8 @@ from dungeon.rules import marvel
 
 LEVELS = ('unhurt', 'grazed', 'hurt', 'wounded', 'maimed', 'dying')
 DOWN, DYING = 4, 5
+# Nights of rest that mend each level by one: Grazed, Hurt, Wounded, Maimed.
+MEND_NIGHTS = {1: 1, 2: 2, 3: 4, 4: 7}
 DAMAGE = {'success_cost': 1, 'success': 2, 'critical_success': 3}
 WEAPONS = {'sword': 1, 'felling-axe': 1, 'hatchet': 0, 'knife': 0, 'cudgel': 0, 'crowbar': 0}
 BARE_HANDS = -1
@@ -57,20 +60,33 @@ DEFEAT_TEXT = {
 # The character's condition -----------------------------------------------------------------------
 
 def condition(connection) -> dict:
-    row = optional(connection, 'SELECT level, dead FROM story_wounds WHERE id=1')
-    return {'level': row['level'], 'dead': bool(row['dead'])} if row else {'level': 0, 'dead': False}
+    row = optional(connection, 'SELECT level, dead, rested FROM story_wounds WHERE id=1')
+    return ({'level': row['level'], 'dead': bool(row['dead']), 'rested': row['rested']} if row
+            else {'level': 0, 'dead': False, 'rested': 0})
 
 
-def set_condition(connection, level: int, dead: bool = False):
-    connection.execute('INSERT INTO story_wounds (id, level, dead) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET '
-                       'level=excluded.level, dead=excluded.dead', (max(0, min(DYING, level)), int(dead)))
+def set_condition(connection, level: int, dead: bool = False, rested: int = 0):
+    """The character's wound level; the nights rested toward mending it start again whenever it changes."""
+    connection.execute('INSERT INTO story_wounds (id, level, dead, rested) VALUES (1, ?, ?, ?) ON CONFLICT(id) DO '
+                       'UPDATE SET rested=CASE WHEN level=excluded.level THEN rested ELSE excluded.rested END, '
+                       'level=excluded.level, dead=excluded.dead', (max(0, min(DYING, level)), int(dead), rested))
 
 
-def heal(connection, minutes: int):
-    """A night's sleep heals one level, from Maimed down; not in the middle of a fight."""
+def mend(connection, nights: int) -> list[str]:
+    """Nights of good rest count toward the wound's mending: each level takes its own (MEND_NIGHTS)."""
     now = condition(connection)
-    if minutes >= 8 * 60 and 0 < now['level'] < DYING and not now['dead'] and fight(connection) is None:
-        set_condition(connection, now['level'] - 1)
+    if nights <= 0 or now['dead'] or not 0 < now['level'] < DYING:
+        return []
+    level, rested = now['level'], now['rested'] + nights
+    while 0 < level < DYING and rested >= MEND_NIGHTS[level]:
+        rested -= MEND_NIGHTS[level]
+        level -= 1
+    rested = rested if level else 0
+    connection.execute('UPDATE story_wounds SET level=?, rested=? WHERE id=1', (level, rested))
+    if level < now['level']:
+        return [f"Rest mends the character's wounds: from {LEVELS[now['level']]} to {LEVELS[level]}."]
+    left = MEND_NIGHTS[level] - rested
+    return [f"The character is still {LEVELS[level]}: {left} more night{'s' if left > 1 else ''} of rest to mend."]
 
 
 def adjust(connection, actions: list[dict]) -> list[dict]:

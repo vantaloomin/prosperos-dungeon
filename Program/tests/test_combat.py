@@ -69,10 +69,10 @@ def test_the_defeat_table_follows_what_the_winners_want(app):
     with app.state.database.connect(write=True) as connection:
         connection.execute('INSERT INTO story_purse (id, coins) VALUES (1, 500)')
         outcome, _ = combat.defeat(connection, {'wants': 'kill', 'foes': [foe()]}, Dice(20, 'low'), '2026-10-21')
-        assert outcome == 'death' and combat.condition(connection) == {'level': 5, 'dead': True}
+        assert outcome == 'death' and combat.condition(connection) == {'level': 5, 'dead': True, 'rested': 0}
         # Clinging on rules death out; robbers mostly rob.
         outcome, _ = combat.defeat(connection, {'wants': 'rob', 'foes': [foe()]}, Dice(95, 'low'), '2026-10-21')
-        assert outcome == 'robbed' and combat.condition(connection) == {'level': 4, 'dead': False}
+        assert outcome == 'robbed' and combat.condition(connection) == {'level': 4, 'dead': False, 'rested': 0}
         assert connection.execute('SELECT coins FROM story_purse').fetchone()[0] == 0
         outcome, _ = combat.defeat(connection, {'wants': 'drive_off', 'foes': [foe()]}, Dice(20, 'low'), '')
         assert outcome == 'thrown_out'
@@ -126,11 +126,19 @@ def test_a_danger_brings_a_foe_and_a_dead_character_plays_no_more(client, connec
     assert ok(client.get('/api/story'))['fight']['dead'] is False
 
 
-def test_a_nights_sleep_heals_a_level(client, connected, provider, app):
+def test_wounds_mend_with_nights_of_rest(client, connected, provider, app):
     kingswood(client, 'felled-oak')
     with app.state.database.connect(write=True) as connection:
         combat.set_condition(connection, 3)
-    provider.replies = [reply('Morning.')]
+    provider.replies = [reply('Morning.'), reply('Three mornings.')]
+    # Gritty MARVEL healing: Wounded takes four nights to mend to Hurt.
     tell(client, 'I go to bed and sleep.', 'story-0001')
+    assert ok(client.get('/api/story'))['fight']['condition'] == 'wounded'
+    assert 'still wounded: 3 more nights of rest to mend' in provider.requests[-1]['system']
+    tell(client, 'I rest for three days.', 'story-0002')
     assert ok(client.get('/api/story'))['fight']['condition'] == 'hurt'
     assert "is hurt (kept by the game" in provider.requests[-1]['system']
+    # A new wound starts the count again.
+    with app.state.database.connect(write=True) as connection:
+        combat.set_condition(connection, 1)
+        assert combat.mend(connection, 0) == [] and combat.condition(connection)['rested'] == 0
