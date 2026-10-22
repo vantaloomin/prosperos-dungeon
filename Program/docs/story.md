@@ -144,6 +144,16 @@ out each roll before its result shows: 3D dice (`@3d-dice/dice-box-threejs`, MIT
 over the story with the library's predetermined "@" notation, so they land on the faces the code already rolled. A
 PC without WebGL gets flat tumbling dice instead, reduced motion shows them landed, and a click lands them at once.
 
+### The turn receipt
+
+Under each narration, a row of chips says what the turn changed (`dungeon/receipt.py`,
+`src/features/story/StoryReceipt.tsx`): coins in or out, items gained or lost, being hurt or mending, a lasting
+injury, a quest heard of or ended, and what the character learned about (by subject). Nothing new is stored: each
+player line already saves the game state as it arrives (`dungeon/timeline.py`), so a receipt is that save against the
+next line's, or the game as it stands for the latest turn. Facts pulled from the story after the reply show up once
+extraction has run. Only what the player could already see goes in; hidden truth, feelings and standings stay out.
+The 40 latest turns have receipts; `GET /api/story` carries them as `receipt` on the player's lines.
+
 ## The record and the story so far
 
 The record (`dungeon/record.py`, table `record_entries`) is what the game holds true: deaths, items, wounds,

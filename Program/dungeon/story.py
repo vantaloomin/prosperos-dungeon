@@ -35,6 +35,7 @@ from dungeon import (
     plotting,
     prompt_library,
     quests,
+    receipt,
     record,
     referee,
     remembering,
@@ -419,10 +420,18 @@ def with_rolls(connection, rows: list[dict]) -> list[dict]:
             if row['role'] == 'user' else row for row in rows]
 
 
+def with_receipts(connection, rows: list[dict], currency: dict) -> list[dict]:
+    """What each recent turn changed, under the player's line (dungeon/receipt.py)."""
+    found = receipt.receipts(connection, rows, currency)
+    return [{**row, 'receipt': found[row['id']]} if found.get(row['id']) else row for row in rows]
+
+
 def story(database) -> dict:
     with database.connect() as connection:
         view = scene(connection, story_clock.now(connection, database.clock))
-        return {'scene': scene_view(view), 'messages': with_rolls(connection, messages(connection)),
+        rows = messages(connection)
+        return {'scene': scene_view(view), 'messages': with_receipts(connection, with_rolls(connection, rows),
+                                                                     view['data']['currency']),
                 'people': people(connection, view), 'ready': config_for(connection, JOB) is not None,
                 'dice_shown': dice_shown(connection), 'bands': turn.bands(ruleset_of(connection)) if dice_shown(connection) else None,
                 'branches': timeline.branches(connection),

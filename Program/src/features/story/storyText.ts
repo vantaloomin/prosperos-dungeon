@@ -1,4 +1,4 @@
-import type { Srd52Spells, BandStep, HiddenRoll, TurnAction, TurnEvent, TurnSoFar, Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace, StoryArc, StoryPace, StoryTier, SheetGrowth, StoryHand, JournalThread, StoryChapter, LegacyRole } from '../../types'
+import type { ReceiptChip, StoryMessage, Srd52Spells, BandStep, HiddenRoll, TurnAction, TurnEvent, TurnSoFar, Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace, StoryArc, StoryPace, StoryTier, SheetGrowth, StoryHand, JournalThread, StoryChapter, LegacyRole } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -395,4 +395,11 @@ export function skillChoices(from: string[], background: string[]): string[] {
 /** A skill's id from its name, as the pack writes them ("Sleight of Hand" is sleight-of-hand). */
 export function skillId(name: string): string {
   return name.trim().toLowerCase().replaceAll(' ', '-')
+}
+
+/** Each turn's receipt by the narration that tells it: the chips sit on the player's line, and show under its reply. */
+export function receiptsByReply(messages: StoryMessage[]): Map<string, ReceiptChip[]> {
+  const byLine = new Map(messages.filter((message) => message.receipt?.length).map((message) => [message.id, message.receipt ?? []]))
+  return new Map(messages.filter((message) => message.role === 'narrator' && message.reply_to && byLine.has(message.reply_to))
+    .map((message) => [message.id, byLine.get(message.reply_to ?? '') ?? []]))
 }

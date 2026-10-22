@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { Fragment, useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowDown, Bookmark, MapPin, RotateCcw, Send, Settings2, Timer, Undo2 } from 'lucide-react'
 import { api, newId, streamApi } from '../../api'
@@ -9,7 +9,8 @@ import { ErrorNotice } from '../../components/ErrorNotice'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { InfoTip } from '../../components/InfoTip'
 import { AiFooter, CrisisNote } from '../../components/Safety'
-import { aroundText, fightText, journeyTo, NO_TURN, paceText, placeGroups, sceneTime, spotsText, turnAfter, whereText } from './storyText'
+import { aroundText, fightText, journeyTo, NO_TURN, paceText, placeGroups, receiptsByReply, sceneTime, spotsText, turnAfter, whereText } from './storyText'
+import { TurnReceipt } from './StoryReceipt'
 import { RollCard, TurnLive } from './StoryTurn'
 import { StoryPeople } from './StoryPeople'
 import { CityOptions } from '../world/CityOptions'
@@ -228,11 +229,14 @@ function useFollow(shown: string, pending: string | null) {
 function StoryLog({ messages, pending, streamed, turn, bands, onRetry, onBack, onBookmark, onRewrite, onSwitch }: LogProps) {
   const { log, end, onScroll, toEnd, behind } = useFollow(`${messages.length}:${streamed.length}`, pending)
   const last = messages[messages.length - 1]
+  const receipts = receiptsByReply(messages)
   return (
     <div className="story-log" aria-live="polite" ref={log} onScroll={onScroll}>
-      {messages.map((message) => <StoryLine key={message.id} message={message} bands={bands} onBack={pending ? undefined : onBack}
-        onBookmark={pending ? undefined : onBookmark}
-        rewrites={pending === null ? { onRewrite, onSwitch } : undefined} draft={pending === null && message === last ? streamed : undefined} />)}
+      {messages.map((message) => <Fragment key={message.id}>
+        <StoryLine message={message} bands={bands} onBack={pending ? undefined : onBack} onBookmark={pending ? undefined : onBookmark}
+          rewrites={pending === null ? { onRewrite, onSwitch } : undefined} draft={pending === null && message === last ? streamed : undefined} />
+        <TurnReceipt chips={receipts.get(message.id)} />
+      </Fragment>)}
       {pending && <p className="story-user">{pending}</p>}
       {pending !== null && <TurnLive turn={turn} writing={!!streamed} />}
       {pending !== null && !!streamed && <div className="story-narration">{streamed.split(/\n{2,}/).map((part, index) => <p key={index}>{part}</p>)}</div>}

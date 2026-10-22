@@ -215,7 +215,11 @@ export interface StoryMessage {
    *  switch back (dungeon/passages.py). */
   flags?: StoryFlag[]
   previous?: boolean
+  /** On a player's line: what its turn changed (dungeon/receipt.py), for the recent turns. */
+  receipt?: ReceiptChip[]
 }
+/** One thing a turn changed: the purse, the pack, the character's condition, a quest, or something learned. */
+export interface ReceiptChip { kind: 'coins' | 'item' | 'hurt' | 'injury' | 'quest' | 'learned'; tone: 'gain' | 'loss' | 'neutral'; text: string }
 export interface StoryFlag { passage: string; why: string[] }
 export interface TurnPace { steps: Record<string, number>; skipped: string[]; budget: number; total: number }
 export type Band = 'critical_failure' | 'failure' | 'failure_upside' | 'success_cost' | 'success' | 'critical_success'
