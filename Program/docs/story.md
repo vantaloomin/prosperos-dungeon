@@ -119,6 +119,16 @@ Attack, Second Wind), upcasting and spells' other effects (conditions, areas, co
 Supply, spirit and vows under Ironsworn are described below. Not yet: Starforged (its Datasworn package's planet
 images are non-commercial).
 
+- **Narrative** (`dungeon/rules/narrative.py`, `dungeon/judge.py`; requirements "Narrative Only"): no stats and no
+  dice. The sheet is the character's own About text plus two optional lists, good at and bad at. Each action the
+  Referee finds gets a verdict from the judge: No (failure), No, but (failure with an upside), Yes, but (success at a
+  cost) or Yes (success), with a one-line reason. The judge is the Referee's own model, else the narrator's, asked
+  once per turn with the character, their condition, the scene (the people there and how they feel toward the
+  character), the player's words and each action's difficulty on its face. The verdict is kept in the roll row
+  (`skill` "No, but: …", no die) and reaches the narrator as the band plus "Why: …". With no model or an unreadable
+  answer, the difficulty decides in code: easy Yes, normal Yes, but, hard No, but, harder No. There is no roll card:
+  `dice_shown` is off under Narrative whatever the Table says, except in the GM view. No stat growth; milestones give
+  nothing (what the character is known for is in the record). Fights use the shared wound levels.
 - **Percentile** (`dungeon/rules/brp.py`, content in `dungeon/rules/packs/brp`: the core of Chaosium's Basic
   Roleplaying from its ORC Content Document, transcribed for a world before firearms). Vanta's call: the app names
   the ruleset "Percentile", and BRP appears only in the ORC notice and credit on the start screen and the sheet. A

@@ -76,6 +76,42 @@ pluggable module that supplies:
 - **Attribution:** each pack carries its license notice, shown in the app (SRD 5.2 needs one
   attribution sentence; WotC trademarks such as "Dungeons & Dragons" are not used).
 
+### Narrative Only
+
+Asked for 2026-10-22 (Vanta): a ruleset with few or no stats that runs on "gut check" realism. "I want to seduce the
+barmaid" from a character described as an overweight NEET is a long shot because of who they are, what they say, and
+what the barmaid wants, not because of a number on a sheet.
+
+- **The judge decides, with no dice** (Vanta, 2026-10-22). A judge model (the Referee's text model, else the
+  narrator's; keyword rules with no model) gives each action one of four verdicts: **No**, **No, but**, **Yes, but**
+  or **Yes**, with a one-line reason. The verdict is fixed before the narrator writes, as a roll is, and the
+  narrator writes it as given and never overturns it. On the shared ladder: No is failure, No, but is failure with
+  something gained (the but), Yes, but is success at a cost, Yes is success. So feelings, Life Cards, continuity and
+  the record work unchanged. The judge is not the narrator: it sees the facts below, not the prose.
+- **The sheet is the character's description.** The persona's About text, kind, age and look, plus what play adds
+  (lasting injuries, gear, reputation, the record's facts about them). There are no stats. Optional short lists the
+  player can fill in, "good at" and "bad at", sharpen the judge's read but are not required.
+- **The verdict comes from four things,** each given to the judge in plain words:
+  1. Who the character is: the description, injuries, gear and what they have done (the record).
+  2. What the player writes: a careful, specific approach moves the verdict, and a line that only states the goal
+     ("I seduce her") does not.
+  3. Who they are dealing with: the target NPC's feelings toward the character (trust, affection, respect, fear,
+     desire), their wants, fears and secrets, their mood and the scene (a busy bar at closing time).
+  4. The world and its tone: what is physically possible, and the intensity and drama dials.
+- **No roll card** (Vanta, 2026-10-22). The verdict and its reason ("No, but: she is tired and he opened with her
+  looks; she does laugh at the joke") go to the narrator only, and the story just tells what happened. The GM view
+  can show the verdicts for debugging. Plain acts with nothing at stake get no verdict, as obvious actions get no
+  roll now.
+- **Fights, harm and death** use the shared wound levels (MARVEL's), judged the same way per exchange: who has the
+  upper hand, weapons, numbers, injuries. Defeat follows the foes' aim, as the defeat table has it.
+- **Progression is narrative.** No XP. What the character does well, often, and in front of people becomes part of
+  who they are (the record and reputation), which moves the judge's verdicts next time. The Referee sees "known for:
+  ...".
+- **No-model fallback:** keyword rules plus the feelings. A plain try is Yes, but; persuasion of someone who
+  distrusts or fears the character is No, but; of an enemy, No.
+- **It is a ruleset like the others** (`rules/narrative.py`), picked at session zero and locked at the start. It is
+  shown as "Narrative" with the hint "No stats or dice: what happens comes from who your character is and what they say."
+
 ### Candidate systems and licenses
 
 Dungeon is public, AGPL software, so a ruleset ships only if its license covers software. Licenses
@@ -86,6 +122,7 @@ allow commercial use and adult content; they require attribution and no DRM on t
 | System | License | Fit | Notes |
 | --- | --- | --- | --- |
 | **MARVEL d100** | Vanta's own | House default | Mabry Curve's system. |
+| **Narrative Only** | Dungeon's own | Asked for | No stats; a judge sets odds from the character, the words and the NPC (see above). |
 | **D&D 5e: SRD 5.2** (2024 rules) | CC-BY-4.0, irrevocable (Apr 2025) | Strong | One attribution sentence. Excludes D&D Beyond Basic Rules and WotC trademarks. |
 | **D&D 5e: SRD 5.1** (2014 rules) | CC-BY-4.0 | Strong | Pick 5.1 or 5.2, or both. |
 | **Basic Roleplaying (Chaosium)** | ORC (2023 Universal Game Engine) | Strong | d100 percentile skills, close kin to MARVEL. |

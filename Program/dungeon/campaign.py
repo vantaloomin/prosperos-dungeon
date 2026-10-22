@@ -27,7 +27,7 @@ from dungeon import (
 from dungeon.database import one
 from dungeon.errors import require
 from dungeon.models import PersonaInput
-from dungeon.rules import brp, ironsworn, marvel, srd52
+from dungeon.rules import brp, ironsworn, marvel, narrative, srd52
 
 PREMADES = Path(__file__).parent / 'world' / 'data' / 'premades'
 # Point-buy at the start: the six stats share POINTS, each from START_RANGE, so the default sheet (all 10) fits.
@@ -53,7 +53,7 @@ def view(database) -> dict:
             # The rulesets a campaign can be played in, the world's own first (dungeon/sheet.py).
             'rulesets': [{'id': key, 'name': name} for key, name in sheet.RULESETS.items()],
             'ruleset': sheet.default_for(world), 'srd52': srd52_choices(), 'ironsworn': ironsworn_choices(),
-            'brp': brp_choices(),
+            'brp': brp_choices(), 'narrative': {'hint': narrative.HINT},
             'arc': world and {'arc': tiers.track(world)['arc'], 'pace': tiers.track(world)['pace'],
                               'hand': director.DEFAULT_HAND},
             # Session zero (dungeon/table.py): the presets, and the rules as a new campaign would start.
@@ -145,7 +145,7 @@ def begin(database, premade_id: str | None = None, persona: PersonaInput | None 
           stats: dict[str, int] | None = None, arc: str | None = None, pace: str | None = None,
           hand: str | None = None, ironman: bool = False, legacy_of: dict | None = None,
           ruleset: str | None = None, build: dict | None = None, iron: dict | None = None,
-          rules: dict | None = None, percentile: dict | None = None) -> dict:
+          rules: dict | None = None, percentile: dict | None = None, narrated: dict | None = None) -> dict:
     """Start the story as a premade character or one the player made; only a story with nothing in it yet. The
     ruleset (the world's own by default) is chosen now and locked; under 5E a made character is `build` (class,
     species, background, the standard array placed, the class's skills). `rules` are session zero's (dungeon/table.py)."""
@@ -163,7 +163,8 @@ def begin(database, premade_id: str | None = None, persona: PersonaInput | None 
         persona = PersonaInput(name=chosen['name'], gender=chosen['gender'], age=chosen['age'], about=chosen['about'])
         stats = chosen['stats']
         native = premade_build(chosen) if ruleset == srd52.ID else premade_ironsworn(chosen) \
-            if ruleset == ironsworn.ID else premade_brp(chosen) if ruleset == brp.ID else None
+            if ruleset == ironsworn.ID else premade_brp(chosen) if ruleset == brp.ID else \
+            narrative.build() if ruleset == narrative.ID else None
     else:
         require(persona is not None and bool((persona.name or '').strip()), 'Give your character a name.', 422)
         if ruleset == srd52.ID:
@@ -179,6 +180,10 @@ def begin(database, premade_id: str | None = None, persona: PersonaInput | None 
             require(percentile is not None, 'Buy the seven characteristics and choose a profession and a personality.',
                     422)
             native = brp.build(percentile['characteristics'], percentile['profession'], percentile['personality'])
+            stats = {stat: marvel.DEFAULT_STAT for stat in marvel.STATS}
+        elif ruleset == narrative.ID:
+            # No stats: who they are is their own description, and what they say they are good and bad at.
+            native = narrative.build(**(narrated or {}))
             stats = {stat: marvel.DEFAULT_STAT for stat in marvel.STATS}
         else:
             stats = bought(stats or {})

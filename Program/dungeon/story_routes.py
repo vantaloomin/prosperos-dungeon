@@ -192,6 +192,12 @@ class BrpBuild(Input):
     personality: str = Field(min_length=1, max_length=80)
 
 
+class NarrativeBuild(Input):
+    """A Narrative Only character (dungeon/rules/narrative.py build): what they are good and bad at, both optional."""
+    good_at: list[str] = Field(default_factory=list, max_length=6)
+    bad_at: list[str] = Field(default_factory=list, max_length=6)
+
+
 class StoryStart(Input):
     """A premade character by id, or one the player made: who they are and their bought stats."""
     premade_id: str | None = Field(None, min_length=1, max_length=80)
@@ -206,12 +212,13 @@ class StoryStart(Input):
     ironman: bool = False
     legacy: LegacyChoice | None = None
     # The ruleset (dungeon/sheet.py), locked for the campaign; the world's own when left out.
-    ruleset: Literal['marvel', 'srd52', 'ironsworn', 'brp'] | None = None
+    ruleset: Literal['marvel', 'srd52', 'ironsworn', 'brp', 'narrative'] | None = None
     build: Srd52Build | None = None
     ironsworn: IronswornBuild | None = None
     # Session zero (dungeon/table.py): the campaign's rules from a preset, fine-tuned.
     table: TableUpdate | None = None
     brp: BrpBuild | None = None
+    narrative: NarrativeBuild | None = None
 
 
 @router.get('/start')
@@ -224,7 +231,8 @@ def start(request: Request, body: StoryStart):
     return campaign.begin(request.app.state.database, body.premade_id, body.persona, body.stats, body.arc,
                           body.pace, body.hand, body.ironman, body.legacy and body.legacy.model_dump(), body.ruleset,
                           body.build and body.build.model_dump(), body.ironsworn and body.ironsworn.model_dump(),
-                          body.table and body.table.model_dump(exclude_none=True), body.brp and body.brp.model_dump())
+                          body.table and body.table.model_dump(exclude_none=True), body.brp and body.brp.model_dump(),
+                          body.narrative and body.narrative.model_dump())
 
 
 class StoryBack(Input):
