@@ -5,7 +5,6 @@ MARVEL stats. Or the player makes their own: a name, a few lines, and stats boug
 way the persona of this world takes them on, the story clock starts (dungeon/story_clock.py), and the story opens
 with the player arriving where the scene is.
 """
-import json
 from pathlib import Path
 
 from dungeon import (
@@ -22,6 +21,7 @@ from dungeon import (
     table,
     tiers,
     timeline,
+    world_data,
     worlds,
 )
 from dungeon.database import one
@@ -39,8 +39,8 @@ CLASS_BY_STAT = {'Vitality': ('fighter', 'soldier'), 'Mind': ('wizard', 'sage'),
 
 
 def premades(city_id: str) -> list[dict]:
-    path = PREMADES / f'{city_id}.json'
-    return json.loads(path.read_text(encoding='utf-8'))['premades'] if path.exists() else []
+    found = world_data.read('premades', city_id)
+    return found['premades'] if found else []
 
 
 def view(database) -> dict:

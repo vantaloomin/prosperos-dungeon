@@ -31,14 +31,12 @@ Seeds and payoffs, adopted details and the arcs' planned beats are dungeon/plott
 
 All of it is game state, branched with the story (dungeon/timeline.py SAVED).
 """
-import functools
-import json
 import random
 import re
 from datetime import datetime
 from pathlib import Path
 
-from dungeon import plotting, record, tiers
+from dungeon import plotting, record, tiers, world_data
 from dungeon.database import decode, encode, identifier, many, optional
 
 ARCS = Path(__file__).parent / 'world' / 'data' / 'arcs'
@@ -61,10 +59,9 @@ BEATEN = ('robbed', 'captured', 'thrown_out')
 GOT_AWAY = 'fled'
 
 
-@functools.cache
+@world_data.memo
 def data(world: str) -> dict:
-    path = ARCS / f'{world}.json'
-    return json.loads(path.read_text(encoding='utf-8')) if path.exists() else {'arcs': [], 'default_spine': None}
+    return world_data.read('arcs', world) or {'arcs': [], 'default_spine': None}
 
 
 def arc(world: str, arc_id: str) -> dict | None:

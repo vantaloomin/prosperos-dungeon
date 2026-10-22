@@ -42,6 +42,12 @@ fingerprint of the contents tells.
   screen. Only entries that hold in the campaign's era come in (the era is `world.json` `starting_place.era`; an
   entry with no `eras` holds in all). Hidden truths never come in this way. The book is read from the package file,
   so an edited or imported world plays as edited. When the lore changes, the next campaign start replaces the book.
+- **Engine data.** The game reads each town's adventure, items, finds and premades, and each world's travel map,
+  arcs, factions and tiers, from the `engine` part of the packages in the data folder (`dungeon/world_data.py`),
+  so an edited package plays as edited. The built-in worlds' packages are built (again) when the app starts. A
+  loader that caches its data reads again when a package file changes. A key no package holds, or a script with no
+  data folder, reads the shipped file in `dungeon/world/data`. When two packages hold the same key, the built-in
+  world's wins. Town city files (`cities`) are still read from `dungeon/world`.
 
 ## API
 
@@ -53,4 +59,4 @@ fingerprint of the contents tells.
 - `POST /api/packages/import` `{folder}`: a world folder on this computer, checked and made into a package. A
   built-in world's id is refused.
 
-Not yet: the game reading its data from the package instead of `dungeon/world/data`, the importer that drafts sections with a model for review, and the built-in editor.
+Not yet: the importer that drafts sections with a model for review, and the built-in editor.

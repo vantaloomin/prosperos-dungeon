@@ -12,12 +12,11 @@ before anyone looked.
 
 All of it is game state, branched with the story (dungeon/timeline.py SAVED).
 """
-import json
 import random
 import re
 from pathlib import Path
 
-from dungeon import inventory, record
+from dungeon import inventory, record, world_data
 from dungeon.database import decode, encode, many, optional
 
 FINDS = Path(__file__).parent / 'world' / 'data' / 'finds'
@@ -31,8 +30,8 @@ MONEY = re.compile(r'\b(coins?|money|crowns?|silver|everything|all of it|the lot
 
 
 def tables(city_id: str) -> dict:
-    path = FINDS / f'{city_id}.json'
-    return json.loads(path.read_text(encoding='utf-8'))['containers'] if path.exists() else {}
+    found = world_data.read('finds', city_id)
+    return found['containers'] if found else {}
 
 
 def container(city_id: str, text: str) -> tuple[str, str] | None:
