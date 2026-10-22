@@ -14,7 +14,8 @@ from dungeon.errors import require
 
 SAVED = ('story_scene', 'story_people', 'character_stats', 'record_entries', 'story_summary',
          'story_clock', 'story_quests', 'story_inventory', 'story_purse', 'story_stock', 'story_trades',
-         'story_wounds', 'story_fight', 'story_haggles', 'story_finds', 'story_map')
+         'story_wounds', 'story_fight', 'story_haggles', 'story_finds', 'story_map',
+         'story_injuries')
 ROOT = 'first'
 OLD_NAMES = {new: old for old, new in RENAMED_TABLES}
 

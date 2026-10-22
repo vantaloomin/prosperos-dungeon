@@ -121,13 +121,16 @@ SINGLETONS = ('workspace_settings', 'builtin_recall')
 ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"),
                  ('story_messages', 'flags', "TEXT NOT NULL DEFAULT '[]'"), ('story_messages', 'previous', 'TEXT'),
                  ('story_rolls', 'threat', 'TEXT'), ('story_wounds', 'rested', 'INTEGER NOT NULL DEFAULT 0'),
+                 ('story_wounds', 'treated', 'INTEGER NOT NULL DEFAULT 0'),
                  *(('story_people', axis, 'INTEGER NOT NULL DEFAULT 0')
                    for axis in ('trust', 'affection', 'respect', 'fear', 'desire')),
                  ('story_people', 'impressions', "TEXT NOT NULL DEFAULT '[]'"),
                  ('workspace_settings', 'intensity', "TEXT NOT NULL DEFAULT 'world' CHECK (intensity IN "
                                                      "('world', 'restrained', 'mature', 'unflinching'))"),
                  ('workspace_settings', 'turn_budget', 'INTEGER NOT NULL DEFAULT 0 CHECK (turn_budget IN '
-                                                       '(0, 15, 30, 60, 90, 120, 180))'))
+                                                       '(0, 15, 30, 60, 90, 120, 180))'),
+                 ('workspace_settings', 'injury_persistence', "TEXT NOT NULL DEFAULT 'permanent' CHECK "
+                                                              "(injury_persistence IN ('permanent', 'temporary', 'none'))"))
 
 
 # Tables renamed since they were made: (old, new). Renamed before the schema runs, so their rows carry over.

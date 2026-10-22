@@ -259,6 +259,29 @@ rest, decided before the narrator writes it. A journey line is not; a rest with 
 - The narrator gets "## The rest" with what happened. Each line's rest is kept (`story_rests`), so telling it again
   sleeps no more.
 
+## Lasting injuries and treatment
+
+`dungeon/injuries.py`, with the lasting-injury table in `dungeon/rules/injuries.json`. All of it follows the
+**Lasting injuries** setting beside the story (`injury_persistence`): Permanent (the default), Temporary or None.
+
+- **Lasting injuries are rolled.** A foe's hit that leaves the character Maimed (or worse), or a foe's critical hit,
+  rolls on the table once that round: a lost eye, a limp, a ruined hand, two lost fingers, a disfiguring scar,
+  ribs that knit wrong, a deaf ear, a tremor in the sword hand. The same one never twice. It goes in the record
+  as a wound, shows as "Lasting: …" under the character's condition, and the narrator is told what people see.
+- **Each one makes some actions a step harder**, by the words in the action (a limp: run, climb, chase, sneak; a
+  lost eye: shoot, aim, spot, search). Under Permanent they stay; under Temporary each fades after its days of
+  story time (25 to 60); under None nothing is rolled and the old ones stop showing.
+- **Treatment.** A line that treats a wound ("I bandage it", "can you tend my wound?") while hurt and not
+  fighting:
+  - with a healer in the scene (a shrine keeper or herb seller whose role or story says healer), the healer
+    treats it for 2.00 in the town's money, rolling their own skill (15), a step easier than the wound's own
+    difficulty; with too little money, nothing happens;
+  - otherwise with bandages or a poultice from the pack, a Mind roll of the character's (easy for Grazed, normal
+    for Hurt, hard for Wounded, very hard for Maimed; a poultice a step easier), using one up.
+  - A success mends a level now, a critical two; a critical failure turns the wound bad, a level worse. A wound is
+    treated once ("now it needs rest"); a fresh wound can be treated again. Each line's treatment is kept
+    (`story_treatments`) and the narrator gets "## The treatment".
+
 ## Rewrite
 
 `dungeon/passages.py`. The automatic rewrites still run when there is time; whatever the checks find and do not

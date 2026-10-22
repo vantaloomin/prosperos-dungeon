@@ -41,6 +41,7 @@ top of it, milestone by milestone, as set out in [the roadmap](../../docs/roadma
 | `story_finds`, `story_looks` | What is inside things the player looked into, and what each line looked into and took (`dungeon/finds.py`) |
 | `story_messages.flags`, `.previous` | A narration's flagged paragraphs and its wording before the last rewrite (`dungeon/passages.py`) |
 | `story_map`, `story_journeys` | The places on the travel map the character knows, and each line's journey (`dungeon/travel.py`) |
+| `story_injuries`, `story_treatments` | The character's lasting injuries, and each line's treatment (`dungeon/injuries.py`) |
 | `story_rests` | Each line's rest: its nights and what one of them turned up (`dungeon/rest.py`) |
 | `story_turn_steps` | How long each step of a turn took and what gave way for time (`dungeon/pace.py`) |
 | `story_haggles`, `story_counter` | Each shop's haggled prices for the story day, and what happened at the counter on each line (`dungeon/inventory.py`) |

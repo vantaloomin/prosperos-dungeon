@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Lasting injuries and treatment.** A maiming or a critical hit can leave a lost eye, a limp, a ruined hand or a
+  scar: some things get harder, and people notice. Choose beside the story whether they stay, fade with time, or
+  never happen. Bandage a wound from your pack, or pay a healer like Mother Rook to treat it; a bad treatment can
+  make it worse.
 - **Rest.** "I make camp", "I sleep" or "I rest for three days" is decided by the game. Inns and towns are safe;
   out in the open each night can go wrong (rain, cold, raiders in the Badlands, Brynwyr's wardens), less so if you
   keep watch, hide the camp or set an alarm. Wounds now mend gritty: a night for a graze, four for a real wound,
