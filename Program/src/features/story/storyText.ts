@@ -154,7 +154,7 @@ export function slotsText(slots: Gear['slots']): string {
   return `${round(slots.used)} of ${round(slots.max)} slots`
 }
 
-function foeNumbers(foe: NonNullable<StoryFight['fight']>['foes'][number]): string {
+export function foeNumbers(foe: NonNullable<StoryFight['fight']>['foes'][number]): string {
   if (foe.max_hp !== undefined) return `, ${foe.hp} of ${foe.max_hp} HP`
   return foe.wound === null ? '' : `, wound ${foe.wound} of 5`
 }

@@ -766,16 +766,25 @@ Not in v0: per-category sliders, veils, tone and drama settings, and lower setti
 
 ## The screen
 
-A fixed layout for Milestone 1 (`src/features/story/Story.tsx`); the free grid of widgets comes in Milestone 6.
+Four parts, from the requirements' "Play screen and widgets" (`src/features/story/Story.tsx`, `StoryPanel.tsx`); a
+free grid of widgets is an optional mode late in Milestone 6.
 
 - **The story column:** where the story is (place and city), then the status strip (`StoryStatus.tsx`): story time
   and weather, the character's condition (hit points under 5E), nerve, lasting injuries, captivity and coin, as the
   dice toggle allows. Then who is around, the fight line while there is a fight, the story text with each turn's
   receipt, and the composer.
-- **The side panel:** how far the story goes, the character sheet, the pack, the shop window when the story is in a shop, "What you know",
-  "People you've met" and "Other branches". On a screen 1100 pixels wide or more it sits beside the story with the
-  sheet, pack and journal open and scrolls on its own; on a narrower screen it sits above the story, folded, and
-  takes at most under half the height.
+- **The scene panel:** one or two widgets the scene needs, picked by code from the game state with no model call
+  (`src/features/story/scene.ts` `sceneWidgets`): a fight shows the foes, a shop the pack and its counter, the Road
+  the travel map, and people met who are at this very place "Here with you". With none of those it shows the journal.
+  Below them are the widgets the player pinned, kept whatever the scene (saved in this browser).
+- **The drawer:** tabs under the panel for the sheet, the pack and the journal, and More for the map, people met,
+  powers, chapters, other branches, the notebook, export, and Tone and rules. Each opens in the panel, unfolded, with
+  "Pin to the scene". Widgets with nothing to show are left out. A Settings search for a story setting opens Tone and
+  rules.
+- **Wide and narrow:** on a screen 1100 pixels wide or more the panel sits beside the story and scrolls on its own,
+  with the tabs at its foot. On a narrower one the tabs sit under the composer and open the panel as a sheet over the
+  story; a dot on the Scene tab says the scene changed (a fight started) while it was closed, so nothing opens over
+  the reading. Before the first line only people met and other branches show.
 
 ## API
 

@@ -111,15 +111,36 @@ textarea { resize: vertical; line-height: 1.6; }
 
 /* Story mode (src/features/story): one reading column of narration, the user's lines set apart. */
 .story { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-/* A fixed layout: the story column, and the panel beside it on a wide screen or above the story on a narrow one. */
+/* A fixed layout (requirements "Play screen and widgets"): the story column, and the scene panel with the drawer's tabs
+   beside it on a wide screen. On a narrow one the tabs sit under the story and open the panel as a sheet above them. */
 .story-main { display: contents; }
-.story-panel { order: 1; max-width: 760px; width: 100%; margin: 0 auto; padding: 8px 32px 12px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--border); max-height: 45dvh; overflow-y: auto; }
 .story-main > :not(.story-header) { order: 2; }
+.story-panel { order: 3; position: relative; display: flex; flex-direction: column; border-top: 1px solid var(--border); background: var(--canvas); }
+.story-panel-body { position: absolute; left: 0; right: 0; bottom: 100%; z-index: 20; max-height: 70dvh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
+  padding: 14px 16px 16px; background: var(--surface); border-top: 1px solid var(--border); box-shadow: 0 -8px 24px var(--shadow); }
+.story-panel-before .story-panel-body { position: static; max-height: 45dvh; box-shadow: none; border-top: 0; background: none; }
+.story-panel-close { position: absolute; top: 8px; right: 8px; }
+.story-panel-heading { margin: 0; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); }
+.story-panel-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-right: 36px; }
+.story-pinned { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.story-pinned > details { align-self: stretch; }
+.story-more { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.story-more .text-button { min-height: 40px; }
+.story-tabs { display: flex; gap: 4px; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); }
+.story-tab { flex: 1; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--muted); font: inherit; font-size: 0.85rem; cursor: pointer; }
+.story-tab:hover { color: var(--text); }
+.story-tab[aria-pressed='true'] { background: var(--accent-tint); color: var(--text); }
+.story-tab svg { width: 15px; height: 15px; }
+.story-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
 @media (min-width: 1100px) {
   .story { flex-direction: row; }
   .story-main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
-  .story-panel { order: 0; flex: 0 0 360px; max-width: 360px; max-height: none; margin: 0; padding: 18px 20px; gap: 10px; border-bottom: 0; border-left: 1px solid var(--border); }
+  .story-panel { order: 0; flex: 0 0 360px; max-width: 360px; min-height: 0; border-top: 0; border-left: 1px solid var(--border); background: none; }
+  .story-panel-body, .story-panel-before .story-panel-body { position: static; flex: 1; max-height: none; padding: 18px 20px; background: none; border-top: 0; box-shadow: none; }
+  .story-panel-title { padding-right: 0; }
   .story-panel .story-people ul { max-height: none; }
+  .story-tabs { border-top: 1px solid var(--border); padding: 8px 12px; }
 }
 .story-header { max-width: 760px; width: 100%; margin: 0 auto; padding: 18px 32px 12px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--border); }
 .story-where { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
@@ -179,9 +200,7 @@ textarea { resize: vertical; line-height: 1.6; }
 .story-turn-actions:empty { display: none; }
 .story-pace { color: var(--muted); line-height: 0; cursor: help; }
 .story-pace svg { width: 13px; height: 13px; }
-.story-dials summary { display: inline-flex; align-items: center; gap: 6px; }
-.story-dials summary svg { width: 14px; height: 14px; }
-.story-dials[open] { display: flex; flex-direction: column; gap: 10px; }
+.story-dials { display: flex; flex-direction: column; gap: 10px; }
 .story-narration p { white-space: pre-wrap; margin-bottom: 1em; }
 .story-flagged { margin: 0 -8px 1em; padding: 4px 8px; border-radius: 6px; background: var(--accent-tint); }
 .story-flagged p { margin-bottom: 0.25em; }
@@ -269,7 +288,7 @@ textarea { resize: vertical; line-height: 1.6; }
   .page-header { flex-wrap: wrap; }
   .composer { padding: 10px 12px 12px; }
   .story-note-form { grid-template-columns: 1fr; }
-  .story-header, .story-panel, .story-log, .story-start, .session-zero, .story-notice, .story-footer { padding-left: 16px; padding-right: 16px; }
+  .story-header, .story-log, .story-start, .session-zero, .story-notice, .story-footer { padding-left: 16px; padding-right: 16px; }
 }
 @media (prefers-reduced-motion: reduce) { :root:not([data-motion='full']) *, :root:not([data-motion='full']) *::before, :root:not([data-motion='full']) *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
 :root[data-motion='reduce'] *, :root[data-motion='reduce'] *::before, :root[data-motion='reduce'] *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }

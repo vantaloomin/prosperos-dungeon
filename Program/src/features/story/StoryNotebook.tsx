@@ -8,7 +8,7 @@ const NOTEBOOK_KEY = ['story-notebook']
 type Notes = { notes: NotebookNote[] }
 
 /** The player's own notebook (dungeon/chapters.py): across every branch, and no model ever reads it. */
-export function StoryNotebook() {
+export function StoryNotebook({ open }: { open?: boolean }) {
   const client = useQueryClient()
   const notebook = useQuery({ queryKey: NOTEBOOK_KEY, queryFn: () => api<Notes>('/story/notebook') })
   const [text, setText] = useState('')
@@ -21,7 +21,7 @@ export function StoryNotebook() {
   if (!notebook.data) return null
   const { notes } = notebook.data
   return (
-    <details className="story-people">
+    <details className="story-people" open={open}>
       <summary>Your notebook ({notes.length})</summary>
       <p className="subtle">Only for you: it is kept across every branch, and the story never reads it.</p>
       <ul>
