@@ -99,7 +99,7 @@ def test_bandits_on_the_road_stop_the_journey_where_they_strike(client, connecte
 def test_a_sight_on_the_road_is_woven_in_without_a_roll(client, connected, provider, app):
     begin(client)
     app.state.dice = Road(5)
-    travel_map = travel.maps()[0]
+    travel_map = next(item for item in travel.maps() if item['world'] == 'vallarith')
     sight = travel_map['encounters']['kingdom-of-cyrel'][0]
     planned = travel.travelled({'legs': [{'from': 'kingswood', 'to': 'eriane', 'hours': 12, 'terrain': 'the Cyrel road',
                                           'danger': 'low'}], 'encounter': {'leg': 0, 'entry': sight}}, [])

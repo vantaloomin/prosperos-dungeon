@@ -11,7 +11,8 @@ the place one arrives at) or a place on the Road (world/data/cities/vallarith-ro
   table: a sight or a meeting the narrator weaves in, or a danger to get past (a Luck roll, like a dangerous place
   in town); one that brings foes starts a fight where it happens, and the journey stops there.
 - **Every road costs time and food.** Walking takes the road's hours, nights on the road pass in camp, and each day
-  eats one food from the pack (bread, dried meat, cheese); without it the character goes hungry.
+  eats one food from the pack (bread, dried meat, cheese); without it the character goes hungry. A modern world's map
+  says how people get about instead (`by`: "car or bus", Havenbrooke's), and with no `food` a trip eats nothing.
 
 The places known are game state, branched with the story (dungeon/timeline.py SAVED); each line's journey is kept
 with it, so telling the turn again changes nothing.
@@ -206,7 +207,7 @@ def minutes(legs: list[dict], hours_a_day: int) -> tuple[int, int, int]:
     hours = sum(leg['hours'] for leg in legs)
     days = max(1, math.ceil(hours / hours_a_day))
     nights = days - 1
-    return (hours + nights * NIGHT_HOURS) * 60, nights, days
+    return round((hours + nights * NIGHT_HOURS) * 60), nights, days
 
 
 def eat(connection, food: list[str], days: int) -> tuple[list[str], int]:
@@ -215,6 +216,8 @@ def eat(connection, food: list[str], days: int) -> tuple[list[str], int]:
     if (supplied := sworn.spend_supply(connection, days)) is not None:
         spent, left = supplied
         return ([f'{spent} supply ({left} left)'] if spent else []), days - spent
+    if not food:
+        return [], 0
     eaten = []
     for _ in range(days):
         row = next((found for item_id in food if (found := optional(
@@ -228,12 +231,21 @@ def eat(connection, food: list[str], days: int) -> tuple[list[str], int]:
     return eaten, days - len(eaten)
 
 
+def duration(hours: float) -> str:
+    """'40 minutes', 'an hour', '4.5 hours'."""
+    if hours < 1:
+        return f'{round(hours * 60)} minutes'
+    return 'an hour' if hours == 1 else f"{hours:g} hours"
+
+
 def lines_for(travel_map: dict, legs: list[dict], nights: int, eaten: list[str], hungry: int) -> list[str]:
     places = nodes(travel_map)
     roads = ', then '.join(dict.fromkeys(leg['terrain'] for leg in legs))
     hours = sum(leg['hours'] for leg in legs)
+    way = (f"by {travel_map['by']} on {roads}: {duration(hours)} on the road" if travel_map.get('by') else
+           f'on foot by {roads}: {hours} hours of walking')
     lines = [f"The player's character travels from {places[legs[0]['from']]['name']} to "
-             f"{places[legs[-1]['to']]['name']} on foot by {roads}: {hours} hours of walking"
+             f"{places[legs[-1]['to']]['name']} {way}"
              + (f", {nights} night{'s' if nights > 1 else ''} camped on the road." if nights else '.')]
     if eaten:
         lines.append(f"They eat from their pack on the way: {', '.join(eaten)}.")
