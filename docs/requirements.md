@@ -788,13 +788,17 @@ picks up whatever they didn't fix.
   goes through the same checks, and the fact extractor reruns on it. The original is kept, so
   the player can switch back.
 
-## Referee model (proposed)
+## Referee model
 
 - Its own model slot. A cheap text model (Haiku or local 3–4B) splits actions.
-- **Jev** (TypeSafe via OpenRouter, hosted only) answers per-action questions with probabilities:
-  needs a roll (yes/no), which stat (choice of six), difficulty (score 1–10). Close stat calls can be
-  resolved by rule (higher stat, ask, or roll both).
-- Fallbacks: text model answers the same questions; with no model, keyword rules.
+- **Referee decisions** (decided 2026-10-22, Vanta: "allow both") is a second slot for a decision model, which
+  answers per-action questions with probabilities: needs a roll (yes/no), which stat (choice of six), difficulty
+  (score over MARVEL's five steps, easy to extreme). It takes a decisions profile (**Jev** via OpenRouter, OpenAI
+  Decisions, or a local/compatible model) or any text profile on a local or compatible server, including the
+  narrator's own. Local models are scored by the odds of each answer's letter from one token's log probabilities,
+  so they write nothing. Without a Referee profile, each sentence of the turn is an action. Close stat calls can
+  later be resolved by rule (higher stat, ask, or roll both).
+- Fallbacks: the Referee text model's own answer; with no model, keyword rules.
 - Note: turn text sent to hosted services is subject to their content policies.
 
 ## Open questions

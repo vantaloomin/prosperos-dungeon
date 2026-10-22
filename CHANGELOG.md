@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Decision models for the Referee.** Settings > Models has a Decisions section and a Referee decisions job. A
+  decision model gives the odds of each answer instead of writing: whether an action needs a roll, which stat and
+  how hard. Choose Jev through OpenRouter, OpenAI Decisions, or a small model on your computer (Qwen3.5 4B, say);
+  a text profile on a local server works too, so the narrator's own model can decide. If it fails, the Referee
+  decides as before.
 - **Updating after a squash merge.** update.bat and update.command no longer stop with "Not possible to
   fast-forward" when your main has commits GitHub's main doesn't (as after a squash merge). They save those commits
   on a dated `backup/main-...` branch, then move main to match GitHub. Uncommitted edits still stop the update.
