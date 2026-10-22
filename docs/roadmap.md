@@ -127,7 +127,10 @@ hurt or die, and go back to an earlier turn and try again with new dice.
 
 - Art on request, passive art toggle, reference images, live-state portraits.
 - Map widget, VN portraits, background art.
-- Free grid, saved layouts, the three presets plus per-world layouts, themes, phone tabs.
+- The four-part screen (story stage, status strip, scene panel, drawer), the entity card, pins,
+  the three modes plus per-world scene-panel rules, themes, phone tabs. The status strip and the
+  turn receipt need no art and can ship before Milestone 6 (decided 2026-10-22).
+- Last, optionally: a free grid with saved layouts as a "Customize layout" mode.
 - Full intensity sliders with veils and table filtering; tone voice setting.
 
 ## Order and parallel work

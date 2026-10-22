@@ -583,15 +583,39 @@ Decided 2026-10-21. Builds on the widget layout under "Decided".
   and the chapter list. Visual widgets (VN portraits, background art, the map with fog of war)
   come in the next release, followed by the branch tree, dice log, party and relationships panel,
   and the grid map.
-- **Three presets, plus per-world defaults.** Classic RPG (sheet, map, story), Visual novel (big
-  art, portraits, text box) and Reader (wide story text, minimal panels). Each world can also
-  ship its own default layout (Havenbrooke's class schedule up front, for example).
-- **Phones get the story plus tabs.** On a phone the story fills the screen, and other widgets
-  sit in a tab bar or slide-up drawers.
-- **Free grid, saved layouts and themes.** Players can drag, resize and hide any widget on a
-  snapping grid, save named layouts, and pick one per world or campaign. Fonts, colors and
-  per-world themes are customizable too, so a grimdark world and a 2009 campus can look
-  different.
+- **The screen has four parts, and the scene picks what's beside the story** (Vanta, 2026-10-22,
+  from the UX review: "Widgets: a hard look"). The **story stage** (prose, the player's lines, roll
+  cards, turn receipts, the composer) is always the centre. A **status strip** shows condition,
+  nerve, coin, time and place at a glance. A **scene panel** beside the story shows the one or two
+  widgets the current scene needs, chosen by code from the game state, with no model call: a fight
+  shows the fight, a shop its shop window, the road the map, a conversation the people here. A
+  **drawer** holds everything else (sheet, pack, journal, map, people, factions, chapters, tone and
+  rules), one click away. The player can **pin** a widget to keep it in the scene panel, and a pin
+  wins over the scene.
+- **Five rules every widget follows.**
+  1. **Widgets propose, the story decides.** Buying, travelling, using an item or talking to someone
+     from a widget writes a line into the composer; the turn loop rolls and applies it. Only settings
+     and out-of-character tools act directly.
+  2. **One entity card.** A name in the prose, a person in the people list, a place on the map, an
+     item in the pack and a faction all open the same card: what the character knows, their history
+     with it, and what they can do (each action writes a line).
+  3. **Numbers follow the roll toggle, everywhere.** Dice shown: exact coin, wounds, standing and odds.
+     Dice hidden: words only. One switch for every widget.
+  4. **Widgets show what the character knows, not what's true.** Hidden truth is only in the GM view.
+  5. **Every turn leaves a receipt.** Under each narration, a row of chips names what code changed that
+     turn (coin, wounds, journal entries, standing, time); each chip opens its widget.
+- **Three presets become modes, plus per-world defaults.** Classic (story centre, scene panel
+  beside it), Reader (wide story, the scene panel folded to a chip row) and Visual novel (text box
+  over scene art with portraits; needs the M6 art, Classic until then) recompose the same four parts.
+  A world can ship its own scene-panel rules and theme (Havenbrooke's class schedule on school days,
+  for example), as a small file, not a saved grid.
+- **Phones get the story plus tabs.** On a phone the story fills the screen with the status strip
+  under the header, and a bottom bar opens the scene panel and the drawer as slide-up sheets. The
+  scene panel's tab gets a dot when the scene changes (a fight starts), so nothing opens over the
+  reading.
+- **Themes now, a free grid later.** Fonts, colors and per-world themes are customizable, so a
+  grimdark world and a 2009 campus can look different. A free snapping grid with saved layouts is an
+  optional "Customize layout" mode late in Milestone 6, on top of the four parts, never the default.
 
 ## World packages
 
