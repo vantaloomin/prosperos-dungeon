@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Stress.** Your first kill, a horror in the dark, a beating that nearly ends you: each tests your Resolve and
+  can fray your nerve. Push it too far and it leaves a mark on the mind (nightmares, a temper, the shakes, a thirst
+  for drink) that makes some things harder. Rest eases it.
 - **Lasting injuries and treatment.** A maiming or a critical hit can leave a lost eye, a limp, a ruined hand or a
   scar: some things get harder, and people notice. Choose beside the story whether they stay, fade with time, or
   never happen. Bandage a wound from your pack, or pay a healer like Mother Rook to treat it; a bad treatment can

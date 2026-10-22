@@ -246,7 +246,7 @@ export interface Journal { entries: JournalEntry[]; quests: JournalQuest[] }
 export interface StoryBranch { id: string; playing: boolean; turns: number; last_line: string; last_at: string; started_at: string }
 /** The fight and the character's wounds (dungeon/combat.py); a foe's `wound` level only with the dice shown. */
 export interface StoryFight {
-  condition: string; dead: boolean; injuries?: string[]
+  condition: string; dead: boolean; injuries?: string[]; stress?: string
   fight: { round: number; foes: { name: string; state: string; wound: number | null }[] } | null
 }
 export type IntensityPreset = 'world' | 'restrained' | 'mature' | 'unflinching'

@@ -133,7 +133,8 @@ def foes_from(spec: dict, zone: str = 'near') -> list[dict]:
     count = spec.get('count', 1)
     return [{'id': f"{spec['name']}-{n}", 'name': spec['name'] if count == 1 else f"{spec['name']} {n + 1}",
              'vitality': spec.get('vitality', 10), 'resolve': spec.get('resolve', 10), 'weapon': spec.get('weapon', 0),
-             'wound': 0, 'zone': zone, 'broken': False} for n in range(count)]
+             'wound': 0, 'zone': zone, 'broken': False} | ({'horror': True} if spec.get('horror') else {})
+            for n in range(count)]
 
 
 def person_foe(person: dict) -> dict:
@@ -282,9 +283,11 @@ def saved_round(connection, message_id: str) -> list[str] | None:
 
 
 def turn(connection, message_id: str, people: list[dict], rolls: list[dict], start: dict | None, items: list[dict],
-         rng, now: str, lasting=None) -> list[str]:
+         rng, now: str, aftermath=None) -> list[str]:
     """The fight's part of a turn, decided once: start a fight if one begins, play the round, and keep the lines.
-    `lasting(cause)` rolls a lasting injury when a hit calls for one, and says what it left."""
+    `aftermath(events)` deals with what the round did to the character, [(event, who)]: 'horror' when a fight with
+    something dreadful starts, 'kill' when the character kills, 'maimed' when a hit calls for a lasting injury, and
+    the defeat table's outcome; it says what that left (dungeon/stress.py)."""
     if (kept := saved_round(connection, message_id)) is not None:
         return kept
     state = fight(connection)
@@ -294,12 +297,18 @@ def turn(connection, message_id: str, people: list[dict], rolls: list[dict], sta
         if spec is None:
             return []
         state = {'round': 0, 'wants': spec.get('wants', 'kill'), 'foes': foes_from(spec, 'engaged' if target else 'near')}
+    before = {foe['id']: foe['wound'] for foe in state['foes']}
+    events = [('horror', foe['name']) for foe in state['foes'][:1] if foe.get('horror') and not state['round']]
     state, lines, ending = play_round(connection, state, rolls, items, rng)
+    events += [('kill', foe['name']) for foe in state['foes'] if foe['wound'] >= DYING > before[foe['id']]]
     if ending == 'dying':
-        lines.append(f"The player's character falls, dying. {defeat(connection, state, rng, now)[1]}")
-    cause = state.pop('hurt_by', None)
-    if cause and lasting and not condition(connection)['dead'] and (left := lasting(cause)):
-        lines.append(left)
+        outcome, said = defeat(connection, state, rng, now)
+        lines.append(f"The player's character falls, dying. {said}")
+        events.append((outcome, state['foes'][0]['name']))
+    if cause := state.pop('hurt_by', None):
+        events.append(('maimed', cause))
+    if aftermath and events and not condition(connection)['dead']:
+        lines += aftermath(events)
     save_fight(connection, None if ending else state)
     connection.execute('INSERT INTO story_rounds (message_id, lines) VALUES (?, ?)', (message_id, encode(lines)))
     return lines
