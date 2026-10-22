@@ -17,7 +17,7 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
-from dungeon import backup, chapters, director, record, story, timeline, worlds
+from dungeon import backup, chapters, director, record, remembering, story, timeline, worlds
 from dungeon.clock import AppClock
 from dungeon.database import Database, identifier, many, one, optional
 from dungeon.errors import DomainError, require
@@ -149,11 +149,9 @@ def chosen(database: Database, world_id: str, role: str) -> dict:
 def bring(connection, found: dict, role: str, now: datetime):
     """An earlier campaign's character, in this one's record as history (and as a nemesis, for a villain)."""
     name, did, logged = found['name'], deeds(found), now.isoformat()
-    # The deeds are the old campaign's own summaries, often in the present tense: framed as an old account for the
-    # narrator to retell as history, never to quote.
-    history = f'{name} lived in an earlier age.' + (f' An old account of what they did, long past (retell it as '
-                                                    f'history, in the past tense, never word for word): {did}'
-                                                    if did else '')
+    # The deeds are the old campaign's own summaries, often in the present tense: framed as an old account, which
+    # the narrator's record marks for retelling as history (dungeon/remembering.py), so the journal reads clean.
+    history = f'{name} lived in an earlier age.' + (f' {remembering.HISTORY} {did}' if did else '')
     if role == 'legend':
         heavy(connection, record.add(connection, 'fact', name, f'{history} They are remembered as a legend; songs '
                                      'and stories still tell of them.', logged))

@@ -97,7 +97,7 @@ def test_attacking_someone_starts_a_brawl_the_narrator_writes(client, connected,
     assert story['fight']['fight'] is None and story['fight']['condition'] == 'unhurt'
     app.state.dice = Dice(95)
     provider.replies = [reply('Teeth on the floorboards.')]
-    tell(client, f"I punch {name} in the mouth.", 'story-0001')
+    tell(client, f"I hit {name} in the mouth with the haft of my axe.", 'story-0001')
     narrator = provider.requests[-1]['system']
     assert '## The fight (decided by the game' in narrator and f"hits {name}" in narrator
     assert 'the fight is won' in narrator and ok(client.get('/api/story'))['fight']['fight'] is None
@@ -126,6 +126,30 @@ def test_a_danger_brings_a_foe_and_a_dead_character_plays_no_more(client, connec
     # Going back brings them back.
     ok(client.post('/api/story/back', json={'message_id': first['message']['id']}))
     assert ok(client.get('/api/story'))['fight']['dead'] is False
+
+
+def test_a_prisoner_is_held_not_out_in_the_places_danger(client, connected, provider, app):
+    # Playtest M4, finding 2: a captive in the Heartwood rolls no boar.
+    kingswood(client, 'the-heartwood')
+    with app.state.database.connect(write=True) as connection:
+        combat.set_condition(connection, 1)
+        connection.execute("UPDATE story_wounds SET captors='the cultists' WHERE id=1")
+    app.state.dice = Dice(20, 'low')
+    provider.replies = [reply('The ropes hold.'), reply('Morning, still bound.')]
+    tell(client, 'I look around.', 'story-0001')
+    tell(client, 'I sleep.', 'story-0002')
+    story = ok(client.get('/api/story'))
+    assert story['fight']['fight'] is None
+    assert not any(roll.get('threat') for message in story['messages'] for roll in message.get('rolls') or [])
+
+
+def test_a_fight_begun_bare_handed_stays_bare_handed_until_a_weapon_is_named():
+    # Playtest M4, finding 1.
+    state, items = {}, [{'item_id': 'sword'}]
+    assert combat.hands(state, 'I punch him', items) == []
+    assert combat.hands(state, 'I hit him again', items) == []
+    assert combat.hands(state, 'I draw my sword and hit him', items) == items
+    assert combat.hands({}, 'I hit him', items) == items
 
 
 def test_wounds_mend_with_nights_of_rest(client, connected, provider, app):

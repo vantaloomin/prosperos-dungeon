@@ -1078,13 +1078,17 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
         decisions = referee.decision_model(connection)
         # Mid-fight nothing is obvious: "I go for the nearest one" is an attack, not a walk.
         fighting = combat.fight(connection) is not None
+        foes = combat.fighting_whom(connection)
+        # A prisoner is held, not out in the place: its danger is for those who walk it.
+        held = combat.captors(connection)
     if rolls:
         return rolls
     since = steps.clock()
     obvious = pace.obvious(user['text']) and not fighting
-    actions = await referee.decide(state, user['text'], None if obvious else judge, None if obvious else decisions)
+    actions = await referee.decide(state, user['text'], None if obvious else judge, None if obvious else decisions,
+                                   foes)
     steps.timed('referee', since)
-    if hazard := quests.danger_action(user['city_id'], user['place_id'], getattr(state, 'dice', None)):
+    if not held and (hazard := quests.danger_action(user['city_id'], user['place_id'], getattr(state, 'dice', None))):
         actions = [*actions, hazard]
     with database.connect(write=True) as connection:
         if road := travel.decide(connection, user['id'], user['city_id'], user['place_id'], user['text'],

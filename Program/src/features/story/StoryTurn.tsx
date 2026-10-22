@@ -3,7 +3,7 @@ import type { BandStep, HiddenRoll, StoryRoll, TurnSoFar } from '../../types'
 import { DiceTray } from './StoryDice'
 import { useTumble } from './dice'
 import { useTable } from './table'
-import { actionLine, bandSpans, isShown, markerAt, nearMiss, rollText, rollWhat } from './storyText'
+import { actionLine, bandSpans, isShown, markerAt, nearMiss, rollText, rollWhat, unrolled } from './storyText'
 
 const SUCCESS = new Set(['success_cost', 'success', 'critical_success'])
 
@@ -15,7 +15,21 @@ export function RollCard({ roll, bands, live }: { roll: StoryRoll | HiddenRoll; 
   if (!isShown(roll)) return (
     <p className="roll-hidden" title={roll.action}><Dices aria-hidden="true" />Your {roll.stat} is tested</p>
   )
+  if (unrolled(roll)) return <NoRoll roll={roll} />
   return <ShownRoll roll={roll} bands={bands} live={!!live} dice={!!dice} />
+}
+
+/** A check that failed with no dice to throw: what was tried and why it could not work. */
+function NoRoll({ roll }: { roll: StoryRoll }) {
+  return (
+    <div className="roll-card" title={rollText(roll)} aria-label={`${roll.action}: ${rollWhat(roll)}. ${roll.label}.`}>
+      <div className="roll-what">
+        <span className="subtle">{roll.action}</span>
+        <strong>{rollWhat(roll)}</strong>
+      </div>
+      <div className="roll-result"><span className="roll-band">{roll.label}</span></div>
+    </div>
+  )
 }
 
 function ShownRoll({ roll, bands, live, dice }: { roll: StoryRoll; bands?: BandStep[] | null; live: boolean; dice: boolean }) {

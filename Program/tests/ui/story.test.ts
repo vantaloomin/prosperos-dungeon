@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, foesText, statusItems, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, challengeDice, brpCost, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, threadKind, receiptsByReply } from '../../src/features/story/storyText.ts'
+import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, foesText, statusItems, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, unrolled, challengeDice, brpCost, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, threadKind, receiptsByReply } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -290,4 +290,11 @@ test('a Percentile roll reads its skill and chance and lands two percentile dice
 test('Percentile characteristics cost a point each, DEX, INT and POW three', () => {
   assert.equal(brpCost({ str: 15, con: 14, siz: 13, int: 10, pow: 10, dex: 14, cha: 10 }, 10, ['dex', 'int', 'pow'], 3), 24)
   assert.equal(brpCost({ str: 8, dex: 12 }, 10, ['dex', 'int', 'pow'], 3), 4)
+})
+
+test('a spell with no slot left just fails, with no dice', () => {
+  const roll = { action: 'I cast Ice Knife', stat: 'Essence', difficulty: 'normal', die: 20, natural: 0, bonus: 5, shift: 0, total: 0, band: 'failure', label: 'Failure', ruleset: 'srd52', target: 12, skill: 'Ice Knife (no spell slot left)' } as const
+  assert.ok(unrolled(roll))
+  assert.equal(rollText(roll), 'Ice Knife (no spell slot left): no roll, Failure')
+  assert.ok(!unrolled({ ...roll, natural: 7 }))
 })

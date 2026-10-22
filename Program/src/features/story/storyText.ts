@@ -79,7 +79,17 @@ export function rollWhat(roll: StoryRoll): string {
 }
 
 /** "Allure d8: 62 + 5, hard (-10) = 57, Success at a cost"; under 5E "Athletics d20: 12 + 5 = 17 vs DC 15, Success". */
+/** A check that needed no dice: a 5E spell with no slot left just fails (dungeon/sheet.py cast). */
+export function unrolled(roll: StoryRoll): boolean {
+  return roll.ruleset === 'srd52' && roll.natural === 0
+}
+
 export function rollText(roll: StoryRoll): string {
+  if (unrolled(roll)) return `${roll.skill}: no roll, ${roll.label}`
+  return dicedText(roll)
+}
+
+function dicedText(roll: StoryRoll): string {
   if (roll.ruleset === 'ironsworn') return `${roll.skill}: ${roll.natural} + ${roll.bonus} = ${roll.total}, ${roll.label}`
   if (roll.ruleset === 'brp') return `${roll.skill} d100: ${roll.natural} against ${roll.target ?? 0}, ${roll.label}`
   if (roll.target) {

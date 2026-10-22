@@ -42,6 +42,7 @@ EQUIVALENT = {'Mind': 'wits', 'Allure': 'heart', 'Resolve': 'heart', 'Vitality':
               'Luck': 'edge'}
 # Moves by the words of an action, the more specific first: (move, words, stat or None for the approach's).
 MOVE_WORDS = (
+    ('swear_an_iron_vow', ('swear', 'vow', 'take an oath', 'give my oath', 'give my word', 'pledge'), 'heart'),
     ('heal', ('treat', 'bandage', 'stitch', 'patch up', 'heal', 'tend the wound', 'tend his', 'tend her'), 'wits'),
     ('resupply', ('forage', 'hunt for', 'scavenge', 'gather food', 'fish', 'trap'), 'wits'),
     ('make_camp', ('make camp', 'set up camp', 'pitch camp'), None),
@@ -49,8 +50,10 @@ MOVE_WORDS = (
                             'look for clues', 'find out'), 'wits'),
     ('secure_an_advantage', ('prepare', 'scout', 'size up', 'assess', 'get ready', 'set an ambush', 'take cover',
                              'circle', 'wait for'), None),
-    ('compel', ('persuade', 'convince', 'talk him', 'talk her', 'talk them', 'haggle', 'bargain', 'negotiate',
-                'threaten', 'intimidate', 'lie to', 'bluff', 'charm', 'beg', 'demand'), 'heart'),
+    ('compel', ('persuade', 'convince', 'talk him', 'talk her', 'talk them', 'talk the', 'talk my way', 'talk our way',
+                'sweet-talk', 'win over', 'win him', 'win her', 'coax', 'sway', 'reason with', 'plead', 'get him to',
+                'get her to', 'get them to', 'haggle', 'bargain', 'negotiate', 'threaten', 'intimidate', 'lie to',
+                'bluff', 'charm', 'beg', 'demand'), 'heart'),
 )
 # Words that set the stat whatever the move: (stat, words).
 STAT_WORDS = (
@@ -60,7 +63,7 @@ STAT_WORDS = (
 )
 # Momentum a move gives on a hit: {move: (strong, weak)}.
 MOMENTUM = {'face_danger': (1, 0), 'secure_an_advantage': (2, 1), 'gather_information': (2, 1), 'compel': (1, 0),
-            'make_camp': (0, 0), 'heal': (0, 0), 'resupply': (0, 0)}
+            'make_camp': (0, 0), 'heal': (0, 0), 'resupply': (0, 0), 'swear_an_iron_vow': (2, 1)}
 # Supply Resupply brings back, by band.
 RESUPPLY = {'critical_success': 2, 'success': 2, 'success_cost': 1}
 RANKS = ('troublesome', 'dangerous', 'formidable', 'extreme', 'epic')

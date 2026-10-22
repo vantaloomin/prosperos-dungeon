@@ -58,6 +58,9 @@ def test_moves_are_read_from_the_words():
     assert ironsworn.read('Allure', 'I try to convince her') == ('compel', 'heart')
     assert ironsworn.read('Mind', 'I search the camp') == ('gather_information', 'wits')
     assert ironsworn.read('Vitality', 'I climb the cliff') == ('face_danger', 'iron')
+    # Playtest M4, finding 6: talking someone round is Compel; a vow is Swear an Iron Vow.
+    assert ironsworn.read('Allure', 'I talk the factor round to telling me the truth') == ('compel', 'heart')
+    assert ironsworn.read('Resolve', 'I swear an iron vow to find her') == ('swear_an_iron_vow', 'heart')
 
 
 def test_the_action_roll_beats_the_challenge_dice_and_burns_momentum_when_it_helps():
@@ -171,6 +174,22 @@ def test_at_0_health_a_miss_on_endure_harm_means_facing_death(client, app):
         events = []
         combat.fall(connection, state, Always(10), 'now', lines, events)
         assert events[0][0] == 'death' and combat.condition(connection)['dead']
+        # The fight's own rolls are roll cards: Endure Harm, then Face Death.
+        assert [card['action'] for card in state['cards']] == ['Endure Harm from the bear', 'Face Death']
+
+
+def test_a_brawl_to_drive_the_character_off_ends_in_a_beating_not_a_death(client, app):
+    # Playtest M4, finding 4: a thug who wants the character gone does not kill them.
+    sworn(client)
+    with app.state.database.connect(write=True) as connection:
+        combat_iron.set_health(connection, 1)
+        thug = combat_iron.foes_from({'name': 'the thug'}, 'engaged')[0]
+        state = {'round': 1, 'wants': 'drive_off', 'foes': [thug], 'initiative': 'foe'}
+        state, lines, ending = combat.play_round(connection, state, [], [], Always(10))
+        events = []
+        combat.fall(connection, state, Always(1), 'now', lines, events)
+        assert events[0][0] in ('thrown_out', 'rescued') and not combat.condition(connection)['dead']
+        assert not any('faces it' in line for line in lines)
 
 
 def test_supply_feeds_the_road_and_resupply_brings_it_back(client, app):
