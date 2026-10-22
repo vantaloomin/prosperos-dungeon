@@ -1,9 +1,10 @@
 import { Fragment, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Ellipsis, Pin, PinOff, Swords, X } from 'lucide-react'
+import { BookOpenText, Ellipsis, PanelRight, Pin, PinOff, Swords, X } from 'lucide-react'
 import { api } from '../../api'
 import type { Gear, Story as StoryData, StoryBack, StoryFight } from '../../types'
 import { HiddenValues } from '../settings/HiddenValues'
+import { saveLook, useDeviceLook } from '../settings/deviceLook'
 import { StoryBranches } from './StoryBranches'
 import { StoryChapters } from './StoryChapters'
 import { StoryExport } from './StoryExport'
@@ -33,6 +34,13 @@ function useWide() {
   return useSyncExternalStore(subscribe, () => window.matchMedia?.(WIDE).matches ?? false, () => false)
 }
 
+/** Whether the panel sits beside the story: a wide screen, in the Classic layout (Reader keeps it in tabs). */
+function useBeside() {
+  const wide = useWide()
+  const { layout } = useDeviceLook()
+  return wide && layout === 'classic'
+}
+
 interface PanelProps { story: StoryData; change: (request: () => Promise<StoryData>) => Promise<void>; onTravel: (name: string) => void; onBack: (data: StoryBack) => void }
 type PanelView = 'scene' | 'more' | Widget
 
@@ -54,7 +62,8 @@ export function StoryPanel(props: PanelProps) {
 type Panel = ReturnType<typeof usePanel>
 
 function usePanel(story: StoryData) {
-  const wide = useWide()
+  const wide = useBeside()
+  const roomy = useWide()
   const gear = useQuery({ queryKey: ['story-gear'], queryFn: () => api<Gear>('/story/gear'), enabled: story.messages.length > 0 })
   const [view, setView] = useState<PanelView>('scene')
   const [open, setOpen] = useState(false)
@@ -80,7 +89,7 @@ function usePanel(story: StoryData) {
     setPins(next)
     savePins(next)
   }
-  return { wide, view, open, close: () => setOpen(false), pins, picked, showing, changed: seen !== picked.join(), pick, pin }
+  return { wide, roomy, view, open, close: () => setOpen(false), pins, picked, showing, changed: seen !== picked.join(), pick, pin }
 }
 
 function PanelBody({ panel, ...props }: PanelProps & { panel: Panel }) {
@@ -104,8 +113,16 @@ function PanelTabs({ story, panel }: { story: StoryData; panel: Panel }) {
       {tab('scene', <>{panel.changed && <span className="story-dot" aria-label="The scene changed" />}{panel.picked.includes('fight') && <Swords aria-hidden="true" />}Scene</>)}
       {TABS.filter((item) => hasWidget(story, item)).map((item) => <Fragment key={item}>{tab(item, WIDGET_NAMES[item])}</Fragment>)}
       {tab('more', <><Ellipsis aria-hidden="true" />More</>)}
+      {panel.roomy && <LayoutSwitch reader={!panel.wide} />}
     </nav>
   )
+}
+
+/** Classic or Reader, from the tabs on a wide screen (Settings > General > Appearance keeps it too). */
+function LayoutSwitch({ reader }: { reader: boolean }) {
+  const label = reader ? 'Show the scene panel beside the story' : 'Reader layout: give the story the room'
+  return <button type="button" className="icon-button story-layout" aria-label={label} title={label}
+    onClick={() => saveLook({ layout: reader ? 'classic' : 'reader' })}>{reader ? <PanelRight aria-hidden="true" /> : <BookOpenText aria-hidden="true" />}</button>
 }
 
 /** Before the first line there is no scene yet; only the ways back into other stories are worth showing. */

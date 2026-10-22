@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { DEFAULT_LOOK, TEXT_SCALE, saveLook, useDeviceLook, type Motion, type ReadingFont } from './deviceLook'
+import { DEFAULT_LOOK, TEXT_SCALE, saveLook, useDeviceLook, type Layout, type Motion, type ReadingFont } from './deviceLook'
 
 const TICKS = [85, 100, 150, 200]
 const FONTS: { id: ReadingFont; label: string; hint: string }[] = [
@@ -7,6 +7,7 @@ const FONTS: { id: ReadingFont; label: string; hint: string }[] = [
   { id: 'atkinson', label: 'Atkinson Hyperlegible', hint: 'Clear, distinct letters' },
   { id: 'opendyslexic', label: 'OpenDyslexic', hint: 'Weighted letters for dyslexia' },
 ]
+const LAYOUTS: { id: Layout; label: string }[] = [{ id: 'classic', label: 'Classic' }, { id: 'reader', label: 'Reader' }]
 const MOTIONS: { id: Motion; label: string }[] = [
   { id: 'system', label: 'Match my computer' }, { id: 'reduce', label: 'Less motion' }, { id: 'full', label: 'Full motion' },
 ]
@@ -18,11 +19,12 @@ export function DeviceLookSettings() {
     <div className="form-stack">
       <div>
         <h3>On this device</h3>
-        <p className="subtle">Text size, reading font and motion are set for each phone or computer on its own.</p>
+        <p className="subtle">Text size, reading font, motion and the story's layout are set for each phone or computer on its own.</p>
       </div>
       <TextSize value={look.textScale} />
       <ReadingFonts font={look.font} everywhere={look.fontEverywhere} />
       <MotionChoice motion={look.motion} />
+      <LayoutChoice layout={look.layout} />
     </div>
   )
 }
@@ -69,6 +71,25 @@ function ReadingFonts({ font, everywhere }: { font: ReadingFont; everywhere: boo
         <input type="checkbox" checked={everywhere} disabled={font === DEFAULT_LOOK.font} onChange={(event) => saveLook({ fontEverywhere: event.target.checked })} />
         Use it for menus and buttons too
       </label>
+    </fieldset>
+  )
+}
+
+/** Story > layout on a wide screen. A phone always has the story with tabs under it. */
+function LayoutChoice({ layout }: { layout: Layout }) {
+  const name = useId()
+  return (
+    <fieldset className="motion-choice" aria-describedby={`${name}-hint`}>
+      <legend className="field-label" id="story-layout-heading">Story layout</legend>
+      <div className="segmented">
+        {LAYOUTS.map(option => (
+          <label key={option.id}>
+            <input type="radio" className="visually-hidden" name={name} value={option.id} checked={layout === option.id} onChange={() => saveLook({ layout: option.id })} />
+            <span>{option.label}</span>
+          </label>
+        ))}
+      </div>
+      <small id={`${name}-hint`} className="subtle">Classic shows the scene panel beside the story on a wide screen. Reader gives the story the room and keeps the panel in tabs under it, the way a phone does.</small>
     </fieldset>
   )
 }

@@ -21,7 +21,7 @@ export const SETTINGS_TABS: SettingsTabInfo[] = [
   {
     id: 'general', label: 'General', sections: [
       { heading: 'time-heading', title: 'Your time', keywords: 'timezone time zone clock date pc' },
-      { heading: 'appearance-heading', title: 'Appearance', keywords: 'appearance look colors colours theme dark light paper ink palette text size font motion' },
+      { heading: 'appearance-heading', title: 'Appearance', keywords: 'appearance look colors colours theme dark light paper ink palette text size font motion layout reader classic story panel' },
     ],
   },
   {
