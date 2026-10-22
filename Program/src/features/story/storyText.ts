@@ -73,11 +73,13 @@ export function personLine(person: StoryPerson): string {
 
 /** What a roll tested, as the card heads it: "Allure · hard", or under 5E "Athletics · DC 15". */
 export function rollWhat(roll: StoryRoll): string {
+  if (roll.ruleset === 'ironsworn') return (roll.skill ?? '').replace(/ vs .*$/, '')
   return roll.target ? `${roll.skill} · DC ${roll.target}` : `${roll.stat} · ${roll.difficulty.replace('_', ' ')}`
 }
 
 /** "Allure d8: 62 + 5, hard (-10) = 57, Success at a cost"; under 5E "Athletics d20: 12 + 5 = 17 vs DC 15, Success". */
 export function rollText(roll: StoryRoll): string {
+  if (roll.ruleset === 'ironsworn') return `${roll.skill}: ${roll.natural} + ${roll.bonus} = ${roll.total}, ${roll.label}`
   if (roll.target) {
     const bonus = roll.bonus < 0 ? ` - ${-roll.bonus}` : ` + ${roll.bonus}`
     return `${roll.skill} d20: ${roll.natural}${bonus} = ${roll.total} vs DC ${roll.target}, ${roll.label}`
@@ -294,11 +296,22 @@ export function nearMiss(roll: StoryRoll, bands: BandStep[]): string {
 }
 
 /** One die on screen: the d100 as a tens and a ones d10, then the stat die and what it added. */
-export interface DieFace { key: 'tens' | 'ones' | 'stat' | 'd20'; sides: number; value: string }
+export interface DieFace { key: 'tens' | 'ones' | 'stat' | 'd20' | 'action' | 'challenge1' | 'challenge2'; sides: number; value: string }
+
+/** An Ironsworn roll's two challenge dice, from its card ("Face Danger +iron vs 4 and 9"). */
+export function challengeDice(skill: string | null | undefined): [number, number] {
+  const found = /vs (\d+) and (\d+)/.exec(skill ?? '')
+  return found ? [Number(found[1]), Number(found[2])] : [1, 1]
+}
 
 /** The faces the dice land on for a roll the code already made: 100 reads 00 and 0, as percentile dice do. */
 export function diceFaces(roll: StoryRoll): DieFace[] {
   if (roll.ruleset === 'srd52') return [{ key: 'd20', sides: 20, value: String(roll.natural) }]
+  if (roll.ruleset === 'ironsworn') {
+    const [first, second] = challengeDice(roll.skill)
+    return [{ key: 'action', sides: 6, value: String(roll.natural) }, { key: 'challenge1', sides: 10, value: String(first) },
+      { key: 'challenge2', sides: 10, value: String(second) }]
+  }
   const faces: DieFace[] = [
     { key: 'tens', sides: 10, value: String(Math.floor((roll.natural % 100) / 10) * 10).padStart(2, '0') },
     { key: 'ones', sides: 10, value: String(roll.natural % 10) },

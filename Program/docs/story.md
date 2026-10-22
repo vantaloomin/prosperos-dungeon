@@ -96,7 +96,22 @@ healers, townsfolk) keeps MARVEL stats for now.
 Not yet: choosing spells and the ability increase yourself, subclasses, class features in fights (Rage, Sneak
 Attack, Second Wind), upcasting and spells' other effects (conditions, areas, concentration).
 
-Not yet (Milestone 4, next steps): Ironsworn and Starforged; Basic Roleplaying.
+- **Ironsworn** (`dungeon/rules/ironsworn.py`, content in `dungeon/rules/packs/ironsworn`: Datasworn's Ironsworn
+  data, CC-BY-4.0; the attribution shows on the start screen and the sheet). A character places 3, 2, 2, 1 and 1 on
+  edge, heart, iron, shadow and wits and chooses three assets (paths, companions, combat talents, rituals); a
+  premade leans on the stat its strongest MARVEL stat maps to, with assets that fit. Health, spirit and supply start
+  at 5, momentum at 2. Each action is a move read from its words (searching is Gather Information, talking someone
+  round Compel, preparing Secure an Advantage, else Face Danger), on the stat the move or the words name (sneaking
+  and lying are shadow), else the approach's. The action roll is a d6 plus the stat against two d10s: a strong hit
+  is a success (critical on matching dice), a weak hit a success at a cost, a miss a failure (critical on a match).
+  Ironsworn has no DCs, so an easy action adds +1 and a hard one -1 (very hard -2, extreme -3). Code burns momentum
+  when it beats a die the roll did not, and the moves that give momentum on a hit give it. The roll card reads
+  "Face Danger +iron" and lands the action die and both challenge dice. Resisting stress is Endure Stress (+heart);
+  clinging on is Endure Harm (+iron).
+
+Not yet (Milestone 4, next steps): vows as progress tracks, the suffer moves on spirit and supply, Ironsworn's XP
+and asset upgrades, and Starforged (its Datasworn package's planet
+images are non-commercial); Basic Roleplaying.
 
 ## The turn loop
 
@@ -327,6 +342,28 @@ The same fight, on 5E's numbers from the SRD 5.2.1 pack (`dungeon/combat5e.py`):
   defeat table decides the rest without death, and the character comes to with 1 hit point.
 - **A long rest** (a night's sleep) restores every hit point, as written. Lasting injuries still need their own care.
 - The Story screen shows the character's hit points, and the foes' while the dice are shown.
+
+### Fights under Ironsworn
+
+The same fight on Ironsworn's moves (`dungeon/combat_iron.py`):
+
+- **Foes are the pack's NPCs**, read from the foe's name (a raider is a Raider, a warden a Hunter, the ley-mad boar
+  a Boar), else by how tough the MARVEL spec is. Each has its rank, deals harm equal to it, and has a progress track
+  of ten boxes the character's harm fills (3 boxes a harm for a troublesome foe, 2 dangerous, 1 formidable, less for
+  extreme and epic).
+- **Initiative.** Whoever starts the fight has it (`story_fight.initiative`). With it the character's attack is
+  Strike: a strong hit inflicts +1 harm and keeps it, a weak hit inflicts harm and loses it, a miss loses it. Without
+  it the attack is Clash: a strong hit inflicts harm and takes it, a weak hit inflicts harm and the foe strikes
+  back. Harm is 1, or 2 with a deadly weapon; a punch is 1. The roll card reads "Strike +iron" or "Clash +iron".
+- **End the Fight.** After a strong hit, once a foe has 8 boxes, code makes the decisive move: the boxes against the
+  challenge dice. A strong hit and the foe is out; a weak hit too, and the character Endures Harm; a miss and they
+  pay for it, enduring harm, and fight on.
+- **Endure Harm.** A foe with the upper hand hits: -health by its rank, then +health or +iron (a strong hit +1
+  momentum, a miss -1). A dodge that lands turns the attack aside and takes the upper hand.
+- **Face Death.** At 0 health a miss on Endure Harm brings the character to the brink: +heart, a strong or weak hit
+  and death lets them go (the defeat table, without death), a miss and they are dead.
+- **Health** reads as the game's wound words (unharmed, bruised, hurt, battered, badly hurt, at death's door); a
+  wound outside a fight lowers health to match, and a night's rest gives +1 health (Make Camp).
 
 Not in v0: zones beyond near and engaged, armour, ranged weapons and ammunition, allies, injuries with lasting
 effects, healers and medicine, a fight started by an NPC without a danger roll.
