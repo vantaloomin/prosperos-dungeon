@@ -72,7 +72,9 @@ A draft is a JSON file in the data folder (`package-drafts/<id>.json`) until it 
 
 ## The editor
 
-Worlds are edited in place (`dungeon/package_edit.py`), built-in and imported alike.
+Worlds are edited in place (`dungeon/package_edit.py`), built-in and imported alike, from Worlds > World packages >
+Edit the world (`src/features/worlds/WorldEditor.tsx`). An entry opens as a form, one field per key (text, numbers,
+switches, and JSON for lists), or as raw JSON; hidden-truth fields are labelled as hidden from the player.
 
 - **Entries** are listed by section with counts, searched by words in their text, and filtered by whether they hold
   a hidden truth, which each entry's view marks with the fields that hold it.
