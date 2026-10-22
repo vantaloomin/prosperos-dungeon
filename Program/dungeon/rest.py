@@ -32,8 +32,9 @@ RESTING = re.compile(
     r'(make|makes|making|pitch|pitches|pitching|set up|sets up|setting up) camp|camp(s|ing)? (here|there|out|'
     r'for the night)|rest(s|ing)? (for the night|up|until (morning|dawn)|for (a|an|one|two|three|four|five|six|'
     r'seven|ten|few|couple of|\d+) (day|night|week)s?)|spend(s|ing)? the night|lie up|lay up|recuperate)\b', re.I)
-SPAN = re.compile(rf"\bfor ({'|'.join(sorted(story_clock.WORDS, key=len, reverse=True))}|\d+) (day|night|week)s?\b",
-                  re.I)
+# "for three days", or without the "for": "I sleep three nights at the Wayhouse".
+SPAN = re.compile(rf"\b(?:for )?({'|'.join(sorted(story_clock.WORDS, key=len, reverse=True))}|\d+) "
+                  r"(day|night|week)s?\b", re.I)
 # Precautions, each cutting the odds of a bad night: (name, words, what is left of the odds).
 PRECAUTIONS = (
     ('watch', re.compile(r'\b(keep(s|ing)? watch|take (turns|watches)|set(s|ting)? a watch|stand(s|ing)? watch|'

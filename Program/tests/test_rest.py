@@ -32,6 +32,7 @@ def test_what_counts_as_a_rest_and_how_long():
     assert rest.resting('I rest for a week at the inn.') and not rest.resting('I sleep with her.')
     assert not rest.resting('I rest my hand on the hilt.')
     assert rest.nights_in('I rest for three days.') == 3 and rest.nights_in('I rest for a week.') == 7
+    assert rest.nights_in('I sleep three nights at the Wayhouse to heal.') == 3
     assert rest.nights_in('I sleep.') == 1 and rest.nights_in('I rest for 90 days.') == rest.MOST_NIGHTS
 
 
