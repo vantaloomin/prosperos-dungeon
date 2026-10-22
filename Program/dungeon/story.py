@@ -536,6 +536,8 @@ def move(database, city_id: str, place_id: str | None) -> dict:
         place = catalog.find(data, place_id) if place_id else opening_place(data)
         require(place is not None and place in data['places'], 'No such place in this city.', 404)
         require(combat.fight(connection) is None, "You're in a fight. Get away first.", 409)
+        held = combat.captors(connection)
+        require(not held, f"You're held prisoner by {held}. Get free first.", 409)
         moving_from = scene_row(connection)['city_id']
         if scene_row(connection) != {'city_id': data['id'], 'place_id': place['id']}:
             place_scene(connection, data['id'], place['id'], database.now())
@@ -563,7 +565,7 @@ def place_words(text: str) -> set[str]:
 def walked_to(connection, text: str) -> dict | None:
     """A place in this town the player's line goes to by name or kind ("I go to the shrine", "I sleep at the
     bunkhouses"), with its city id; none when the words fit no place, or two equally, or there is a fight on."""
-    if combat.fight(connection) is not None:
+    if combat.fight(connection) is not None or combat.captors(connection):
         return None
     row = scene_row(connection)
     data = city_data(connection, row['city_id'])

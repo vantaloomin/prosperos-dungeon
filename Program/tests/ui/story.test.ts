@@ -101,6 +101,7 @@ test('fightText says how the character is and who they are fighting', () => {
   assert.equal(fightText({ condition: 'unhurt', dead: false, fight: { round: 1, foes: [{ name: 'the boar', state: 'hurt', wound: 2 }] } }),
     'Fighting: the boar (hurt, wound 2 of 5).')
   assert.match(fightText({ condition: 'dying', dead: true, fight: null }), /dead/)
+  assert.equal(fightText({ condition: 'maimed', dead: false, fight: null, captors: 'warden of Brynwyr 1' }), 'You are maimed. Held prisoner by warden of Brynwyr 1.')
   // Under 5E: hit points, the character's and (with the dice shown) the foes'.
   assert.equal(fightText({ condition: 'hurt', dead: false, hp: 6, max_hp: 12, fight: { round: 1, foes: [{ name: 'the bandit', state: 'grazed', wound: 1, hp: 9, max_hp: 11 }] } }),
     'You are hurt, 6 of 12 hit points. Fighting: the bandit (grazed, 9 of 11 HP).')
