@@ -1,4 +1,4 @@
-import type { BandStep, HiddenRoll, TurnAction, TurnEvent, TurnSoFar, Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace, StoryArc, StoryPace, StoryTier, SheetGrowth, StoryHand, JournalThread, StoryChapter, LegacyRole } from '../../types'
+import type { Srd52Spells, BandStep, HiddenRoll, TurnAction, TurnEvent, TurnSoFar, Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace, StoryArc, StoryPace, StoryTier, SheetGrowth, StoryHand, JournalThread, StoryChapter, LegacyRole } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -353,6 +353,18 @@ const ABILITIES: Record<string, string> = { str: 'Str', dex: 'Dex', con: 'Con', 
 /** "Dex 17 (+3), save" for a 5E ability; "save" when the class is proficient in its saving throw. */
 export function abilityLine(ability: string, score: number, modifier: number, save: boolean): string {
   return `${ABILITIES[ability] ?? ability} ${score} (${signed(modifier)})${save ? ', save' : ''}`
+}
+
+/** "Level 2 · 325 XP, 900 for level 3" (or "the highest level" at 20). */
+export function xpLine(level: number, xp: number, next: number | null): string {
+  return `Level ${level} · ${xp} XP${next === null ? ', the highest level' : `, ${next} for level ${level + 1}`}`
+}
+
+/** "Spell attack +5 · save DC 13 · slots: 1st 1 of 2, 2nd 3 of 3" for a 5E caster. */
+export function spellLine(spells: Srd52Spells): string {
+  const ordinal = (level: number) => `${level}${level === 1 ? 'st' : level === 2 ? 'nd' : level === 3 ? 'rd' : 'th'}`
+  const slots = spells.slots.map((slot) => `${ordinal(slot.level)} ${slot.left} of ${slot.of}`).join(', ')
+  return `${spells.ability}: spell attack ${signed(spells.attack)} · save DC ${spells.dc}${slots ? ` · slots: ${slots}` : ''}`
 }
 
 /** Whether the standard array is placed on the six abilities, each value once (dungeon/rules/srd52.py build). */

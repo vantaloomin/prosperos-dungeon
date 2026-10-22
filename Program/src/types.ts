@@ -246,6 +246,12 @@ export interface Srd52Sheet {
   names: { class: string; species: string; background: string }
   skill_bonuses: Record<string, { name: string; ability: string; bonus: number; proficient: boolean }>
   attribution: string; growth?: SheetGrowth
+  /** XP that reaches the next level (null at 20), the class's features so far, and the caster's spells. */
+  next_xp: number | null; features?: string[]; spell_list: Srd52Spells | null
+}
+export interface Srd52Spells {
+  ability: string; attack: number; dc: number; cantrips: string[]; prepared: { name: string; level: number }[]
+  slots: { level: number; left: number; of: number }[]
 }
 /** What a 5E character is built from at campaign start (dungeon/campaign.py srd52_choices). */
 export interface Srd52Choices {

@@ -10,6 +10,12 @@ table by what the foes want), with 5E's numbers from the SRD 5.2.1 pack:
   target's AC. A natural 20 is a critical hit (the damage dice twice), a natural 1 always misses. Damage is the
   carried weapon's die plus the same ability (an unarmed strike is 1 + Strength). The roll's card is rewritten to
   show the attack and the AC.
+- **Spells.** An action naming a known damaging spell is cast at a foe: a spell attack (the turn's d20 + the spell
+  attack bonus) against AC, or the foe's save against the spell save DC (a failure takes the damage, a success half,
+  nothing from a cantrip). Cantrips grow at levels 5, 11 and 17. A healing spell heals the character
+  (dungeon/sheet.py cast, which also spends the slot).
+- **XP.** A won fight gives each beaten foe's XP (down or broken); a milestone gives the level's high encounter budget
+  (dungeon/growth.py). Enough XP is a level, at once (srd52.advance).
 - **Dodging** needs no roll: the foes attack with disadvantage that round. Getting away keeps its roll.
 - **Foes attack** with their bonus against the character's AC and roll their damage. Hit points are the sheet's; the
   wound words the rest of the game reads (Grazed to Dying) follow the hit points (`level_for`).
@@ -176,9 +182,7 @@ def strike(connection, roll: dict, target: dict, items: list[dict], rng, lines: 
     total = natural + bonus
     critical, hit = natural == 20, natural != 1 and (natural == 20 or total >= target['ac'])
     band = 'critical_success' if critical else 'success' if hit else 'critical_failure' if natural == 1 else 'failure'
-    connection.execute('UPDATE story_rolls SET skill=?, bonus=?, total=?, target=?, band=? WHERE id=?',
-                       (f'Attack ({what})', bonus, total, target['ac'], band, roll['id']))
-    roll.update(skill=f'Attack ({what})', bonus=bonus, total=total, target=target['ac'], band=band)
+    record_roll(connection, roll, f'Attack ({what})', bonus, total, target['ac'], band)
     target['zone'] = 'engaged'
     if not hit:
         lines.append(f"The player's character's attack on {target['name']} misses.")
@@ -188,6 +192,90 @@ def strike(connection, roll: dict, target: dict, items: list[dict], rng, lines: 
     word = 'down, dead' if target['hp'] <= 0 else describe(target)
     lines.append(f"The player's character {'lands a critical hit on' if critical else 'hits'} {target['name']} for "
                  f"{damage} damage: now {word}.")
+
+
+def spell_in(connection, roll: dict) -> dict | None:
+    """The known spell a roll's action casts (dungeon/sheet.py cast already spent its slot), if any."""
+    found = sheet.native(connection)
+    return srd52.known_spell(found, roll['action']) if found and found.get('spell_ability') else None
+
+
+def cast(connection, roll: dict, spell: dict, targets: list[dict], rng, lines: list[str]):
+    """A spell in a fight: healing already healed; no slot left fizzles; a damaging spell hits a foe."""
+    if 'no spell slot' in (roll.get('skill') or ''):
+        lines.append(f"The player's character reaches for {spell['name']}, but has no spell slot left.")
+        return
+    if srd52.healing_of(spell):
+        lines.append(f"The player's character casts {spell['name']}: {roll['skill'].split('(')[-1].rstrip(')')}.")
+        return
+    damage = srd52.damage_of(spell)
+    if damage is None or not targets:
+        lines.append(f"The player's character casts {spell['name']}.")
+        return
+    target = next((foe for foe in targets if foe['name'].lower() in roll['action'].lower()), targets[0])
+    found = sheet.native(connection)
+    dice = srd52.cantrip_dice(damage[0], found['level']) if spell['level'] == 0 else damage[0]
+    if spell.get('attack'):
+        natural, bonus = roll['natural'], srd52.spell_bonus(found)
+        critical, hit = natural == 20, natural != 1 and (natural == 20 or natural + bonus >= target['ac'])
+        band = 'critical_success' if critical else 'success' if hit else 'critical_failure' if natural == 1 else 'failure'
+        record_roll(connection, roll, f"{spell['name']} (spell attack)", bonus, natural + bonus, target['ac'], band)
+        dealt = max(1, roll_dice(dice, rng, critical)) if hit else 0
+    else:
+        ability = spell['saving_throws'][0]
+        save = monsters()[target['monster']]['abilities'][ability]['save']
+        natural, dc = rng.randint(1, 20), srd52.spell_dc(found)
+        failed = natural + save < dc
+        # The card shows the foe's save: their d20 and bonus against the spell's DC; a failed save is the spell's
+        # success.
+        record_roll(connection, roll, f"{spell['name']} ({target['name']}'s {srd52.ABILITY_NAMES[ability]} save, DC "
+                    f"{dc})", save, natural + save, dc, 'success' if failed else 'failure', natural)
+        rolled = max(1, roll_dice(dice, rng))
+        dealt = rolled if failed else 0 if spell['level'] == 0 else rolled // 2
+    target['zone'] = 'engaged' if not spell.get('attack') or 'melee' in spell['attack'] else target['zone']
+    if not dealt:
+        lines.append(f"The player's character casts {spell['name']} at {target['name']}, and it does no harm.")
+        return
+    hurt(target, dealt)
+    word = 'down, dead' if target['hp'] <= 0 else describe(target)
+    lines.append(f"The player's character casts {spell['name']} at {target['name']}: {dealt} {damage[1]} damage, "
+                 f"now {word}.")
+
+
+def record_roll(connection, roll: dict, skill: str, bonus: int, total: int, target: int, band: str,
+                natural: int | None = None):
+    """Rewrites the roll's card as what it became in the fight (an attack on AC, a foe's save)."""
+    natural = roll['natural'] if natural is None else natural
+    connection.execute('UPDATE story_rolls SET skill=?, natural=?, bonus=?, total=?, target=?, band=? WHERE id=?',
+                       (skill, natural, bonus, total, target, band, roll['id']))
+    roll.update(skill=skill, natural=natural, bonus=bonus, total=total, target=target, band=band)
+
+
+# Experience ---------------------------------------------------------------------------------------
+
+def fight_xp(state: dict) -> int:
+    return sum(monsters()[foe['monster']]['xp'] for foe in state['foes']
+               if 'monster' in foe and (foe['hp'] <= 0 or foe['broken']))
+
+
+def gain(connection, xp: int, why: str, now: str = '') -> list[str]:
+    """XP for the character, and the levels it reaches, at once."""
+    found = sheet.native(connection) if sheet.ruleset(connection) == srd52.ID else None
+    if not found or xp <= 0:
+        return []
+    found['xp'] = found.get('xp', 0) + xp
+    lines = [f"The character gains {xp} XP ({why}): {found['xp']} in all."]
+    while found['level'] < srd52.MAX_LEVEL and found['xp'] >= srd52.xp_for(found['level'] + 1):
+        found, gained = srd52.advance(found)
+        lines.append(f"The character reaches level {found['level']}: {', '.join(gained)}.")
+    sheet.set_native(connection, found, now)
+    return lines
+
+
+def milestone_xp(connection) -> int:
+    found = sheet.native(connection)
+    budget = next(row for row in srd52.pack('rules')['xp_budget_per_character'] if row['level'] == found['level'])
+    return budget['high']
 
 
 def describe(foe: dict) -> str:
@@ -250,13 +338,19 @@ def death_saves(rng) -> tuple[bool, bool, list[int]]:
 
 
 def long_rest(connection, nights: int) -> list[str]:
-    """A night's sleep restores every hit point (as written)."""
+    """A night's sleep restores every hit point and spell slot (as written)."""
     found = sheet.native(connection)
-    if nights <= 0 or found['hp'] >= found['max_hp']:
+    spent = any((found.get('spells') or {}).get('used') or [])
+    if nights <= 0 or (found['hp'] >= found['max_hp'] and not spent):
         return []
+    lines = [f"A long rest restores the character's hit points: {found['max_hp']} of {found['max_hp']}."] \
+        if found['hp'] < found['max_hp'] else []
     found['hp'] = found['max_hp']
+    if spent:
+        found['spells']['used'] = [0] * 9
+        lines.append("A long rest gives the character back their spell slots.")
     sheet.set_native(connection, found, '')
-    return [f"A long rest restores the character's hit points: {found['max_hp']} of {found['max_hp']}."]
+    return lines
 
 
 def foe_line(foe: dict) -> str:

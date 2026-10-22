@@ -80,9 +80,29 @@ def check(connection, approach: str, difficulty: str = 'normal', text: str = '',
     `save` asks for a saving throw where the ruleset has them (resisting fear, pain, poison)."""
     found = native(connection) if ruleset(connection) == srd52.ID else None
     if found:
-        return srd52.check(found, approach, difficulty, text, rng, save) | {'ruleset': srd52.ID}
+        result = srd52.check(found, approach, difficulty, text, rng, save) | {'ruleset': srd52.ID}
+        return cast(connection, found, result, rng) if result.get('spell') else result
     return marvel.roll(stats(connection).get(approach), difficulty, rng) | {'ruleset': marvel.ID, 'target': None,
                                                                             'skill': None}
+
+
+def cast(connection, found: dict, result: dict, rng) -> dict:
+    """A 5E spell cast by the turn's check: it spends a slot (none left, it fails); a healing spell always works and
+    heals the character."""
+    spell = srd52.spells()[result['spell']]
+    slot = srd52.spend(found, spell)
+    if slot is None:
+        return result | {'band': 'failure', 'skill': f"{spell['name']} (no spell slot left)", 'spell': None}
+    if dice := srd52.healing_of(spell):
+        from dungeon import combat, combat5e
+        healed = max(1, combat5e.roll_dice(dice, rng or random.SystemRandom())
+                     + srd52.modifier(found['abilities'][found['spell_ability']]))
+        found['hp'] = min(found['max_hp'], found['hp'] + healed)
+        set_native(connection, found, '')
+        combat.set_condition(connection, combat5e.level_for(found['hp'], found['max_hp']))
+        return result | {'band': 'success', 'skill': f"{spell['name']} (heals {healed})"}
+    set_native(connection, found, '')
+    return result
 
 
 def full_view(connection) -> dict:
