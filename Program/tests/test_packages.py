@@ -9,7 +9,7 @@ from test_combat import kingswood
 from test_rulesets import reply
 from test_travel import ok
 
-from dungeon import package_lore, packages
+from dungeon import director, inventory, package_lore, packages, world_data
 from dungeon.errors import DomainError
 
 
@@ -114,3 +114,39 @@ def test_a_campaign_in_vallarith_reads_the_packages_lore_by_keyword(client, conn
         assert package_lore.bring(connection, app.state.database.root, 'vallarith', 'now', 'brotherhood')['entries']
         assert connection.execute("SELECT COUNT(*) FROM lore_books WHERE source_format='World package'"
                                   ).fetchone()[0] == 1
+
+
+@pytest.fixture
+def in_use(tmp_path):
+    world_data.use(tmp_path)
+    yield tmp_path / packages.FOLDER / 'vallarith.sqlite'
+    world_data.use(None)
+
+
+def edit_engine(path, kind, key, change):
+    with packages.connect(path) as connection:
+        row = connection.execute('SELECT data FROM engine WHERE kind=? AND key=?', (kind, key)).fetchone()
+        data = json.loads(row['data'])
+        change(data)
+        connection.execute('UPDATE engine SET data=? WHERE kind=? AND key=?', (json.dumps(data), kind, key))
+    connection.close()
+
+
+def test_the_game_reads_its_world_data_from_the_package_in_use(in_use):
+    shipped = json.loads((packages.DATA / 'items' / 'kingswood.json').read_text(encoding='utf-8'))
+    assert inventory.catalog('kingswood') == shipped
+    edit_engine(in_use, 'items', 'kingswood', lambda data: data['items'].append({'id': 'reed-flute', 'name': 'Reed flute'}))
+    assert inventory.item('kingswood', 'reed-flute')['name'] == 'Reed flute'
+
+
+def test_a_cached_loader_reads_again_when_the_package_changes(in_use):
+    first = director.data('vallarith')['arcs'][0]['id']
+    edit_engine(in_use, 'arcs', 'vallarith', lambda data: data['arcs'][0].update(id='renamed'))
+    assert director.data('vallarith')['arcs'][0]['id'] == 'renamed' != first
+
+
+def test_with_no_package_in_use_the_shipped_files_are_read():
+    world_data.use(None)
+    assert world_data.read('items', 'kingswood') == json.loads(
+        (packages.DATA / 'items' / 'kingswood.json').read_text(encoding='utf-8'))
+    assert world_data.read('items', 'nowhere') is None and 'vallarith' in world_data.keys('travel')

@@ -18,6 +18,7 @@ from dungeon import (
     story_routes,
     troubleshoot,
     workspace,
+    world_data,
     worlds,
     worlds_routes,
 )
@@ -115,6 +116,7 @@ def create_app(database_path: str | Path | None = None, *, clock=None, vault=Non
                hardware=None, launcher=None, decider=None) -> FastAPI:
     app = FastAPI(title=APP_NAME, version=VERSION, lifespan=lifespan)
     app.state.database = Database(database_path, clock)
+    world_data.use(app.state.database.root)  # The world packages the game reads (built-in ones built now).
     worlds.start(app.state.database)  # The world the user was last in; the first run makes the first world.
     workspace.adopt_pc_timezone(app.state.database, local_zone.detect())
     app.state.vault = vault or SystemVault()

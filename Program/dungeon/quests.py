@@ -21,7 +21,7 @@ import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from dungeon import director, factions, feelings, growth, inventory, record, sworn, tiers
+from dungeon import director, factions, feelings, growth, inventory, record, sworn, tiers, world_data
 from dungeon.database import decode, encode, identifier, many, optional
 
 ADVENTURES = Path(__file__).parent / 'world' / 'data' / 'adventures'
@@ -34,8 +34,7 @@ BITES = ('critical_failure', 'failure', 'failure_upside')
 
 
 def adventure(city_id: str) -> dict:
-    path = ADVENTURES / f'{city_id}.json'
-    return json.loads(path.read_text(encoding='utf-8')) if path.exists() else {'quests': [], 'dangers': []}
+    return world_data.read('adventures', city_id) or {'quests': [], 'dangers': []}
 
 
 def start(connection, city_id: str, at: datetime):

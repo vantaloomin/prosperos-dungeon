@@ -15,13 +15,11 @@ progress clocks.
 
 Clocks and standing are game state, branched with the story (dungeon/timeline.py SAVED).
 """
-import functools
-import json
 import random
 from datetime import datetime
 from pathlib import Path
 
-from dungeon import record
+from dungeon import record, world_data
 from dungeon.database import many, optional
 
 FACTIONS = Path(__file__).parent / 'world' / 'data' / 'factions'
@@ -32,10 +30,9 @@ STANDING = ((ENEMY, 'an enemy'), (-2, 'distrusted'), (-1, 'frowned on'), (0, 'un
 ACTIVE = True
 
 
-@functools.cache
+@world_data.memo
 def data(world: str) -> dict:
-    path = FACTIONS / f'{world}.json'
-    return json.loads(path.read_text(encoding='utf-8')) if path.exists() else {'pace': 0, 'factions': []}
+    return world_data.read('factions', world) or {'pace': 0, 'factions': []}
 
 
 def factions(world: str) -> list[dict]:
@@ -48,7 +45,7 @@ def find(world: str, faction_id: str) -> dict | None:
 
 def anywhere(faction_id: str) -> dict | None:
     """A faction by its id, in whichever world has it."""
-    return next((found for path in sorted(FACTIONS.glob('*.json')) if (found := find(path.stem, faction_id))), None)
+    return next((found for path in world_data.keys('factions') if (found := find(path, faction_id))), None)
 
 
 def local(world: str, node_id: str) -> list[dict]:

@@ -16,15 +16,13 @@ the place one arrives at) or a place on the Road (world/data/cities/vallarith-ro
 The places known are game state, branched with the story (dungeon/timeline.py SAVED); each line's journey is kept
 with it, so telling the turn again changes nothing.
 """
-import functools
 import heapq
-import json
 import math
 import random
 import re
 from pathlib import Path
 
-from dungeon import inventory, sworn
+from dungeon import inventory, sworn, world_data
 from dungeon.database import decode, encode, many, optional
 
 MAPS = Path(__file__).parent / 'world' / 'data' / 'travel'
@@ -36,9 +34,9 @@ GOING = re.compile(r'\b(travel\w*|set(s|ting)? (out|off)|head\w*|ride|rides|ridi
                    r'make (my|our|their) way|go|goes|going|leave|leaves|leaving|return\w*)\b', re.I)
 
 
-@functools.cache
+@world_data.memo
 def maps() -> tuple[dict, ...]:
-    return tuple(json.loads(path.read_text(encoding='utf-8')) for path in sorted(MAPS.glob('*.json')))
+    return tuple(world_data.read('travel', key) for key in world_data.keys('travel'))
 
 
 def nodes(travel_map: dict) -> dict[str, dict]:

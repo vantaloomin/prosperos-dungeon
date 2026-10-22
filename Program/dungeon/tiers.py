@@ -16,12 +16,10 @@ Vallarith's is renown, earned by work done.
 
 The track is game state, branched with the story (dungeon/timeline.py SAVED).
 """
-import functools
-import json
 import random
 from pathlib import Path
 
-from dungeon import factions, travel
+from dungeon import factions, travel, world_data
 from dungeon.database import optional
 
 TIERS = Path(__file__).parent / 'world' / 'data' / 'tiers'
@@ -36,10 +34,9 @@ STRETCH = 10
 FOE_STEP = 2
 
 
-@functools.cache
+@world_data.memo
 def track(world: str) -> dict:
-    path = TIERS / f'{world}.json'
-    found = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
+    found = world_data.read('tiers', world) or {}
     return {'track': 'renown', 'name': 'Renown', 'arc': 'classic', 'pace': 'steady',
             'words': [f'{name} renown' for name in LADDER]} | found
 

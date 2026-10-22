@@ -19,10 +19,10 @@ starting stock, and the kit each premade starts with.
 
 All of it is game state, branched with the story (dungeon/timeline.py SAVED).
 """
-import json
 import re
 from pathlib import Path
 
+from dungeon import world_data
 from dungeon.database import identifier, many, optional
 from dungeon.errors import DomainError, require
 from dungeon.sheet import stats as sheet_stats
@@ -40,8 +40,7 @@ NUMBERS = {'a': 1, 'an': 1, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5
 
 
 def catalog(city_id: str) -> dict:
-    path = ITEMS / f'{city_id}.json'
-    return json.loads(path.read_text(encoding='utf-8')) if path.exists() else {'items': [], 'shops': [], 'kits': {}}
+    return world_data.read('items', city_id) or {'items': [], 'shops': [], 'kits': {}}
 
 
 def item(city_id: str, item_id: str) -> dict | None:
