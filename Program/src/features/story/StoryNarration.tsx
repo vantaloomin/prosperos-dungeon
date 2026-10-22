@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { PenLine, Repeat } from 'lucide-react'
 import type { StoryMessage } from '../../types'
 import { InfoTip } from '../../components/InfoTip'
+import { reworded, sentences } from './storyText'
 
 interface Props {
   message: StoryMessage
@@ -9,6 +10,8 @@ interface Props {
   onRewrite?: (id: string, passage: string, note: string) => Promise<void>
   /** Switch between the wording before the last rewrite and the rewrite. */
   onSwitch?: (id: string) => Promise<void>
+  /** The narration as it streamed, for the turn just told: sentences the checks reworded since are marked. */
+  draft?: string
 }
 
 /** Where the Rewrite chip sits in the narration box: just under the end of the selected range. */
@@ -19,11 +22,22 @@ function chipAt(range: Range, box: HTMLElement): { top: number; left: number } {
   return { top: end.bottom - frame.top + 4, left: Math.max(0, end.right - frame.left - 80) }
 }
 
+const REWORDED = 'The prose and continuity checks reworded the marked sentences after they were written. The dice and what happened are the same.'
+
+const rewordedIn = (text: string, draft?: string) => new Set(draft ? [...reworded(draft, text)].map((sentence) => sentence.trim()) : [])
+
+/** A paragraph, with the sentences in `changed` marked; the mark fades in so the swap reads as an edit. */
+function Paragraph({ text, changed }: { text: string; changed: Set<string> }) {
+  if (!changed.size) return <p>{text}</p>
+  return <p>{sentences(text).map((sentence, index) => changed.has(sentence.trim())
+    ? <mark key={index} className="story-reworded">{sentence}</mark> : sentence)}</p>
+}
+
 const shortened = (text: string) => text.length > 120 ? `${text.slice(0, 117).trimEnd()}…` : text
 
 /** A narration: its flagged paragraphs marked with why and a Rewrite button. Selecting a passage shows a small
  *  Rewrite chip beside it, and only the chip opens the form, so selecting text to copy it costs nothing. */
-export function StoryNarration({ message, onRewrite, onSwitch }: Props) {
+export function StoryNarration({ message, onRewrite, onSwitch, draft }: Props) {
   const box = useRef<HTMLDivElement>(null)
   const [chosen, setChosen] = useState('')
   // A selected passage, and where its chip sits inside the narration box.
@@ -39,6 +53,7 @@ export function StoryNarration({ message, onRewrite, onSwitch }: Props) {
     document.addEventListener('selectionchange', gone)
     return () => document.removeEventListener('selectionchange', gone)
   }, [offer])
+  const changed = rewordedIn(message.text, draft)
   const flags = new Map((message.flags ?? []).map((flag) => [flag.passage, flag.why]))
   const pick = () => {
     const selection = window.getSelection()
@@ -54,10 +69,10 @@ export function StoryNarration({ message, onRewrite, onSwitch }: Props) {
     <div className="story-narration" ref={box} onMouseUp={pick} onKeyUp={pick} onTouchEnd={pick}>
       {message.text.split(/\n{2,}/).map((part, index) => {
         const why = flags.get(part.trim())
-        if (!why) return <p key={index}>{part}</p>
+        if (!why) return <Paragraph key={index} text={part} changed={changed} />
         return (
           <div key={index} className="story-flagged">
-            <p>{part}</p>
+            <Paragraph text={part} changed={changed} />
             {onRewrite && <span className="story-flag">
               <InfoTip id={`flag-${message.id}-${index}`} label="why this passage is marked" text={why.join(' ')} />
               <button type="button" className="text-button" onClick={() => setChosen(part.trim())}><PenLine aria-hidden="true" />Rewrite</button>
@@ -68,6 +83,7 @@ export function StoryNarration({ message, onRewrite, onSwitch }: Props) {
         onMouseDown={(event) => event.preventDefault()} onClick={() => { setChosen(offer.text); setOffer(null) }}>
         <PenLine aria-hidden="true" />Rewrite</button>}
     </div>
+    {!!changed.size && <p className="story-reworded-note subtle">Reworded after writing <InfoTip id={`reworded-${message.id}`} label="the marked sentences" text={REWORDED} /></p>}
     {chosen && onRewrite && <form ref={form} className="story-rewrite" onSubmit={(event) => { event.preventDefault(); void act(() => onRewrite(message.id, chosen, note)) }}>
       <p className="subtle">Rewrite &ldquo;{shortened(chosen)}&rdquo; in new words. The dice and what happened stay the same.</p>
       <label>What to change (optional)

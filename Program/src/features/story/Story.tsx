@@ -37,16 +37,24 @@ export function Story({ go }: { go: (view: View) => void }) {
   // The narration so far while it streams in (dungeon/pace.py).
   const [streamed, setStreamed] = useState('')
   const [error, setError] = useState('')
+  // How many lines the story had when the turn began: once the saved story has more, the turn is in it.
+  const [since, setSince] = useState(0)
   const [draft, setDraft] = useState({ text: '', at: 0 })
   if (story.isPending) return <Loading label="Opening your story" />
   if (story.isError) return <ErrorNotice error={story.error} />
   const update = (data: StoryData) => client.setQueryData(STORY_KEY, data)
+  // The turn stays on screen as streamed until the saved story has come back, so the narration never blinks out;
+  // `streamed` is kept after the turn, as the draft the saved text is compared with (StoryNarration `draft`).
   const run = async (text: string | null, request: () => Promise<unknown>) => {
+    setSince(story.data.messages.length)
     setPending(text)
     setStreamed('')
     setError('')
     try { await request() } catch (failure) { setError(failure instanceof Error ? failure.message : 'That did not work. Try again.') }
-    finally { setPending(null); await Promise.all([client.invalidateQueries({ queryKey: STORY_KEY }), client.invalidateQueries({ queryKey: ['story-journal'] }), client.invalidateQueries({ queryKey: ['story-gear'] }), client.invalidateQueries({ queryKey: ['story-sheet'] })]) }
+    finally {
+      await Promise.all([client.invalidateQueries({ queryKey: STORY_KEY }), client.invalidateQueries({ queryKey: ['story-journal'] }), client.invalidateQueries({ queryKey: ['story-gear'] }), client.invalidateQueries({ queryKey: ['story-sheet'] })])
+        .finally(() => setPending(null))
+    }
   }
   const grow = (piece: string) => setStreamed((before) => before + piece)
   const send = (text: string) => run(text, () => streamApi('/story/messages/stream', { text, client_id: newId() }, grow))
@@ -57,7 +65,7 @@ export function Story({ go }: { go: (view: View) => void }) {
         <StoryHeader story={story.data} change={change} onDraft={(text) => setDraft({ text, at: Date.now() })} />
         {!story.data.ready && <NoModel go={go} />}
         {!story.data.messages.length && pending === null ? <StoryStart onStarted={update} /> : <>
-          <StoryLog messages={story.data.messages} pending={pending} streamed={streamed} onRetry={() => void run('', () => streamApi('/story/retry/stream', {}, grow))}
+          <StoryLog messages={story.data.messages} pending={story.data.messages.length > since ? null : pending} streamed={streamed} onRetry={() => void run('', () => streamApi('/story/retry/stream', {}, grow))}
             onRewrite={(id, passage, note) => change(() => api<StoryData>(`/story/messages/${id}/rewrite`, { passage, note }))}
             onSwitch={(id) => change(() => api<StoryData>(`/story/messages/${id}/switch`, {}))}
             onBack={(id) => void run(null, () => api<StoryBack>('/story/back', { message_id: id }).then((data) => { update(data); setDraft({ text: data.draft, at: Date.now() }) }))} />
@@ -203,7 +211,7 @@ function StoryLog({ messages, pending, streamed, onRetry, onBack, onRewrite, onS
   return (
     <div className="story-log" aria-live="polite" ref={log} onScroll={onScroll}>
       {messages.map((message) => <StoryLine key={message.id} message={message} onBack={pending ? undefined : onBack}
-        rewrites={pending === null ? { onRewrite, onSwitch } : undefined} />)}
+        rewrites={pending === null ? { onRewrite, onSwitch } : undefined} draft={pending === null && message === last ? streamed : undefined} />)}
       {pending && <p className="story-user">{pending}</p>}
       {pending !== null && (streamed
         ? <div className="story-narration">{streamed.split(/\n{2,}/).map((part, index) => <p key={index}>{part}</p>)}</div>
@@ -217,7 +225,9 @@ function StoryLog({ messages, pending, streamed, onRetry, onBack, onRewrite, onS
 
 /** `onBack` goes back to before a line of the player's, to send it again with new dice; `rewrites` rewords a
  *  narration (none while a turn is being told). */
-function StoryLine({ message, onBack, rewrites }: { message: StoryMessage; onBack?: (id: string) => void; rewrites?: Rewrites }) {
+interface LineProps { message: StoryMessage; onBack?: (id: string) => void; rewrites?: Rewrites; draft?: string }
+
+function StoryLine({ message, onBack, rewrites, draft }: LineProps) {
   if (message.role === 'scene') return <p className="story-move">{message.text}</p>
   if (message.role === 'user') return <>
     <p className="story-user">{message.text}</p>
@@ -233,7 +243,7 @@ function StoryLine({ message, onBack, rewrites }: { message: StoryMessage; onBac
     {message.crisis_help && <CrisisNote />}
   </>
   if (message.status === 'failed') return <Notice tone="error">The narrator could not go on: {message.error}</Notice>
-  return <StoryNarration message={message} {...rewrites} />
+  return <StoryNarration message={message} draft={draft} {...rewrites} />
 }
 
 /** `draft` is a line taken back to send again; a new draft remounts the composer with it. */

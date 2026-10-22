@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { aroundText, branchLine, journeyTo, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats, tierText, darkText, threadKind } from '../../src/features/story/storyText.ts'
+import { aroundText, branchLine, journeyTo, reworded, sentences, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats, tierText, darkText, threadKind } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -152,4 +152,15 @@ test('journeyTo finds a destination on the travel map, ignoring a leading "the" 
   assert.equal(journeyTo(journeys, 'Abandoned Keep'), 'the Abandoned Keep')
   assert.equal(journeyTo(journeys, 'The Green'), undefined)
   assert.equal(journeyTo(journeys, undefined), undefined)
+})
+
+test('sentences splits a paragraph and keeps closing quotes with their sentence', () => {
+  assert.deepEqual(sentences('She waits. "You\'ll want the cellar." He nods'), ['She waits. ', '"You\'ll want the cellar." ', 'He nods'])
+})
+
+test('reworded marks only sentences whose words changed after streaming', () => {
+  const draft = 'The stew has gone to skin — nobody wants it.\n\nShe wipes the bar. It is clean already.'
+  const saved = 'The stew has gone to skin; nobody wants it.\n\nShe wipes the bar. The wood is already clean.'
+  assert.deepEqual([...reworded(draft, saved)], ['The wood is already clean.'])
+  assert.equal(reworded(saved, saved).size, 0)
 })

@@ -137,6 +137,10 @@ textarea { resize: vertical; line-height: 1.6; }
 /* Shown when new text arrives while the reader is scrolled up rereading. */
 .story-newer { position: sticky; bottom: 8px; display: flex; margin: 0 auto; box-shadow: 0 2px 8px rgb(0 0 0 / 0.18); }
 .story-newer svg { width: 16px; height: 16px; }
+/* Sentences the checks reworded after the narration streamed: a glow that settles into a dotted underline. */
+.story-reworded { background: transparent; color: inherit; text-decoration: underline dotted var(--accent); text-underline-offset: 4px; animation: story-reworded 2.4s ease-out; }
+@keyframes story-reworded { from { background: var(--accent-tint); } to { background: transparent; } }
+.story-reworded-note { display: flex; align-items: center; gap: 4px; margin: -14px 0 20px; font-size: 0.8125rem; }
 .story-turn-actions { display: flex; align-items: center; gap: 10px; }
 .story-turn-actions:empty { display: none; }
 .story-pace { color: var(--muted); line-height: 0; cursor: help; }

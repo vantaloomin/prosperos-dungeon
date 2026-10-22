@@ -221,3 +221,20 @@ export function journeyTo(journeys: string[], name: string | undefined): string 
   const bare = (text: string) => text.toLowerCase().replace(/^the\s+/, '')
   return name ? journeys.find((journey) => bare(journey) === bare(name)) : undefined
 }
+
+/** A paragraph's sentences, each with its closing punctuation, quotes and following space. */
+export function sentences(paragraph: string): string[] {
+  return paragraph.match(/[^.!?…]+(?:[.!?…]+["'”’)]*\s*|$)/g) ?? [paragraph]
+}
+
+const words = (text: string) => (text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).join(' ')
+
+/** The sentences of `saved` whose words are not in `draft`: what the checks reworded after the narration streamed
+ *  (dungeon/pace.py). Punctuation alone doesn't count, so the always-on em dash fix marks nothing. */
+export function reworded(draft: string, saved: string): Set<string> {
+  const before = ` ${words(draft)} `
+  return new Set(saved.split(/\n{2,}/).flatMap(sentences).filter((sentence) => {
+    const said = words(sentence)
+    return said && !before.includes(` ${said} `)
+  }))
+}
