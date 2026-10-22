@@ -1,4 +1,4 @@
-"""Automatic backups (Settings > Backups): every world is backed up on its own while the app runs.
+"""Automatic backups (Settings > Data): every world is backed up on its own while the app runs.
 
 On by default, once a day; the user can make it weekly or turn it off (workspace_settings.auto_backups, which
 follows them into every world). Each world keeps its backups in its own Backups folder, beside its database, so a
@@ -131,7 +131,7 @@ async def run_forever(state):
 
 
 def status(database) -> dict:
-    """For Settings > Backups: how often, and when this world was last backed up on its own."""
+    """For Settings > Data: how often, and when this world was last backed up on its own."""
     entries = made(database.path.parent / 'backups')
     return {'auto_backups': chosen(database), 'last_auto_backup': entries[0][0].isoformat() if entries else None,
             'auto_backup_count': len(entries)}

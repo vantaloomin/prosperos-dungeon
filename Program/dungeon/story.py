@@ -383,7 +383,7 @@ def messages(connection, limit: int = HISTORY_LIMIT) -> list[dict]:
 
 
 def dice_shown(connection) -> bool:
-    """Roll visibility (Settings > World > Hidden values): hidden unless the player shows them."""
+    """Roll visibility (Story > Tone and rules > Dice and hidden values): hidden unless the player shows them."""
     return bool(settings(connection)['show_odds'])
 
 

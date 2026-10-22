@@ -41,7 +41,7 @@ def change_home(request: Request, world_id: str, body: HomeChange):
 
 @router.delete('/{world_id}')
 def delete_world(request: Request, world_id: str):
-    """The world and everything in it, after a backup kept in Settings > Backups."""
+    """The world and everything in it, after a backup kept in Settings > Data."""
     return worlds.delete_world(db(request), world_id)
 
 

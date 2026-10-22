@@ -30,10 +30,10 @@ def detail(error: BaseException) -> str:
 DATABASE_REASONS = (
     (('locked', 'busy'), 'Its data file was busy with other work. Wait a moment and try again.'),
     (('readonly', 'read-only', 'unable to open'), 'It could not write to its data folder. Check that the drive is '
-     'connected and not read-only (Settings > Backups shows where the data folder is).'),
+     'connected and not read-only (Settings > Data shows where the data folder is).'),
     (('full',), 'The drive holding its data folder is full. Free some space, then try again.'),
     (('disk i/o',), 'The drive holding its data folder did not answer. Check that it is still connected.'),
-    (('malformed',), 'Its data file looks damaged. Restoring a backup from Settings > Backups should fix it.'),
+    (('malformed',), 'Its data file looks damaged. Restoring a backup from Settings > Data should fix it.'),
 )
 
 

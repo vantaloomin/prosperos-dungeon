@@ -37,7 +37,7 @@ export default function App() {
       <a className="skip-link" href="#main">Skip to content</a>
       <AppNav view={view} go={go} />
       <main id="main" className="app-main" tabIndex={-1}>
-        <DebugBanner onOpen={() => go('settings/debug')} />
+        <DebugBanner onOpen={() => go('settings/developer')} />
         <ReadyNotice openModels={() => go('settings/models')} />
         <Suspense fallback={<Loading label="Opening" />}><CurrentView view={view} go={go} openTab={openTab} /></Suspense>
       </main>
@@ -62,6 +62,6 @@ interface CurrentViewProps { view: View; go: (view: View) => void; openTab: (tab
 
 function CurrentView({ view, go, openTab }: CurrentViewProps) {
   if (view === 'worlds') return <Worlds />
-  if (view === 'settings' || view.startsWith('settings/')) return <Settings tab={view.split('/')[1]} onTab={openTab} />
+  if (view === 'settings' || view.startsWith('settings/')) return <Settings tab={view.split('/')[1]} onTab={openTab} go={go} />
   return <Story go={go} />
 }

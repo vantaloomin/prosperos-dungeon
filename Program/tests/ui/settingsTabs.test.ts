@@ -1,14 +1,16 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { SETTINGS_TABS, availableTabs, pickTab, searchSettings } from '../../src/features/settings/sections.ts'
-import { readAdvanced, writeAdvanced } from '../../src/features/settings/advanced.ts'
+import { ELSEWHERE, SETTINGS_TABS, availableTabs, pickTab, searchSettings } from '../../src/features/settings/sections.ts'
 import { groupPrompts, placeholderHint } from '../../src/features/settings/prompts.ts'
 
-test('a deep link opens its tab, and an unknown or unavailable one opens the first', () => {
+test('a deep link opens its tab, an old one opens where its sections went, and an unknown one the first', () => {
   assert.equal(pickTab('images'), 'images')
   assert.equal(pickTab(undefined), 'general')
   assert.equal(pickTab('nonsense'), 'general')
-  assert.deepEqual(availableTabs().map((tab) => tab.id), ['general', 'models', 'world', 'images', 'data', 'debug'])
+  assert.equal(pickTab('debug'), 'developer')
+  assert.equal(pickTab('advanced'), 'developer')
+  assert.equal(pickTab('world'), 'general')
+  assert.deepEqual(availableTabs().map((tab) => tab.id), ['general', 'models', 'images', 'data', 'developer'])
 })
 
 test('search finds sections by title, tab name or keyword, needing every word', () => {
@@ -27,28 +29,15 @@ test('every section heading is listed once', () => {
   assert.equal(new Set(headings).size, headings.length)
 })
 
-test('the Advanced tab shows only with the switch on, and search still finds it', () => {
-  assert.ok(!availableTabs().some((tab) => tab.id === 'advanced'))
-  assert.equal(availableTabs(true).at(-1)?.id, 'advanced')
-  assert.equal(pickTab('advanced'), 'general')
-  assert.equal(pickTab('advanced', true), 'advanced')
-  const found = searchSettings('prompt')
-  assert.deepEqual(found.map((match) => match.section.heading), ['prompts-heading'])
-  assert.ok(found[0].tab.advanced)
-})
-
-test('the advanced switch is remembered by the browser and off by default', () => {
-  const values = new Map<string, string>()
-  const store = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value) }, removeItem: (key: string) => { values.delete(key) } }
-  assert.equal(readAdvanced(store), false)
-  writeAdvanced(store, true)
-  assert.equal(readAdvanced(store), true)
-  writeAdvanced(store, false)
-  assert.equal(readAdvanced(store), false)
-  assert.equal(readAdvanced(undefined), false)
-  const broken = { getItem: () => { throw new Error('blocked') }, setItem: () => { throw new Error('blocked') }, removeItem: () => { throw new Error('blocked') } }
-  assert.equal(readAdvanced(broken), false)
-  writeAdvanced(broken, true)
+test('search finds what left Settings and says where it went', () => {
+  const dice = searchSettings('dice')
+  assert.deepEqual(dice.map((match) => match.section.heading), ['hidden-values-heading'])
+  assert.ok(dice[0].elsewhere)
+  assert.equal(dice[0].section.view, 'story')
+  assert.deepEqual(searchSettings('townsfolk').map((match) => match.section.heading), ['townsfolk-mix-heading'])
+  assert.deepEqual(searchSettings('prompt').map((match) => match.section.heading), ['prompts-heading'])
+  const headings = [...SETTINGS_TABS.flatMap((tab) => tab.sections), ...ELSEWHERE].map((section) => section.heading)
+  assert.equal(new Set(headings).size, headings.length)
 })
 
 test('prompts are grouped in order and their placeholders explained', () => {

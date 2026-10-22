@@ -213,7 +213,7 @@ def busy(state) -> str | None:
     """Why the app cannot leave its world right now, if it cannot."""
     with state.database.connect() as connection:
         if optional(connection, 'SELECT id FROM debug_time WHERE id=1'):
-            return 'Debug time is on in this world. Return to real time in Settings > Debug first.'
+            return 'Debug time is on in this world. Return to real time in Settings > Developer first.'
     return None
 
 
@@ -299,7 +299,7 @@ def unique_name(data: dict, wanted: str) -> str:
 def create_world(database: Database, persona_id: str | None = None, name: str | None = None,
                  city_id: str | None = None, town_mix: dict | None = None) -> dict:
     """A new world for a persona (the active one by default), in the current city unless another is named.
-    `SOMEWHERE_NEW` lets the app pick. `town_mix` is its townsfolk mix (Settings > Debug), else the current world's."""
+    `SOMEWHERE_NEW` lets the app pick. `town_mix` is its townsfolk mix (Worlds > Townsfolk mix), else the current world's."""
     data = registry(database)
     active = found(data['worlds'], data['active'], 'world')
     persona = found(data['personas'], persona_id or active['persona_id'], 'persona')
@@ -440,7 +440,7 @@ def change_home(database: Database, world_id: str, body) -> dict:
 
 def set_aside(database: Database, world: dict) -> str:
     """A verified backup of a world about to be deleted, in the data folder's backups/deleted-worlds; it is not
-    listed in Settings > Backups, where restoring it would replace the world the user is in."""
+    listed in Settings > Data, where restoring it would replace the world the user is in."""
     created_at = database.now()
     name = f"before-delete-world-{created_at[:19].replace(':', '').replace('-', '')}-{world['id'][:6]}.zip"
     path = world_path(database.home, world)

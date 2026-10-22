@@ -22,6 +22,7 @@ import { StoryChapters } from './StoryChapters'
 import { StoryNotebook } from './StoryNotebook'
 import { StoryGear } from './StoryGear'
 import { StoryIntensity } from './StoryIntensity'
+import { HiddenValues } from '../settings/HiddenValues'
 import { StoryInjuries } from './StoryInjuries'
 import { StoryPowers } from './StoryPowers'
 import { StoryNarration } from './StoryNarration'
@@ -128,11 +129,13 @@ function StoryPanel({ story, change, onTravel, onBack }: PanelProps) {
       {!story.campaign?.ironman && <StoryBranches branches={story.branches}
         onSwitch={(id) => void change(() => api<StoryData>(`/story/branches/${encodeURIComponent(id)}/switch`, {}))} />}
       {!!story.messages.length && <StoryNotebook />}
-      {/* Tone and rules are set once and changed now and then, so they fold away below what play needs. */}
+      {/* Tone and rules are set once and changed now and then, so they fold away below what play needs. They are this
+          campaign's rules, so they live here rather than in Settings (src/features/settings/sections.ts ELSEWHERE). */}
       <details className="story-people story-dials">
-        <summary><Settings2 aria-hidden="true" />Tone and rules</summary>
+        <summary id="story-dials-heading"><Settings2 aria-hidden="true" />Tone and rules</summary>
         <StoryIntensity intensity={story.intensity} onSaved={() => void refresh()} />
         <StoryInjuries persistence={story.injury_persistence ?? 'permanent'} onSaved={() => void refresh()} />
+        <HiddenValues />
       </details>
     </aside>
   )

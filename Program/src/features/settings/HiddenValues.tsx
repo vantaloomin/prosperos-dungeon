@@ -24,7 +24,7 @@ function useFlags() {
   return { settings: settings.data, save, error }
 }
 
-/** World > Adult side of life (dungeon/world/intimacy.py): off until the user turns it on. */
+/** Worlds > Adult side of life (dungeon/world/intimacy.py): off until the user turns it on. */
 export function AdultSideSettings() {
   const { settings, save, error } = useFlags()
   return (
@@ -40,13 +40,13 @@ export function AdultSideSettings() {
   )
 }
 
-/** World > Hidden values: what shapes the story but stays unseen unless the user turns it on. */
+/** Story > Tone and rules > Dice and hidden values: what shapes the story but stays unseen unless the user turns it on. */
 export function HiddenValues() {
   const { settings, save, error } = useFlags()
   return (
     <section className="settings-section form-stack" aria-labelledby="hidden-values-heading">
       <div>
-        <h2 id="hidden-values-heading">Hidden values</h2>
+        <h2 id="hidden-values-heading">Dice and hidden values</h2>
         <p className="subtle">Some things stay behind the curtain: you notice them from how the story goes, not from a label.</p>
       </div>
       <Toggle label="Show the dice" checked={settings?.show_odds === true} disabled={!settings} onChange={(checked) => void save({ show_odds: checked })}
