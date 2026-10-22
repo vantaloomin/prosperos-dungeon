@@ -94,6 +94,12 @@ truth included, to correct or remove, and "Ask again" on a fact the model pulled
 model for that one fact again from its turn, without redoing the turn. The new fact is checked against the record and
 logged like a correction.
 
+The journal also shows **the story so far** as the narrator keeps it (the rolling summary). With the GM view on,
+**Behind the story** (`dungeon/gm.py`, `GET /api/story/gm`) shows what the game keeps behind it: every quest with
+its hidden truth and whether the character knows of it, the director's arcs at their stages with their truths and
+antagonists, its open threads and nemeses, how everyone met feels (each axis set by hand there) and their
+impressions, the factions' standing (set by hand), the dark tracks' points, and the log of corrections to the record.
+
 The narrator reads the latest messages word for word. Once 30 recent ones plus 20 more are waiting, the oldest 20 are
 folded into one rolling summary (`story_summary`) by the Continuity model, or the Default one without it, and the
 narrator gets that summary as "The story so far" in their place. The record and the summary are branched with the

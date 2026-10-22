@@ -7,7 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse
 from pydantic import Field
 
-from dungeon import campaign, chapters, director, growth, quests, record, sheet, story, story_clock
+from dungeon import campaign, chapters, director, gm, growth, quests, record, sheet, story, story_clock, tiers
 from dungeon.errors import DomainError
 from dungeon.models import Input, PersonaInput
 
@@ -283,8 +283,9 @@ class JournalChange(Input):
 
 
 def journal_view(connection, database) -> dict:
-    gm = record.gm_view(connection)
-    return {'entries': record.entries(connection, known_only=not gm), 'gm': gm,
+    behind = record.gm_view(connection)
+    return {'entries': record.entries(connection, known_only=not behind), 'gm': behind,
+            'summary': record.summary(connection)['text'],
             'quests': quests.view(connection, story_clock.now(connection, database.clock)),
             'threads': director.journal(connection)}
 
@@ -326,6 +327,43 @@ async def regenerate_note(request: Request, entry_id: str):
     await record.regenerate(request.app.state, entry_id)
     with request.app.state.database.connect() as connection:
         return journal_view(connection, request.app.state.database)
+
+
+class Feelings(Input):
+    trust: int | None = Field(None, ge=-5, le=5)
+    affection: int | None = Field(None, ge=-5, le=5)
+    respect: int | None = Field(None, ge=-5, le=5)
+    fear: int | None = Field(None, ge=0, le=5)
+    desire: int | None = Field(None, ge=0, le=5)
+
+
+class Standing(Input):
+    value: int = Field(ge=-5, le=5)
+
+
+def gm_view(connection) -> dict:
+    return gm.view(connection, tiers.world_of(story.scene_row(connection)['city_id']))
+
+
+@router.get('/gm')
+def behind_the_story(request: Request):
+    """The GM view (dungeon/gm.py): everything the game keeps behind the story, secrets included."""
+    with request.app.state.database.connect() as connection:
+        return gm_view(connection)
+
+
+@router.patch('/gm/people/{key}')
+def set_feelings(request: Request, key: str, body: Feelings):
+    with request.app.state.database.connect(write=True) as connection:
+        gm.set_feelings(connection, key, body.model_dump(exclude_none=True))
+        return gm_view(connection)
+
+
+@router.put('/gm/factions/{faction_id}')
+def set_standing(request: Request, faction_id: str, body: Standing):
+    with request.app.state.database.connect(write=True) as connection:
+        gm.set_standing(connection, faction_id, body.value)
+        return gm_view(connection)
 
 
 @router.delete('')
