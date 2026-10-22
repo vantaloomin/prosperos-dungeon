@@ -53,7 +53,7 @@ export function HiddenValues() {
         hint="Each roll under your line: the stat, the die, the difficulty and how it landed. Off, you feel the dice only through the story." />
       {settings?.show_odds && (
         <Toggle label="Roll the dice on screen" checked={settings.roll_dice === true} onChange={(checked) => void save({ roll_dice: checked })}
-          hint="The dice tumble and land on each roll before its result shows. The game has already rolled them: what you see is that roll, never a new one. A click lands them at once." />
+          hint="3D dice roll across the story and land on each roll before its result shows (flat dice on a PC without 3D graphics). The game has already rolled them: what you see is that roll, never a new one. A click lands them at once." />
       )}
       {settings?.adult_side && (
         <Toggle label="Show townsfolk's adult side" checked={settings.show_adult_side === true} onChange={(checked) => void save({ show_adult_side: checked })}

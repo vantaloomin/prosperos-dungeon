@@ -294,3 +294,13 @@ export function tumbleFace(face: DieFace, pick: number): string {
   if (face.key === 'tens') return String(side * 10).padStart(2, '0')
   return String(face.key === 'ones' ? side : side + 1)
 }
+
+/** The 3D dice's notation for a roll (src/features/story/dice3d.ts), landing on its faces: its tens die reads 00 as 100 and its d10 reads 0 as 10. */
+export function diceNotation(faces: DieFace[]): string {
+  const forced = faces.map((face) => {
+    const value = Number(face.value)
+    if (face.key === 'tens') return value || 100
+    return face.key === 'ones' ? value || 10 : value
+  })
+  return `${faces.map((face) => (face.key === 'tens' ? '1d100' : `1d${face.sides}`)).join('+')}@${forced.join(',')}`
+}

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { actionLine, aroundText, diceFaces, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats, tierText, darkText, threadKind } from '../../src/features/story/storyText.ts'
+import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats, tierText, darkText, threadKind } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -212,4 +212,11 @@ test('a tumbling die only shows faces it has', () => {
   assert.equal(tumbleFace(ones, 0), '0')
   assert.equal(tumbleFace(stat, 0), '1')
   assert.equal(tumbleFace(stat, 0.99), '6')
+})
+
+test('the 3D dice are told the faces to land on', () => {
+  const roll = { action: 'a', stat: 'Allure', difficulty: 'normal', die: 8, natural: 52, bonus: 7, shift: 0, total: 59, band: 'success_cost' as const, label: 'x' }
+  assert.equal(diceNotation(diceFaces(roll)), '1d100+1d10+1d8@50,2,7')
+  assert.equal(diceNotation(diceFaces({ ...roll, natural: 100, die: null })), '1d100+1d10@100,10')
+  assert.equal(diceNotation(diceFaces({ ...roll, natural: 7, die: null })), '1d100+1d10@100,7')
 })

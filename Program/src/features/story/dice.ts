@@ -16,27 +16,58 @@ function calm(): boolean {
 export interface Tumble { faces: DieFace[]; shown: string[]; landed: boolean[]; done: boolean; skip: () => void }
 
 /** The dice of one roll as they tumble: `rolling` false (a saved roll, or reduced motion) shows them landed. */
+/** Whether this PC can draw the 3D dice; without WebGL the flat dice tumble instead. */
+function webgl(): boolean {
+  try {
+    const canvas = document.createElement('canvas')
+    return !!(canvas.getContext('webgl2') ?? canvas.getContext('webgl'))
+  }
+  catch { return false }
+}
+
+/** The 3D dice, if this PC can draw them: `landed` once they have, `failed` to fall back to the flat ones. */
+function use3d(faces: DieFace[], on: boolean, landed: () => void, failed: () => void) {
+  useEffect(() => {
+    if (!on) return
+    let gone = false
+    import('./dice3d').then((dice) => dice.roll3d(faces))
+      .then(() => { if (!gone) landed() }, () => { if (!gone) failed() })
+    return () => { gone = true }
+    // One throw per roll: the faces are fixed once the roll is made.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [on])
+}
+
+/** The flat dice: random faces until each lands in turn. */
+function useFlat(faces: DieFace[], on: boolean, elapsed: number, tick: (elapsed: number, picks: number[]) => void) {
+  useEffect(() => {
+    if (!on) return
+    const started = Date.now() - elapsed
+    const timer = window.setInterval(() => tick(Date.now() - started, faces.map(() => Math.random())), TICK_MS)
+    return () => window.clearInterval(timer)
+    // The timer runs once per roll; it reads elapsed only to resume where it stood.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [on])
+}
+
+/** The dice of one roll as they roll: in 3D where the PC can, else flat. `rolling` false (a saved roll, or reduced
+ *  motion) shows them landed. */
 export function useTumble(roll: StoryRoll, rolling: boolean): Tumble {
   const faces = diceFaces(roll)
   const end = landsAt(faces.length - 1)
   const [elapsed, setElapsed] = useState(() => (rolling && !calm() ? 0 : end))
+  const [flat, setFlat] = useState(() => !rolling || !webgl())
   const [picks, setPicks] = useState<number[]>(() => faces.map(() => 0))
   const done = elapsed >= end
-  useEffect(() => {
-    if (done) return
-    const started = Date.now() - elapsed
-    const timer = window.setInterval(() => {
-      setElapsed(Date.now() - started)
-      setPicks(faces.map(() => Math.random()))
-    }, TICK_MS)
-    return () => window.clearInterval(timer)
-    // The timer runs once per roll; it reads elapsed only to resume where it stood.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [done])
+  use3d(faces, !done && !flat, () => setElapsed(end), () => setFlat(true))
+  useFlat(faces, !done && flat, elapsed, (next, faces) => { setElapsed(next); setPicks(faces) })
   const landed = faces.map((_, index) => elapsed >= landsAt(index))
   return {
     faces, landed, done,
-    shown: faces.map((face, index) => (landed[index] ? face.value : tumbleFace(face, picks[index] ?? 0))),
-    skip: () => setElapsed(end),
+    shown: faces.map((face, index) => (landed[index] ? face.value : flat ? tumbleFace(face, picks[index] ?? 0) : '')),
+    skip: () => {
+      setElapsed(end)
+      if (!flat) void import('./dice3d').then((dice) => dice.clear3d())
+    },
   }
 }

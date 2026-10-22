@@ -689,3 +689,7 @@ img.avatar, img.portrait { object-fit: cover; object-position: center top; paddi
 @keyframes die-tumble { 0% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-4px) rotate(180deg); } 100% { transform: translateY(0) rotate(360deg); } }
 @keyframes die-land { from { transform: scale(1.25) rotate(-20deg); } }
 @media (max-width: 720px) { .roll-card.with-dice { grid-template-columns: minmax(0, 1fr) auto; } .dice-tray { grid-column: 1 / -1; } }
+/* The 3D dice (src/features/story/dice3d.ts) roll over the whole window and let every click through. */
+.dice-stage { position: fixed; inset: 15% 10%; z-index: 40; pointer-events: none; opacity: 0; transition: opacity 0.4s ease; }
+.dice-stage.rolling { opacity: 1; transition-duration: 0.1s; }
+.dice-stage canvas { width: 100% !important; height: 100% !important; }
