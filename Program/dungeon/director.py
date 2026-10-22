@@ -182,10 +182,16 @@ def spine(connection, world: str) -> str | None:
     return current
 
 
-def scene_kind(rolls: list[dict], fought: list[str], people: list[dict]) -> str:
+def pressed(noted: list[str]) -> bool:
+    """Whether the line's note asked for pressure; that line then counts as pressure on the curve, so the next slack
+    run starts over instead of every line after it asking again."""
+    return any('- Pressure: ' in text and '- Pressure: none.' not in text for text in noted)
+
+
+def scene_kind(rolls: list[dict], fought: list[str], people: list[dict], noted: list[str] = ()) -> str:
     if fought:
         return 'crisis'
-    if any(roll.get('threat') for roll in rolls):
+    if any(roll.get('threat') for roll in rolls) or pressed(noted):
         return 'pressure'
     return 'social' if people else 'quiet'
 

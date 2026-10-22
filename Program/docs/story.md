@@ -509,6 +509,7 @@ who is not there; the words that tell code play touched it; and its antagonist, 
 - **The tension curve.** Each line is a crisis (a fight), pressure (a roll with a danger on it), social (people
   about) or quiet. After a crisis the note lets the next scene breathe; after a slack run (5, 4, 3 or 2 quiet or
   social lines, by the drama setting) it asks for pressure: a nemesis who is due, the hottest thread, or the spine.
+  The line it asks on counts as pressure, so the next run starts over rather than every line after asking again.
 - **Side quests.** A job offered links into the arc in focus one time in three, carrying the arc's current seed as a
   clue tie.
 - **Nemeses.** A foe who broke and got away from a fight the character won, or who robbed, took or threw out the

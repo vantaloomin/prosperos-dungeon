@@ -100,6 +100,12 @@ def test_the_note_follows_the_tension_curve_and_plants_a_seed_once(client, app, 
             director.touch(connection, 'vallarith', 'I wait.', 'quiet', f'q{n}', 'x')
         assert 'Pressure: the story has gone slack. Bring' in note(connection, 'eventful')
         assert 'Pressure' not in note(connection, 'quiet')
+        # The line the note pressed counts as pressure, so the next lines do not all ask again.
+        pressed = note(connection, 'eventful')
+        assert director.scene_kind([], [], [{'key': 'x'}], [pressed]) == 'pressure'
+        assert director.scene_kind([], [], [{'key': 'x'}], ['- Pressure: none. After that, let it breathe']) == 'social'
+        director.touch(connection, 'vallarith', 'I wait.', 'pressure', 'p1', 'x')
+        assert 'Pressure' not in note(connection, 'eventful')
         # The spine's antagonist is near in Kingswood once play has bitten on it.
         assert "Nearby: Gannet & Pryce's agent" in note(connection)
 
