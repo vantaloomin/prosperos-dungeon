@@ -1,24 +1,24 @@
 import { useState } from 'react'
-import type { InjuryPersistence, LegacyCandidate, LegacyRole, StoryArc, StoryHand, StoryIntensity, StoryPace, StoryStart as StartChoices, TablePreset, TableRules } from '../../types'
+import type { DefeatRule, InjuryPersistence, Ruleset, LegacyCandidate, LegacyRole, StoryArc, StoryHand, StoryIntensity, StoryPace, StoryStart as StartChoices, TablePreset, TableRules } from '../../types'
 import { Field, Toggle } from '../../components/Fields'
 import { ARC_NAMES, dramaChoices, HAND_NAMES, intensityChoices, LEGACY_ROLES, PACE_NAMES } from './storyText'
 
 type Legacy = { world_id: string; role: LegacyRole }
-type Tone = Pick<TableRules, 'intensity' | 'drama' | 'injury_persistence'>
+type Tone = Pick<TableRules, 'intensity' | 'drama' | 'injury_persistence' | 'defeat'>
 type Taste = Pick<TableRules, 'show_odds' | 'roll_dice'>
 
 const INJURIES: [InjuryPersistence, string][] = [['permanent', 'Permanent: they stay'],
   ['temporary', 'Temporary: they fade with time'], ['none', 'None: wounds heal clean']]
 
 interface Props {
-  choices: StartChoices; intensity?: StoryIntensity; who: string; busy: boolean
+  choices: StartChoices; intensity?: StoryIntensity; ruleset?: Ruleset; who: string; busy: boolean
   onStart: (body: Record<string, unknown>) => void; onBack: () => void
 }
 
 /** Session zero (docs/story.md "The Table"): before play, what kind of game this is. A preset sets the tone and the
  *  director's hand, the world's own pre-picked so Start is one click away; "Fine-tune" shows every rule it set, and the
  *  rest of what is chosen once for the campaign. */
-export function SessionZero({ choices, intensity, who, busy, onStart, onBack }: Props) {
+export function SessionZero({ choices, intensity, ruleset, who, busy, onStart, onBack }: Props) {
   const { presets, preset, pick, rules, steer, setTone, setTaste, setHand, campaign, setCampaign, body } = useSession(choices)
   return (
     <section className="session-zero" aria-labelledby="session-zero-heading">
@@ -28,6 +28,7 @@ export function SessionZero({ choices, intensity, who, busy, onStart, onBack }: 
       <details className="session-fine-tune">
         <summary>Fine-tune</summary>
         <ToneFields rules={rules} intensity={intensity} onChange={setTone} />
+        {ruleset === 'srd52' && <DefeatField value={rules.defeat ?? 'as_written'} onChange={(defeat) => setTone({ defeat })} />}
         {choices.arc && <HandField value={steer} onChange={setHand} />}
         <TasteFields rules={rules} onChange={setTaste} />
         <CampaignFields choices={choices} value={campaign} onChange={setCampaign} />
@@ -85,6 +86,12 @@ function TasteFields({ rules, onChange }: { rules: TableRules; onChange: (change
     {rules.show_odds && <Toggle label="Roll the dice on screen" checked={rules.roll_dice} onChange={(checked) => onChange({ roll_dice: checked })}
       hint="Dice roll across the story and land on the game's own roll before its result shows." />}
   </>)
+}
+
+/** Under 5E only: a defeat at 0 hit points by the death saves as written, or by what the foes were after. */
+function DefeatField({ value, onChange }: { value: DefeatRule; onChange: (defeat: DefeatRule) => void }) {
+  return <Toggle label="Foes decide a defeat" checked={value === 'by_aim'} onChange={(checked) => onChange(checked ? 'by_aim' : 'as_written')}
+    hint="Off: at 0 hit points the death saves decide, as written. On: only foes out to kill bring the death saves; others take what they came for." />
 }
 
 function PresetCards({ presets, value, onChange }: { presets: TablePreset[]; value: string; onChange: (id: string) => void }) {

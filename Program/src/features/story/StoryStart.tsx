@@ -31,7 +31,7 @@ export function StoryStart({ onStarted, intensity }: { onStarted: (data: StoryDa
     finally { setBusy(false) }
   }
   if (who) return (<>
-    <SessionZero choices={choices.data} intensity={intensity} who={who.name} busy={busy} onStart={(body) => void begin(body)} onBack={() => setWho(null)} />
+    <SessionZero choices={choices.data} intensity={intensity} ruleset={ruleset ?? choices.data.ruleset} who={who.name} busy={busy} onStart={(body) => void begin(body)} onBack={() => setWho(null)} />
     {error && <Notice tone="error">{error}</Notice>}
   </>)
   const { premades } = choices.data
