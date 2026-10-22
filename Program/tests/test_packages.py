@@ -4,9 +4,12 @@ import json
 import shutil
 
 import pytest
+from conftest import tell
+from test_combat import kingswood
+from test_rulesets import reply
 from test_travel import ok
 
-from dungeon import packages
+from dungeon import package_lore, packages
 from dungeon.errors import DomainError
 
 
@@ -89,3 +92,25 @@ def test_packages_over_the_api(client, folder, app):
     refused = client.post('/api/packages/import', json={'folder': str(folder)})
     assert refused.status_code == 409
     assert client.get('/api/packages/nowhere/file').status_code == 404
+
+
+def test_a_campaign_in_vallarith_reads_the_packages_lore_by_keyword(client, connected, provider, app):
+    kingswood(client, 'felled-oak')
+    with app.state.database.connect() as connection:
+        books = connection.execute("SELECT id, name, source_file FROM lore_books WHERE source_format='World package'"
+                                   ).fetchall()
+        assert [row['name'] for row in books] == ['Vallarith (world package)']
+        titles = {row['title'] for row in connection.execute('SELECT title FROM lore_entries WHERE book_id=?',
+                                                              (books[0]['id'],))}
+    lore = packages.read(packages.installed(app.state.database.root, 'vallarith'))['sections']['lore']['entries']
+    # Post-Reform only: an entry for another era alone stays out.
+    assert titles == {entry['title'] for entry in lore if not entry.get('eras') or 'post-reform' in entry['eras']}
+    provider.replies = [reply('Smoke over the mountains.')]
+    tell(client, 'I ask about Dun Aldun.', 'story-0001')
+    assert "The Dwarven Empire's capital" in provider.requests[-1]['system']
+    # A second start keeps the one book; changed lore replaces it.
+    with app.state.database.connect(write=True) as connection:
+        assert package_lore.bring(connection, app.state.database.root, 'vallarith', 'now') is None
+        assert package_lore.bring(connection, app.state.database.root, 'vallarith', 'now', 'brotherhood')['entries']
+        assert connection.execute("SELECT COUNT(*) FROM lore_books WHERE source_format='World package'"
+                                  ).fetchone()[0] == 1

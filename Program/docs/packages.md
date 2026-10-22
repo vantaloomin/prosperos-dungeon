@@ -34,6 +34,15 @@ and for each town on its map the town's adventure, items, finds, premades and ci
 the data folder (`packages/<id>.sqlite`) when first asked for. It is built again whenever a source changes, which a
 fingerprint of the contents tells.
 
+## In play
+
+- **Lore.** A campaign that starts in a world with a package gets the package's `lore` section as one of the
+  world's lore books, "<World> (world package)" (`dungeon/package_lore.py`). The narrator reads its entries by
+  keyword like any imported lorebook (docs/story.md "Lore"), and the player can switch entries off on the Lore
+  screen. Only entries that hold in the campaign's era come in (the era is `world.json` `starting_place.era`; an
+  entry with no `eras` holds in all). Hidden truths never come in this way. The book is read from the package file,
+  so an edited or imported world plays as edited. When the lore changes, the next campaign start replaces the book.
+
 ## API
 
 - `GET /api/packages`: the built-in and imported worlds, each with its sections' entry counts (and how many hide a
@@ -44,5 +53,4 @@ fingerprint of the contents tells.
 - `POST /api/packages/import` `{folder}`: a world folder on this computer, checked and made into a package. A
   built-in world's id is refused.
 
-Not yet: the game reading its data from the package instead of `dungeon/world/data`, the narrator's lorebook from
-the package's lore, the importer that drafts sections with a model for review, and the built-in editor.
+Not yet: the game reading its data from the package instead of `dungeon/world/data`, the importer that drafts sections with a model for review, and the built-in editor.

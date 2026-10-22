@@ -13,6 +13,7 @@ from dungeon import (
     director,
     inventory,
     legacy,
+    package_lore,
     quests,
     sheet,
     story,
@@ -203,6 +204,8 @@ def begin(database, premade_id: str | None = None, persona: PersonaInput | None 
             tiers.begin(connection, world, arc, pace)
             # The director's arcs and threads, and how hard its hand pushes (dungeon/director.py).
             director.begin(connection, world, hand, database.now())
+            # The world package's public lore, read by keyword like any lorebook (dungeon/package_lore.py).
+            package_lore.bring(connection, database.root, world, database.now())
         # An earlier campaign's character as this world's history (dungeon/legacy.py).
         if earlier:
             legacy.bring(connection, earlier, legacy_of['role'], database.clock.now())
