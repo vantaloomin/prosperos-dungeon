@@ -104,7 +104,7 @@ function StoryPanel({ story, change, onTravel }: PanelProps) {
       <StoryInjuries persistence={story.injury_persistence ?? 'permanent'} onSaved={() => void refresh()} />
       {!!story.messages.length && <><StorySheet open={wide} /><StoryGear open={wide} onTrade={() => void refresh()} /><StoryJournal open={wide} /></>}
       {!!story.messages.length && <StoryMap map={story.map} open={wide} onTravel={onTravel} />}
-      {!!story.messages.length && <StoryPowers factions={story.factions ?? []} />}
+      {!!story.messages.length && <StoryPowers factions={story.factions ?? []} tier={story.tier} />}
       <StoryPeople people={story.people} onFind={(key) => void change(() => api<StoryData>('/story/find', { key }))} />
       <StoryBranches branches={story.branches}
         onSwitch={(id) => void change(() => api<StoryData>(`/story/branches/${encodeURIComponent(id)}/switch`, {}))} />

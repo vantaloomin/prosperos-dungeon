@@ -318,7 +318,9 @@ CREATE TABLE IF NOT EXISTS story_quests (
   -- For the story director: the arc it feeds, its thread, and the loose ends it leaves ([{kind, ref}]).
   arc_id TEXT,
   thread_id TEXT,
-  ties TEXT NOT NULL DEFAULT '[]'
+  ties TEXT NOT NULL DEFAULT '[]',
+  -- Its tier on the shared ladder (dungeon/tiers.py).
+  tier INTEGER NOT NULL DEFAULT 1
 );
 
 -- What the character carries and the shops' stock (dungeon/inventory.py); money in hundredths of the currency.
@@ -371,6 +373,14 @@ CREATE TABLE IF NOT EXISTS story_cards (
   card_id TEXT,
   lines TEXT NOT NULL,
   PRIMARY KEY (message_id, scene)
+);
+
+-- The character's tier track (dungeon/tiers.py): the arc and pace the campaign started with, and the track's points.
+CREATE TABLE IF NOT EXISTS story_tier (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  arc TEXT NOT NULL,
+  pace TEXT NOT NULL,
+  points INTEGER NOT NULL DEFAULT 0
 );
 
 -- Off-page beats (dungeon/beats.py): what has become of the people the character is connected to, each beat that

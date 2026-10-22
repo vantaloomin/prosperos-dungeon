@@ -25,8 +25,8 @@ from dungeon import record
 from dungeon.database import many, optional
 
 FACTIONS = Path(__file__).parent / 'world' / 'data' / 'factions'
-LOWEST, HIGHEST = -5, 5
-STANDING = ((-4, 'an enemy'), (-2, 'distrusted'), (-1, 'frowned on'), (0, 'unknown'), (1, 'noticed'),
+LOWEST, HIGHEST, ENEMY = -5, 5, -4
+STANDING = ((ENEMY, 'an enemy'), (-2, 'distrusted'), (-1, 'frowned on'), (0, 'unknown'), (1, 'noticed'),
             (3, 'trusted'), (HIGHEST, 'honoured'))
 # Off only for tests that are about something else (tests/conftest.py).
 ACTIVE = True

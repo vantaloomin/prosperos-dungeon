@@ -378,6 +378,28 @@ the scene and is not dead.
 Fates, beats, word and the off-page clock are game state (`timeline.SAVED`); each line's beats are kept with it
 (`story_cards` scene `beat`), so telling the line again brings the same ones.
 
+## Scaling and tiers
+
+`dungeon/tiers.py`. One ladder for every world and ruleset: Local, Regional, Realm, World, Mythic. Each world names
+the track that sets the character's tier (`dungeon/world/data/tiers/<world>.json`); Vallarith's is renown, earned by
+work done (4 times the work's tier, doubled for work above the character; oaths earn none).
+
+- **The arc.** The start screen asks how far the character can rise (grounded: Local to Regional; classic: Local to
+  Mythic; epic: Realm to Mythic) and how fast (slow burn needs twice the track, a fast rise half). The world sets
+  the defaults. A rise tells the narrator once; the panel's Powers shows the tier in words, with the track's
+  numbers when the dice are shown.
+- **Work at the character's tier.** Jobs carry a tier. A faction offers only jobs at the character's tier, and one
+  time in ten one a tier above, with a warning that it is beyond them. Nothing two tiers up comes unasked. A line
+  that goes looking for work (asking who is hiring, reading the notices) finds it on any line, at their tier or
+  below.
+- **The world keeps its tiers.** Each region has one (the travel map's `regions`: the Kingdom of Cyrel Local, the
+  Kingdoms of Man and the Badlands Regional, Brynwyr Realm). A journey that ends somewhere above the character
+  warns them first, and the narrator is told the place outmatches them. A Life Card's foes come at the region's
+  tier. Each faction has a tier too: one the character has made an enemy of, above the region's tier, sends its
+  own after them on the road, at its tier.
+
+The track is game state (`story_tier`, in `timeline.SAVED`).
+
 ## Rewrite
 
 `dungeon/passages.py`. The automatic rewrites still run when there is time; whatever the checks find and do not

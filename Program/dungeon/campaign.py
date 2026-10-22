@@ -8,7 +8,7 @@ with the player arriving where the scene is.
 import json
 from pathlib import Path
 
-from dungeon import inventory, quests, sheet, story, story_clock, timeline, worlds
+from dungeon import inventory, quests, sheet, story, story_clock, tiers, timeline, worlds
 from dungeon.database import one
 from dungeon.errors import require
 from dungeon.models import PersonaInput
@@ -28,8 +28,10 @@ def premades(city_id: str) -> list[dict]:
 def view(database) -> dict:
     with database.connect() as connection:
         city_id = story.scene_row(connection)['city_id']
+    world = tiers.world_of(city_id)
     return {'premades': premades(city_id), 'points': POINTS, 'range': list(START_RANGE),
-            'stat_names': list(marvel.STATS), 'meanings': marvel.MEANINGS}
+            'stat_names': list(marvel.STATS), 'meanings': marvel.MEANINGS,
+            'arc': world and {'arc': tiers.track(world)['arc'], 'pace': tiers.track(world)['pace']}}
 
 
 def bought(stats: dict[str, int]) -> dict[str, int]:
@@ -43,7 +45,7 @@ def bought(stats: dict[str, int]) -> dict[str, int]:
 
 
 def begin(database, premade_id: str | None = None, persona: PersonaInput | None = None,
-          stats: dict[str, int] | None = None) -> dict:
+          stats: dict[str, int] | None = None, arc: str | None = None, pace: str | None = None) -> dict:
     """Start the story as a premade character or one the player made; only a story with nothing in it yet."""
     with database.connect() as connection:
         where, values = timeline.visible(connection)
@@ -66,5 +68,8 @@ def begin(database, premade_id: str | None = None, persona: PersonaInput | None 
         story_clock.start(connection, database.clock.now())
         quests.start(connection, city_id, database.clock.now())
         inventory.give_kit(connection, city_id, premade_id)
+        # How far and how fast the character can rise (dungeon/tiers.py).
+        if world := tiers.world_of(city_id):
+            tiers.begin(connection, world, arc, pace)
         story.arrive(connection, database.now())
     return story.story(database)

@@ -16,7 +16,8 @@ SAVED = ('story_scene', 'story_people', 'character_stats', 'record_entries', 'st
          'story_clock', 'story_quests', 'story_inventory', 'story_purse', 'story_stock', 'story_trades',
          'story_wounds', 'story_fight', 'story_haggles', 'story_finds', 'story_map',
          'story_injuries', 'story_stress', 'story_cards',
-         'story_clocks', 'story_reputation', 'story_fates', 'story_beats', 'story_word', 'story_offpage')
+         'story_clocks', 'story_reputation', 'story_fates', 'story_beats', 'story_word', 'story_offpage',
+         'story_tier')
 ROOT = 'first'
 OLD_NAMES = {new: old for old, new in RENAMED_TABLES}
 

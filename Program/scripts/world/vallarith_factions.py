@@ -14,6 +14,9 @@ OUT = ROOT / 'dungeon' / 'world' / 'data' / 'factions' / 'vallarith.json'
 PACE = 25
 # Where a faction has a hand beyond what the package says it holds (the Guild runs Kingswood's work).
 HOLDS = {'cyrel-timber-guild': ['kingswood', 'cyrel'], 'brynwyr-high-elves': ['brynwyr', 'kingswood']}
+# Each faction's tier on the shared ladder (dungeon/tiers.py): how far its reach goes, and the trouble it can send.
+TIERS = {'kingdom-of-cyrel': 3, 'kingdom-of-asania': 3, 'cyrel-timber-guild': 2, 'brynwyr-high-elves': 3,
+         'unguruk-tribe': 2, 'mossrun-expedition': 2}
 # The clocks each faction runs here, Post-Reform: (name, segments, what happens when it fills).
 CLOCKS = {
     'kingdom-of-cyrel': [
@@ -48,7 +51,7 @@ CLOCKS = {
 
 # The jobs each faction offers in the towns it holds, when it needs something done (dungeon/jobs.py): what the
 # character is asked, what is really going on, what happens if nobody does it, the days given, the pay in day wages,
-# the standing it earns, and what it leaves behind (ties, for the story director).
+# the standing it earns, its tier (1, Local, when not given) and what it leaves behind (ties, for the story director).
 JOBS = {
     'kingdom-of-cyrel': [
         {'id': 'deserter-in-the-woods', 'title': 'A deserter in the woods', 'days': 5, 'wages': 4, 'standing': 1,
@@ -68,6 +71,26 @@ JOBS = {
          'missed': "The rolls never reached Eriane. Cyrel's magistrate has written to ask why, and the reeve's name "
                    'is mud.',
          'ties': [{'kind': 'item', 'ref': 'the levy rolls'}, {'kind': 'faction', 'ref': 'kingdom-of-cyrel'}]},
+        {'id': 'tax-cart-on-the-eriane-road', 'title': 'The tax cart on the Eriane road', 'days': 8, 'wages': 12,
+         'standing': 2, 'tier': 2, 'giver': 'the reeve',
+         'hook': "The quarter's tax cart left for Cyrel with two guards and never reached Eriane. The reeve wants the "
+                 'silver back, or the names of whoever took it, before Cyrel sends someone to ask.',
+         'truth': 'The guards drove the cart into the Badlands themselves and sold the silver to Unguruk traders. One '
+                  "is buried by the road where they quarrelled over it; the other bought a farm in his brother's name.",
+         'missed': "Cyrel's assessor came and took the shortfall out of Kingswood, house by house. The reeve kept his "
+                   'post by naming a widow as the thief.',
+         'ties': [{'kind': 'npc', 'ref': 'the surviving guard'}, {'kind': 'faction', 'ref': 'unguruk-tribe'},
+                  {'kind': 'item', 'ref': 'the tax silver'}]},
+        {'id': 'terms-at-adlmyr', 'title': 'Terms at Adlmyr', 'days': 10, 'wages': 30, 'standing': 3, 'tier': 3,
+         'giver': "the levy officer from Bastion",
+         'hook': "Cyrel wants its sealed terms carried into Adlmyr and put in the war-chief's hand, by someone the "
+                 'Unguruk will not take for a soldier.',
+         'truth': 'The terms are a stall. The army marches on Adlmyr while the war-chief reads them, and the one who '
+                  'carried them is meant to be inside the walls when it does.',
+         'missed': 'No envoy went. The army marched anyway, and the levy officer wrote that Kingswood refused the '
+                   "crown's errand.",
+         'ties': [{'kind': 'item', 'ref': 'the sealed terms'}, {'kind': 'npc', 'ref': 'the Unguruk war-chief'},
+                  {'kind': 'faction', 'ref': 'unguruk-tribe'}]},
     ],
     'cyrel-timber-guild': [
         {'id': 'debt-at-cutters-camp', 'title': "A debt at Cutters' Camp", 'days': 3, 'wages': 3, 'standing': 1,
@@ -83,6 +106,16 @@ JOBS = {
          'truth': "It is the factor's own nephew, paid by friends of the elves in town to slow the felling.",
          'missed': 'The Guild blamed the night watchman and turned him out. The saws keep breaking.',
          'ties': [{'kind': 'npc', 'ref': "the factor's nephew"}, {'kind': 'faction', 'ref': 'brynwyr-high-elves'}]},
+        {'id': 'the-mossrun-survey', 'title': 'The Mossrun survey', 'days': 7, 'wages': 10, 'standing': 2, 'tier': 2,
+         'giver': 'the Guild factor',
+         'hook': 'The Guild wants its surveyor taken safely to Mossrun and back, to judge the timber on the hills the '
+                 'diggers say are theirs.',
+         'truth': "The surveyor's satchel holds Guild gold for the Deep Nine's foreman, to look away while the Guild "
+                  'cuts. The foreman has already taken money from someone else to do the opposite.',
+         'missed': 'The surveyor went alone and came back without the satchel or two of his teeth. The Guild says he '
+                   'was robbed by the character, whoever asks.',
+         'ties': [{'kind': 'npc', 'ref': 'the Guild surveyor'}, {'kind': 'faction', 'ref': 'mossrun-expedition'},
+                  {'kind': 'item', 'ref': "the surveyor's satchel"}]},
     ],
     'brynwyr-high-elves': [
         {'id': 'a-message-past-the-stones', 'title': 'A message past the stones', 'days': 3, 'wages': 2,
@@ -93,6 +126,14 @@ JOBS = {
                   'already knows, and has told no one.',
          'missed': 'No one carried the message. The wardens take the silence for an answer.',
          'ties': [{'kind': 'faction', 'ref': 'brynwyr-high-elves'}, {'kind': 'item', 'ref': 'the bark message'}]},
+        {'id': 'bones-under-the-felling-line', 'title': 'Bones under the felling line', 'days': 6, 'wages': 8,
+         'standing': 2, 'tier': 2, 'giver': 'a warden of Brynwyr',
+         'hook': "The wardens say the Guild's crews cut through a barrow past the stones. They want proof they can "
+                 'lay before the reeve, and they will not cross the line to get it themselves.',
+         'truth': 'The crews did cut through it, and filled it in. Under the elven dead lie older ones: men in '
+                  'Brotherhood mail, killed with elven arrows, which neither side wants found.',
+         'missed': 'The wardens took their own proof: a felling crew, left hanging in the trees along the line.',
+         'ties': [{'kind': 'clue', 'ref': 'the opened barrow'}, {'kind': 'faction', 'ref': 'cyrel-timber-guild'}]},
     ],
 }
 
@@ -108,7 +149,8 @@ def build() -> dict:
         item = factions[faction_id]
         holds = HOLDS.get(faction_id) or [node for node in item.get('holds') or [] if node in nodes]
         result.append({
-            'id': faction_id, 'name': item['name'], 'kind': item['kind'], 'summary': item['summary'],
+            'id': faction_id, 'name': item['name'], 'kind': item['kind'], 'tier': TIERS[faction_id],
+            'summary': item['summary'],
             'goals': item.get('goals', []), 'holds': holds,
             'rivals': [other for other in item.get('rivals', []) if other in CLOCKS],
             'allies': [other for other in item.get('allies', []) if other in CLOCKS],

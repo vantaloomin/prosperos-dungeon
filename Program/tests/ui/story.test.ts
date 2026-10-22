@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { aroundText, branchLine, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats } from '../../src/features/story/storyText.ts'
+import { aroundText, branchLine, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats, tierText } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -126,4 +126,11 @@ test('paceText says how long a turn took, its slowest step and what gave way', (
     'Took 10.3 s of 30 · narrator 9.8 s')
   assert.equal(paceText({ steps: { narrator: 41 }, skipped: ['rewrite', 'contradiction'], budget: 30, total: 41.2 }),
     'Took 41.2 s of 30 · narrator 41.0 s · skipped the prose rewrite and the contradiction check for time')
+})
+
+test('the tier reads in words, with its numbers only when the dice are shown', () => {
+  const tier = { tier: 'Local', words: 'known on their own street', track: 'Renown', arc: 'classic' as const, pace: 'steady' as const }
+  assert.equal(tierText(tier), 'Renown: Local, known on their own street')
+  assert.equal(tierText({ ...tier, points: 3, next: 12 }), 'Renown: Local, known on their own street (3 of 12)')
+  assert.equal(tierText({ ...tier, tier: 'Mythic', points: 200, next: null }), 'Renown: Mythic, known on their own street (200)')
 })

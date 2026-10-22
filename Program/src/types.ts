@@ -237,7 +237,11 @@ export interface Gear {
 /** A character a town ships to play as (dungeon/campaign.py). */
 export interface Premade { id: string; name: string; gender: PersonaGender; age: number | null; about: string; stats: Record<string, number> }
 /** Campaign start: the town's premades and the point-buy for making your own. */
-export interface StoryStart { premades: Premade[]; points: number; range: [number, number]; stat_names: string[]; meanings: Record<string, string> }
+export type StoryArc = 'grounded' | 'classic' | 'epic'
+export type StoryPace = 'slow' | 'steady' | 'fast'
+export interface StoryStart { premades: Premade[]; points: number; range: [number, number]; stat_names: string[]; meanings: Record<string, string>; arc?: { arc: StoryArc; pace: StoryPace } | null }
+/** The character's tier on the shared ladder and its track (dungeon/tiers.py); the numbers only with the dice shown. */
+export interface StoryTier { tier: string; words: string; track: string; arc: StoryArc; pace: StoryPace; points?: number; next?: number | null }
 /** A fact the game keeps that the player's character knows (dungeon/record.py). */
 export interface JournalEntry { id: string; kind: string; subject: string; text: string; truth: 'belief' | 'both'; source: 'code' | 'narrator' | 'player'; created_at: string }
 export interface JournalQuest { id: string; title: string; hook: string; status: 'open' | 'done' | 'failed' | 'missed'; outcome: string; left: string; kind?: 'authored' | 'job' | 'oath' }
@@ -259,7 +263,7 @@ export interface StoryIntensity {
   cutaways?: boolean
 }
 export type DramaLevel = 'world' | 'quiet' | 'uneasy' | 'eventful' | 'merciless'
-export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null; injury_persistence: InjuryPersistence; factions?: StoryFaction[] }
+export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null; injury_persistence: InjuryPersistence; factions?: StoryFaction[]; tier?: StoryTier | null }
 /** A faction the character knows of (dungeon/factions.py): standing in words, with the number when the dice are shown. */
 export interface StoryFaction { id: string; name: string; summary: string; standing: string }
 export type InjuryPersistence = 'permanent' | 'temporary' | 'none'
