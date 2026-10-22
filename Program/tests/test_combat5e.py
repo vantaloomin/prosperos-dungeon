@@ -4,6 +4,7 @@ from test_combat import Dice, ok, reply
 from test_rulesets import made, start
 
 from dungeon import combat, combat5e, record, sheet
+from dungeon.rules import srd52
 
 
 class Always:
@@ -138,3 +139,86 @@ def test_a_danger_under_5e_brings_an_srd_foe_with_hit_points(client, connected, 
     boar = fight['fight']['foes'][0]
     assert boar['name'] == 'ley-mad boar' and boar['max_hp'] == 20 and boar['hp'] == 20  # 5d10+15, every die 1.
     assert (fight['hp'], fight['max_hp']) == (ok(client.get('/api/story/sheet'))['max_hp'],) * 2
+
+
+# Levels, XP and spells -----------------------------------------------------------------------------
+
+def wizard(client):
+    # A level 1 elf wizard (Int 17 after the Sage's +2): spell attack +5, save DC 13, two level 1 slots.
+    quick = srd52.suggested('wizard', 'sage')
+    ok(start(client, persona={'name': 'Ilse'}, ruleset='srd52', build={
+        'class_id': 'wizard', 'species_id': 'elf', 'background_id': 'sage', 'scores': quick['scores'],
+        'skills': quick['picks']}))
+
+
+def test_levels_follow_the_advancement_table_and_add_what_the_class_gains():
+    quick = srd52.suggested('wizard', 'sage')
+    built = srd52.build('wizard', 'elf', 'sage', quick['scores'], quick['picks'])
+    assert built['spells']['cantrips'] == ['acid-splash', 'chill-touch', 'fire-bolt']
+    assert len(built['spells']['prepared']) == 4 and built['spells']['slots'][:2] == [2, 0]
+    assert (srd52.xp_for(2), srd52.level_for_xp(899), srd52.level_for_xp(900)) == (300, 2, 3)
+    grown = built
+    for _ in range(3):
+        grown, gained = srd52.advance(grown)
+    # Level 4: d6 hit die, fixed 4 + Con +2 a level; Ability Score Improvement: Int 17 to 19.
+    assert grown['level'] == 4 and grown['max_hp'] == built['max_hp'] + 18 and grown['abilities']['int'] == 19
+    assert gained == ['6 more hit points', 'Intelligence +2'] and 'Scholar' in grown['features']
+    # Spells are kept as they grow: the old picks stay, level 2 spells come in with the slots.
+    assert set(built['spells']['prepared']) <= set(grown['spells']['prepared'])
+    assert grown['spells']['slots'][:2] == [4, 3] and len(grown['spells']['cantrips']) == 4
+
+
+def test_a_won_fight_and_a_milestone_give_xp_and_levels(client, app):
+    fighter(client)
+    with app.state.database.connect(write=True) as connection:
+        foe = combat5e.foes_from({'name': 'the bandit'}, 'engaged', Always(1))[0]  # 2d8+2: 4 hit points.
+        state = {'round': 0, 'wants': 'rob', 'foes': [foe]}
+        state, _, ending = combat.play_round(connection, state, [swing(20)], [{'item_id': 'sword'}], Always(8))
+        assert ending == 'won' and combat5e.fight_xp(state) == 25
+        assert combat5e.gain(connection, 25, 'the fight won') == ['The character gains 25 XP (the fight won): 25 in all.']
+        from dungeon import growth
+        said = growth.milestone(connection, 'The Heartwood contract', 'now')
+        assert 'gains 100 XP (a milestone: The Heartwood contract)' in said
+        said = ' '.join(combat5e.gain(connection, 200, 'a test'))
+        assert 'reaches level 2: 8 more hit points, Action Surge' in said and sheet.native(connection)['max_hp'] == 20
+
+
+def test_spells_spend_slots_hit_foes_heal_and_come_back_with_a_long_rest(client, app):
+    wizard(client)
+    with app.state.database.connect(write=True) as connection:
+        # Out of a fight a spell is a check with the spellcasting ability; a levelled one spends a slot.
+        cast = sheet.check(connection, 'Essence', 'normal', 'I cast Burning Hands at the web', Always(15))
+        assert cast['skill'] == 'Burning Hands (spell)' and cast['bonus'] == 5 and cast['band'] == 'success'
+        sheet.check(connection, 'Essence', 'normal', 'I cast Thunderwave', Always(15))
+        empty = sheet.check(connection, 'Essence', 'normal', 'I cast Ice Knife', Always(15))
+        assert empty['band'] == 'failure' and 'no spell slot left' in empty['skill']
+        # A cantrip costs nothing: Fire Bolt is a spell attack on AC, 1d10 fire.
+        foe = combat5e.foes_from({'name': 'the bandit'}, 'engaged', Always(4))[0]
+        state = {'round': 0, 'wants': 'rob', 'foes': [foe]}
+        rolled = {'id': 'r', 'action': 'I cast Fire Bolt at the bandit', 'band': 'success', 'stat': 'Essence',
+                  'natural': 10, 'skill': 'Fire Bolt (spell)'}
+        _, lines, _ = combat.play_round(connection, state, [rolled], [], Always(6))
+        assert lines[0] == "The player's character casts Fire Bolt at the bandit: 6 fire damage, now wounded."
+        assert (rolled['skill'], rolled['total'], rolled['target']) == ('Fire Bolt (spell attack)', 15, 12)
+        # A save spell: the foe's Dex save against DC 13; a cantrip on a made save does nothing.
+        state = {'round': 0, 'wants': 'rob', 'foes': [combat5e.foes_from({'name': 'the bandit'}, 'engaged', Always(4))[0]]}
+        rolled = {'id': 'r2', 'action': 'I cast Acid Splash on the bandit', 'band': 'success', 'stat': 'Essence',
+                  'natural': 3, 'skill': 'Acid Splash (spell)'}
+        _, lines, _ = combat.play_round(connection, state, [rolled], [], Always(20))
+        assert 'and it does no harm' in lines[0] and rolled['skill'].startswith("Acid Splash (the bandit's Dexterity")
+        combat.set_condition(connection, 0)  # The bandit's blows aside.
+        assert combat.mend(connection, 1) == ['A long rest gives the character back their spell slots.']
+        assert sheet.native(connection)['spells']['used'][0] == 0
+
+
+def test_a_healing_spell_heals_the_character(client, app):
+    quick = srd52.suggested('cleric', 'acolyte')
+    ok(start(client, persona={'name': 'Wenna'}, ruleset='srd52', build={
+        'class_id': 'cleric', 'species_id': 'human', 'background_id': 'acolyte', 'scores': quick['scores'],
+        'skills': quick['picks']}))
+    with app.state.database.connect(write=True) as connection:
+        combat.set_condition(connection, 3)
+        before = combat5e.hit_points(connection)[0]
+        healed = sheet.check(connection, 'Essence', 'hard', 'I cast Cure Wounds on myself', Always(1))
+        assert healed['band'] == 'success' and healed['skill'].startswith('Cure Wounds (heals')
+        assert combat5e.hit_points(connection)[0] > before and combat.condition(connection)['level'] < 3

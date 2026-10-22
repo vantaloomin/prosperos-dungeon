@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
-import type { MarvelSheet, Sheet, SheetGrowth, Srd52Sheet } from '../../types'
+import type { MarvelSheet, Sheet, SheetGrowth, Srd52Sheet, Srd52Spells } from '../../types'
 import { Stepper } from '../../components/NumberFields'
 import { Notice } from '../../components/Feedback'
-import { abilityLine, darkText, signed } from './storyText'
+import { abilityLine, darkText, signed, spellLine, xpLine } from './storyText'
 
 const SHEET_KEY = ['story-sheet']
 
@@ -50,6 +50,7 @@ function Srd52({ sheet }: { sheet: Srd52Sheet }) {
   const skills = Object.entries(sheet.skill_bonuses)
   return <>
     <p><strong>Level {sheet.level} {sheet.names.species} {sheet.names.class}</strong> <span className="subtle">({sheet.names.background})</span></p>
+    <p className="subtle">{xpLine(sheet.level, sheet.xp, sheet.next_xp)}</p>
     <p>Hit points {sheet.hp} of {sheet.max_hp} · Armor Class {sheet.ac} · Speed {sheet.speed} ft. · Proficiency {signed(sheet.proficiency)}</p>
     <ul className="story-abilities" aria-label="Abilities">
       {Object.entries(sheet.abilities).map(([ability, score]) => <li key={ability}>{abilityLine(ability, score, sheet.modifiers[ability], sheet.saves.includes(ability))}</li>)}
@@ -61,8 +62,22 @@ function Srd52({ sheet }: { sheet: Srd52Sheet }) {
       </ul>
       <p className="subtle">• Proficient.</p>
     </details>
+    {!!sheet.features?.length && <details><summary>Features</summary><p>{sheet.features.join(', ')}</p></details>}
+    {sheet.spell_list && <Spells spells={sheet.spell_list} />}
     <p className="subtle story-attribution">{sheet.attribution}</p>
   </>
+}
+
+function Spells({ spells }: { spells: Srd52Spells }) {
+  return (
+    <details>
+      <summary>Spells</summary>
+      <p>{spellLine(spells)}</p>
+      {!!spells.cantrips.length && <p>Cantrips: {spells.cantrips.join(', ')}</p>}
+      <p>Prepared: {spells.prepared.map((spell) => `${spell.name} (${spell.level})`).join(', ')}</p>
+      <p className="subtle">Name a spell in your line to cast it.</p>
+    </details>
+  )
 }
 
 function Dark({ growth }: { growth?: SheetGrowth }) {
