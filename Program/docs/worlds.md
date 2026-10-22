@@ -17,6 +17,18 @@ when the world is made), so the same streets hold different people.
 - Each world's `persona` table holds the persona it belongs to, copied from `worlds.json` whenever the world opens
   or the persona changes.
 
+## What a world is made of
+
+The Worlds page ends with "What <world> is made of": its cities, its world packages (docs/packages.md), its lore,
+its reference library, the adult side and the townsfolk mix.
+
+- **Lore** (`src/features/worlds/WorldLore.tsx`, `dungeon/lore.py`): import a lorebook (JSON or .lorebook), turn a
+  book or any entry on or off, delete a book, and set an entry's "when" (weather, season, time of day, day, holiday,
+  place in the story's town) beside its keywords. Each entry says how it comes into the story, and "Fits the scene
+  now" when it would join this turn. A book of more than eight entries gets a search.
+- **Reference library** (`dungeon/library.py`): add a long text (text, Markdown, HTML, EPUB or a TiddlyWiki file),
+  turn it on or off, delete it, and "Look inside" to search its passages the way the narrator would.
+
 ## Switching
 
 `POST /api/worlds/{id}/switch` (or `/api/worlds/personas/{id}/switch`, the persona's most recent world) refuses
