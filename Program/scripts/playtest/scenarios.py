@@ -267,6 +267,62 @@ def legacy(play):
     play.journal()
 
 
+def fivee_checks(play):
+    """M4: a made 5E character (class, species, background, the standard array, skills): skill checks against DCs,
+    a haggle, and the sheet."""
+    choices = play.dungeon.call('GET', '/api/story/start')
+    srd = choices.get('srd52') or {}
+    classes = {item['id']: item for item in srd.get('classes') or []}
+    if 'rogue' not in classes or not srd.get('backgrounds'):
+        play.flag(f"No 5E rogue or backgrounds offered: {sorted(classes)}")
+        return
+    rogue, background = classes['rogue'], srd['backgrounds'][0]
+    ids = {skill['name']: skill['id'] for skill in srd.get('skills') or []}
+    taken = set(background.get('skills') or [])
+    picks = [ids.get(name, name) for name in rogue['skills']['from'] if name not in taken]
+    play.start(persona={'name': 'Maren Voss', 'gender': 'woman', 'age': 27,
+                        'about': 'A lockpick from Cyrel who came north owing the wrong people.'},
+               ruleset='srd52', build={'class_id': 'rogue', 'species_id': 'human', 'background_id': background['id'],
+                                       'scores': {'dex': 15, 'int': 14, 'con': 13, 'wis': 12, 'cha': 10, 'str': 8},
+                                       'skills': picks[:rogue['skills']['count']]})
+    play.sheet()
+    play.say('I climb the back wall of the Felled Oak to the shuttered window above the cellar door.', {'roll': True})
+    play.say('I pick the lock on the shutter, quiet as I can.', {'roll': True})
+    play.say('I listen at the door of the room beyond for anyone awake.', {'roll': True})
+    play.move('pell-provisions')
+    play.say('I haggle over a coil of rope, all charm and a sad story.', {'roll': True})
+    play.say('I lie to the keeper that the Guild sent me to check her scales.', {'roll': True})
+    play.gear()
+
+
+def fivee_fight(play):
+    """M4: 5E fights: SRD stat blocks, attacks on AC, hit points, death saves, and going back."""
+    play.start('agna-holt', ruleset='srd52')
+    play.sheet()
+    play.move('the-heartwood')
+    for line in ('I push into the Heartwood along the old trail, sword drawn.',
+                 'I go deeper, toward the oldest trees.',
+                 'I keep going, marking the bark as I go.',
+                 'I press on toward the hum in the ground.',
+                 'I go on, slow and watchful.'):
+        view = play.say(line)
+        if view and (view.get('fight') or {}).get('fight'):
+            break
+    for line in ('I attack the nearest one with my sword.', 'I attack again, putting my weight behind it.',
+                 'I keep fighting.', 'I swing at whoever is still standing.', 'I fight on.', 'I fight on.'):
+        view = play.say(line)
+        fight = (view or {}).get('fight') or {}
+        if not fight.get('fight') or fight.get('dead'):
+            break
+    play.sheet()
+    play.move('the-sawpit')
+    play.say('I look for the biggest logger in the place.')
+    play.say('I punch him in the jaw.', {'fight': True})
+    play.say('I hit him again.')
+    draft = play.back(2)
+    play.say(draft)
+
+
 SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl, 'road': road,
              'director': director, 'chapters': chapters, 'ironman': ironman, 'gm_view': gm_view, 'memory': memory,
-             'legacy': legacy}
+             'legacy': legacy, 'fivee_checks': fivee_checks, 'fivee_fight': fivee_fight}
