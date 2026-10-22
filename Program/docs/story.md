@@ -30,7 +30,8 @@ docs/requirements.md). The narrator gets the names of the people present, with a
 that person gives it. The screen lists them only as the user would see them ("the barista", "a regular").
 
 The narrator stays in the story. Sentences saying it is an AI are dropped (`in_character.Guard`), and OOC: or
-((…)) gets a plain answer. Its model is the **Story narrator** job in Settings > Models.
+((…)) gets a plain answer from the game master, from what
+the game holds and the travel map as the character knows it; it names the model only when asked. Its model is the **Story narrator** job in Settings > Models.
 
 ## Campaign start
 

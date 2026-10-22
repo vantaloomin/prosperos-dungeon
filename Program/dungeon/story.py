@@ -68,6 +68,27 @@ OPENING_KINDS = ('cafe', 'tavern', 'bar', 'restaurant', 'market', 'park')
 
 # Story mode's player has no persona yet, so the narrator speaks to them as "you", as Story mode always has.
 NARRATION = narration_prompt.Format(pov='second', tense='present', length='short')
+# An OOC line is a question for the game master. Companion's note had the model answer as the AI, and it then
+# announced itself unasked; here it answers as the table's game master, from what the game holds.
+OUT_OF_CHARACTER = (
+    "The player's latest message is out of character (it starts with OOC: or is in double parentheses): a question "
+    'for the game master, not part of the story. Answer it plainly and briefly, out of the story, from what the game '
+    'holds here (the scene, the record, the quests, the map) and nothing invented; say so when the game does not '
+    "know. Keep hidden truth hidden. Only if they ask what you are, say you are an AI model ({model}) running the "
+    'game. The story resumes with their next message.')
+
+
+def map_text(connection, view: dict) -> str:
+    """The travel map as the character knows it, for an OOC answer about where they can go."""
+    known = travel.view(connection, view['city']['id'], view['place']['id'])
+    if not known:
+        return ''
+    names = {place['id']: place['name'] for place in known['places']}
+    here = next((place['name'] for place in known['places'] if place['here']), view['city']['name'])
+    roads = [f"{names[road['from']]} to {names[road['to']]}: {road['hours']} hours by {road['terrain']}, "
+             f"{road['danger']} danger" for road in known['roads']]
+    return (f"\n\n## The map as the character knows it\nHere: {here}. Places within this town are reached by going "
+            f"there. Known roads:\n" + '\n'.join(f'- {road}' for road in roads))
 
 
 def intensity(connection, data: dict) -> dict:
@@ -620,7 +641,7 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
         if extra:
             system += '\n\n' + extra
     if in_character.out_of_character(latest['text']):
-        system += '\n\n' + in_character.OUT_OF_CHARACTER_NOTE.format(name='the narrator', model=default_name(config))
+        system += '\n\n' + OUT_OF_CHARACTER.format(model=default_name(config)) + map_text(connection, view)
     budget = (window - config['max_output_tokens']) * CHARS_PER_TOKEN - len(system)
     # Older messages are in the summary; the narrator reads the rest word for word.
     chat = model_messages(rows, max(budget, 2000))

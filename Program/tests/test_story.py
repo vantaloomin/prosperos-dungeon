@@ -98,7 +98,10 @@ def test_the_narrator_stays_in_the_story_unless_the_user_steps_out(client, clock
     provider.replies = [[Chunk("I'm an AI language model writing the narrator."), Chunk('', 'stop')]]
     honest = say(client, 'OOC: what are you?', 'story-0002')
     assert 'AI language model' in honest['reply']['text']
-    assert 'out of character' in provider.requests[-1]['system']
+    system = provider.requests[-1]['system']
+    assert 'out of character' in system and 'question for the game master' in system
+    # It answers as the game master and names the model only if asked.
+    assert 'Only if they ask what you are' in system
 
 
 def test_a_failed_reply_can_be_told_again_and_a_new_story_started(client, clock, provider):
