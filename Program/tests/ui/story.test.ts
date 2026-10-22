@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { aroundText, branchLine, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats, tierText, darkText, threadKind } from '../../src/features/story/storyText.ts'
+import { aroundText, branchLine, journeyTo, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats, tierText, darkText, threadKind } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -144,4 +144,12 @@ test('a dark track reads as a word, with its points when the dice are shown', ()
 test('a loose end in the journal says what kind it is', () => {
   assert.equal(threadKind('mystery'), 'A mystery')
   assert.equal(threadKind('grudge'), 'A grudge')
+})
+
+test('journeyTo finds a destination on the travel map, ignoring a leading "the" and case', () => {
+  const journeys = ['Eriane', 'the Abandoned Keep']
+  assert.equal(journeyTo(journeys, 'eriane'), 'Eriane')
+  assert.equal(journeyTo(journeys, 'Abandoned Keep'), 'the Abandoned Keep')
+  assert.equal(journeyTo(journeys, 'The Green'), undefined)
+  assert.equal(journeyTo(journeys, undefined), undefined)
 })

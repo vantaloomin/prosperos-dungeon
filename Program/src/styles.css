@@ -122,14 +122,28 @@ textarea { resize: vertical; line-height: 1.6; }
   .story-panel .story-people ul { max-height: none; }
 }
 .story-header { max-width: 760px; width: 100%; margin: 0 auto; padding: 18px 32px 12px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--border); }
-.story-header h1 { font-size: 1.3rem; }
+.story-where { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.story-where .text-button { padding: 0; }
 .story-scene { display: flex; flex-direction: column; gap: 4px; }
 .story-scene svg { width: 16px; height: 16px; vertical-align: -3px; color: var(--accent); }
 .story-scene .button { align-self: flex-start; margin-top: 6px; }
 .story-go { flex-wrap: wrap; align-items: flex-end; margin-top: 6px; }
 .story-go label { display: flex; flex-direction: column; gap: 4px; font-size: 0.8125rem; color: var(--muted); }
 .story-log { flex: 1; overflow-y: auto; max-width: 760px; width: 100%; margin: 0 auto; padding: 20px 32px; }
-.story-narration { font-family: var(--read-font); font-size: 1.0625rem; line-height: 1.75; margin-bottom: 20px; overflow-wrap: anywhere; }
+.story-narration { position: relative; font-family: var(--read-font); font-size: 1.0625rem; line-height: 1.75; margin-bottom: 20px; overflow-wrap: anywhere; }
+/* The chip that offers to rewrite a selected passage; it sits just under the selection's end. */
+.story-rewrite-chip { position: absolute; z-index: 2; font-family: var(--ui-font, inherit); font-size: 0.8125rem; padding: 4px 10px; box-shadow: 0 2px 8px rgb(0 0 0 / 0.18); }
+.story-rewrite-chip svg { width: 14px; height: 14px; }
+/* Shown when new text arrives while the reader is scrolled up rereading. */
+.story-newer { position: sticky; bottom: 8px; display: flex; margin: 0 auto; box-shadow: 0 2px 8px rgb(0 0 0 / 0.18); }
+.story-newer svg { width: 16px; height: 16px; }
+.story-turn-actions { display: flex; align-items: center; gap: 10px; }
+.story-turn-actions:empty { display: none; }
+.story-pace { color: var(--muted); line-height: 0; cursor: help; }
+.story-pace svg { width: 13px; height: 13px; }
+.story-dials summary { display: inline-flex; align-items: center; gap: 6px; }
+.story-dials summary svg { width: 14px; height: 14px; }
+.story-dials[open] { display: flex; flex-direction: column; gap: 10px; }
 .story-narration p { white-space: pre-wrap; margin-bottom: 1em; }
 .story-flagged { margin: 0 -8px 1em; padding: 4px 8px; border-radius: 6px; background: var(--accent-tint); }
 .story-flagged p { margin-bottom: 0.25em; }

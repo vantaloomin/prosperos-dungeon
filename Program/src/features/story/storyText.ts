@@ -214,3 +214,10 @@ export const HAND_NAMES: Record<StoryHand, string> = {
 export function threadKind(kind: JournalThread['kind']): string {
   return { mystery: 'A mystery', grudge: 'A grudge', lead: 'A lead', promise: 'A promise' }[kind]
 }
+
+/** The travel-map place a destination is (`journeys` are the map's names), so going there is a journey on foot;
+ *  undefined for a place across town or off the map. */
+export function journeyTo(journeys: string[], name: string | undefined): string | undefined {
+  const bare = (text: string) => text.toLowerCase().replace(/^the\s+/, '')
+  return name ? journeys.find((journey) => bare(journey) === bare(name)) : undefined
+}

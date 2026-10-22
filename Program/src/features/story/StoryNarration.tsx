@@ -11,21 +11,40 @@ interface Props {
   onSwitch?: (id: string) => Promise<void>
 }
 
+/** Where the Rewrite chip sits in the narration box: just under the end of the selected range. */
+function chipAt(range: Range, box: HTMLElement): { top: number; left: number } {
+  const end = range.getBoundingClientRect?.()
+  if (!end) return { top: 0, left: 0 }
+  const frame = box.getBoundingClientRect()
+  return { top: end.bottom - frame.top + 4, left: Math.max(0, end.right - frame.left - 80) }
+}
+
 const shortened = (text: string) => text.length > 120 ? `${text.slice(0, 117).trimEnd()}…` : text
 
-/** A narration: its flagged paragraphs marked with why and a Rewrite button, and any selected passage rewritable. */
+/** A narration: its flagged paragraphs marked with why and a Rewrite button. Selecting a passage shows a small
+ *  Rewrite chip beside it, and only the chip opens the form, so selecting text to copy it costs nothing. */
 export function StoryNarration({ message, onRewrite, onSwitch }: Props) {
   const box = useRef<HTMLDivElement>(null)
   const [chosen, setChosen] = useState('')
+  // A selected passage, and where its chip sits inside the narration box.
+  const [offer, setOffer] = useState<{ text: string; top: number; left: number } | null>(null)
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const form = useRef<HTMLFormElement>(null)
   useEffect(() => { if (chosen) form.current?.scrollIntoView?.({ block: 'nearest' }) }, [chosen])
+  useEffect(() => {
+    if (!offer) return
+    // The chip goes when the selection does (a click elsewhere, a new selection outside this narration).
+    const gone = () => { if (!window.getSelection()?.toString().trim()) setOffer(null) }
+    document.addEventListener('selectionchange', gone)
+    return () => document.removeEventListener('selectionchange', gone)
+  }, [offer])
   const flags = new Map((message.flags ?? []).map((flag) => [flag.passage, flag.why]))
   const pick = () => {
     const selection = window.getSelection()
     const text = selection?.toString().trim() ?? ''
-    if (onRewrite && text && selection?.anchorNode && box.current?.contains(selection.anchorNode)) setChosen(text)
+    if (!onRewrite || !text || !selection?.anchorNode || !box.current?.contains(selection.anchorNode) || !selection.rangeCount) return
+    setOffer({ text, ...chipAt(selection.getRangeAt(0), box.current) })
   }
   const act = async (work: () => Promise<void>) => {
     setBusy(true)
@@ -45,6 +64,9 @@ export function StoryNarration({ message, onRewrite, onSwitch }: Props) {
             </span>}
           </div>)
       })}
+      {offer && onRewrite && <button type="button" className="button story-rewrite-chip" style={{ top: offer.top, left: offer.left }}
+        onMouseDown={(event) => event.preventDefault()} onClick={() => { setChosen(offer.text); setOffer(null) }}>
+        <PenLine aria-hidden="true" />Rewrite</button>}
     </div>
     {chosen && onRewrite && <form ref={form} className="story-rewrite" onSubmit={(event) => { event.preventDefault(); void act(() => onRewrite(message.id, chosen, note)) }}>
       <p className="subtle">Rewrite &ldquo;{shortened(chosen)}&rdquo; in new words. The dice and what happened stay the same.</p>

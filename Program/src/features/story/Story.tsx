@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { MapPin, RotateCcw, Send, Undo2 } from 'lucide-react'
+import { ArrowDown, MapPin, RotateCcw, Send, Settings2, Timer, Undo2 } from 'lucide-react'
 import { api, newId, streamApi } from '../../api'
 import type { View } from '../../workspace'
 import type { CitySummary, Story as StoryData, StoryBack, StoryMessage, StoryScene } from '../../types'
@@ -9,7 +9,7 @@ import { ErrorNotice } from '../../components/ErrorNotice'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { InfoTip } from '../../components/InfoTip'
 import { AiFooter, CrisisNote } from '../../components/Safety'
-import { aroundText, fightText, paceText, placeGroups, rollText, sceneTime, spotsText, whereText } from './storyText'
+import { aroundText, fightText, journeyTo, paceText, placeGroups, rollText, sceneTime, spotsText, whereText } from './storyText'
 import { StoryPeople } from './StoryPeople'
 import { CityOptions } from '../world/CityOptions'
 import { AuthorsNote } from './AuthorsNote'
@@ -54,7 +54,7 @@ export function Story({ go }: { go: (view: View) => void }) {
   return (
     <section className="story" aria-labelledby="story-heading">
       <div className="story-main">
-        <StoryHeader story={story.data} change={change} />
+        <StoryHeader story={story.data} change={change} onDraft={(text) => setDraft({ text, at: Date.now() })} />
         {!story.data.ready && <NoModel go={go} />}
         {!story.data.messages.length && pending === null ? <StoryStart onStarted={update} /> : <>
           <StoryLog messages={story.data.messages} pending={pending} streamed={streamed} onRetry={() => void run('', () => streamApi('/story/retry/stream', {}, grow))}
@@ -76,14 +76,16 @@ function NoModel({ go }: { go: (view: View) => void }) {
     Add a text model in Settings &gt; Models to tell the story.</Notice></div>
 }
 
-/** The title, where and when the story is, and the fight. */
-function StoryHeader({ story, change }: { story: StoryData; change: (request: () => Promise<StoryData>) => Promise<void> }) {
+/** Where and when the story is, and the fight. The scene line is the header; the title is for screen readers. */
+interface HeaderProps { story: StoryData; change: (request: () => Promise<StoryData>) => Promise<void>; onDraft: (text: string) => void }
+
+function StoryHeader({ story, change, onDraft }: HeaderProps) {
   const fight = fightText(story.fight)
   return (
     <header className="story-header">
-      <h1 id="story-heading">Story</h1>
-      <p className="subtle">Your own story around town, told by a narrator.</p>
-      <SceneBar scene={story.scene} onMove={(body) => change(() => api<StoryData>('/story/scene', body, 'PUT'))} />
+      <h1 id="story-heading" className="visually-hidden">Story</h1>
+      <SceneBar scene={story.scene} journeys={story.map?.places.filter((place) => !place.here).map((place) => place.name) ?? []} onDraft={onDraft}
+        onMove={(body) => change(() => api<StoryData>('/story/scene', body, 'PUT'))} />
       {fight && <p className={story.fight.fight || story.fight.dead ? 'story-fight' : 'subtle'} role="status">{fight}</p>}
     </header>
   )
@@ -100,55 +102,71 @@ function StoryPanel({ story, change, onTravel }: PanelProps) {
   const [wide] = useState(() => window.matchMedia?.(WIDE).matches ?? false)
   return (
     <aside className="story-panel" aria-label="Your character and what you know">
-      <StoryIntensity intensity={story.intensity} onSaved={() => void refresh()} />
-      <StoryInjuries persistence={story.injury_persistence ?? 'permanent'} onSaved={() => void refresh()} />
       {!!story.messages.length && <><StorySheet open={wide} /><StoryGear open={wide} onTrade={() => void refresh()} /><StoryJournal open={wide} /></>}
       {!!story.messages.length && <StoryMap map={story.map} open={wide} onTravel={onTravel} />}
       {!!story.messages.length && <StoryPowers factions={story.factions ?? []} tier={story.tier} />}
       <StoryPeople people={story.people} onFind={(key) => void change(() => api<StoryData>('/story/find', { key }))} />
       <StoryBranches branches={story.branches}
         onSwitch={(id) => void change(() => api<StoryData>(`/story/branches/${encodeURIComponent(id)}/switch`, {}))} />
+      {/* Tone and rules are set once and changed now and then, so they fold away below what play needs. */}
+      <details className="story-people story-dials">
+        <summary><Settings2 aria-hidden="true" />Tone and rules</summary>
+        <StoryIntensity intensity={story.intensity} onSaved={() => void refresh()} />
+        <StoryInjuries persistence={story.injury_persistence ?? 'permanent'} onSaved={() => void refresh()} />
+      </details>
     </aside>
   )
 }
 
-function SceneBar({ scene, onMove }: { scene: StoryScene; onMove: (body: { city_id: string; place_id?: string }) => Promise<void> }) {
+interface SceneProps { scene: StoryScene; journeys: string[]; onDraft: (text: string) => void; onMove: (body: { city_id: string; place_id?: string }) => Promise<void> }
+
+function SceneBar({ scene, journeys, onDraft, onMove }: SceneProps) {
   const [moving, setMoving] = useState(false)
   return (
     <div className="story-scene">
-      <p><MapPin aria-hidden="true" /> <strong>{whereText(scene)}</strong></p>
+      <div className="story-where">
+        <p><MapPin aria-hidden="true" /> <strong>{whereText(scene)}</strong></p>
+        {!moving && <button type="button" className="text-button" onClick={() => setMoving(true)}>Go somewhere else…</button>}
+      </div>
       <p className="subtle">{sceneTime(scene.local_time)}{scene.weather ? ` · ${scene.weather}` : ''}</p>
       {!!scene.place.spots?.length && <p className="subtle">{spotsText(scene.place.spots)}</p>}
       <p>{aroundText(scene.around)}</p>
-      {moving ? <GoElsewhere scene={scene} onDone={() => setMoving(false)} onMove={onMove} />
-        : <div className="form-actions">
-          <button type="button" className="button" onClick={() => setMoving(true)}>Go somewhere else…</button>
-        </div>}
+      {moving && <GoElsewhere scene={scene} journeys={journeys} onDone={() => setMoving(false)} onDraft={onDraft} onMove={onMove} />}
     </div>
   )
 }
 
-interface GoProps { scene: StoryScene; onDone: () => void; onMove: (body: { city_id: string; place_id?: string }) => Promise<void> }
+interface GoProps extends Omit<SceneProps, 'scene'> { scene: StoryScene; onDone: () => void }
 
-function GoElsewhere({ scene, onDone, onMove }: GoProps) {
+/** Somewhere on the travel map (a town, a keep) is a journey: it writes "I set out for…" into the composer, like the
+ *  map does, so the road takes its hours and can bring trouble (dungeon/travel.py). A place across town is a cut. */
+function GoElsewhere({ scene, journeys, onDone, onDraft, onMove }: GoProps) {
   const cities = useQuery({ queryKey: ['world-cities'], queryFn: () => api<CitySummary[]>('/world/cities') })
+  const [city, setCity] = useState(scene.city.id)
   const [place, setPlace] = useState(scene.place.id)
+  const here = city === scene.city.id
+  const go = () => {
+    const name = here ? scene.places.find((item) => item.id === place)?.name : cities.data?.find((item) => item.id === city)?.name
+    const journey = journeyTo(journeys, name)
+    if (journey) { onDraft(`I set out for ${journey}.`); onDone() }
+    else void onMove(here ? { city_id: city, place_id: place } : { city_id: city }).then(onDone)
+  }
   return (
     <div className="story-go form-actions">
       <label>City
-        <select value={scene.city.id} onChange={(event) => void onMove({ city_id: event.target.value })}>
+        <select value={city} onChange={(event) => setCity(event.target.value)}>
           <CityOptions cities={cities.data ?? [scene.city]} />
         </select>
       </label>
-      <label>Place
+      {here && <label>Place
         <select value={place} onChange={(event) => setPlace(event.target.value)}>
           {placeGroups(scene.places).map(([hood, places]) => (
             <optgroup key={hood} label={hood}>
               {places.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.kind})</option>)}
             </optgroup>))}
         </select>
-      </label>
-      <button type="button" className="button primary" onClick={() => void onMove({ city_id: scene.city.id, place_id: place }).then(onDone)}>Go</button>
+      </label>}
+      <button type="button" className="button primary" onClick={go}>Go</button>
       <button type="button" className="text-button" onClick={onDone}>Stay here</button>
     </div>
   )
@@ -157,12 +175,33 @@ function GoElsewhere({ scene, onDone, onMove }: GoProps) {
 interface Rewrites { onRewrite: (id: string, passage: string, note: string) => Promise<void>; onSwitch: (id: string) => Promise<void> }
 interface LogProps extends Rewrites { messages: StoryMessage[]; pending: string | null; streamed: string; onRetry: () => void; onBack: (id: string) => void }
 
-function StoryLog({ messages, pending, streamed, onRetry, onBack, onRewrite, onSwitch }: LogProps) {
+/** How near the bottom (px) still counts as reading the newest text, so the log keeps following it. */
+const FOLLOW = 80
+
+/** Follows new text only while the reader is at the bottom; scrolled up to reread, they keep their place, and
+ *  `behind` says there is newer text than what they last read to. Sending a line jumps to it wherever they were. */
+function useFollow(shown: string, pending: string | null) {
+  const log = useRef<HTMLDivElement>(null)
   const end = useRef<HTMLDivElement>(null)
-  useEffect(() => { end.current?.scrollIntoView?.({ block: 'end' }) }, [messages.length, pending, streamed])
+  const [atEnd, setAtEnd] = useState(true)
+  const [readTo, setReadTo] = useState(shown)
+  // At the bottom the reader has read everything shown (set while rendering, React's pattern for derived state).
+  if (atEnd && readTo !== shown) setReadTo(shown)
+  const toEnd = () => end.current?.scrollIntoView?.({ block: 'end' })
+  const onScroll = () => {
+    const box = log.current
+    if (box) setAtEnd(box.scrollHeight - box.scrollTop - box.clientHeight < FOLLOW)
+  }
+  useEffect(() => { if (atEnd) end.current?.scrollIntoView?.({ block: 'end' }) }, [shown, atEnd])
+  useEffect(() => { if (pending !== null) end.current?.scrollIntoView?.({ block: 'end' }) }, [pending])
+  return { log, end, onScroll, toEnd, behind: !atEnd && readTo !== shown }
+}
+
+function StoryLog({ messages, pending, streamed, onRetry, onBack, onRewrite, onSwitch }: LogProps) {
+  const { log, end, onScroll, toEnd, behind } = useFollow(`${messages.length}:${streamed.length}`, pending)
   const last = messages[messages.length - 1]
   return (
-    <div className="story-log" aria-live="polite">
+    <div className="story-log" aria-live="polite" ref={log} onScroll={onScroll}>
       {messages.map((message) => <StoryLine key={message.id} message={message} onBack={pending ? undefined : onBack}
         rewrites={pending === null ? { onRewrite, onSwitch } : undefined} />)}
       {pending && <p className="story-user">{pending}</p>}
@@ -171,6 +210,7 @@ function StoryLog({ messages, pending, streamed, onRetry, onBack, onRewrite, onS
         : <p className="subtle">The narrator is writing…</p>)}
       {last?.status === 'failed' && !pending && <button type="button" className="text-button" onClick={onRetry}><RotateCcw aria-hidden="true" />Try again</button>}
       <div ref={end} />
+      {behind && <button type="button" className="button story-newer" onClick={toEnd}><ArrowDown aria-hidden="true" />New text below</button>}
     </div>
   )
 }
@@ -183,9 +223,12 @@ function StoryLine({ message, onBack, rewrites }: { message: StoryMessage; onBac
     <p className="story-user">{message.text}</p>
     <div className="story-turn">
       {!!message.rolls?.length && <ul className="story-rolls" aria-label="Rolls">{message.rolls.map((roll, index) => <li key={index} title={roll.action}>{rollText(roll)}</li>)}</ul>}
-      {message.pace && <p className="story-rolls">{paceText(message.pace)}</p>}
-      {onBack && <button type="button" className="text-button story-back" onClick={() => onBack(message.id)}
-        title="Go back to before this line and send it again, with new dice. The story from here is kept as a branch."><Undo2 aria-hidden="true" />Go back here</button>}
+      <div className="story-turn-actions">
+        {/* How long the turn took is for tuning, not the story: it waits in a tooltip until the dice log ships. */}
+        {message.pace && <span className="story-pace" title={paceText(message.pace)}><Timer aria-hidden="true" /><span className="visually-hidden">{paceText(message.pace)}</span></span>}
+        {onBack && <button type="button" className="text-button story-back" onClick={() => onBack(message.id)}
+          title="Go back to before this line and send it again, with new dice. The story from here is kept as a branch."><Undo2 aria-hidden="true" />Go back here</button>}
+      </div>
     </div>
     {message.crisis_help && <CrisisNote />}
   </>
