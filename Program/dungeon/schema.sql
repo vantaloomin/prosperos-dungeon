@@ -363,6 +363,23 @@ CREATE TABLE IF NOT EXISTS story_turn_steps (
   steps TEXT NOT NULL
 );
 
+-- What is inside things the player looked into, rolled the first time (dungeon/finds.py); contents is JSON.
+CREATE TABLE IF NOT EXISTS story_finds (
+  key TEXT PRIMARY KEY,
+  city_id TEXT NOT NULL,
+  place_id TEXT NOT NULL,
+  word TEXT NOT NULL,
+  contents TEXT NOT NULL,
+  seen INTEGER NOT NULL DEFAULT 0 CHECK (seen IN (0, 1)),
+  created_at TEXT NOT NULL
+);
+
+-- What a player's line looked into and took (dungeon/finds.py), decided once and retold the same.
+CREATE TABLE IF NOT EXISTS story_looks (
+  message_id TEXT PRIMARY KEY REFERENCES story_messages(id) ON DELETE CASCADE,
+  lines TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS story_rounds (
   message_id TEXT PRIMARY KEY REFERENCES story_messages(id) ON DELETE CASCADE,
   lines TEXT NOT NULL

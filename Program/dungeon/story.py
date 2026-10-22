@@ -16,6 +16,7 @@ from dungeon import (
     authors_note,
     combat,
     feelings,
+    finds,
     in_character,
     inventory,
     ledger,
@@ -451,7 +452,7 @@ def clear(database) -> dict:
         connection.execute('DELETE FROM story_people')
         for table in ('ledger_entries', 'ledger_corrections', 'story_summary', 'story_clock', 'story_quests',
                       'story_inventory', 'story_purse', 'story_stock', 'story_trades', 'story_wounds', 'story_fight',
-                      'story_haggles', 'story_counter', 'story_turn_steps',
+                      'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
                       'story_rounds'):
             connection.execute(f'DELETE FROM {table}')
         timeline.clear(connection)
@@ -486,7 +487,8 @@ def steered(chat: list[dict], steer: str) -> list[dict]:
 
 
 def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list[dict] | None = None,
-           fought: list[str] | None = None, traded: list[str] | None = None) -> dict:
+           fought: list[str] | None = None, traded: list[str] | None = None,
+           looked: list[str] | None = None) -> dict:
     view = scene(connection, now)
     craft = narration_prompt.craft_for(config.get('context_tokens'), prompt_library.text(connection, 'narrator-craft'))
     who_text, name = persona_text(connection)
@@ -502,7 +504,8 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
                                      persona=who_text, persona_name=name, memory=memory, narration=NARRATION,
                                      intensity=narration_prompt.Intensity.preset(level['preset'], level['voice']),
                                      outcomes=outcomes, rolls_shown=dice_shown(connection))
-    for extra in (combat.prompt_text(fought or [], connection), counter_text(traded or [])):
+    for extra in (combat.prompt_text(fought or [], connection), counter_text(traded or []),
+                  finds.prompt_text(looked or [])):
         if extra:
             system += '\n\n' + extra
     if in_character.out_of_character(latest['text']):
@@ -573,6 +576,21 @@ def haggle_lines(connection, city: str, shop: dict, day: str, rolls: list[dict],
     if roll['band'] == 'success_cost' and keeper_key:
         feelings.change(connection, keeper_key, {'affection': -1}, 'Beat me down on price.')
     return [f"The haggle settles today's prices: {inventory.haggle_text(percent) or 'no change'}."]
+
+
+def look_turn(state, user: dict, rolls: list[dict]) -> list[str]:
+    """What the line looks into and takes (dungeon/finds.py), decided once, before the narrator describes it."""
+    database = state.database
+    with database.connect(write=True) as connection:
+        if (kept := optional(connection, 'SELECT lines FROM story_looks WHERE message_id=?', (user['id'],))):
+            return decode(kept['lines'])
+        view = scene(connection, story_clock.now(connection, database.clock))
+        city = view['city'] | {'currency': view['data']['currency']}
+        lines = finds.look(connection, city, view['place'], user['text'], rolls, getattr(state, 'dice', None),
+                           database.now())
+        lines += finds.take(connection, city, view['place'], user['text'], database.now())
+        connection.execute('INSERT INTO story_looks (message_id, lines) VALUES (?, ?)', (user['id'], encode(lines)))
+        return lines
 
 
 def counter_text(lines: list[str]) -> str:
@@ -703,9 +721,10 @@ async def answer(state, user: dict, on_text=None) -> dict:
     rolls = await rolled(state, user, steps) if in_story else []
     fought = fight_round(state, user, rolls) if in_story else []
     traded = counter_turn(state, user, rolls) if in_story else []
+    looked = look_turn(state, user, rolls) if in_story else []
     with database.connect() as connection:
         packet = prompt(connection, story_clock.now(connection, database.clock), config, user,
-                        turn.outcomes(rolls) if in_story else None, fought, traded)
+                        turn.outcomes(rolls) if in_story else None, fought, traded, looked)
     text, error = await told(state, packet, config, in_story, steps, on_text)
     status = 'complete' if text and not error else 'failed'
     error = None if status == 'complete' else error or 'The model returned no story text.'

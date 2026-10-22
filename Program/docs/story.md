@@ -167,6 +167,28 @@ branch shows its parent's messages before the line it went back to, then its own
 "Tell it again" works on lines of the branch being played; a shared line keeps the reply it was told. A system that
 keeps game state adds its tables to `timeline.SAVED`.
 
+## What is inside
+
+Milestone 1 item 12, decide before describing (`dungeon/finds.py`, requirements "Decide before describing"). When
+the player's line looks into something unsettled ("I search the chest", "I pick his pockets", "I go through the
+desk"), code rolls what is there before the narrator writes a word, from the town's tables
+(`dungeon/world/data/finds/<city>.json`: chests, drawers, crates, bodies, purses and rooms, each with the words a
+player uses for it, how many draws and a weighted table of catalog items, coins, notes and the odd trap). The
+narrator gets "What is there" and describes only that.
+
+- **Rolled once, kept.** Contents are stored (`story_finds`, keyed by town, place and the word used) and noted in
+  the ledger as a fact the character knows. Looking again shows the same things, whatever the dice.
+- **A failed search misses it.** When the line's Mind roll fails, the narrator is told what is there and that the
+  character misses it; the contents stay unseen for a better look.
+- **Taking it.** A line that takes what was found ("I take the coins", "I pocket the knife", "I take everything in
+  the chest") moves coins to the purse and items to the pack while they fit; notes and what does not fit stay.
+  "I take a seat" takes nothing: the line has to name the money, an item, the container or "it/them/everything".
+- What a line looked into and took is decided once (`story_looks`), so "Tell it again" keeps it; finds branch with
+  the story.
+
+Not in v0: doors and what is behind them, finds tied to a particular person or body, traps that do harm by
+themselves, and other towns' tables.
+
 ## Turn speed
 
 Milestone 1 item 11 (`dungeon/pace.py`, requirements "Turn speed"). A turn can chain the Referee, the narrator,
