@@ -1,4 +1,4 @@
-import type { BandStep, HiddenRoll, TurnAction, TurnEvent, TurnSoFar, Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace, StoryArc, StoryPace, StoryTier, SheetGrowth, StoryHand, JournalThread, StoryChapter } from '../../types'
+import type { BandStep, HiddenRoll, TurnAction, TurnEvent, TurnSoFar, Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace, StoryArc, StoryPace, StoryTier, SheetGrowth, StoryHand, JournalThread, StoryChapter, LegacyRole } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -318,4 +318,11 @@ export function chapterLine(chapter: Pick<StoryChapter, 'number' | 'turns' | 'op
 /** How a branch in the tree ended, when it was a dead end. */
 export function endingText(ending: string): string {
   return ending === 'death' ? ' · ended in death' : ending === 'lost' ? ' · ended with the character lost' : ''
+}
+
+/** How an earlier campaign's character comes into a new one (dungeon/legacy.py). */
+export const LEGACY_ROLES: Record<LegacyRole, string> = {
+  legend: 'A legend: the world remembers them',
+  villain: 'A villain: they live on, hidden and turned',
+  corpse: 'A corpse: long dead, and only their deeds remain',
 }
