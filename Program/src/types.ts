@@ -246,13 +246,14 @@ export interface Journal { entries: JournalEntry[]; quests: JournalQuest[] }
 export interface StoryBranch { id: string; playing: boolean; turns: number; last_line: string; last_at: string; started_at: string }
 /** The fight and the character's wounds (dungeon/combat.py); a foe's `wound` level only with the dice shown. */
 export interface StoryFight {
-  condition: string; dead: boolean
+  condition: string; dead: boolean; injuries?: string[]
   fight: { round: number; foes: { name: string; state: string; wound: number | null }[] } | null
 }
 export type IntensityPreset = 'world' | 'restrained' | 'mature' | 'unflinching'
 /** How far the story goes: `preset` in play, the player's `chosen` one ('world' follows the world), the world's own. */
 export interface StoryIntensity { preset: Exclude<IntensityPreset, 'world'>; chosen: IntensityPreset; world: Exclude<IntensityPreset, 'world'>; voice: string }
-export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null }
+export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null; injury_persistence: InjuryPersistence }
+export type InjuryPersistence = 'permanent' | 'temporary' | 'none'
 /** The travel map as far as the character knows it (dungeon/travel.py); positions run 0 to 1 across the world map. */
 export interface StoryMap {
   places: { id: string; name: string; x: number; y: number; visited: boolean; here: boolean }[]

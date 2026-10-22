@@ -1,0 +1,191 @@
+"""Lasting injuries and treatment (requirements "Injuries and recovery"; docs/story.md "Lasting injuries" and
+"Treatment").
+
+Everything here follows one setting, **Injury persistence**: Permanent (the default), Temporary or None.
+
+- **Lasting injuries are rolled.** A hit that leaves the character Maimed, a foe's critical hit, or a beating that
+  nearly killed them rolls on the lasting-injury table (rules/injuries.json): a lost eye, a limp, a ruined hand, a
+  scar. Each makes the actions it touches a step harder and has a look people react to; the narrator is told both.
+  Under Permanent it stays (rare magic or a master healer may mend it later); under Temporary it fades after its
+  days; under None nothing is rolled and nothing old shows.
+- **Treatment takes a healer or supplies, and a roll, and can go wrong.** "I bandage the wound" with bandages or a
+  poultice in the pack is a Mind roll of the character's, harder the worse the wound (a poultice makes it a step
+  easier). A healer in the scene treats instead, for a fee, rolling their own skill. A success mends a level now (a
+  critical two); a critical failure turns the wound bad, a level worse. A wound is treated once; a new one can be
+  treated again.
+
+All of it is game state, branched with the story (dungeon/timeline.py SAVED).
+"""
+import functools
+import json
+import random
+import re
+from datetime import datetime, timedelta
+from pathlib import Path
+
+from dungeon import combat, inventory, record
+from dungeon.database import many, optional, settings
+from dungeon.rules import marvel
+
+TABLE = Path(__file__).parent / 'rules' / 'injuries.json'
+PERSISTENCE = ('permanent', 'temporary', 'none')
+TREAT = re.compile(r'\b(treat|tend|bandag|bind up|binds up|dress|stitch|sew up|sews up|splint|patch(es)? (me |myself '
+                   r'|it |the wound |up)|clean (the|my) (wound|cut)|poultice|see to (the|my) wound|set (the|my) bone)\w*',
+                   re.I)
+HEALER = re.compile(r'\b(healer|physician|surgeon|bonesetter|apothecary|herb ?woman|herbalist|midwife|leech)\b', re.I)
+SUPPLIES = ('poultice', 'bandages')
+HEALER_FEE = 200
+HEALER_SKILL = 15
+STAT = 'Mind'
+# The difficulty of treating each wound level: Grazed, Hurt, Wounded, Maimed.
+DIFFICULTY = {1: 'easy', 2: 'normal', 3: 'hard', 4: 'very_hard'}
+EASIER = {'normal': 'easy', 'hard': 'normal', 'very_hard': 'hard', 'extreme': 'very_hard', 'easy': 'easy'}
+MENDED = {'critical_success': 2, 'success': 1, 'success_cost': 1, 'failure_upside': 0, 'failure': 0,
+          'critical_failure': -1}
+
+
+@functools.cache
+def table() -> tuple[dict, ...]:
+    return tuple(json.loads(TABLE.read_text(encoding='utf-8'))['injuries'])
+
+
+def persistence(connection) -> str:
+    return settings(connection)['injury_persistence']
+
+
+# Lasting injuries --------------------------------------------------------------------------------
+
+def active(connection, now: datetime) -> list[dict]:
+    """The lasting injuries that show now: none under None, the unfaded ones under Temporary."""
+    kept = persistence(connection)
+    if kept == 'none':
+        return []
+    rows = many(connection, 'SELECT * FROM story_injuries ORDER BY rowid')
+    entries = {entry['id']: entry for entry in table()}
+    return [entries[row['injury_id']] | {'since': row['since']} for row in rows if row['injury_id'] in entries
+            and (kept == 'permanent' or datetime.fromisoformat(row['since'])
+                 + timedelta(days=entries[row['injury_id']]['fade_days']) > now)]
+
+
+def roll(connection, now: datetime, cause: str, rng=None, logged: str = '') -> str | None:
+    """A lasting injury from the table, one the character does not already have; the line that says so."""
+    if persistence(connection) == 'none':
+        return None
+    have = {row['injury_id'] for row in many(connection, 'SELECT injury_id FROM story_injuries')}
+    left = [entry for entry in table() if entry['id'] not in have]
+    if not left:
+        return None
+    rng = rng or random.SystemRandom()
+    pick, total = rng.randint(1, sum(entry['weight'] for entry in left)), 0
+    entry = left[-1]
+    for candidate in left:
+        total += candidate['weight']
+        if pick <= total:
+            entry = candidate
+            break
+    connection.execute('INSERT INTO story_injuries (injury_id, since) VALUES (?, ?)', (entry['id'], now.isoformat()))
+    record.add(connection, 'wound', "the player's character", f"Left with {entry['name']} by {cause}.", logged or
+               now.isoformat())
+    return f"It leaves a lasting injury: {entry['name']}."
+
+
+def adjust(connection, actions: list[dict], now: datetime) -> list[dict]:
+    """Each lasting injury makes the actions it touches a step harder."""
+    shown = active(connection, now)
+    adjusted = []
+    for action in actions:
+        steps = sum(1 for entry in shown if re.search(rf"\b({entry['harder']})\w*", action['action'], re.I))
+        difficulty = action['difficulty']
+        for _ in range(steps):
+            difficulty = combat.HARDER[difficulty]
+        adjusted.append(action | {'difficulty': difficulty})
+    return adjusted
+
+
+def prompt_text(connection, now: datetime) -> str:
+    shown = active(connection, now)
+    if not shown:
+        return ''
+    return ("The player's character's lasting injuries (kept by the game; play them, and let people react): "
+            + ' '.join(f"{entry['name'][0].upper()}{entry['name'][1:]}: {entry['seen']}" for entry in shown))
+
+
+def treatment_text(lines: list[str]) -> str:
+    return '## The treatment (decided by the game)\n' + '\n'.join(f'- {line}' for line in lines) if lines else ''
+
+
+def view(connection, now: datetime) -> list[str]:
+    return [entry['name'] for entry in active(connection, now)]
+
+
+# Treatment ---------------------------------------------------------------------------------------
+
+def healer_in(people: list[dict]) -> dict | None:
+    return next((person for person in people if HEALER.search(
+        ' '.join(str(person['sheet'].get(key) or '') for key in ('role', 'occupation', 'about')))), None)
+
+
+def supply(connection) -> dict | None:
+    return next((row for item_id in SUPPLIES if (row := optional(
+        connection, 'SELECT id, item_id FROM story_inventory WHERE item_id=? AND qty > 0 LIMIT 1', (item_id,)))), None)
+
+
+def wanted(connection, text: str) -> bool:
+    now = combat.condition(connection)
+    return bool(TREAT.search(text)) and 0 < now['level'] < combat.DYING and not now['dead']
+
+
+def decide(connection, text: str, people: list[dict]) -> dict | None:
+    """The character's own roll to treat a wound with supplies from the pack, when no healer is there to do it."""
+    if not wanted(connection, text) or healer_in(people) or combat.fight(connection) or treated(connection):
+        return None
+    found = supply(connection)
+    if found is None:
+        return None
+    difficulty = DIFFICULTY[combat.condition(connection)['level']]
+    return {'action': 'treat the wound', 'stat': STAT, 'difficulty': EASIER[difficulty] if found['item_id'] ==
+            'poultice' else difficulty}
+
+
+def treated(connection) -> bool:
+    row = optional(connection, 'SELECT treated FROM story_wounds WHERE id=1')
+    return bool(row and row['treated'])
+
+
+def outcome(connection, band: str, by: str) -> list[str]:
+    now = combat.condition(connection)
+    change = MENDED[band]
+    level = max(0, min(combat.DOWN, now['level'] - change))
+    combat.set_condition(connection, level)
+    connection.execute('UPDATE story_wounds SET treated=1 WHERE id=1')
+    if change > 0:
+        return [f"{by} treats the wound well: the character goes from {combat.LEVELS[now['level']]} to "
+                f'{combat.LEVELS[level]}.']
+    if change < 0:
+        return [f'{by} makes it worse: the wound goes bad, and the character is now {combat.LEVELS[level]}.']
+    return [f"{by} does what can be done, and it is not enough: the character is still {combat.LEVELS[level]}."]
+
+
+def treat(connection, text: str, people: list[dict], rolls: list[dict], currency: dict, rng=None) -> list[str]:
+    """The treatment a line asks for: by a healer there, for a fee, or by the character with supplies."""
+    if not wanted(connection, text) or combat.fight(connection):
+        return []
+    if treated(connection):
+        return ["The wound has been treated already; now it needs rest."]
+    healer = healer_in(people)
+    if healer:
+        name = healer['sheet']['name']
+        if inventory.purse(connection) < HEALER_FEE:
+            return [f"{name} will treat the wound for {inventory.money_text(HEALER_FEE, currency)}, and the "
+                    "character cannot pay it."]
+        inventory.set_purse(connection, inventory.purse(connection) - HEALER_FEE)
+        level = combat.condition(connection)['level']
+        band = marvel.roll(HEALER_SKILL, EASIER[DIFFICULTY[level]], rng or random.SystemRandom())['band']
+        return [f"{name} is paid {inventory.money_text(HEALER_FEE, currency)} to treat the wound."] + outcome(
+            connection, band, name)
+    mine = next((roll for roll in rolls if roll.get('action') == 'treat the wound'), None)
+    found = supply(connection)
+    if mine is None or found is None:
+        return ["There is nothing in the pack to treat the wound with: bandages or a poultice would do."]
+    connection.execute('UPDATE story_inventory SET qty=qty-1 WHERE id=?', (found['id'],))
+    return outcome(connection, mine['band'], "The player's character")

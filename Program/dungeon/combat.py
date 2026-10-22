@@ -66,9 +66,11 @@ def condition(connection) -> dict:
 
 
 def set_condition(connection, level: int, dead: bool = False, rested: int = 0):
-    """The character's wound level; the nights rested toward mending it start again whenever it changes."""
+    """The character's wound level; the nights rested toward mending it start again whenever it changes, and a new
+    wound can be treated again (dungeon/injuries.py)."""
     connection.execute('INSERT INTO story_wounds (id, level, dead, rested) VALUES (1, ?, ?, ?) ON CONFLICT(id) DO '
                        'UPDATE SET rested=CASE WHEN level=excluded.level THEN rested ELSE excluded.rested END, '
+                       'treated=CASE WHEN excluded.level > level THEN 0 ELSE treated END, '
                        'level=excluded.level, dead=excluded.dead', (max(0, min(DYING, level)), int(dead), rested))
 
 
@@ -219,7 +221,10 @@ def foes_move(connection, state: dict, guarded: bool, rng, lines: list[str]) -> 
             continue
         band = marvel.roll(foe['vitality'], 'hard' if guarded else 'normal', rng)['band']
         if band in SUCCESS:
-            level = min(DYING, level + max(1, DAMAGE[band] + foe['weapon']))
+            before, level = level, min(DYING, level + max(1, DAMAGE[band] + foe['weapon']))
+            # A maiming or a critical hit can leave a lasting injury (dungeon/injuries.py).
+            if band == 'critical_success' or before < DOWN <= level:
+                state['hurt_by'] = foe['name']
             lines.append(f"{foe['name'].capitalize()} hits the player's character: now {LEVELS[level]}.")
         else:
             lines.append(f"{foe['name'].capitalize()} attacks and misses.")
@@ -277,8 +282,9 @@ def saved_round(connection, message_id: str) -> list[str] | None:
 
 
 def turn(connection, message_id: str, people: list[dict], rolls: list[dict], start: dict | None, items: list[dict],
-         rng, now: str) -> list[str]:
-    """The fight's part of a turn, decided once: start a fight if one begins, play the round, and keep the lines."""
+         rng, now: str, lasting=None) -> list[str]:
+    """The fight's part of a turn, decided once: start a fight if one begins, play the round, and keep the lines.
+    `lasting(cause)` rolls a lasting injury when a hit calls for one, and says what it left."""
     if (kept := saved_round(connection, message_id)) is not None:
         return kept
     state = fight(connection)
@@ -291,6 +297,9 @@ def turn(connection, message_id: str, people: list[dict], rolls: list[dict], sta
     state, lines, ending = play_round(connection, state, rolls, items, rng)
     if ending == 'dying':
         lines.append(f"The player's character falls, dying. {defeat(connection, state, rng, now)[1]}")
+    cause = state.pop('hurt_by', None)
+    if cause and lasting and not condition(connection)['dead'] and (left := lasting(cause)):
+        lines.append(left)
     save_fight(connection, None if ending else state)
     connection.execute('INSERT INTO story_rounds (message_id, lines) VALUES (?, ?)', (message_id, encode(lines)))
     return lines

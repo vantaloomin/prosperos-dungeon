@@ -19,6 +19,7 @@ import { StoryBranches } from './StoryBranches'
 import { StoryJournal } from './StoryJournal'
 import { StoryGear } from './StoryGear'
 import { StoryIntensity } from './StoryIntensity'
+import { StoryInjuries } from './StoryInjuries'
 import { StoryNarration } from './StoryNarration'
 import { StoryMap } from './StoryMap'
 
@@ -99,6 +100,7 @@ function StoryPanel({ story, change, onTravel }: PanelProps) {
   return (
     <aside className="story-panel" aria-label="Your character and what you know">
       <StoryIntensity intensity={story.intensity} onSaved={() => void refresh()} />
+      <StoryInjuries persistence={story.injury_persistence ?? 'permanent'} onSaved={() => void refresh()} />
       {!!story.messages.length && <><StorySheet open={wide} /><StoryGear open={wide} onTrade={() => void refresh()} /><StoryJournal open={wide} /></>}
       {!!story.messages.length && <StoryMap map={story.map} open={wide} onTravel={onTravel} />}
       <StoryPeople people={story.people} onFind={(key) => void change(() => api<StoryData>('/story/find', { key }))} />

@@ -87,6 +87,8 @@ class SettingsUpdate(Input):
     intensity: Literal['world', 'restrained', 'mature', 'unflinching'] | None = None
     # Seconds a story turn may take before its optional steps give way (dungeon/pace.py); 0 is automatic.
     turn_budget: Literal[0, 15, 30, 60, 90, 120, 180] | None = None
+    # Injury persistence (dungeon/injuries.py): lasting injuries stay, fade, or never happen.
+    injury_persistence: Literal['permanent', 'temporary', 'none'] | None = None
     # The first-run notice: the story is AI written, and the user is 18 or older. Only ever confirmed.
     ai_notice_confirmed: Literal[True] | None = None
 

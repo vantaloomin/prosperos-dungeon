@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS workspace_settings (
   intensity TEXT NOT NULL DEFAULT 'world' CHECK (intensity IN ('world', 'restrained', 'mature', 'unflinching')),
   -- Seconds a story turn may take before its optional steps give way (dungeon/pace.py); 0 is automatic.
   turn_budget INTEGER NOT NULL DEFAULT 0 CHECK (turn_budget IN (0, 15, 30, 60, 90, 120, 180)),
+  -- Injury persistence (dungeon/injuries.py): lasting injuries stay, fade, or never happen.
+  injury_persistence TEXT NOT NULL DEFAULT 'permanent' CHECK (injury_persistence IN ('permanent', 'temporary', 'none')),
   -- The first-run notice: the story is AI written, and the user is 18 or older.
   ai_notice_at TEXT,
   updated_at TEXT NOT NULL
@@ -337,7 +339,20 @@ CREATE TABLE IF NOT EXISTS story_wounds (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   level INTEGER NOT NULL CHECK (level BETWEEN 0 AND 5),
   dead INTEGER NOT NULL DEFAULT 0 CHECK (dead IN (0, 1)),
-  rested INTEGER NOT NULL DEFAULT 0
+  rested INTEGER NOT NULL DEFAULT 0,
+  treated INTEGER NOT NULL DEFAULT 0
+);
+
+-- The character's lasting injuries (dungeon/injuries.py), each from the table, since a story time.
+CREATE TABLE IF NOT EXISTS story_injuries (
+  injury_id TEXT PRIMARY KEY,
+  since TEXT NOT NULL
+);
+
+-- Each line's treatment (dungeon/injuries.py), decided once.
+CREATE TABLE IF NOT EXISTS story_treatments (
+  message_id TEXT PRIMARY KEY,
+  lines TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS story_fight (
