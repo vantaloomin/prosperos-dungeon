@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
-import type { MarvelSheet, Sheet, SheetGrowth, Srd52Sheet, Srd52Spells } from '../../types'
+import type { IronswornSheet, MarvelSheet, Sheet, SheetGrowth, Srd52Sheet, Srd52Spells } from '../../types'
 import { Stepper } from '../../components/NumberFields'
 import { Notice } from '../../components/Feedback'
 import { abilityLine, darkText, signed, spellLine, xpLine } from './storyText'
@@ -17,10 +17,30 @@ export function StorySheet({ open }: { open?: boolean }) {
   return (
     <details className="story-sheet" open={open}>
       <summary>Your character</summary>
-      {sheet.data.ruleset === 'srd52' ? <Srd52 sheet={sheet.data} /> : <Marvel sheet={sheet.data} />}
+      <Rules sheet={sheet.data} />
       <Dark growth={sheet.data.growth} />
     </details>
   )
+}
+
+function Rules({ sheet }: { sheet: Sheet }) {
+  if (sheet.ruleset === 'srd52') return <Srd52 sheet={sheet} />
+  if (sheet.ruleset === 'ironsworn') return <Ironsworn sheet={sheet} />
+  return <Marvel sheet={sheet} />
+}
+
+/** An Ironsworn sheet (dungeon/rules/ironsworn.py): set when the character was made, so it only reads. */
+function Ironsworn({ sheet }: { sheet: IronswornSheet }) {
+  return <>
+    <p>{Object.entries(sheet.stats).map(([stat, value]) => `${stat} ${value}`).join(' · ')}</p>
+    <p>Health {sheet.health} · Spirit {sheet.spirit} · Supply {sheet.supply} · Momentum {signed(sheet.momentum)} (max {sheet.momentum_max}, reset {sheet.momentum_reset})</p>
+    {!!sheet.debilities.length && <p className="subtle">{sheet.debilities.join(', ')}</p>}
+    <details>
+      <summary>Assets</summary>
+      {sheet.asset_list.map((asset) => <p key={asset.id}><strong>{asset.name}</strong> <span className="subtle">({asset.category})</span> {asset.abilities.join(' ')}</p>)}
+    </details>
+    <p className="subtle story-attribution">{sheet.attribution}</p>
+  </>
 }
 
 function Marvel({ sheet }: { sheet: MarvelSheet }) {

@@ -55,7 +55,7 @@ from dungeon.narration import prompt as narration_prompt
 from dungeon.narration import prose
 from dungeon.providers.chat import INCOMPLETE
 from dungeon.providers.scheduling import CONVERSATION
-from dungeon.rules import marvel, srd52
+from dungeon.rules import ironsworn, marvel, srd52
 from dungeon.sheet import native as native_sheet
 from dungeon.sheet import ruleset as ruleset_of
 from dungeon.sheet import stats as sheet_stats
@@ -310,9 +310,10 @@ def persona_text(connection) -> tuple[str, str | None]:
     lines = [f"{row['name']}" + (f' ({details})' if details else '') + '.']
     if row['about']:
         lines.append(row['about'].strip())
-    native = native_sheet(connection) if ruleset_of(connection) == srd52.ID else None
+    played = ruleset_of(connection)
+    native = native_sheet(connection) if played != marvel.ID else None
     if native:
-        lines.append(srd52.described(native))
+        lines.append(srd52.described(native) if played == srd52.ID else ironsworn.described(native))
     stats = {} if native else sheet_stats(connection)
     if strong := [marvel.MEANINGS[stat] for stat, value in stats.items() if value >= STRONG]:
         lines.append(f"Good at: {'; '.join(strong)}.")

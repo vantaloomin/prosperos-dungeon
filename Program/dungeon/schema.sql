@@ -533,7 +533,8 @@ CREATE TABLE IF NOT EXISTS story_fight (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   round INTEGER NOT NULL,
   wants TEXT NOT NULL,
-  foes TEXT NOT NULL
+  foes TEXT NOT NULL,
+  initiative TEXT
 );
 
 -- A haggle at a shop holds for the rest of that story day (dungeon/inventory.py): percent off (negative) or on.
