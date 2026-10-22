@@ -87,8 +87,12 @@ def map_text(connection, view: dict) -> str:
     here = next((place['name'] for place in known['places'] if place['here']), view['city']['name'])
     roads = [f"{names[road['from']]} to {names[road['to']]}: {road['hours']} hours by {road['terrain']}, "
              f"{road['danger']} danger" for road in known['roads']]
-    return (f"\n\n## The map as the character knows it\nHere: {here}. Places within this town are reached by going "
-            f"there. Known roads:\n" + '\n'.join(f'- {road}' for road in roads))
+    # A town on the map is a city of its own (Kingswood), with its places; a place on the Road is only itself.
+    town = view['city']['id'] in names
+    places = ', '.join(place['name'] for place in view['data']['places']) if town else ''
+    return (f"\n\n## The map as the character knows it\nHere: {here}."
+            + (f" Places in {view['city']['name']}, reached by going there: {places}." if places else '')
+            + "\nKnown roads:\n" + '\n'.join(f'- {road}' for road in roads))
 
 
 def intensity(connection, data: dict) -> dict:
