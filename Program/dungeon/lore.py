@@ -3,11 +3,15 @@
 A book belongs to the world (a lorebook file imported on its own), or to a city (a world map's notes). Each entry is
 plain text with keywords: always-on, or matched only while one of its keywords is in the last few messages, as a
 whole word in any letter case, like Prospero's Study's literal keyword matching (server/lore/matching.py at
-bbcbde4). No pattern runs and no model picks entries. The story narrator reads it from Milestone 1.
+bbcbde4), or while the scene fits its "when" (dungeon/lore_moments.py: rain, night, a holiday, a place...). No
+pattern runs and no model picks entries. The story narrator reads it in every turn (`prompt_text`).
 """
+import re
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 
+from dungeon import lore_moments as moments
 from dungeon.database import decode, encode, identifier, many, one
 from dungeon.errors import require
 from dungeon.imports import formats
@@ -26,22 +30,46 @@ def books(connection) -> list[dict]:
     return many(connection, 'SELECT * FROM lore_books ORDER BY created_at')
 
 
-def entry_view(row: dict) -> dict:
+def when_of(row: dict, holidays: list[str]) -> tuple[list[str], bool]:
+    """(the entry's "when", whether the app read it from its keywords). Always-on entries have none."""
+    if row['always']:
+        return [], False
+    if row.get('moment') is not None:
+        return decode(row['moment']), False
+    found = moments.guessed(decode(row['keywords']), holidays)
+    return found, bool(found)
+
+
+def entry_view(row: dict, scene: dict) -> dict:
+    when, guessed = when_of(row, scene['holidays'])
     return {'id': row['id'], 'title': row['title'], 'text': row['text'], 'keywords': decode(row['keywords']),
-            'always': bool(row['always']), 'pattern': bool(row['pattern']), 'enabled': bool(row['enabled'])}
+            'always': bool(row['always']), 'pattern': bool(row['pattern']), 'enabled': bool(row['enabled']),
+            'when': [{'key': key, 'label': moments.label(key, scene['city'])} for key in when],
+            'when_guessed': guessed, 'fits_now': bool(row['enabled']) and moments.matches(when, scene['now'])}
+
+
+def story_scene(connection, now: datetime) -> dict:
+    """The story's town, its holidays and what holds in the scene right now, for listing entries."""
+    from dungeon import story
+    where = story.scene_row(connection)
+    city = story.city_data(connection, where['city_id'])
+    keys = moments.now_keys(city, where['place_id'], story.local_moment(city, now))
+    return {'city': city, 'holidays': moments.holiday_names(city), 'now': keys}
 
 
 def listing(database) -> dict:
-    """The world's books, with their entries."""
+    """The world's books, with their entries, and what the "when" pickers offer in the story's town."""
     with database.connect() as connection:
+        from dungeon import story_clock
+        scene = story_scene(connection, story_clock.now(connection, database.clock))
         found = []
         for book in books(connection):
             entries = many(connection, 'SELECT * FROM lore_entries WHERE book_id=? ORDER BY position', (book['id'],))
             found.append({'id': book['id'], 'name': book['name'], 'description': book['description'],
                           'source_format': book['source_format'], 'source_file': book['source_file'],
                           'city_id': book['city_id'], 'enabled': bool(book['enabled']),
-                          'created_at': book['created_at'], 'entries': [entry_view(row) for row in entries]})
-        return {'books': found}
+                          'created_at': book['created_at'], 'entries': [entry_view(row, scene) for row in entries]})
+        return {'books': found, 'choices': moments.choices(scene['city'])}
 
 
 def visible_book(connection, book_id: str) -> dict:
@@ -62,6 +90,17 @@ def set_entry(database, entry_id: str, enabled: bool) -> dict:
         require(not (enabled and entry['pattern']), 'This entry finds its moment with a search pattern, which the '
                 'Dungeon cannot match, so it stays off. Copy what matters into an entry of your own.', 422)
         connection.execute('UPDATE lore_entries SET enabled=? WHERE id=?', (int(enabled), entry_id))
+    return listing(database)
+
+
+def set_when(database, entry_id: str, when: list[str]) -> dict:
+    """The player's own "when" for an entry: it replaces the one the app read from its keywords. An empty list
+    clears it, so the entry comes only by its keywords."""
+    with database.connect(write=True) as connection:
+        entry = one(connection, 'SELECT * FROM lore_entries WHERE id=?', (entry_id,))
+        visible_book(connection, entry['book_id'])
+        require(not entry['always'], 'An always-on entry is part of every turn, so it has no "when".', 422)
+        connection.execute('UPDATE lore_entries SET moment=? WHERE id=?', (encode(moments.tidy(when)), entry_id))
     return listing(database)
 
 
@@ -144,3 +183,48 @@ def drop_orphaned(connection) -> None:
                        'AND city_id NOT IN (SELECT id FROM world_cities))')
     connection.execute('DELETE FROM lore_books WHERE city_id IS NOT NULL AND city_id NOT IN (SELECT id FROM '
                        'world_cities)')
+
+
+# For the narrator ---------------------------------------------------------------------------------------------
+
+HEADING = '## Lore (true in this world; use what bears on the scene, in your own words)'
+
+
+def spelled(text: str, user: str) -> str:
+    """A card's {{user}} becomes the player character's name, and {{char}} (the card's own character) "the
+    narrator"."""
+    for macro in MACROS:
+        text = text.replace(macro, user if macro in ('{{user}}', '<USER>') else 'the narrator')
+    return text
+
+
+def mentioned(keyword: str, text: str) -> bool:
+    """A keyword as a whole word, in any letter case."""
+    keyword = keyword.strip()
+    return bool(keyword) and re.search(r'(?<!\w)' + re.escape(keyword.casefold()) + r'(?!\w)', text) is not None
+
+
+def prompt_text(connection, city: dict, place_id: str, local: datetime, recent: list[str], user: str = '') -> str:
+    """The lore for this turn: always-on entries, then entries whose keywords are in the last few messages, then
+    those whose "when" fits the scene, at most MAX_TRIGGERED of the last two. '' with no lore switched on."""
+    entries = many(connection, 'SELECT e.* FROM lore_entries e JOIN lore_books b ON b.id=e.book_id WHERE e.enabled=1 '
+                   'AND b.enabled=1 AND (b.city_id IS NULL OR b.city_id=?) ORDER BY b.created_at, e.position',
+                   (city['id'],))
+    if not entries:
+        return ''
+    scanned = '\n'.join(recent[-SCAN_MESSAGES:]).casefold()
+    holidays, keys = moments.holiday_names(city), None
+    always, mentioned_now, fitting = [], [], []
+    for entry in entries:
+        line = spelled(f"- {entry['title']}: {entry['text']}" if entry['title'] else f"- {entry['text']}",
+                       user or 'the player character')
+        when = when_of(entry, holidays)[0]
+        if entry['always']:
+            always.append(line)
+        elif any(mentioned(word, scanned) for word in decode(entry['keywords'])):
+            mentioned_now.append(line)
+        elif when:
+            keys = moments.now_keys(city, place_id, local) if keys is None else keys
+            fitting += [line] if moments.matches(when, keys) else []
+    lines = [*always, *[*mentioned_now, *fitting][:MAX_TRIGGERED]]
+    return f'{HEADING}\n' + '\n'.join(lines) if lines else ''

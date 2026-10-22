@@ -216,7 +216,10 @@ CREATE TABLE IF NOT EXISTS lore_entries (
   keywords TEXT NOT NULL DEFAULT '[]',
   always INTEGER NOT NULL DEFAULT 0 CHECK (always IN (0, 1)),
   pattern INTEGER NOT NULL DEFAULT 0 CHECK (pattern IN (0, 1)),
-  enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1))
+  enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  -- When it applies besides its keywords (dungeon/lore_moments.py): a JSON list such as ["weather:rain"], or NULL
+  -- while the app reads one from its keywords.
+  moment TEXT
 );
 
 CREATE INDEX IF NOT EXISTS lore_entries_book ON lore_entries(book_id, position);
