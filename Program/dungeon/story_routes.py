@@ -21,6 +21,7 @@ from dungeon import (
     sheet,
     story,
     story_clock,
+    table,
     tiers,
 )
 from dungeon.errors import DomainError, require
@@ -145,7 +146,7 @@ def read_sheet(request: Request):
 def change_sheet(request: Request, body: SheetChange):
     database = request.app.state.database
     with database.connect(write=True) as connection:
-        require(sheet.ruleset(connection) == 'marvel', 'A 5E sheet is set when the character is made.', 409)
+        require(sheet.ruleset(connection) == 'marvel', "This ruleset's sheet is set when the character is made.", 409)
         sheet.set_stats(connection, body.stats, database.now())
         return sheet.full_view(connection) | {'growth': growth.view(connection, story.dice_shown(connection))}
 
@@ -165,6 +166,12 @@ class Srd52Build(Input):
     skills: list[str] = Field(default_factory=list, max_length=8)
 
 
+class IronswornBuild(Input):
+    """An Ironsworn character (dungeon/rules/ironsworn.py build): 3, 2, 2, 1, 1 on the five stats, three assets."""
+    stats: dict[str, int]
+    assets: list[str] = Field(default_factory=list, max_length=6)
+
+
 class StoryStart(Input):
     """A premade character by id, or one the player made: who they are and their bought stats."""
     premade_id: str | None = Field(None, min_length=1, max_length=80)
@@ -179,8 +186,9 @@ class StoryStart(Input):
     ironman: bool = False
     legacy: LegacyChoice | None = None
     # The ruleset (dungeon/sheet.py), locked for the campaign; the world's own when left out.
-    ruleset: Literal['marvel', 'srd52'] | None = None
+    ruleset: Literal['marvel', 'srd52', 'ironsworn'] | None = None
     build: Srd52Build | None = None
+    ironsworn: IronswornBuild | None = None
 
 
 @router.get('/start')
@@ -192,7 +200,7 @@ def start_choices(request: Request):
 def start(request: Request, body: StoryStart):
     return campaign.begin(request.app.state.database, body.premade_id, body.persona, body.stats, body.arc,
                           body.pace, body.hand, body.ironman, body.legacy and body.legacy.model_dump(), body.ruleset,
-                          body.build and body.build.model_dump())
+                          body.build and body.build.model_dump(), body.ironsworn and body.ironsworn.model_dump())
 
 
 class StoryBack(Input):
@@ -260,6 +268,32 @@ def remove_bookmark(request: Request, bookmark_id: str):
 @router.post('/bookmarks/{bookmark_id}/go')
 def go_to_bookmark(request: Request, bookmark_id: str):
     return story.bookmark_go(request.app.state.database, bookmark_id)
+
+
+class TableUpdate(Input):
+    """The Table (dungeon/table.py): this campaign's rules."""
+    intensity: Literal['world', 'restrained', 'mature', 'unflinching'] | None = None
+    drama: Literal['world', 'quiet', 'uneasy', 'eventful', 'merciless'] | None = None
+    injury_persistence: Literal['permanent', 'temporary', 'none'] | None = None
+    show_odds: bool | None = None
+    roll_dice: bool | None = None
+    show_adult_side: bool | None = None
+    gm_view: bool | None = None
+    cutaways: bool | None = None
+
+
+@router.get('/table')
+def read_table(request: Request):
+    with request.app.state.database.connect() as connection:
+        return table.rules(connection)
+
+
+@router.put('/table')
+def change_table(request: Request, body: TableUpdate):
+    database = request.app.state.database
+    with database.connect(write=True) as connection:
+        table.choose(connection, body.model_dump(exclude_none=True), database.now())
+        return table.rules(connection)
 
 
 class NotebookNote(Input):

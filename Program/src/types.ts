@@ -20,7 +20,7 @@ export interface WorkspaceSettings {
   show_odds?: boolean
   /** Dice that tumble on screen and land on each roll, while the dice are shown. */
   roll_dice?: boolean
-  /** Settings > World > Adult side of life (dungeon/world/intimacy.py): adults only; off unless turned on. */
+  /** Worlds > Adult side of life (dungeon/world/intimacy.py): adults only; off unless turned on. */
   adult_side?: boolean
   /** Hidden values: what townsfolk are like that way, for the user's eyes; off unless turned on. */
   show_adult_side?: boolean
@@ -34,7 +34,7 @@ export interface WorkspaceSettings {
   gm_view?: boolean
   /** How far the story goes on the page; 'world' follows the world's own preset. */
   intensity?: IntensityPreset
-  /** Settings > Debug: every model request and response is written in full to logs/model-calls; off by default. */
+  /** Settings > Developer: every model request and response is written in full to logs/model-calls; off by default. */
   record_model_calls?: boolean
   /** The one-time notice that the characters are AI, with the 18+ confirmation, has been read. */
   ai_notice_confirmed?: boolean
@@ -173,7 +173,7 @@ export interface ImageJob {
   finished_at: string | null
 }
 
-/** Debug time (Settings > Debug, dungeon/debug_time.py): the app clock moved ahead or running faster. */
+/** Debug time (Settings > Developer, dungeon/debug_time.py): the app clock moved ahead or running faster. */
 export interface DebugTime {
   active: boolean
   /** The app's time, and the PC's real time. */
@@ -225,7 +225,7 @@ export interface StoryRoll {
   action: string; stat: string; difficulty: string; die: number | null; natural: number; bonus: number; shift: number
   total: number; band: Band; label: string; ruleset?: Ruleset; target?: number | null; skill?: string | null
 }
-export type Ruleset = 'marvel' | 'srd52'
+export type Ruleset = 'marvel' | 'srd52' | 'ironsworn'
 /** A roll while the dice are hidden: what was tried and with which stat, never the odds (dungeon/turn.py hidden). */
 export type HiddenRoll = Pick<StoryRoll, 'action' | 'stat'>
 /** One of the ruleset's bands by total, worst first; the top band has no ceiling (dungeon/turn.py bands). */
@@ -237,7 +237,18 @@ export type TurnEvent = { stage: 'reading' | 'writing' } | { actions: TurnAction
 /** What a turn under way has shown so far. */
 export interface TurnSoFar { stage: 'reading' | 'writing' | null; actions: TurnAction[]; bands: BandStep[] | null; rolls: (StoryRoll | HiddenRoll)[] }
 /** The persona's MARVEL stats (dungeon/sheet.py) and the die each one rolls; or their 5E sheet (Srd52Sheet). */
-export type Sheet = MarvelSheet | Srd52Sheet
+export type Sheet = MarvelSheet | Srd52Sheet | IronswornSheet
+/** An Ironsworn character (dungeon/rules/ironsworn.py view): five stats, the condition meters, momentum, assets. */
+export interface IronswornSheet {
+  ruleset: 'ironsworn'; ruleset_name: string; stats: Record<string, number>; health: number; spirit: number; supply: number
+  momentum: number; momentum_max: number; momentum_reset: number; debilities: string[]; xp: number
+  asset_list: { id: string; name: string; category: string; abilities: string[] }[]; attribution: string; growth?: SheetGrowth
+}
+/** What an Ironsworn character is built from at campaign start (dungeon/campaign.py ironsworn_choices). */
+export interface IronswornChoices {
+  stats: { id: string; name: string; about: string }[]; array: number[]; count: number
+  assets: { id: string; name: string; category: string; about: string }[]; attribution: string
+}
 export interface MarvelSheet { ruleset: 'marvel'; ruleset_name: string; stats: Record<string, number>; stat_names: string[]; range: [number, number]; dice: Record<string, number | null>; growth?: SheetGrowth }
 /** A 5E character (dungeon/rules/srd52.py view): abilities, proficiency, hit points, Armor Class and every skill. */
 export interface Srd52Sheet {
@@ -286,7 +297,7 @@ export type StoryHand = 'soft' | 'guiding' | 'firm'
 /** Another world's story that can come into a new campaign as history (dungeon/legacy.py). */
 export interface LegacyCandidate { world_id: string; world: string; name: string; dead: boolean; chapters: number }
 export type LegacyRole = 'legend' | 'villain' | 'corpse'
-export interface StoryStart { rulesets?: { id: Ruleset; name: string }[]; ruleset?: Ruleset; srd52?: Srd52Choices; legacy?: LegacyCandidate[]; premades: Premade[]; points: number; range: [number, number]; stat_names: string[]; meanings: Record<string, string>; arc?: { arc: StoryArc; pace: StoryPace; hand?: StoryHand } | null }
+export interface StoryStart { rulesets?: { id: Ruleset; name: string }[]; ruleset?: Ruleset; srd52?: Srd52Choices; ironsworn?: IronswornChoices; legacy?: LegacyCandidate[]; premades: Premade[]; points: number; range: [number, number]; stat_names: string[]; meanings: Record<string, string>; arc?: { arc: StoryArc; pace: StoryPace; hand?: StoryHand } | null }
 /** The character's tier on the shared ladder and its track (dungeon/tiers.py); the numbers only with the dice shown. */
 /** Growth by use and the dark tracks (dungeon/growth.py); points only with the dice shown. */
 export interface SheetGrowth { marked: string[]; dark: { id: string; name: string; word: string; changes: string[]; points?: number; top?: number }[] }
@@ -325,6 +336,8 @@ export interface StoryBranch { id: string; playing: boolean; turns: number; last
 /** The fight and the character's wounds (dungeon/combat.py); a foe's `wound` level (and 5E hit points) only with the dice shown. */
 export interface StoryFight {
   condition: string; dead: boolean; injuries?: string[]; stress?: string
+  /** Who holds the character prisoner, if anyone. */
+  captors?: string | null
   /** Hit points, under 5E. */
   hp?: number; max_hp?: number
   fight: { round: number; foes: { name: string; state: string; wound: number | null; hp?: number; max_hp?: number }[] } | null
@@ -339,7 +352,12 @@ export interface StoryIntensity {
   cutaways?: boolean
 }
 export type DramaLevel = 'world' | 'quiet' | 'uneasy' | 'eventful' | 'merciless'
-export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; bands?: BandStep[] | null; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null; injury_persistence: InjuryPersistence; factions?: StoryFaction[]; tier?: StoryTier | null; campaign?: StoryCampaign; message_id?: string }
+/** The Table (dungeon/table.py): this campaign's rules. Tone starts as the world's; what is shown, as you last left it. */
+export interface TableRules {
+  intensity: IntensityPreset; drama: DramaLevel; injury_persistence: InjuryPersistence
+  show_odds: boolean; roll_dice: boolean; show_adult_side: boolean; gm_view: boolean; cutaways: boolean
+}
+export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; bands?: BandStep[] | null; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null; injury_persistence: InjuryPersistence; table?: TableRules; factions?: StoryFaction[]; tier?: StoryTier | null; campaign?: StoryCampaign; message_id?: string }
 /** A faction the character knows of (dungeon/factions.py): standing in words, with the number when the dice are shown. */
 export interface StoryFaction { id: string; name: string; summary: string; standing: string }
 export type InjuryPersistence = 'permanent' | 'temporary' | 'none'
@@ -351,7 +369,7 @@ export interface StoryMap {
 /** The story after going back, with the line that was taken back to send again. */
 export interface StoryBack extends Story { draft: string }
 
-/** Record model calls (dungeon/model_calls.py), Settings > Debug. */
+/** Record model calls (dungeon/model_calls.py), Settings > Developer. */
 export interface ModelCallLog { recording: boolean; folder: string; keep_days: number; files: number; bytes: number }
 
 /** Worlds and personas (dungeon/worlds.py): the user as someone in particular, and the worlds they live in. */
@@ -380,7 +398,7 @@ export interface Worlds {
   active_world_id: string; active_persona_id: string; world: World; persona: Persona; personas: Persona[]
 }
 
-/** Settings > Debug > Townsfolk mix (dungeon/world/mix.py): the shares the townsfolk rolls use. */
+/** Worlds > Townsfolk mix (dungeon/world/mix.py): the shares the townsfolk rolls use. */
 export interface MixValues {
   nonbinary: number; women: number; height_woman: number; height_man: number
   slender: number; middle: number; heavier: number; beard: number

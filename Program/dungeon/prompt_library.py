@@ -1,4 +1,4 @@
-"""The core prompts a power user may reword in Settings > Advanced (docs/prompts.md).
+"""The core prompts a power user may reword in Settings > Developer (docs/prompts.md).
 
 Each prompt's default lives where it is used, a module constant written for `str.format`. Here they are shown and
 stored in one form,

@@ -27,7 +27,7 @@ def made(scores=None, skills=('perception', 'survival')):
 
 def test_a_new_campaign_offers_the_rulesets_and_marvel_stays_the_default(client):
     choices = ok(client.get('/api/story/start'))
-    assert [item['id'] for item in choices['rulesets']] == ['marvel', 'srd52'] and choices['ruleset'] == 'marvel'
+    assert [item['id'] for item in choices['rulesets']] == ['marvel', 'srd52', 'ironsworn'] and choices['ruleset'] == 'marvel'
     assert {'fighter', 'wizard'} <= {item['id'] for item in choices['srd52']['classes']}
     assert choices['srd52']['array'] == [15, 14, 13, 12, 10, 8] and 'SRD 5.2.1' in choices['srd52']['attribution']
     ok(start(client, premade_id='agna-holt'))
@@ -41,7 +41,7 @@ def test_a_made_5e_character_takes_the_array_the_background_and_the_class(client
                                                            'background': 'Soldier'}
     # Soldier raises the best of Str, Dex and Con by 2 and the next by 1.
     assert view['abilities'] == {'str': 17, 'con': 15, 'dex': 13, 'wis': 12, 'int': 10, 'cha': 8}
-    assert (view['level'], view['proficiency'], view['max_hp'], view['ac']) == (1, 2, 12, 11)
+    assert (view['level'], view['proficiency'], view['max_hp'], view['ac']) == (1, 2, 12, 16)  # Chain Mail
     assert set(view['skills']) == {'athletics', 'intimidation', 'perception', 'survival'}
     assert view['skill_bonuses']['athletics']['bonus'] == 5 and view['skill_bonuses']['stealth']['bonus'] == 1
     assert 'SRD 5.2.1' in view['attribution']
@@ -72,8 +72,8 @@ def test_a_5e_check_rolls_a_d20_with_the_skill_against_the_dc():
     rng = random.Random(4)
     result = srd52.check(built, 'Luck', 'hard', 'I sneak past the guard', rng)
     # Stealth is Dex (17 after Criminal's +2): +3, and proficient: +2.
-    assert (result['skill'], result['bonus'], result['target'], result['die']) == ('Stealth', 5, 20, 20)
-    assert result['band'] == ('success' if result['total'] >= 20 else 'failure')
+    assert (result['skill'], result['bonus'], result['target'], result['die']) == ('Stealth', 5, 15, 20)
+    assert result['band'] == ('success' if result['total'] >= 15 else 'failure')
     # No skill in the words: the approach's ability. A save adds proficiency only in the class's saves.
     assert srd52.check(built, 'Allure', 'normal', 'I stand tall', rng)['skill'] == 'Charisma'
     assert srd52.check(built, 'Vitality', 'normal', rng=rng, save=True)['skill'] == 'Constitution save'
@@ -90,7 +90,7 @@ def test_a_turn_under_5e_rolls_the_persona_on_their_5e_sheet(client, connected, 
     tell(client, 'I climb the wall.', 'story-0001')
     story = ok(client.get('/api/story'))
     rolled = next(message for message in story['messages'] if message['role'] == 'user')['rolls'][0]
-    assert (rolled['ruleset'], rolled['skill'], rolled['die'], rolled['target']) == ('srd52', 'Athletics', 20, 15)
+    assert (rolled['ruleset'], rolled['skill'], rolled['die'], rolled['target']) == ('srd52', 'Athletics', 20, 12)
     assert rolled['bonus'] == 5 and rolled['band'] in ('success', 'failure')
     assert story['bands'] is None
     with app.state.database.connect() as connection:

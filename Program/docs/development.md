@@ -222,7 +222,7 @@ builds a new workspace instead and copies across only the user's settings, model
 a workspace keeps its current settings and connections instead of the backup's (`restore.KEPT_SETTINGS`). With no
 workspace to replace (a new computer), saved keys are dropped, so the user enters them again.
 
-In the app, Settings > Backups lists the archives in `backups/` (`GET /api/backups`, read from
+In the app, Settings > Data lists the archives in `backups/` (`GET /api/backups`, read from
 their manifests) and **Restore…** chooses one (`POST /api/backups/{name}/restore`, which verifies
 it in full first and can be cancelled with `DELETE /api/backups/restore`). The running app cannot
 replace its own open workspace, so the choice is recorded in `pending-restore.json` and the
@@ -241,7 +241,7 @@ restore fails.
 logs message text. An unexpected error returns `{"code": "server_error"}` with a message naming the log's
 full path, and the page shows "Open the log folder" under it on the PC (`POST /api/logs/open-folder`).
 
-**Record model calls** (Settings > Debug, PC only, off by default; `dungeon/model_calls.py`) is the one
+**Record model calls** (Settings > Developer, PC only, off by default; `dungeon/model_calls.py`) is the one
 exception: while it is on, every text model call (the narrator and anything else that asks a model) is appended in full to
 `logs/model-calls/YYYY-MM-DD.jsonl`: which part of the app asked, provider, model, address without its query
 string, the system prompt, messages and exact request body, and the streamed text, thinking, finish reason, usage

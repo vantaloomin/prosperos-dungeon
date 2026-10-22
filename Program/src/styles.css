@@ -317,7 +317,6 @@ textarea { resize: vertical; line-height: 1.6; }
 .settings-layout { display: flex; gap: 32px; align-items: flex-start; max-width: 1040px; }
 .settings-nav { display: flex; flex-direction: column; gap: 16px; flex: 0 0 180px; position: sticky; top: 0; align-self: flex-start; }
 .settings-tabs { display: flex; flex-direction: column; gap: 2px; }
-.advanced-switch { padding: 12px 12px 0; border-top: 1px solid var(--border); font-size: 0.8125rem; }
 .settings-tabs [role='tab'] { text-align: left; padding: 9px 12px; border-radius: 7px; color: var(--muted); font-size: 0.875rem; }
 .settings-tabs [role='tab']:hover { background: var(--raised); color: var(--text); }
 .settings-tabs [role='tab'][aria-selected='true'] { background: var(--accent-tint); color: var(--accent); font-weight: 500; }
@@ -329,7 +328,6 @@ textarea { resize: vertical; line-height: 1.6; }
   .settings-nav { flex: 0 0 auto; width: 100%; position: static; gap: 10px; }
   .settings-panel { width: 100%; }
   .settings-tabs { flex-direction: row; width: 100%; overflow-x: auto; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
-  .advanced-switch { padding: 0; border-top: 0; }
   .settings-tabs [role='tab'] { white-space: nowrap; flex: 0 0 auto; }
 }
 .settings-section h2 { margin-bottom: 6px; }
@@ -567,7 +565,7 @@ img.avatar, img.portrait { object-fit: cover; object-position: center top; paddi
 }
 @media (pointer: coarse) { input, select, textarea { font-size: max(1rem, 16px); } }
 
-/* Debug time (Settings > Debug): the banner while it is on, and the tab's controls. */
+/* Debug time (Settings > Developer): the banner while it is on, and the tab's controls. */
 .debug-banner { display: flex; flex: none; align-items: center; gap: 10px; max-width: 760px; margin: 12px 24px 0; padding: 9px 13px; border: 1px dashed var(--accent); border-radius: 8px; font-size: 0.875rem; background: var(--surface); }
 .debug-banner > span { flex: 1; min-width: 0; }
 .form-actions.wrap { flex-wrap: wrap; }
@@ -657,6 +655,9 @@ img.avatar, img.portrait { object-fit: cover; object-position: center top; paddi
 .worlds { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
 .worlds-header, .worlds-list { max-width: 760px; width: 100%; margin: 0 auto; padding: 18px 32px 12px; display: flex; flex-direction: column; gap: 10px; }
 .worlds-list { padding-top: 0; padding-bottom: 32px; gap: 18px; }
+/* What the world is made of (src/features/worlds/Worlds.tsx): the sections that left Settings, laid out as they were there. */
+.worlds-makeup { max-width: 760px; width: 100%; margin: 0 auto; padding: 8px 32px 40px; }
+.worlds-makeup > h2 { margin: 0 0 4px; font-size: 1.125rem; }
 .worlds-header h1 { font-size: 1.3rem; }
 .persona-worlds { display: flex; flex-direction: column; gap: 8px; padding-top: 16px; border-top: 1px solid var(--border); }
 .persona-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -672,7 +673,7 @@ img.avatar, img.portrait { object-fit: cover; object-position: center top; paddi
 /* Lined up with the world rows' names (row padding + portrait + gap), so it reads as this persona's. */
 .new-world { padding: 4px 10px 8px 68px; max-width: 528px; }
 @media (max-width: 720px) {
-  .worlds-header, .worlds-list { padding-left: 16px; padding-right: 16px; }
+  .worlds-header, .worlds-list, .worlds-makeup { padding-left: 16px; padding-right: 16px; }
 }
 
 /* Model family (Settings > Images): a short select, full width on a phone (Iris). */

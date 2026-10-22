@@ -1,4 +1,4 @@
-"""Settings > Debug > Townsfolk mix (dungeon/world/mix.py): what the open world's town is made of, counted from its
+"""Worlds > Townsfolk mix (dungeon/world/mix.py): what the open world's town is made of, counted from its
 people, and a new world made with a changed mix.
 
 The count reads every townsperson in the story's city (people at its places and its residents), the

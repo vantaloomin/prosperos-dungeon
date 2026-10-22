@@ -8,6 +8,8 @@ const SHAPES: Record<number, string> = {
 }
 
 function caption(face: DieFace): string {
+  if (face.key === 'action') return 'action'
+  if (face.key === 'challenge1' || face.key === 'challenge2') return 'challenge'
   return face.key === 'stat' ? `d${face.sides}` : face.key === 'tens' ? 'd100' : ''
 }
 

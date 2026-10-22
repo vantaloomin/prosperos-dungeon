@@ -41,6 +41,7 @@ from dungeon import (
     story_clock,
     story_people,
     stress,
+    table,
     tiers,
     timeline,
     travel,
@@ -55,7 +56,7 @@ from dungeon.narration import prompt as narration_prompt
 from dungeon.narration import prose
 from dungeon.providers.chat import INCOMPLETE
 from dungeon.providers.scheduling import CONVERSATION
-from dungeon.rules import marvel, srd52
+from dungeon.rules import ironsworn, marvel, srd52
 from dungeon.sheet import native as native_sheet
 from dungeon.sheet import ruleset as ruleset_of
 from dungeon.sheet import stats as sheet_stats
@@ -103,12 +104,12 @@ def intensity(connection, data: dict) -> dict:
     """How far the story goes on the page: the player's preset, or the world's (requirements "Intensity and tone").
     v0 has one preset for every category; per-category sliders and veils come later."""
     world = data.get('intensity') or {}
-    chosen = settings(connection)['intensity']
+    chosen = table.rule(connection, 'intensity')
     world_preset = world.get('preset') or narration_prompt.DEFAULT_PRESET
-    drama, world_drama = settings(connection)['drama'], world.get('drama') or happenings.DEFAULT_DRAMA
+    drama, world_drama = table.rule(connection, 'drama'), world.get('drama') or happenings.DEFAULT_DRAMA
     return {'preset': world_preset if chosen == 'world' else chosen, 'chosen': chosen, 'world': world_preset,
             'voice': world.get('voice') or '', 'drama': world_drama if drama == 'world' else drama,
-            'drama_chosen': drama, 'drama_world': world_drama, 'cutaways': bool(settings(connection)['cutaways'])}
+            'drama_chosen': drama, 'drama_world': world_drama, 'cutaways': table.rule(connection, 'cutaways')}
 
 
 def no_model() -> DomainError:
@@ -213,7 +214,7 @@ def scene(connection, now: datetime) -> dict:
                       'neighborhood': hood, 'spots': inside.names(inside.for_place(place, data.get('era')))},
             'local_time': moment.isoformat(timespec='minutes'), 'weather': weather_text(weather) if weather else '',
             'people': present(connection, data, place['id'], moment), 'data': data, 'now': now,
-            'known': story_people.known(connection)}
+            'known': story_people.known(connection), 'dead': record.dead(connection)}
 
 
 def initiative(sheet: dict, data: dict, moment: datetime | None) -> str:
@@ -264,7 +265,19 @@ def scene_text(view: dict) -> str:
     lines += [person_line(person, {'id': place['id']}, data, view['known'].get(person['sheet']['key']), moment)
               for person in view['people']] or \
         ['- Nobody the story knows; only passers-by.']
+    lines += away_lines(view)
     return '## Scene\n' + '\n'.join(lines)
+
+
+def away_lines(view: dict) -> list[str]:
+    """The notables who run this place but are not here now, so the narrator invents no one else in their post."""
+    here = {person['sheet'].get('full') for person in view['people']}
+    return [f"- Not here now: {notable['name']} ({notable.get('pronouns', 'they/them')}), the {notable['role']} "
+            f"here. Whoever minds the place stands in; {notable['name']} is still the {notable['role']}, so invent "
+            "no other."
+            for notable in view['data'].get('notables', [])
+            if notable.get('place') == view['place']['id'] and notable.get('staff') and notable['name'] not in here
+            and notable['name'].lower() not in view.get('dead', set())]
 
 
 def scene_view(view: dict) -> dict:
@@ -298,9 +311,10 @@ def persona_text(connection) -> tuple[str, str | None]:
     lines = [f"{row['name']}" + (f' ({details})' if details else '') + '.']
     if row['about']:
         lines.append(row['about'].strip())
-    native = native_sheet(connection) if ruleset_of(connection) == srd52.ID else None
+    played = ruleset_of(connection)
+    native = native_sheet(connection) if played != marvel.ID else None
     if native:
-        lines.append(srd52.described(native))
+        lines.append(srd52.described(native) if played == srd52.ID else ironsworn.described(native))
     stats = {} if native else sheet_stats(connection)
     if strong := [marvel.MEANINGS[stat] for stat, value in stats.items() if value >= STRONG]:
         lines.append(f"Good at: {'; '.join(strong)}.")
@@ -389,8 +403,8 @@ def messages(connection, limit: int = HISTORY_LIMIT) -> list[dict]:
 
 
 def dice_shown(connection) -> bool:
-    """Roll visibility (Settings > World > Hidden values): hidden unless the player shows them."""
-    return bool(settings(connection)['show_odds'])
+    """Roll visibility (Story > Tone and rules > Dice and hidden values): hidden unless the player shows them."""
+    return table.rule(connection, 'show_odds')
 
 
 def with_rolls(connection, rows: list[dict]) -> list[dict]:
@@ -415,6 +429,7 @@ def story(database) -> dict:
                     'injuries': injuries.view(connection, view['now']),
                     'stress': stress.view(connection, dice_shown(connection))},
                 'injury_persistence': injuries.persistence(connection),
+                'table': table.rules(connection),
                 'intensity': intensity(connection, view['data']),
                 'map': travel.view(connection, view['city']['id'], view['place']['id']),
                 'factions': powers(connection, view), 'tier': standing(connection, view)}
@@ -524,9 +539,13 @@ def move(database, city_id: str, place_id: str | None) -> dict:
         place = catalog.find(data, place_id) if place_id else opening_place(data)
         require(place is not None and place in data['places'], 'No such place in this city.', 404)
         require(combat.fight(connection) is None, "You're in a fight. Get away first.", 409)
+        held = combat.captors(connection)
+        require(not held, f"You're held prisoner by {held}. Get free first.", 409)
         moving_from = scene_row(connection)['city_id']
         if scene_row(connection) != {'city_id': data['id'], 'place_id': place['id']}:
             place_scene(connection, data['id'], place['id'], database.now())
+            # The next line opens a chapter in the new place (dungeon/chapters.py).
+            chapters.mark(connection, 'place')
             pass_time(database, connection, story_clock.ACROSS_TOWN_MINUTES if moving_from == data['id'] else
                       story_clock.ANOTHER_CITY_MINUTES)
             arrive(connection, database.now())
@@ -549,7 +568,7 @@ def place_words(text: str) -> set[str]:
 def walked_to(connection, text: str) -> dict | None:
     """A place in this town the player's line goes to by name or kind ("I go to the shrine", "I sleep at the
     bunkhouses"), with its city id; none when the words fit no place, or two equally, or there is a fight on."""
-    if combat.fight(connection) is not None:
+    if combat.fight(connection) is not None or combat.captors(connection):
         return None
     row = scene_row(connection)
     data = city_data(connection, row['city_id'])
@@ -602,7 +621,7 @@ def clear(database) -> dict:
     with database.connect(write=True) as connection:
         connection.execute('DELETE FROM story_messages')
         connection.execute('DELETE FROM story_people')
-        for table in ('record_entries', 'record_corrections', 'story_summary', 'story_clock', 'story_quests',
+        for name in ('record_entries', 'record_corrections', 'story_summary', 'story_clock', 'story_quests',
                       'story_inventory', 'story_purse', 'story_stock', 'story_trades', 'story_wounds', 'story_fight',
                       'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
                       'story_rounds', 'story_map', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
@@ -610,7 +629,7 @@ def clear(database) -> dict:
                       'story_offpage', 'story_tier', 'story_marks', 'story_dark',
                       'story_director', 'story_arcs', 'story_threads', 'story_nemeses', 'story_seeds',
                       'story_arc_beats', 'story_sheet'):
-            connection.execute(f'DELETE FROM {table}')
+            connection.execute(f'DELETE FROM {name}')
         timeline.clear(connection)
         chapters.clear(connection)
     return story(database)
@@ -758,7 +777,8 @@ def haggle_lines(connection, city: str, shop: dict, day: str, rolls: list[dict],
 def scene_break(connection, user: dict, travelled: list[str], rested: list[str], fought: list[str]) -> str | None:
     """Why the line ends a chapter, if it does: a new place, time passing on the road or in rest, a fight over."""
     now = scene_row(connection)
-    if (now['city_id'], now['place_id']) != (user['city_id'], user['place_id']):
+    # A line that went somewhere opened its own chapter as it arrived (received).
+    if (now['city_id'], now['place_id']) != (user['city_id'], user['place_id']) and not chapters.opens(connection, user):
         return 'place'
     if travelled or rested:
         return 'time'
@@ -1230,11 +1250,15 @@ def received(database, text: str, client_id: str) -> tuple[dict, dict | None]:
             require(not growth.lost(connection), f'Your character is lost to {growth.lost(connection)}.' + after, 409)
             user = add(connection, database.now(), 'user', text, scene_row(connection), client_id=client_id)
             timeline.save(connection, user['id'])
+            walked = None if in_character.out_of_character(text) else walked_to(connection, text)
+            if walked and (walked['city_id'], walked['id']) != (user['city_id'], user['place_id']):
+                # A line that goes somewhere opens the chapter there.
+                chapters.mark(connection, 'place')
             # A break left pending by the last line opens a new chapter with this one (dungeon/chapters.py).
             chapters.arrive(connection, user, database.now())
             # The time the line takes passes as it is sent: the narrator writes the scene after it.
             if not in_character.out_of_character(text):
-                if walked := walked_to(connection, text):
+                if walked:
                     # "I go to the shrine": the story moves there before the narrator writes, as "Go somewhere
                     # else" would.
                     place_scene(connection, walked['city_id'], walked['id'], database.now())

@@ -7,6 +7,9 @@ import { Loading, Notice } from '../../components/Feedback'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { PersonaForm } from './PersonaForm'
+import { Cities } from '../world/Cities'
+import { AdultSideSettings } from '../settings/HiddenValues'
+import { TownsfolkMix } from '../settings/TownsfolkMix'
 import { CityPick, SOMEWHERE_NEW } from './CityPick'
 import { enter, useWorlds, WORLDS_KEY } from './useWorlds'
 import { homeLine, initial, personaName, personaRef, personaTitle } from './worldsText'
@@ -54,6 +57,14 @@ export function Worlds() {
             </div>}
         <div id="persona-edit"><PersonaForm key={`${data.persona.id}:${data.world.id}`} persona={data.persona} world={data.world} cityId={data.world.city_id} onSaved={(saved) => { if (saved) store(saved) }} /></div>
       </div>
+      {/* What the world is made of: its cities and the people it generates. Settings keeps only what belongs to this
+          computer and the user's accounts (src/features/settings/sections.ts). */}
+      <section className="worlds-makeup" aria-labelledby="world-makeup-heading">
+        <h2 id="world-makeup-heading">What {data.world.name} is made of</h2>
+        <Cities />
+        <AdultSideSettings />
+        <TownsfolkMix />
+      </section>
     </section>
   )
 }

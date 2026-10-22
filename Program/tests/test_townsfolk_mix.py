@@ -1,4 +1,4 @@
-"""Settings > Debug > Townsfolk mix (dungeon/world/mix.py, dungeon/townsfolk_mix.py): the shares the townsfolk
+"""Worlds > Townsfolk mix (dungeon/world/mix.py, dungeon/townsfolk_mix.py): the shares the townsfolk
 rolls use, shown, and a new world made with changed ones."""
 from statistics import mean
 

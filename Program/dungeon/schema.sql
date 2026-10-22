@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS workspace_settings (
   -- are like that way is a hidden value.
   adult_side INTEGER NOT NULL DEFAULT 0 CHECK (adult_side IN (0, 1)),
   show_adult_side INTEGER NOT NULL DEFAULT 0 CHECK (show_adult_side IN (0, 1)),
-  -- Settings > Debug: write every model request and response in full to logs/model-calls (dungeon/model_calls.py).
+  -- Settings > Developer: write every model request and response in full to logs/model-calls (dungeon/model_calls.py).
   record_model_calls INTEGER NOT NULL DEFAULT 0 CHECK (record_model_calls IN (0, 1)),
   -- Automatic backups of every world (dungeon/auto_backup.py).
   auto_backups TEXT NOT NULL DEFAULT 'daily' CHECK (auto_backups IN ('off', 'daily', 'weekly')),
@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS image_backends (
   updated_at TEXT NOT NULL
 );
 
--- Debug time (Settings > Debug, dungeon/debug_time.py). While the row exists the app clock reads
+-- Debug time (Settings > Developer, dungeon/debug_time.py). While the row exists the app clock reads
 -- app_anchor + (real time since real_anchor) * speed. `snapshot` is the database copy taken first, which
 -- returning to real time restores unless the user keeps what happened; `backup` is the verified archive.
 CREATE TABLE IF NOT EXISTS debug_time (
@@ -374,7 +374,8 @@ CREATE TABLE IF NOT EXISTS story_wounds (
   level INTEGER NOT NULL CHECK (level BETWEEN 0 AND 5),
   dead INTEGER NOT NULL DEFAULT 0 CHECK (dead IN (0, 1)),
   rested INTEGER NOT NULL DEFAULT 0,
-  treated INTEGER NOT NULL DEFAULT 0
+  treated INTEGER NOT NULL DEFAULT 0,
+  captors TEXT
 );
 
 -- Life Cards drawn into the story (dungeon/happenings.py): each line's draw for a scene (town, road, rest), with
@@ -532,7 +533,8 @@ CREATE TABLE IF NOT EXISTS story_fight (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   round INTEGER NOT NULL,
   wants TEXT NOT NULL,
-  foes TEXT NOT NULL
+  foes TEXT NOT NULL,
+  initiative TEXT
 );
 
 -- A haggle at a shop holds for the rest of that story day (dungeon/inventory.py): percent off (negative) or on.
@@ -594,7 +596,7 @@ CREATE TABLE IF NOT EXISTS character_stats (
 );
 
 -- Every roll of a turn (dungeon/turn.py), made once per player message before the narrator writes; retelling
--- keeps the dice. Shown to the player only while Settings > World > Show the dice is on.
+-- keeps the dice. Shown to the player only while "Show the dice" (Story > Tone and rules) is on.
 CREATE TABLE IF NOT EXISTS story_rolls (
   id TEXT PRIMARY KEY,
   message_id TEXT NOT NULL REFERENCES story_messages(id) ON DELETE CASCADE,
@@ -647,7 +649,7 @@ CREATE TABLE IF NOT EXISTS authors_notes (
   updated_at TEXT NOT NULL
 );
 
--- The town's mix (dungeon/world/mix.py, Settings > Debug): the shares townsfolk rolls use for looks and who people
+-- The town's mix (dungeon/world/mix.py, Worlds > Townsfolk mix): the shares townsfolk rolls use for looks and who people
 -- are drawn to. No row is the built-in mix. Each world keeps its own; a new world starts from the one it was made from.
 CREATE TABLE IF NOT EXISTS townsfolk_mix (
   id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -765,7 +767,16 @@ CREATE TABLE IF NOT EXISTS story_notebook (
 CREATE TABLE IF NOT EXISTS story_campaign (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   ironman INTEGER NOT NULL DEFAULT 0,
-  ruleset TEXT NOT NULL DEFAULT 'marvel'
+  ruleset TEXT NOT NULL DEFAULT 'marvel',
+  -- The Table (dungeon/table.py): this campaign's rules. NULL until set, then the campaign's own.
+  intensity TEXT CHECK (intensity IN ('world', 'restrained', 'mature', 'unflinching')),
+  drama TEXT CHECK (drama IN ('world', 'quiet', 'uneasy', 'eventful', 'merciless')),
+  injury_persistence TEXT CHECK (injury_persistence IN ('permanent', 'temporary', 'none')),
+  show_odds INTEGER,
+  roll_dice INTEGER,
+  show_adult_side INTEGER,
+  gm_view INTEGER,
+  cutaways INTEGER
 );
 
 -- The persona's sheet under a ruleset other than MARVEL (dungeon/sheet.py), as that ruleset keeps it.

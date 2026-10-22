@@ -12,7 +12,7 @@ each with its own part of the schema), which the backend enforces where it can (
 readable is asked one field at a time.
 
 The player sees and corrects what their character knows (truth 'belief' or 'both'); every correction is logged.
-Hidden truth ('world') stays out of their view, except in the GM view (workspace setting `gm_view`), which shows
+Hidden truth ('world') stays out of their view, except in the GM view (the Table's `gm_view`, dungeon/table.py), which shows
 and edits everything and can ask again for, or clear, a single fact the model extracted.
 
 The story so far: the narrator reads the most recent messages word for word and, before them, one rolling summary.
@@ -20,11 +20,12 @@ When enough older messages pile up, they are folded into the summary by the Cont
 
 Both are game state, kept per branch (dungeon/timeline.py SAVED).
 """
+import asyncio
 import json
 import re
 
-from dungeon import remembering
-from dungeon.database import identifier, many, one, optional, settings
+from dungeon import remembering, table
+from dungeon.database import identifier, many, one, optional
 from dungeon.errors import DomainError, require
 from dungeon.providers.scheduling import CONVERSATION
 from dungeon.text_models import config_for, key_for, routes
@@ -144,7 +145,7 @@ def entries(connection, known_only: bool = True) -> list[dict]:
 
 
 def gm_view(connection) -> bool:
-    return bool(settings(connection)['gm_view'])
+    return bool(table.rule(connection, 'gm_view'))
 
 
 def entry(connection, entry_id: str) -> dict:
@@ -265,10 +266,10 @@ async def field_by_field(state, config: dict, text: str) -> list[dict]:
     if not lines:
         return []
     listed = '\n'.join(f'{number}. {line}' for number, line in enumerate(lines, 1))
-    fields = {}
-    for field, question in FIELDS.items():
-        fields[field] = numbered(await asked(state, config, question + FIELD_SHAPE, f'{text}\n\nThe facts:\n{listed}'),
-                                 len(lines))
+    # The fields are asked together, not one after another: the slow path stays one question's wait longer.
+    answers = await asyncio.gather(*(asked(state, config, question + FIELD_SHAPE, f'{text}\n\nThe facts:\n{listed}')
+                                     for question in FIELDS.values()))
+    fields = {field: numbered(answer, len(lines)) for field, answer in zip(FIELDS, answers)}
     facts = []
     for number, line in enumerate(lines):
         kind = fields['kind'][number].lower().strip('. ')
@@ -384,11 +385,15 @@ async def fold(state, rows: list[dict]):
     with database.connect() as connection:
         before = summary(connection)
         config = config_for(connection, JOB)
+        found = optional(connection, 'SELECT name FROM persona WHERE id=1')
     chunk = to_fold(rows, before['through_seq'])
+    # The character by name: the summary never calls them "the player" or "the party".
+    named = (f"\n\nThe player's character is {found['name']}, one person: call them {found['name']}, never \"the "
+             'player" or "the party".') if found and found['name'] else ''
     if not chunk or config is None:
         return
     try:
-        text = (await asked(state, config, SUMMARIZE, f"The summary so far:\n{before['text'] or '(none yet)'}\n\n"
+        text = (await asked(state, config, SUMMARIZE + named, f"The summary so far:\n{before['text'] or '(none yet)'}\n\n"
                                                     f'The new turns:\n{transcript(chunk)}')).strip()
     except Exception:  # noqa: BLE001 - the turns stay word for word until the next try.
         return

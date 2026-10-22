@@ -5,7 +5,8 @@ management"; docs/story.md "Chapters and the branch tree").
   the player closing one themselves (with a name, if they like) leaves a break pending; the player's next line opens
   the next chapter. The chapter that ends is summarized as the break is made by the Continuity model, when one is
   chosen, which also names it unless the player did and says what it leaves open; the next chapter opens with a
-  short "previously" from that.
+  short "previously" from that, once the story has run a while since the last one (RECAP_TURNS of the player's
+  lines) or the player closed the chapter themselves. A line that goes somewhere opens the new chapter itself.
 - **Chapters follow the branches.** A chapter starts at one of the player's lines and its end is recorded on the
   branch where it ended, so both are seen through dungeon/timeline.py `visible` like the messages: a branch shares
   its parent's chapters up to where it forked, and an end on another branch is not this branch's.
@@ -31,6 +32,8 @@ SHAPE = record.strict({'title': {'type': 'string'}, 'summary': {'type': 'string'
 PREVIOUSLY = ('## Previously (a new chapter opens with this line: begin with a short "Previously" of two or three '
               'sentences drawn from this, then go on with the scene)')
 IRONMAN = 'This is an Ironman campaign: there is no going back.'
+# The player's lines since the last "previously" (or the story's start) before another is worth it.
+RECAP_TURNS = 6
 
 
 # Breaks and chapters -----------------------------------------------------------------------------
@@ -155,11 +158,30 @@ def opening(connection, line: dict) -> str:
     if len(chapters) < 2 or chapters[-1]['seq'] != line['seq'] or not chapters[-2]['summary']:
         return ''
     ended = chapters[-2]
+    if not recap_due(chapters[:-1]):
+        return ''
     from dungeon import director  # the director reads the record; chapters need it only here.
     threads = [row['seen'] for row in director.threads(connection) if row['known'] and row['seen']][:2]
     parts = [ended['summary'], ended['hook'] and f"Still open: {ended['hook']}",
              threads and 'On the character\'s mind: ' + ' '.join(threads)]
     return PREVIOUSLY + '\n' + '\n'.join(part for part in parts if part)
+
+
+def recap_due(closed: list[dict]) -> bool:
+    """Whether the chapter that just closed (the last of `closed`) earns a "previously": the player closed it, or
+    RECAP_TURNS of the player's lines have passed since the last chapter opening that had one."""
+    since, due = 0, False
+    for chapter in closed:
+        since += chapter['turns']
+        due = since >= RECAP_TURNS or chapter['ended_by'] == 'player'
+        since = 0 if due else since
+    return due
+
+
+def opens(connection, line: dict) -> bool:
+    """Whether the line opened a chapter."""
+    return any(row['seq'] == line['seq'] and row['branch_id'] == line['branch_id']
+               for row in visible(connection, 'story_chapters'))
 
 
 # The tree ----------------------------------------------------------------------------------------

@@ -10,9 +10,9 @@ import random
 
 from dungeon.database import decode, encode, many, optional
 from dungeon.errors import require
-from dungeon.rules import marvel, srd52
+from dungeon.rules import ironsworn, marvel, srd52
 
-RULESETS = {marvel.ID: marvel.NAME, srd52.ID: srd52.NAME}
+RULESETS = {marvel.ID: marvel.NAME, srd52.ID: srd52.NAME, ironsworn.ID: ironsworn.NAME}
 WORLD_RULESETS: dict[str, str] = {}
 
 PERSONA = 'persona'
@@ -78,10 +78,19 @@ def check(connection, approach: str, difficulty: str = 'normal', text: str = '',
           save: bool = False) -> dict:
     """One of the persona's checks in the campaign's ruleset, on the shared ladder. `approach` is a MARVEL stat;
     `save` asks for a saving throw where the ruleset has them (resisting fear, pain, poison)."""
-    found = native(connection) if ruleset(connection) == srd52.ID else None
-    if found:
+    played = ruleset(connection)
+    found = native(connection) if played != marvel.ID else None
+    if found and played == srd52.ID:
         result = srd52.check(found, approach, difficulty, text, rng, save) | {'ruleset': srd52.ID}
         return cast(connection, found, result, rng) if result.get('spell') else result
+    if found and played == ironsworn.ID:
+        # Resisting is a suffer move: Endure Harm on iron for the body, Endure Stress on heart for the mind.
+        move, stat = (('endure_harm', 'iron') if approach == 'Vitality' else ('endure_stress', 'heart')) if save \
+            else (None, None)
+        result = ironsworn.roll(found, approach, difficulty, text, rng, stat, move) | {'ruleset': ironsworn.ID}
+        if result['momentum'] != found['momentum']:
+            set_native(connection, found | {'momentum': result['momentum']}, '')
+        return result
     return marvel.roll(stats(connection).get(approach), difficulty, rng) | {'ruleset': marvel.ID, 'target': None,
                                                                             'skill': None}
 
@@ -107,7 +116,8 @@ def cast(connection, found: dict, result: dict, rng) -> dict:
 
 def full_view(connection) -> dict:
     """The sheet the screen shows, in the campaign's ruleset."""
-    found = native(connection) if ruleset(connection) == srd52.ID else None
+    played = ruleset(connection)
+    found = native(connection) if played != marvel.ID else None
     if found:
-        return srd52.view(found)
+        return srd52.view(found) if played == srd52.ID else ironsworn.view(found)
     return view(connection) | {'ruleset': marvel.ID, 'ruleset_name': marvel.NAME}

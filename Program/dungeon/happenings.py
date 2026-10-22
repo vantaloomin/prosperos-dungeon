@@ -22,8 +22,8 @@ again draws nothing new.
 import re
 from datetime import date, timedelta
 
-from dungeon import combat, factions, feelings, growth, injuries, inventory, record, stress, tiers, travel
-from dungeon.database import encode, many, settings
+from dungeon import combat, factions, feelings, growth, injuries, inventory, record, stress, table, tiers, travel
+from dungeon.database import encode, many
 from dungeon.life import cards
 
 DEFAULT_DRAMA = 'uneasy'
@@ -70,7 +70,7 @@ def where(city_id: str, place_id: str) -> dict | None:
 
 
 def drama(connection, data: dict) -> str:
-    chosen = settings(connection)['drama']
+    chosen = table.rule(connection, 'drama')
     return (data.get('intensity') or {}).get('drama') or DEFAULT_DRAMA if chosen == 'world' else chosen
 
 
@@ -163,7 +163,7 @@ def wound(connection, effect: dict, context: dict) -> list[str]:
     if level <= combat.condition(connection)['level']:
         return []
     combat.set_condition(connection, level)
-    lines = [f"The character is hurt in it: now {combat.LEVELS[level]}."]
+    lines = [f"The character is hurt in it: now {combat.word(connection, level)}."]
     if level >= combat.DOWN and (left := injuries.roll(connection, context['now'], context['title'], context['rng'],
                                                          context['logged'])):
         lines.append(left)

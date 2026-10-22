@@ -1,17 +1,17 @@
 import { Check, Dices, PenLine } from 'lucide-react'
 import type { BandStep, HiddenRoll, StoryRoll, TurnSoFar } from '../../types'
-import { useWorkspaceSettings } from '../../workspace'
 import { DiceTray } from './StoryDice'
 import { useTumble } from './dice'
+import { useTable } from './table'
 import { actionLine, bandSpans, isShown, markerAt, nearMiss, rollText, rollWhat } from './storyText'
 
 const SUCCESS = new Set(['success_cost', 'success', 'critical_success'])
 
 /** One roll: with the dice shown, the action, stat and difficulty, where the total landed on the ruleset's band
  *  strip and the band in words; with them hidden, only that a stat was tested. `live` lets the marker land, and
- *  with rolling dice on (Settings) the roll's dice tumble first and land on the code's faces. */
+ *  with rolling dice on (the Table) the roll's dice tumble first and land on the code's faces. */
 export function RollCard({ roll, bands, live }: { roll: StoryRoll | HiddenRoll; bands?: BandStep[] | null; live?: boolean }) {
-  const dice = useWorkspaceSettings().data?.roll_dice === true
+  const dice = useTable().rules?.roll_dice === true
   if (!isShown(roll)) return (
     <p className="roll-hidden" title={roll.action}><Dices aria-hidden="true" />Your {roll.stat} is tested</p>
   )

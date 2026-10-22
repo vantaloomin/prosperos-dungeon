@@ -24,7 +24,7 @@ The app decides the scene (`dungeon/story.py`):
   same streets hold different people in different worlds.
 
 The narrator model only voices the scene. Its prompt is built in layers (`dungeon/narration/prompt.py`):
-"The Story narrator" and "The narrator's writing rules" in Settings > Advanced ([prompts.md](prompts.md)),
+"The Story narrator" and "The narrator's writing rules" in Settings > Developer ([prompts.md](prompts.md)),
 the narration format (second person, present tense, short turns), the intensity, then a `## Scene` section
 with the facts above. After each reply, `dungeon/narration/prose.py` removes em dashes and asks the model for
 one rewrite when the reply has the strongest AI tells (see "Narrator prompting" in the top-level
@@ -46,6 +46,16 @@ The narrator gets the persona in its own layer, "The player's character": their 
 what their stats make them good and poor at (14 and up, 7 and down), in words, never numbers. It is told to voice
 them from what is there and invent nothing about their past.
 
+## The Table
+
+Each campaign keeps its own rules (`dungeon/table.py`, columns on `story_campaign`), so they no longer follow the
+player from world to world the way settings do. Tone (intensity, how eventful, lasting injuries) starts as the world's
+at every new campaign; what is shown (the dice, rolling them, townsfolk's adult side, the GM view, meanwhile
+cutaways) starts where the player last left it, which the workspace settings remember. A rule the player sets before
+the campaign begins is kept. A campaign from before the Table keeps the rules it was played by. The rules are not in
+`timeline.SAVED`, so going back never undoes one. The Story screen's "Tone and rules" fold sets them
+(`PUT /api/story/table`); `PUT /api/settings` still sets them for the campaign being played too.
+
 ## Rulesets
 
 The campaign's ruleset is picked on the start screen ("Rules") and locked for the whole campaign
@@ -58,9 +68,11 @@ healers, townsfolk) keeps MARVEL stats for now.
 - **5E via the SRD 5.2.1** (`dungeon/rules/srd52.py`, content in `dungeon/rules/packs/srd52`, CC-BY-4.0; the
   attribution shows on the start screen and the sheet). A character is a class, species and background from the pack,
   the standard array placed on the six abilities with the background's +2 and +1, the background's skills and the
-  class's picks, and level 1 hit points and Armor Class. A premade has its own 5E build (`srd52` in its premade
+  class's picks, level 1 hit points, and Armor Class from the armour in the class's starting equipment (a Fighter's
+  Chain Mail, AC 16). A premade has its own 5E build (`srd52` in its premade
   data), or one from its strongest stat. A check is a d20 plus the ability modifier, plus proficiency in the skill,
-  against a DC (10 easy, 15 normal, 20 hard, 25 very hard, 30 extreme): pass or fail as written. The skill comes from
+  against a DC (10 easy, 12 normal, 15 hard, 20 very hard, 25 extreme, set so a hard check passes about half the time
+  for a starting character, as MARVEL's does): pass or fail as written. The skill comes from
   the action's words ("climb" is Athletics), else the approach's ability. Resisting stress and clinging on in a
   fight are saving throws (Wisdom, Constitution). The roll card reads "Athletics · DC 15" and lands a single d20. Growth by use is MARVEL's
   and does not run under 5E.
@@ -84,7 +96,22 @@ healers, townsfolk) keeps MARVEL stats for now.
 Not yet: choosing spells and the ability increase yourself, subclasses, class features in fights (Rage, Sneak
 Attack, Second Wind), upcasting and spells' other effects (conditions, areas, concentration).
 
-Not yet (Milestone 4, next steps): Ironsworn and Starforged; Basic Roleplaying.
+- **Ironsworn** (`dungeon/rules/ironsworn.py`, content in `dungeon/rules/packs/ironsworn`: Datasworn's Ironsworn
+  data, CC-BY-4.0; the attribution shows on the start screen and the sheet). A character places 3, 2, 2, 1 and 1 on
+  edge, heart, iron, shadow and wits and chooses three assets (paths, companions, combat talents, rituals); a
+  premade leans on the stat its strongest MARVEL stat maps to, with assets that fit. Health, spirit and supply start
+  at 5, momentum at 2. Each action is a move read from its words (searching is Gather Information, talking someone
+  round Compel, preparing Secure an Advantage, else Face Danger), on the stat the move or the words name (sneaking
+  and lying are shadow), else the approach's. The action roll is a d6 plus the stat against two d10s: a strong hit
+  is a success (critical on matching dice), a weak hit a success at a cost, a miss a failure (critical on a match).
+  Ironsworn has no DCs, so an easy action adds +1 and a hard one -1 (very hard -2, extreme -3). Code burns momentum
+  when it beats a die the roll did not, and the moves that give momentum on a hit give it. The roll card reads
+  "Face Danger +iron" and lands the action die and both challenge dice. Resisting stress is Endure Stress (+heart);
+  clinging on is Endure Harm (+iron).
+
+Not yet (Milestone 4, next steps): vows as progress tracks, the suffer moves on spirit and supply, Ironsworn's XP
+and asset upgrades, and Starforged (its Datasworn package's planet
+images are non-commercial); Basic Roleplaying.
 
 ## The turn loop
 
@@ -104,7 +131,7 @@ Each line the user sends is one turn (`dungeon/turn.py`). Code settles what happ
 
 Rolls are saved with the user's line (table `story_rolls`), so sending it again or "Tell it again" keeps the same
 dice. The character's six stats (table `character_stats`, 1 to 30, 10 to start) are set under "Your character" on
-the Story screen. "Show the dice" in Settings > World shows each roll under the user's line; off, rolls stay
+the Story screen. "Show the dice" (Story > Tone and rules) shows each roll under the user's line; off, rolls stay
 hidden and the story reads the same. With the dice shown, "Roll the dice on screen" (off by default) has the dice act
 out each roll before its result shows: 3D dice (`@3d-dice/dice-box-threejs`, MIT, loaded only when they roll) thrown
 over the story with the library's predetermined "@" notation, so they land on the faces the code already rolled. A
@@ -152,8 +179,8 @@ impressions, the factions' standing (set by hand), the dark tracks' points, and 
 
 The narrator reads the latest messages word for word. Once 30 recent ones plus 20 more are waiting, the oldest 20 are
 folded into one rolling summary (`story_summary`) by the Continuity model, or the Default one without it, and the
-narrator gets that summary as "The story so far" in their place. The record and the summary are branched with the
-story.
+narrator gets that summary as "The story so far" in their place. The summary calls the character by name, never
+"the player" or "the party". The record and the summary are branched with the story.
 
 ## Layered recall and forgetting
 
@@ -183,7 +210,9 @@ story.
 
 - **Chapters close at scene breaks:** a new place, a journey or a rest, a fight over, a quest done or failed, or the
   player ending one themselves ("End the chapter", with a name if they like). The break waits
-  (`story_chapter_break`, branched game state) and the player's next line opens the next chapter. After that turn the
+  (`story_chapter_break`, branched game state) and the player's next line opens the next chapter. "Go somewhere else"
+  leaves a break too, and a line that goes somewhere ("I go to the shrine") opens the new chapter itself, so the move
+  is not left as a one-line chapter. After that turn the
   Continuity model (or the Default one) summarizes and names the chapter that ended; a name the player gave stays.
 - **Chapters follow the branches.** A chapter (`story_chapters`) starts at one of the player's lines, and its end
   (`story_chapter_ends`) is kept on the branch where it ended. Both are read through `timeline.visible` like the
@@ -209,7 +238,8 @@ story.
   (`POST /api/worlds/import`, the file as the body) makes it a new world under the persona that played it (made
   again if this install has none); saved credentials stay behind, as with any restore.
 - **Legacy.** At campaign start, another world's story can come in as history ("An earlier story"): its character,
-  whether they died, and what its chapters say they did. As a **legend**, the world remembers them and their deeds.
+  whether they died, and what its chapters say they did (given as an old account for the narrator to retell in the
+  past tense, never to quote). As a **legend**, the world remembers them and their deeds.
   As a **villain**, they are believed gone but live on, turned, as hidden truth and a nemesis the director brings
   back. As a **corpse**, the record holds their death, so the narrator never has them act. These facts are weight 3
   and never fade.
@@ -279,6 +309,9 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
   weighted by what the foes want: beasts kill, wardens capture, robbers rob, a brawl ends with the character
   beaten and thrown out, and sometimes someone drags them clear. Death is real: a dead character plays no more
   lines, and "Go back here" on an earlier line brings them back.
+- **Held prisoner.** A capture keeps the character held (`story_wounds.captors`): no moving on, by line, by "Go
+  somewhere else" or by road, until a line that tries to get free (slip the bonds, pick the lock, bribe, run)
+  succeeds. The narrator is told every turn, and the Story screen shows who holds them.
 - **In the story.** The narrator gets "The fight" with the round exactly as it went and who is still fighting, and
   writes only that. The Story screen shows the character's condition and the foes, with their wound levels while
   the dice are shown. Moving elsewhere is refused mid-fight.
@@ -293,13 +326,15 @@ The same fight, on 5E's numbers from the SRD 5.2.1 pack (`dungeon/combat5e.py`):
   one is read from its name (a bandit or thief is a Bandit, a press-gang thug a Tough, a warden a Scout, a ghoul a
   Ghoul), else picked by how tough the MARVEL spec is. Each has its AC, hit points rolled from the block's formula,
   and the block's first attack.
-- **The player's attack** keeps the d20 the turn already rolled: the natural plus the attack bonus (Strength, or
+- **The player's attack** (an unarmed strike for a punch, a kick or a shove; else the weapon the line names, else
+  the best carried) keeps the d20 the turn already rolled: the natural plus the attack bonus (Strength, or
   Dexterity with a finesse or ranged weapon, plus proficiency when the class has the weapon) against the target's
   AC. A natural 20 is a critical hit (the damage dice twice), a natural 1 always misses. Damage is the carried
   weapon's die plus the same ability (unarmed, 1 + Strength). The roll's card is rewritten as the attack and the AC.
 - **A dodge** needs no roll: the foes attack with disadvantage that round. Getting away keeps its roll.
-- **Foes attack** the character's AC and roll their damage against the sheet's hit points. The wound words the rest
-  of the game reads (Grazed to Dying) follow the hit points, and a wound dealt outside a fight (a Life Card) moves
+- **Foes attack** the character's AC and roll their damage against the sheet's hit points. The game's wound levels
+  follow the hit points and read as 5E words (lightly hurt, bloodied, badly hurt, barely standing, at 0 hit points),
+  and a lasting injury rolls only on a critical hit or a drop to 0, as the lingering injuries rule has it; and a wound dealt outside a fight (a Life Card) moves
   the hit points to match. There are no wound penalties.
 - **Morale** is a Wisdom save, DC 10, when a foe is badly hurt or down.
 - **At 0 hit points, death saves** (d20, 10 or more a success, three of either decides; a natural 1 is two
@@ -307,6 +342,28 @@ The same fight, on 5E's numbers from the SRD 5.2.1 pack (`dungeon/combat5e.py`):
   defeat table decides the rest without death, and the character comes to with 1 hit point.
 - **A long rest** (a night's sleep) restores every hit point, as written. Lasting injuries still need their own care.
 - The Story screen shows the character's hit points, and the foes' while the dice are shown.
+
+### Fights under Ironsworn
+
+The same fight on Ironsworn's moves (`dungeon/combat_iron.py`):
+
+- **Foes are the pack's NPCs**, read from the foe's name (a raider is a Raider, a warden a Hunter, the ley-mad boar
+  a Boar), else by how tough the MARVEL spec is. Each has its rank, deals harm equal to it, and has a progress track
+  of ten boxes the character's harm fills (3 boxes a harm for a troublesome foe, 2 dangerous, 1 formidable, less for
+  extreme and epic).
+- **Initiative.** Whoever starts the fight has it (`story_fight.initiative`). With it the character's attack is
+  Strike: a strong hit inflicts +1 harm and keeps it, a weak hit inflicts harm and loses it, a miss loses it. Without
+  it the attack is Clash: a strong hit inflicts harm and takes it, a weak hit inflicts harm and the foe strikes
+  back. Harm is 1, or 2 with a deadly weapon; a punch is 1. The roll card reads "Strike +iron" or "Clash +iron".
+- **End the Fight.** After a strong hit, once a foe has 8 boxes, code makes the decisive move: the boxes against the
+  challenge dice. A strong hit and the foe is out; a weak hit too, and the character Endures Harm; a miss and they
+  pay for it, enduring harm, and fight on.
+- **Endure Harm.** A foe with the upper hand hits: -health by its rank, then +health or +iron (a strong hit +1
+  momentum, a miss -1). A dodge that lands turns the attack aside and takes the upper hand.
+- **Face Death.** At 0 health a miss on Endure Harm brings the character to the brink: +heart, a strong or weak hit
+  and death lets them go (the defeat table, without death), a miss and they are dead.
+- **Health** reads as the game's wound words (unharmed, bruised, hurt, battered, badly hurt, at death's door); a
+  wound outside a fight lowers health to match, and a night's rest gives +1 health (Make Camp).
 
 Not in v0: zones beyond near and engaged, armour, ranged weapons and ammunition, allies, injuries with lasting
 effects, healers and medicine, a fight started by an NPC without a danger roll.
@@ -628,15 +685,16 @@ who is not there; the words that tell code play touched it; and its antagonist, 
   Settings > Models, else from the thread's own truth. It is refused if it has the dead acting, then kept as hidden
   truth in the record and as a seed already on the page.
 - **Beats planned a stage at a time (`story_arc_beats`).** When an arc reaches a stage with no plan, the director
-  model drafts three beats from the stage's truth and the hottest threads; code keeps those that name none of the
-  dead, and without the model the plan is the stage's own seed and word. When the arc is due, the note gives its next
+  model drafts three beats from the stage's truth, where the arc plays and the hottest threads of that arc only;
+  code keeps those that name none of the dead and none of another arc's own names (its cast and places), and without the model the plan is the stage's own seed and word. When the arc is due, the note gives its next
   beat.
 - **Co-planning in the GM view.** "Behind the story" lists the seeds (planted, paid, retired) and each arc's planned
   beats. The player can bring a seed back next or retire it, and cut, restore or move up a beat.
 - **"Previously" openers.** When a chapter ends, the Continuity model (or the Default one) gives its title, a summary
   and the hook it leaves open, before the next line. The line that opens the next chapter carries a hidden
   "## Previously" from them and the hottest threads the character knows of, and the narrator begins with two or
-  three sentences of it. The chapter list shows each chapter's hook as "Still open".
+  three sentences of it. Only when it is worth it: after 6 of the player's lines since the last one, or a chapter the
+  player closed themselves; a short chapter just read gets none. The chapter list shows each chapter's hook as "Still open".
 
 ## Rewrite
 
@@ -705,6 +763,7 @@ A fixed layout for Milestone 1 (`src/features/story/Story.tsx`); the free grid o
 | `PATCH /api/story/journal/{id}` `{text}` / `DELETE /api/story/journal/{id}` | Corrects or removes a fact, logged; 404 for hidden truth or a fact not in the journal. |
 | `GET /api/story/gear` | `{coins, currency, slots: {used, max}, items, shop}`. `shop` is null away from a shop, else `{place_id, open, keeper, stock, offers}`; `offers` maps the character's items to what the shop pays. |
 | `POST /api/story/shop/buy` `{item_id, qty?}` / `POST /api/story/shop/sell` `{inventory_id, qty?}` | Trades at the counter. 404 with no shop here or no such item, 409 when closed, out of stock, too dear, too heavy, or not something the shop buys. |
+| `GET /api/story/table` / `PUT /api/story/table` | This campaign's rules (`intensity`, `drama`, `injury_persistence`, `show_odds`, `roll_dice`, `show_adult_side`, `gm_view`, `cutaways`); a change to what is shown is remembered for the next campaign. `GET /api/story` carries them as `table`. |
 | `DELETE /api/story` | Starts a new story: the history, every branch, the record and the people met go, the scene stays. |
 
 ## People you've met
@@ -740,4 +799,6 @@ and -4 or less a step harder. With the dice shown, "People you've met" shows the
 little, likes you").
 
 Named people (a city's notables) also bring their own business to every scene: who they are and what they are
-after right now (their `wants`, else their drawn goal), and the narrator is told they pursue it unprompted.
+after right now (their `wants`, else their drawn goal), and the narrator is told they pursue it unprompted. A notable
+who runs the place (its keeper, its priest) but is not there now is still named to the narrator as away, so no
+other keeper is made up in their post.

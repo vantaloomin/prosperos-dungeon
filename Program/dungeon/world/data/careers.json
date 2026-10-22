@@ -50,6 +50,10 @@
     "call nights",
     "attendings",
     "exhaustion and small wins"
+   ],
+   "ages": [
+    26,
+    33
    ]
   },
   {
@@ -220,6 +224,10 @@
     "thesis",
     "teaching sections",
     "library"
+   ],
+   "ages": [
+    23,
+    31
    ]
   },
   {
@@ -239,6 +247,10 @@
    "eras": [
     "modern",
     "jazz-age"
+   ],
+   "ages": [
+    18,
+    22
    ]
   },
   {
@@ -756,6 +768,10 @@
    ],
    "eras": [
     "jazz-age"
+   ],
+   "ages": [
+    18,
+    22
    ]
   },
   {
@@ -846,6 +862,10 @@
    ],
    "eras": [
     "jazz-age"
+   ],
+   "ages": [
+    18,
+    32
    ]
   },
   {
@@ -1682,7 +1702,11 @@
    "eras": [
     "jazz-age"
    ],
-   "adult": true
+   "adult": true,
+   "ages": [
+    18,
+    38
+   ]
   },
   {
    "id": "art-model",
