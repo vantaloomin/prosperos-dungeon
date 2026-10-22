@@ -70,6 +70,20 @@ screen > World packages > Import a world):
 
 A draft is a JSON file in the data folder (`package-drafts/<id>.json`) until it is finished or discarded.
 
+## The editor
+
+Worlds are edited in place (`dungeon/package_edit.py`), built-in and imported alike.
+
+- **Entries** are listed by section with counts, searched by words in their text, and filtered by whether they hold
+  a hidden truth, which each entry's view marks with the fields that hold it.
+- **Validation on save.** An entry needs a kebab-case id unique in its section, and each field naming an entry of
+  another section (a settlement's region, a person's settlement) must name one that exists. Renaming or deleting an
+  entry is refused while others still name it. Each entry's view lists what it names and what names it.
+- **Undo.** Every change keeps the entry as it was (the package's `history` table, the last 500); undo takes back
+  the newest.
+- **Built-in worlds** keep their edits: an edited one (`meta.edited`) is no longer rebuilt from the shipped files
+  until it is reset to them.
+
 ## API
 
 - `GET /api/packages`: the built-in and imported worlds, each with its sections' entry counts (and how many hide a
@@ -90,4 +104,10 @@ A draft is a JSON file in the data folder (`package-drafts/<id>.json`) until it 
 - `POST /api/packages/drafts/{id}/finish` `{replace?}`: the package written; the draft is removed.
 - `DELETE /api/packages/drafts/{id}`: the import discarded.
 
-Not yet: the built-in editor.
+- `GET /api/packages/{id}/entries?section=&q=&hidden=`: each section's counts and the matching entries.
+- `GET /api/packages/{id}/entries/{section}/{entry}`: the entry, whether it hides a truth, and its links (`names`,
+  `named_by`).
+- `POST /api/packages/{id}/entries/{section}` `{entry}`: a new entry; `PUT .../{entry}` `{entry}` changes one (its id
+  may change); `DELETE .../{entry}` removes one. Problems answer 422, an entry still named 409.
+- `GET /api/packages/{id}/history`: the last 50 changes; `POST /api/packages/{id}/undo` takes back the newest.
+- `POST /api/packages/{id}/reset`: a built-in world rebuilt from its shipped files, its edits gone.
