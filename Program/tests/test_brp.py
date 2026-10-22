@@ -168,3 +168,23 @@ def test_first_aid_on_the_characters_own_wound_heals_once(client, app):
                                   'I tie a tourniquet above the cut'])
 def test_binding_a_wound_is_first_aid(text):
     assert brp.skill_for(text) == 'first_aid'
+
+
+@pytest.mark.parametrize('synced', [True, False])
+def test_binding_a_wound_on_a_turn_rolls_first_aid_and_heals(client, connected, provider, app, synced):
+    # Playtest m5: at 9 of 14 hit points, "I bind my wounds…" rolled nothing.
+    played(client)
+    ok(client.put('/api/settings', json={'show_odds': True}))
+    provider.respond = lambda system, messages: reply('{"facts": []}') if system.startswith(record.EXTRACT) \
+        else reply('You bind the cut.')
+    with app.state.database.connect(write=True) as connection:
+        level = combat_brp.set_hp(connection, 9)
+        if synced:
+            combat.set_condition(connection, level)
+    tell(client, 'I bind my wounds with a strip of my shirt.', 'aid-0001')
+    story = ok(client.get('/api/story'))
+    rolls = next(message for message in story['messages'] if message['role'] == 'user')['rolls']
+    assert [roll['skill'].split(' ')[:2] for roll in rolls] == [['First', 'Aid']]
+    with app.state.database.connect() as connection:
+        hp = combat_brp.hit_points(connection)[0]
+    assert hp > 9 if rolls[0]['band'] in ('success', 'critical_success') else hp == 9

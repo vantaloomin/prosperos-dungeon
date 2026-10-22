@@ -3,7 +3,9 @@ in Markdown, EPUB or PDF"; docs/story.md "Export and legacy").
 
 The branch being played, chapter by chapter (dungeon/chapters.py), with each chapter's title and the player's lines
 set apart from the narration. Nothing hidden goes in: no GM notes, no record, no rolls. EPUB and PDF are written
-here with the standard library alone: an EPUB 3 zip, and a PDF in the built-in Helvetica faces.
+here with the standard library alone: an EPUB 3 zip, and a PDF in the built-in Helvetica faces. The EPUB carries the
+pictures made in each chapter (dungeon/art.py): a passage's picture after that passage, the rest where the chapter
+opens.
 """
 import html
 import io
@@ -13,7 +15,7 @@ import zipfile
 import zlib
 
 from dungeon import chapters, timeline
-from dungeon.database import optional
+from dungeon.database import many, optional
 from dungeon.errors import require
 
 FORMATS = {'md': 'text/markdown; charset=utf-8', 'epub': 'application/epub+zip', 'pdf': 'application/pdf'}
@@ -24,17 +26,38 @@ def paragraphs(text: str) -> list[str]:
     return [' '.join(part.split()) for part in re.split(r'\n\s*\n', text or '') if part.strip()]
 
 
-def contents(connection, title: str = '') -> dict:
-    """The book: its title, who it is about, and each chapter's paragraphs as (who, text), 'user' for the player's."""
+def pictures(connection, database, chapter_id: str, ends: dict[str, int]) -> list[dict]:
+    """The pictures made in a chapter, each with the paragraph it follows (0: where the chapter opens)."""
+    if database is None:
+        return []
+    from dungeon.images import storage
+    found = []
+    for row in many(connection, "SELECT id, kind, subject, file FROM story_art WHERE chapter_id=? AND status='done' "
+                                'ORDER BY created_at', (chapter_id,)):
+        try:
+            data = storage.path_of(database, row['file']).read_bytes()
+        except FileNotFoundError:
+            continue
+        found.append({'name': row['file'], 'data': data, 'media': storage.TYPES[row['file'].rsplit('.', 1)[1]],
+                      'after': ends.get(row['subject'], 0) if row['kind'] == 'passage' else 0})
+    return found
+
+
+def contents(connection, title: str = '', database=None) -> dict:
+    """The book: its title, who it is about, and each chapter's paragraphs as (who, text), 'user' for the player's,
+    with its pictures when the database is given."""
     persona = optional(connection, 'SELECT name FROM persona WHERE id=1')
     name = (persona and persona['name']) or ''
     result = []
     for chapter in chapters.listing(connection):
-        lines = chapters.read(connection, chapter['id'])
-        body = [(line['role'], part) for line in lines if line['role'] in ('user', 'narrator')
-                for part in paragraphs(line['text'])]
+        body, ends = [], {}
+        for line in chapters.read(connection, chapter['id']):
+            if line['role'] in ('user', 'narrator'):
+                body += [(line['role'], part) for part in paragraphs(line['text'])]
+                ends[line['id']] = len(body)
         if body:
-            result.append({'title': chapter['title'], 'number': chapter['number'], 'paragraphs': body})
+            result.append({'title': chapter['title'], 'number': chapter['number'], 'paragraphs': body,
+                           'pictures': pictures(connection, database, chapter['id'], ends)})
     require(bool(result), 'There is no story to export yet.', 409)
     return {'title': title or (f'The story of {name}' if name else 'A story'), 'hero': name, 'chapters': result,
             'branch_id': timeline.active(connection)}
@@ -69,7 +92,9 @@ CONTAINER = """<?xml version="1.0" encoding="UTF-8"?>
 STYLE = """body { font-family: serif; line-height: 1.5; margin: 0 5%; }
 h1, h2 { font-family: sans-serif; text-align: center; margin: 2em 0 1em; }
 p { margin: 0 0 0.8em; text-indent: 0; }
-p.player { font-style: italic; margin-left: 1.5em; }"""
+p.player { font-style: italic; margin-left: 1.5em; }
+figure { margin: 1em 0; text-align: center; }
+figure img { max-width: 100%; height: auto; }"""
 
 
 def inline(text: str) -> str:
@@ -87,20 +112,33 @@ def page(title: str, body: str) -> str:
             f'<body>{body}</body></html>')
 
 
+def chapter_body(chapter: dict) -> str:
+    """A chapter's paragraphs, with each picture after the paragraph it follows."""
+    def figures(after: int) -> str:
+        return ''.join(f'<figure><img src="images/{picture["name"]}" alt=""/></figure>'
+                       for picture in chapter.get('pictures', []) if picture['after'] == after)
+    parts = [figures(0)]
+    for number, (role, text) in enumerate(chapter['paragraphs'], 1):
+        parts.append(f'<p class="player">{inline(text)}</p>' if role == 'user' else f'<p>{inline(text)}</p>')
+        parts.append(figures(number))
+    return ''.join(parts)
+
+
 def epub(book: dict, modified: str) -> bytes:
     """An EPUB 3 book: the mimetype first and stored, then the package, a contents page and one page a chapter."""
     book_id = f"urn:uuid:{uuid.uuid5(uuid.NAMESPACE_URL, 'prospero-dungeon:' + book['branch_id'])}"
     title = html.escape(book['title'])
     pages = []
     for index, chapter in enumerate(book['chapters'], 1):
-        body = f'<h2>{html.escape(heading(chapter))}</h2>' + ''.join(
-            f'<p class="player">{inline(text)}</p>' if role == 'user' else f'<p>{inline(text)}</p>'
-            for role, text in chapter['paragraphs'])
+        body = f'<h2>{html.escape(heading(chapter))}</h2>' + chapter_body(chapter)
         pages.append((f'chapter-{index}.xhtml', heading(chapter), page(heading(chapter), body)))
+    images = [picture for chapter in book['chapters'] for picture in chapter.get('pictures', [])]
     nav = page(book['title'], f'<h1>{title}</h1><nav epub:type="toc" id="toc"><ol>' + ''.join(
         f'<li><a href="{name}">{html.escape(label)}</a></li>' for name, label, _ in pages) + '</ol></nav>')
     manifest = ''.join(f'<item id="c{index}" href="{name}" media-type="application/xhtml+xml"/>'
-                       for index, (name, _, _) in enumerate(pages, 1))
+                       for index, (name, _, _) in enumerate(pages, 1)) + ''.join(
+        f'<item id="i{index}" href="images/{picture["name"]}" media-type="{picture["media"]}"/>'
+        for index, picture in enumerate(images, 1))
     spine = ''.join(f'<itemref idref="c{index}"/>' for index in range(1, len(pages) + 1))
     author = f"<dc:creator>{html.escape(book['hero'])}</dc:creator>" if book['hero'] else ''
     opf = ('<?xml version="1.0" encoding="UTF-8"?>\n<package xmlns="http://www.idpf.org/2007/opf" version="3.0" '
@@ -117,6 +155,8 @@ def epub(book: dict, modified: str) -> bytes:
                            ('OEBPS/nav.xhtml', nav), ('OEBPS/style.css', STYLE),
                            *((f'OEBPS/{name}', text) for name, _, text in pages)]:
             handle.writestr(name, text, compress_type=zipfile.ZIP_DEFLATED)
+        for picture in images:
+            handle.writestr(f"OEBPS/images/{picture['name']}", picture['data'], compress_type=zipfile.ZIP_STORED)
     return buffer.getvalue()
 
 
@@ -223,8 +263,8 @@ def pdf(book: dict) -> bytes:
     return out.getvalue()
 
 
-def export(connection, kind: str, now: str, title: str = '') -> tuple[bytes, str]:
+def export(connection, kind: str, now: str, title: str = '', database=None) -> tuple[bytes, str]:
     require(kind in FORMATS, 'A book exports as md, epub or pdf.', 422)
-    book = contents(connection, title)
+    book = contents(connection, title, database if kind == 'epub' else None)
     data = markdown(book) if kind == 'md' else epub(book, now) if kind == 'epub' else pdf(book)
     return data, FORMATS[kind]

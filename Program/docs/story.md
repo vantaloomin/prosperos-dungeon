@@ -142,7 +142,8 @@ images are non-commercial).
   special (1/5) and fumble follow the Skill Results table; critical is critical_success, special and success
   success, failure failure, fumble critical_failure. A skill that succeeds gets an experience check, rolled after a
   night's rest (d100 plus half INT over the skill raises it 1D6). First Aid on the character's own wound restores
-  1D3 hit points once a wound. The roll card reads "Climb 75%" and lands the two percentile dice.
+  1D3 hit points once a wound; a hurt character's line that binds or dresses a wound rolls it even when the Referee
+  saw nothing uncertain in it (`injuries.first_aid`). The roll card reads "Climb 75%" and lands the two percentile dice.
 
 Not yet: powers (magic, sorcery, psychic abilities), hit locations, fatigue, sanity, parrying with a weapon or a
 shield, training and research.
@@ -716,7 +717,10 @@ Settings (`dungeon/images`), and never hold up the story.
   `images/routing.py`): NSFW only to backends that take it, prohibited nowhere; a backend that fails passes it on,
   and one that needs signing in again is blocked. With nowhere to go the picture is `refused` with the reason.
 - **Kept** in `story_art` with the chapter open when it was asked for; not game state, so going back keeps them. A
-  new story clears them.
+  new story clears them. The EPUB book carries each chapter's pictures (a passage's after that passage).
+- **Passive art** (Settings > Images, `passive_art`, off by default): after a turn, with a backend enabled, the one
+  picture the turn calls for, in code: someone in the scene with no portrait, else the place with no picture, else
+  the scene as a chapter closes. At most one a turn and `art.PASSIVE_CAP` (6) a session.
 
 ## Off-page beats and word getting around
 

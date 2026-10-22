@@ -32,6 +32,9 @@ def test_a_change_validates_marks_the_world_edited_and_can_be_undone(client, app
     added = ok(client.post(f'{BASE}/entries/cast', json={'entry': {'id': 'old-tam', 'name': 'Old Tam'}}))
     assert added['entry']['name'] == 'Old Tam'
     assert client.post(f'{BASE}/entries/cast', json={'entry': {'id': 'old-tam'}}).status_code == 422
+    # A bad id names the entry, not its place in the list (playtest m5).
+    bad_id = client.post(f'{BASE}/entries/cast', json={'entry': {'id': 'Old Tam Two', 'name': 'Old Tam'}})
+    assert bad_id.status_code == 422 and 'cast "Old Tam Two" needs a lowercase kebab-case id' in bad_id.json()['detail']
     assert [item['change'] for item in ok(client.get(f'{BASE}/history'))['history'][:2]] == ['added', 'changed']
     root = app.state.database.root
     # An edited built-in world is not rebuilt from the shipped files.

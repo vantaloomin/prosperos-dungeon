@@ -2,8 +2,9 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'rea
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowDown, ArrowUp, RefreshCw, Trash2 } from 'lucide-react'
 import { api } from '../../api'
+import { SETTINGS_KEY, useWorkspaceSettings } from '../../workspace'
 import { useRefetchOnFocus } from '../../paths'
-import type { BackendCheck, BackendFiles, BackendKind, HostedProvider, ImageBackend, ImageFamily, ModelFiles, ModelLink, SamplerSettings, StyleLora } from '../../types'
+import type { WorkspaceSettings, BackendCheck, BackendFiles, BackendKind, HostedProvider, ImageBackend, ImageFamily, ModelFiles, ModelLink, SamplerSettings, StyleLora } from '../../types'
 import { Notice } from '../../components/Feedback'
 import { useReturnFocus } from '../../components/returnFocus'
 import { Field, TextArea, TextInput, Toggle } from '../../components/Fields'
@@ -20,7 +21,8 @@ const BACKENDS_KEY = ['image-backends']
 type Result = { tone: 'info' | 'error'; text: string } | null
 const failure = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback
 
-/** Image backends (PRD F3). Everything is off until set up here; the story's pictures come back in a later milestone. */
+/** Image backends (PRD F3). Everything is off until set up here. The story's pictures (Story, More, Pictures) are made
+ *  on request; Passive art adds a few on its own (dungeon/art.py). */
 export function ImageSettings() {
   const client = useQueryClient()
   const backends = useQuery({ queryKey: BACKENDS_KEY, queryFn: () => api<{ backends: ImageBackend[] }>('/images/backends') })
@@ -38,9 +40,27 @@ export function ImageSettings() {
       {list.length === 0 && <p className="subtle">No image backend is set up yet.</p>}
       {list.length > 0 && !hasLocal && <p className="subtle">No enabled backend takes NSFW requests, so they will be refused.</p>}
       <Backends list={list} refresh={refresh} setResult={setResult} />
+      <PassiveArt />
       {result && <Notice tone={result.tone}>{result.text}</Notice>}
     </section>
   )
+}
+
+/** Passive art: a few pictures made on their own from what happens in the story, off by default. */
+function PassiveArt() {
+  const client = useQueryClient()
+  const settings = useWorkspaceSettings()
+  const [error, setError] = useState('')
+  const save = async (passive_art: boolean) => {
+    setError('')
+    try { client.setQueryData(SETTINGS_KEY, await api<WorkspaceSettings>('/settings', { passive_art }, 'PUT')) }
+    catch (failed) { setError(failure(failed, 'That setting was not saved.')) }
+  }
+  return <>
+    <Toggle label="Passive art" hint="Pictures made on their own as you play: someone new in the scene, a new place, a chapter's end. At most one a turn and six a session; the story never waits for them."
+      checked={Boolean(settings.data?.passive_art)} disabled={!settings.data} onChange={(checked) => void save(checked)} />
+    {error && <Notice tone="error">{error}</Notice>}
+  </>
 }
 
 /** The backends in the order they are tried, each with its controls, and adding another. */

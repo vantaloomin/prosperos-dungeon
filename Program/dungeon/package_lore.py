@@ -8,6 +8,7 @@ lore changes, the book is replaced on the next campaign start.
 """
 import hashlib
 import json
+import re
 from pathlib import Path
 
 from dungeon import lore, packages
@@ -28,10 +29,21 @@ def era_of(contents: dict) -> str | None:
     return ((contents['world'].get('starting_place') or {}).get('era')) or None
 
 
+def keywords(entry: dict) -> list[str]:
+    """The entry's keywords, each also without a leading "The" or a note in brackets: "The Badlands" comes up on
+    "badlands", "The Source Font (the seam)" on "Source Font"."""
+    found = []
+    for word in entry.get('keywords') or []:
+        for form in (word, re.sub(r'\s*\([^)]*\)', '', re.sub(r'^the\s+', '', word, flags=re.I)).strip()):
+            if form and form.casefold() not in {item.casefold() for item in found}:
+                found.append(form)
+    return found
+
+
 def entries(contents: dict, era: str | None) -> list[dict]:
     """The lore entries that hold in `era`, as lore.add_book takes them: keyword-triggered, none always on."""
     found = (contents['sections'].get('lore') or {}).get('entries') or []
-    return [{'title': entry.get('title') or entry['id'], 'text': entry['text'], 'keywords': entry.get('keywords') or [],
+    return [{'title': entry.get('title') or entry['id'], 'text': entry['text'], 'keywords': keywords(entry),
              'always': False, 'pattern': False, 'enabled': True}
             for entry in found if entry.get('text') and (not era or not entry.get('eras') or era in entry['eras'])]
 

@@ -16,6 +16,9 @@ when the player asks, through the image backends in Settings (dungeon/images).
   the player's order (dungeon/images/routing.py): NSFW only to backends that take it, prohibited nowhere. A backend
   that fails passes the request on to the next.
 - **Kept with the chapter** it was made in, so the book can carry it.
+- **Passive art** (the `passive_art` setting, off by default) adds pictures on their own after a turn, at most one a
+  turn and PASSIVE_CAP a session, only with a backend enabled: the portrait of someone in the scene who has none,
+  then the place when it has no picture, then the scene when a chapter is about to close.
 
 Pictures are not game state: going back in the story keeps them.
 """
@@ -33,6 +36,7 @@ from dungeon.images.adapters.base import AdapterError, ImageRequest, size_for
 from dungeon.world import townsfolk
 
 KINDS = ('portrait', 'place', 'scene', 'passage')
+PASSIVE_CAP = 6
 ASPECT = {'portrait': 'portrait', 'place': 'landscape', 'scene': 'landscape', 'passage': 'landscape'}
 STYLE = 'Detailed painterly illustration, natural light, grounded and realistic, no text or lettering'
 NEGATIVE = 'text, watermark, signature, caption, logo, extra fingers, deformed hands, blurry'
@@ -271,3 +275,42 @@ def file_of(database, art_id: str):
         row = optional(connection, 'SELECT file FROM story_art WHERE id=?', (art_id,))
     require(row is not None and row['file'], 'That picture is not made.', 404)
     return storage.path_of(database, row['file'])
+
+
+# Passive art --------------------------------------------------------------------------------------
+
+def wanted(connection, database, present: list[str]) -> tuple[str, str] | None:
+    """The one picture this turn calls for, if any: someone here with no portrait, the place with no picture, or the
+    scene as a chapter closes."""
+    pictured = {(row['kind'], row['subject']) for row in many(connection, 'SELECT kind, subject FROM story_art')}
+    if who := next((key for key in present if ('portrait', key) not in pictured), None):
+        return 'portrait', who
+    row = story.scene_row(connection)
+    here = f"{row['city_id']}/{row['place_id']}"
+    if ('place', here) not in pictured and not row['place_id'].startswith('~'):
+        return 'place', ''
+    last_line = optional(connection, "SELECT created_at FROM story_messages WHERE role='user' ORDER BY seq DESC LIMIT 1")
+    latest_scene = optional(connection, "SELECT created_at FROM story_art WHERE kind='scene' ORDER BY created_at DESC "
+                                        'LIMIT 1')
+    if chapters.pending(connection) and last_line and (not latest_scene or latest_scene['created_at'] < last_line['created_at']):
+        return 'scene', ''
+    return None
+
+
+async def passive(state, present: list[str]):
+    """After a turn, with Passive art on: the picture the turn calls for, in the background, within the cap."""
+    database = state.database
+    if getattr(state, 'passive_made', 0) >= PASSIVE_CAP:
+        return
+    with database.connect() as connection:
+        on = one(connection, 'SELECT passive_art FROM workspace_settings WHERE id=1')['passive_art']
+        if not on or not image_backends.ordered(connection, enabled_only=True):
+            return
+        met = {row['key'] for row in many(connection, 'SELECT key FROM story_people')}
+        found = wanted(connection, database, [key for key in present if key in met])
+    if found is None:
+        return
+    state.passive_made = getattr(state, 'passive_made', 0) + 1
+    asked = request(database, *found)
+    if (running := start(state, asked['id'])) is not None:
+        await running

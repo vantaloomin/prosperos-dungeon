@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS workspace_settings (
   -- How eventful the story is (dungeon/happenings.py): the world's own level, or one the player chose.
   drama TEXT NOT NULL DEFAULT 'world' CHECK (drama IN ('world', 'quiet', 'uneasy', 'eventful', 'merciless')),
   cutaways INTEGER NOT NULL DEFAULT 0,
+  -- Pictures made on their own from what happens in the story, a few each session (dungeon/art.py passive).
+  passive_art INTEGER NOT NULL DEFAULT 0,
   -- A defeat under 5E: death saves as written, or what the foes were after (dungeon/combat.py fall).
   defeat TEXT NOT NULL DEFAULT 'as_written' CHECK (defeat IN ('as_written', 'by_aim')),
   -- Dice that tumble on screen and land on each roll the code made; only while the dice are shown.
