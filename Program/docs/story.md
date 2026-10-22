@@ -267,6 +267,29 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
 - Each round is decided once and kept with the player's line (`story_rounds`): "Tell it again" retells the same
   round. Wounds and the fight branch with the story.
 
+### Fights under 5E
+
+The same fight, on 5E's numbers from the SRD 5.2.1 pack (`dungeon/combat5e.py`):
+
+- **Foes are SRD stat blocks.** A foe's spec can name its monster (`"srd52": "giant-boar"` on the ley-mad boar), else
+  one is read from its name (a bandit or thief is a Bandit, a press-gang thug a Tough, a warden a Scout, a ghoul a
+  Ghoul), else picked by how tough the MARVEL spec is. Each has its AC, hit points rolled from the block's formula,
+  and the block's first attack.
+- **The player's attack** keeps the d20 the turn already rolled: the natural plus the attack bonus (Strength, or
+  Dexterity with a finesse or ranged weapon, plus proficiency when the class has the weapon) against the target's
+  AC. A natural 20 is a critical hit (the damage dice twice), a natural 1 always misses. Damage is the carried
+  weapon's die plus the same ability (unarmed, 1 + Strength). The roll's card is rewritten as the attack and the AC.
+- **A dodge** needs no roll: the foes attack with disadvantage that round. Getting away keeps its roll.
+- **Foes attack** the character's AC and roll their damage against the sheet's hit points. The wound words the rest
+  of the game reads (Grazed to Dying) follow the hit points, and a wound dealt outside a fight (a Life Card) moves
+  the hit points to match. There are no wound penalties.
+- **Morale** is a Wisdom save, DC 10, when a foe is badly hurt or down.
+- **At 0 hit points, death saves** (d20, 10 or more a success, three of either decides; a natural 1 is two
+  failures). A natural 20 is back up with 1 hit point and still fighting. Three failures is death. Stable, the
+  defeat table decides the rest without death, and the character comes to with 1 hit point.
+- **A long rest** (a night's sleep) restores every hit point, as written. Lasting injuries still need their own care.
+- The Story screen shows the character's hit points, and the foes' while the dice are shown.
+
 Not in v0: zones beyond near and engaged, armour, ranged weapons and ammunition, allies, injuries with lasting
 effects, healers and medicine, a fight started by an NPC without a danger roll.
 

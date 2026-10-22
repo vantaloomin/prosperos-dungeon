@@ -1,0 +1,267 @@
+"""Fights under 5E (docs/requirements.md "Combat": "5e keeps HP"; docs/story.md "Fights under 5E").
+
+The fight runs as dungeon/combat.py does (one player line is one round, foes close in and attack, morale, the defeat
+table by what the foes want), with 5E's numbers from the SRD 5.2.1 pack:
+- **Foes are SRD stat blocks.** A foe names its monster (`srd52` in its spec), else one is read from its name ("road
+  bandit" is a Bandit, "ward-ghoul" a Ghoul), else picked by how tough the MARVEL spec is. Each foe has its AC, hit
+  points rolled from the block's formula, and the block's first attack.
+- **The player's attack** keeps the dice the turn already rolled for it: the natural d20 plus the attack bonus
+  (Strength, or Dexterity for a finesse or ranged weapon, plus proficiency when the class has the weapon) against the
+  target's AC. A natural 20 is a critical hit (the damage dice twice), a natural 1 always misses. Damage is the
+  carried weapon's die plus the same ability (an unarmed strike is 1 + Strength). The roll's card is rewritten to
+  show the attack and the AC.
+- **Dodging** needs no roll: the foes attack with disadvantage that round. Getting away keeps its roll.
+- **Foes attack** with their bonus against the character's AC and roll their damage. Hit points are the sheet's; the
+  wound words the rest of the game reads (Grazed to Dying) follow the hit points (`level_for`).
+- **Morale:** when a foe is badly hurt or down, the others make a Wisdom save, DC 10; a failure breaks them.
+- **At 0 hit points the character makes death saves** (d20, 10 or more a success; three of either decides; a
+  natural 20 is back up with 1 hit point, a natural 1 two failures). Three failures is death; stable, the defeat
+  table decides the rest, without death.
+- **A long rest** (a night's sleep) restores every hit point, as written.
+"""
+import json
+import math
+import random
+import re
+from functools import cache
+
+from dungeon import sheet
+from dungeon.rules import srd52
+
+# Monsters by the words in a foe's name, the more specific first.
+FOE_WORDS = (('ghoul', 'ghoul'), ('skeleton', 'skeleton'), ('zombie', 'zombie'), ('boar', 'boar'), ('wolf', 'wolf'),
+             ('bear', 'brown-bear'), ('warden', 'scout'), ('scout', 'scout'), ('raider', 'warrior-infantry'),
+             ('soldier', 'warrior-infantry'), ('guard', 'guard'), ('press-gang', 'tough'), ('thug', 'tough'),
+             ('bandit', 'bandit'), ('thief', 'bandit'), ('cultist', 'cultist'))
+# Else by the MARVEL spec's Vitality: (most, monster).
+BY_VITALITY = ((8, 'commoner'), (11, 'bandit'), (13, 'tough'), (99, 'bandit-captain'))
+# What the Kingswood pack's weapons are in 5E.
+WEAPONS = {'sword': 'longsword', 'felling-axe': 'battleaxe', 'hatchet': 'handaxe', 'knife': 'dagger',
+           'cudgel': 'club', 'crowbar': 'club', 'bow': 'shortbow'}
+MORALE_DC = 10
+DEATH_SAVE = 10
+DICE = re.compile(r'(\d+)d(\d+)\s*([+-]\s*\d+)?')
+
+
+@cache
+def monsters() -> dict[str, dict]:
+    return {monster['id']: monster for monster in srd52.pack('monsters')}
+
+
+@cache
+def weapons() -> dict[str, dict]:
+    return {item['id']: item for item in srd52.pack('equipment')['items'] if item.get('category') == 'weapon'}
+
+
+def roll_dice(formula: str, rng: random.Random, twice: bool = False) -> int:
+    """'2d8+2' rolled; `twice` rolls the dice twice over (a critical hit), the modifier once."""
+    match = DICE.search(formula or '')
+    if not match:
+        return int(re.sub(r'\D', '', formula or '') or 0)
+    count, sides = int(match.group(1)) * (2 if twice else 1), int(match.group(2))
+    extra = int(match.group(3).replace(' ', '')) if match.group(3) else 0
+    return sum(rng.randint(1, sides) for _ in range(count)) + extra
+
+
+# Hit points and the wound words -------------------------------------------------------------------
+
+def level_for(hp: int, most: int) -> int:
+    """The wound word (dungeon/combat.py LEVELS) that hit points read as: full is unhurt, 0 is dying."""
+    if hp <= 0:
+        return 5
+    ratio = hp / max(1, most)
+    return next(level for level, floor in ((0, 1), (1, 0.75), (2, 0.5), (3, 0.25)) if ratio >= floor) \
+        if ratio >= 0.25 else 4
+
+
+def hp_for(level: int, most: int) -> int:
+    """Hit points that read as a wound word, for a wound dealt outside a fight (a Life Card, a fall)."""
+    return {0: most, 1: math.ceil(0.8 * most), 2: math.ceil(0.6 * most), 3: math.ceil(0.35 * most),
+            4: max(1, math.ceil(0.15 * most))}.get(level, 0)
+
+
+def hit_points(connection) -> tuple[int, int] | None:
+    found = sheet.native(connection) if sheet.ruleset(connection) == srd52.ID else None
+    return (found['hp'], found['max_hp']) if found else None
+
+
+def set_hp(connection, hp: int, now: str = '') -> int:
+    """The character's hit points, and the wound word they read as; returns that level."""
+    found = sheet.native(connection)
+    found['hp'] = max(0, min(found['max_hp'], hp))
+    sheet.set_native(connection, found, now)
+    return level_for(found['hp'], found['max_hp'])
+
+
+def follow_level(connection, level: int):
+    """A wound word set outside a fight moves the hit points with it (only when they read differently)."""
+    found = sheet.native(connection) if sheet.ruleset(connection) == srd52.ID else None
+    if found and level_for(found['hp'], found['max_hp']) != level:
+        found['hp'] = hp_for(level, found['max_hp'])
+        sheet.set_native(connection, found, '')
+
+
+# Foes ---------------------------------------------------------------------------------------------
+
+def monster_for(spec: dict) -> dict:
+    if spec.get('srd52') in monsters():
+        return monsters()[spec['srd52']]
+    name = spec['name'].lower()
+    found = next((monster for word, monster in FOE_WORDS if word in name), None)
+    if found is None:
+        found = next(monster for most, monster in BY_VITALITY if spec.get('vitality', 10) <= most)
+    return monsters()[found]
+
+
+def first_attack(monster: dict) -> dict:
+    attack = next((action['attack'] for action in monster['actions']
+                   if isinstance(action.get('attack'), dict) and action['attack'].get('bonus') is not None), None)
+    if attack is None:
+        return {'bonus': 2, 'dice': '1d4', 'type': 'bludgeoning'}
+    damage = (attack.get('damage') or [{'dice': '1', 'type': 'bludgeoning'}])[0]
+    return {'bonus': attack['bonus'], 'dice': damage['dice'], 'type': damage['type']}
+
+
+def foes_from(spec: dict, zone: str, rng: random.Random) -> list[dict]:
+    monster = monster_for(spec)
+    count = spec.get('count', 1)
+    result = []
+    for number in range(count):
+        hp = max(1, roll_dice(monster['hp']['formula'], rng))
+        result.append({'id': f"{spec['name']}-{number}", 'name': spec['name'] if count == 1 else
+                       f"{spec['name']} {number + 1}", 'monster': monster['id'], 'ac': monster['ac'], 'hp': hp,
+                       'max_hp': hp, 'attack': first_attack(monster), 'wis_save': monster['abilities']['wis']['save'],
+                       'wound': 0, 'zone': zone, 'broken': False} | ({'horror': True} if spec.get('horror') else {}))
+    return result
+
+
+def hurt(foe: dict, damage: int):
+    foe['hp'] = max(0, foe['hp'] - damage)
+    foe['wound'] = level_for(foe['hp'], foe['max_hp'])
+
+
+# The player's attack ------------------------------------------------------------------------------
+
+def weapon_of(items: list[dict]) -> dict | None:
+    """The best weapon carried, as its SRD weapon."""
+    held = [weapons()[WEAPONS[row['item_id']]] for row in items if WEAPONS.get(row['item_id']) in weapons()]
+    return max(held, key=lambda weapon: roll_average(weapon['damage']['dice']), default=None)
+
+
+def roll_average(formula: str) -> float:
+    match = DICE.search(formula)
+    return int(match.group(1)) * (int(match.group(2)) + 1) / 2 if match else 1
+
+
+def attack_bonus(found: dict, weapon: dict | None) -> tuple[int, str, str, int]:
+    """(to hit, damage dice, what it is, damage modifier) for the character's attack with `weapon`."""
+    scores = found['abilities']
+    if weapon is None:
+        modifier = srd52.modifier(scores['str'])
+        return modifier + srd52.proficiency(found['level']), '1', 'Unarmed strike', modifier
+    finesse = weapon['weapon_type'] == 'ranged' or 'Finesse' in weapon.get('property_names', [])
+    ability = 'dex' if finesse and scores['dex'] >= scores['str'] else 'str'
+    modifier = srd52.modifier(scores[ability])
+    training = srd52.by_id('classes')[found['class']]['weapon_proficiencies'] or ''
+    proficient = 'Martial' in training or weapon['weapon_category'] == 'simple'
+    return (modifier + (srd52.proficiency(found['level']) if proficient else 0), weapon['damage']['dice'],
+            weapon['name'], modifier)
+
+
+def strike(connection, roll: dict, target: dict, items: list[dict], rng, lines: list[str]):
+    """The character's attack on `target` with the turn's own d20; its roll card is rewritten as the attack."""
+    found = sheet.native(connection)
+    bonus, dice, what, modifier = attack_bonus(found, weapon_of(items))
+    natural = roll['natural']
+    total = natural + bonus
+    critical, hit = natural == 20, natural != 1 and (natural == 20 or total >= target['ac'])
+    band = 'critical_success' if critical else 'success' if hit else 'critical_failure' if natural == 1 else 'failure'
+    connection.execute('UPDATE story_rolls SET skill=?, bonus=?, total=?, target=?, band=? WHERE id=?',
+                       (f'Attack ({what})', bonus, total, target['ac'], band, roll['id']))
+    roll.update(skill=f'Attack ({what})', bonus=bonus, total=total, target=target['ac'], band=band)
+    target['zone'] = 'engaged'
+    if not hit:
+        lines.append(f"The player's character's attack on {target['name']} misses.")
+        return
+    damage = max(1, roll_dice(dice, rng, critical) + modifier)
+    hurt(target, damage)
+    word = 'down, dead' if target['hp'] <= 0 else describe(target)
+    lines.append(f"The player's character {'lands a critical hit on' if critical else 'hits'} {target['name']} for "
+                 f"{damage} damage: now {word}.")
+
+
+def describe(foe: dict) -> str:
+    from dungeon.combat import LEVELS
+    return 'broken, fleeing or giving up' if foe['broken'] else LEVELS[foe['wound']] if foe['wound'] else 'unhurt'
+
+
+# The round ----------------------------------------------------------------------------------------
+
+def morale(state: dict, standing, rng, lines: list[str]):
+    if not any(foe['wound'] >= 3 for foe in state['foes']):
+        return
+    for foe in standing(state):
+        if rng.randint(1, 20) + foe['wis_save'] < MORALE_DC:
+            foe['broken'] = True
+            lines.append(f"{foe['name'].capitalize()} breaks: they flee or give up.")
+
+
+def foes_attack(connection, state: dict, standing, guarded: bool, rng, lines: list[str]) -> int:
+    """Each foe still standing closes in or attacks the character's AC; returns the character's wound level."""
+    found = sheet.native(connection)
+    hp = found['hp']
+    for foe in standing(state):
+        if foe['zone'] != 'engaged':
+            foe['zone'] = 'engaged'
+            lines.append(f"{foe['name'].capitalize()} closes in.")
+            continue
+        natural, _ = srd52.d20(rng, 'disadvantage' if guarded else '')
+        if natural == 1 or (natural != 20 and natural + foe['attack']['bonus'] < found['ac']):
+            lines.append(f"{foe['name'].capitalize()} attacks and misses.")
+            continue
+        damage = max(1, roll_dice(foe['attack']['dice'], rng, natural == 20))
+        before, hp = hp, max(0, hp - damage)
+        # A blow that drops the character low, or a critical, can leave a lasting injury (dungeon/injuries.py).
+        if natural == 20 or level_for(before, found['max_hp']) < 4 <= level_for(hp, found['max_hp']):
+            state['hurt_by'] = foe['name']
+        lines.append(f"{foe['name'].capitalize()} {'lands a critical hit on' if natural == 20 else 'hits'} the "
+                     f"player's character for {damage} damage: {hp} of {found['max_hp']} hit points left.")
+        if hp <= 0:
+            break
+    return set_hp(connection, hp)
+
+
+def death_saves(rng) -> tuple[bool, bool, list[int]]:
+    """(alive, back on their feet with 1 hit point, the rolls): three successes or three failures decide."""
+    successes = failures = 0
+    rolls = []
+    while successes < 3 and failures < 3:
+        natural = rng.randint(1, 20)
+        rolls.append(natural)
+        if natural == 20:
+            return True, True, rolls
+        if natural == 1:
+            failures += 2
+        elif natural >= DEATH_SAVE:
+            successes += 1
+        else:
+            failures += 1
+    return successes >= 3, False, rolls
+
+
+def long_rest(connection, nights: int) -> list[str]:
+    """A night's sleep restores every hit point (as written)."""
+    found = sheet.native(connection)
+    if nights <= 0 or found['hp'] >= found['max_hp']:
+        return []
+    found['hp'] = found['max_hp']
+    sheet.set_native(connection, found, '')
+    return [f"A long rest restores the character's hit points: {found['max_hp']} of {found['max_hp']}."]
+
+
+def foe_line(foe: dict) -> str:
+    return f"{foe['name']}: {'down' if foe['hp'] <= 0 else describe(foe)}"
+
+
+def encode_foes(foes: list[dict]) -> str:
+    return json.dumps(foes)
