@@ -256,15 +256,17 @@ def builtin_contents(world_id: str) -> dict:
 
 
 def installed(root: Path, world_id: str) -> Path:
-    """A built-in world's package in the data folder, built (again) when missing or out of date."""
+    """A built-in world's package in the data folder, built (again) when missing or out of date. One the author has
+    edited in the world editor (meta `edited`, dungeon/package_edit.py) is kept as edited until it is reset."""
     contents = builtin_contents(world_id)
     path = Path(root) / FOLDER / f'{world_id}.sqlite'
     current = fingerprint(contents)
     if path.is_file():
         try:
             with closing(connect(path)) as connection:
-                row = connection.execute("SELECT value FROM meta WHERE key='fingerprint'").fetchone()
-            if row and json.loads(row['value']) == current:
+                kept = {row['key']: json.loads(row['value']) for row in connection.execute(
+                    "SELECT key, value FROM meta WHERE key IN ('fingerprint', 'edited')")}
+            if kept.get('edited') or kept.get('fingerprint') == current:
                 return path
         except sqlite3.Error:
             pass
@@ -272,6 +274,13 @@ def installed(root: Path, world_id: str) -> Path:
     with closing(connect(path)) as connection, connection:
         connection.execute("INSERT INTO meta (key, value) VALUES ('fingerprint', ?)", (json.dumps(current),))
     return path
+
+
+def reset(root: Path, world_id: str) -> Path:
+    """A built-in world's package built again from the shipped files, its edits gone."""
+    require(world_id in builtin_ids(), 'Only a built-in world can be reset to how it shipped.', 409)
+    (Path(root) / FOLDER / f'{world_id}.sqlite').unlink(missing_ok=True)
+    return installed(root, world_id)
 
 
 def summary(path: Path) -> dict:
@@ -284,8 +293,9 @@ def summary(path: Path) -> dict:
         documents = connection.execute('SELECT COUNT(*) AS n FROM documents').fetchone()['n']
         engine = connection.execute('SELECT COUNT(*) AS n FROM engine').fetchone()['n']
         assets = connection.execute('SELECT COUNT(*) AS n FROM assets').fetchone()['n']
+        edited = connection.execute("SELECT value FROM meta WHERE key='edited'").fetchone()
     return {'id': world['id'], 'name': world['name'], 'sections': counts, 'documents': documents, 'engine': engine,
-            'assets': assets, 'size': path.stat().st_size}
+            'assets': assets, 'size': path.stat().st_size, 'edited': bool(edited and json.loads(edited['value']))}
 
 
 def import_folder(root: Path, folder: Path) -> dict:

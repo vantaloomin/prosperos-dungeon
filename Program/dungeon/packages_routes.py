@@ -6,7 +6,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse
 from pydantic import Field
 
-from dungeon import package_import, packages
+from dungeon import package_edit, package_import, packages
 from dungeon.errors import require
 from dungeon.models import Input
 
@@ -118,3 +118,56 @@ def finish_draft(request: Request, draft_id: str, body: DraftFinish):
 def remove_draft(request: Request, draft_id: str):
     package_import.remove(root(request), draft_id)
     return {'ok': True}
+
+
+
+# The world editor (dungeon/package_edit.py) -----------------------------------------------------------------
+
+class EntrySave(Input):
+    entry: dict
+
+
+@router.get('/{world_id}/entries')
+def entries(request: Request, world_id: str, section: str | None = None, q: str = '', hidden: bool | None = None):
+    """The world's entries by section, searched and filtered (hidden truths only, or none)."""
+    return package_edit.listing(found(request, world_id), section, q, hidden)
+
+
+@router.get('/{world_id}/entries/{section}/{entry_id}')
+def entry(request: Request, world_id: str, section: str, entry_id: str):
+    """One entry, with its hidden fields and the entries it names and that name it."""
+    return package_edit.entry(found(request, world_id), section, entry_id)
+
+
+@router.post('/{world_id}/entries/{section}')
+def add_entry(request: Request, world_id: str, section: str, body: EntrySave):
+    return package_edit.save(found(request, world_id), section, body.entry)
+
+
+@router.put('/{world_id}/entries/{section}/{entry_id}')
+def save_entry(request: Request, world_id: str, section: str, entry_id: str, body: EntrySave):
+    """An entry changed, once it validates; the change can be undone."""
+    return package_edit.save(found(request, world_id), section, body.entry, entry_id)
+
+
+@router.delete('/{world_id}/entries/{section}/{entry_id}')
+def delete_entry(request: Request, world_id: str, section: str, entry_id: str):
+    package_edit.delete(found(request, world_id), section, entry_id)
+    return {'ok': True}
+
+
+@router.get('/{world_id}/history')
+def history(request: Request, world_id: str):
+    return {'history': package_edit.history(found(request, world_id))}
+
+
+@router.post('/{world_id}/undo')
+def undo(request: Request, world_id: str):
+    """The last change to the world taken back."""
+    return package_edit.undo(found(request, world_id))
+
+
+@router.post('/{world_id}/reset')
+def reset(request: Request, world_id: str):
+    """A built-in world back to how it shipped, its edits gone."""
+    return packages.summary(packages.reset(root(request), world_id))
