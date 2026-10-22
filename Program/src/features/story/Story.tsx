@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowDown, Bookmark, MapPin, RotateCcw, Send, Settings2, Timer, Undo2 } from 'lucide-react'
+import { ArrowDown, Bookmark, MapPin, RotateCcw, Send, Timer, Undo2 } from 'lucide-react'
 import { api, newId, streamApi } from '../../api'
 import type { View } from '../../workspace'
 import type { BandStep, CitySummary, Story as StoryData, StoryBack, StoryMessage, StoryScene, TurnEvent, TurnSoFar } from '../../types'
@@ -13,27 +13,13 @@ import { aroundText, foesText, journeyTo, NO_TURN, paceText, placeGroups, receip
 import { TurnReceipt } from './StoryReceipt'
 import { StatusStrip } from './StoryStatus'
 import { RollCard, TurnLive } from './StoryTurn'
-import { StoryPeople } from './StoryPeople'
 import { CityOptions } from '../world/CityOptions'
 import { AuthorsNote } from './AuthorsNote'
-import { StorySheet } from './StorySheet'
 import { StoryStart } from './StoryStart'
-import { StoryBranches } from './StoryBranches'
-import { StoryJournal } from './StoryJournal'
-import { StoryChapters } from './StoryChapters'
-import { StoryNotebook } from './StoryNotebook'
-import { StoryExport } from './StoryExport'
-import { StoryGear } from './StoryGear'
-import { StoryIntensity } from './StoryIntensity'
-import { HiddenValues } from '../settings/HiddenValues'
-import { StoryInjuries } from './StoryInjuries'
-import { StoryPowers } from './StoryPowers'
 import { StoryNarration } from './StoryNarration'
-import { StoryMap } from './StoryMap'
+import { StoryPanel } from './StoryPanel'
 import { STORY_KEY } from './table'
 
-/** Matches the stylesheet's breakpoint for the side panel. */
-const WIDE = '(min-width: 1100px)'
 const OUT_OF_STORY = 'To step out of the story, start a message with OOC: or wrap it in ((double parentheses)).'
 
 /** The story: the user's own story around the cities, told by a narrator. */
@@ -110,38 +96,6 @@ function StoryHeader({ story, change, onDraft }: HeaderProps) {
         onMove={(body) => change(() => api<StoryData>('/story/scene', body, 'PUT'))} status={<StatusStrip story={story} />} />
       {fight && <p className="story-fight" role="status">{fight}</p>}
     </header>
-  )
-}
-
-/** The fixed side panel (beside the story on a wide screen, above it on a narrow one): the sheet, the pack and the
- * shop window, the journal, the map, the people met and the other branches. The free grid comes in Milestone 6. */
-interface PanelProps { story: StoryData; change: (request: () => Promise<StoryData>) => Promise<void>; onTravel: (name: string) => void; onBack: (data: StoryBack) => void }
-
-function StoryPanel({ story, change, onTravel, onBack }: PanelProps) {
-  const client = useQueryClient()
-  const refresh = () => client.invalidateQueries({ queryKey: STORY_KEY })
-  // Beside the story there is room to show the sheet, pack and journal open; above it they start folded.
-  const [wide] = useState(() => window.matchMedia?.(WIDE).matches ?? false)
-  return (
-    <aside className="story-panel" aria-label="Your character and what you know">
-      {!!story.messages.length && <><StorySheet open={wide} /><StoryGear open={wide} onTrade={() => void refresh()} /><StoryJournal open={wide} /></>}
-      {!!story.messages.length && <StoryMap map={story.map} open={wide} onTravel={onTravel} />}
-      {!!story.messages.length && <StoryPowers factions={story.factions ?? []} tier={story.tier} />}
-      <StoryPeople people={story.people} onFind={(key) => void change(() => api<StoryData>('/story/find', { key }))} />
-      {story.campaign && <StoryChapters campaign={story.campaign} change={change} onBack={onBack} />}
-      {!story.campaign?.ironman && <StoryBranches branches={story.branches}
-        onSwitch={(id) => void change(() => api<StoryData>(`/story/branches/${encodeURIComponent(id)}/switch`, {}))} />}
-      {!!story.messages.length && <><StoryNotebook /><StoryExport /></>}
-      {/* Tone and rules are set once and changed now and then, so they fold away below what play needs. They are this
-          campaign's rules, so they live here rather than in Settings (src/features/settings/sections.ts ELSEWHERE). */}
-      <details className="story-people story-dials">
-        <summary id="story-dials-heading"><Settings2 aria-hidden="true" />Tone and rules</summary>
-        <p className="subtle">This campaign's rules. Another world keeps its own, and a new story starts in the world's tone with what you last chose to see.</p>
-        <StoryIntensity intensity={story.intensity} onSaved={() => void refresh()} />
-        <StoryInjuries persistence={story.injury_persistence ?? 'permanent'} onSaved={() => void refresh()} />
-        <HiddenValues />
-      </details>
-    </aside>
   )
 }
 

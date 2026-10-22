@@ -8,11 +8,12 @@ interface Props {
   campaign: StoryCampaign
   change: (request: () => Promise<StoryData>) => Promise<void>
   onBack: (data: StoryBack) => void
+  open?: boolean
 }
 
 /** The story's chapters and branches (dungeon/chapters.py): the current branch like a table of contents, the tree of
  * every branch, and the bookmarks. In Ironman there is no going back, so the tree only reads. */
-export function StoryChapters({ campaign, change, onBack }: Props) {
+export function StoryChapters({ campaign, change, onBack, open }: Props) {
   const [title, setTitle] = useState('')
   const { chapters, tree, bookmarks, ironman, pending } = campaign
   if (!chapters.length) return null
@@ -23,7 +24,7 @@ export function StoryChapters({ campaign, change, onBack }: Props) {
     return data
   }))
   return (
-    <details className="story-people">
+    <details className="story-people" open={open}>
       <summary>Chapters ({chapters.length}){ironman && ' · Ironman'}</summary>
       <ol aria-label="Chapters of this branch">
         {chapters.map((chapter) => <ChapterLine key={chapter.id} chapter={chapter} />)}

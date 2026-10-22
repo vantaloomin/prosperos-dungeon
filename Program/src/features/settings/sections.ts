@@ -58,8 +58,8 @@ export const SETTINGS_TABS: SettingsTabInfo[] = [
 export interface ElsewhereSection extends SettingsSection { view: 'story' | 'worlds'; where: string }
 
 export const ELSEWHERE: ElsewhereSection[] = [
-  { heading: 'hidden-values-heading', title: 'Dice and hidden values', view: 'story', where: 'Story, Tone and rules', keywords: 'hidden values show reveal odds dice roll rolling 3d why it went adult side' },
-  { heading: 'story-dials-heading', title: 'Tone and rules', view: 'story', where: 'Story', keywords: 'intensity how far violence sex horror drama eventful cutaways meanwhile injuries lasting tone' },
+  { heading: 'hidden-values-heading', title: 'Dice and hidden values', view: 'story', where: 'Story, More, Tone and rules', keywords: 'hidden values show reveal odds dice roll rolling 3d why it went adult side' },
+  { heading: 'story-dials-heading', title: 'Tone and rules', view: 'story', where: 'Story, More', keywords: 'intensity how far violence sex horror drama eventful cutaways meanwhile injuries lasting tone' },
   { heading: 'cities-heading', title: 'Cities', view: 'worlds', where: 'Worlds', keywords: 'city cities places home world pack' },
   { heading: 'adult-side-heading', title: 'Adult side of life', view: 'worlds', where: 'Worlds', keywords: 'adult adults nsfw 18 sex sexual sexuality orientation gay straight bisexual kink adventurous drive intimacy' },
   { heading: 'townsfolk-mix-heading', title: 'Townsfolk mix', view: 'worlds', where: 'Worlds', keywords: 'townsfolk mix ratio ratios shares population generation generate new world reseed gender women men nonbinary height build weight beard facial hair orientation sexuality gay lesbian bisexual straight adult side adventurous drive sliders' },

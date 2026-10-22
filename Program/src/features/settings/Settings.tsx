@@ -14,6 +14,7 @@ import { HardwareCheck } from './models/HardwareCheck'
 import { LocalPrograms } from './models/LocalPrograms'
 import { ModelSettings } from './models/ModelSettings'
 import type { View } from '../../workspace'
+import { askForDrawer } from '../story/scene'
 import { availableTabs, pickTab, searchSettings, type SettingsMatch, type SettingsTab } from './sections'
 
 interface Props {
@@ -28,6 +29,8 @@ export function Settings({ tab, onTab, go }: Props) {
   const current = pickTab(tab)
   const landing = useLanding()
   const land = (match: SettingsMatch) => {
+    // The Story screen's sections are all its tone and rules, in the drawer, which opens to them.
+    if (match.elsewhere && match.section.view === 'story') askForDrawer('rules')
     if (match.elsewhere) { go(match.section.view); landOn(match.section.heading, away); return }
     onTab(match.tab.id)
     landing(match.section.heading)
