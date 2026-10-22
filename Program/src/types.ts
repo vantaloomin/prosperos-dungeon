@@ -257,7 +257,9 @@ export interface StoryIntensity {
   drama: Exclude<DramaLevel, 'world'>; drama_chosen: DramaLevel; drama_world: Exclude<DramaLevel, 'world'>
 }
 export type DramaLevel = 'world' | 'quiet' | 'uneasy' | 'eventful' | 'merciless'
-export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null; injury_persistence: InjuryPersistence }
+export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null; injury_persistence: InjuryPersistence; factions?: StoryFaction[] }
+/** A faction the character knows of (dungeon/factions.py): standing in words, with the number when the dice are shown. */
+export interface StoryFaction { id: string; name: string; summary: string; standing: string }
 export type InjuryPersistence = 'permanent' | 'temporary' | 'none'
 /** The travel map as far as the character knows it (dungeon/travel.py); positions run 0 to 1 across the world map. */
 export interface StoryMap {

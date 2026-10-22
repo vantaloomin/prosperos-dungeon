@@ -22,15 +22,17 @@ again draws nothing new.
 import re
 from datetime import date, timedelta
 
-from dungeon import combat, feelings, injuries, inventory, record, stress, travel
+from dungeon import combat, factions, feelings, injuries, inventory, record, stress, travel
 from dungeon.database import encode, many, settings
 from dungeon.life import cards
 
 DEFAULT_DRAMA = 'uneasy'
 # Off only for tests that are about something else (tests/conftest.py).
 ACTIVE = True
-# Cards that need someone the game cannot name yet: a bonded companion, a beat's absent character, a faction.
-UNNAMED = re.compile(r'\{(bond|them|faction)\}')
+# Cards that need someone the game cannot name yet: a bonded companion, a beat's absent character; and a faction,
+# where no faction has a hand.
+UNNAMED = re.compile(r'\{(bond|them)\}')
+FACTION = re.compile(r'\{faction\}')
 WAGE_ID = 'day-wage'
 DEFAULT_WAGE = 100
 # Who a card's fight brings (a level-one tier until "Scaling and tiers"): the name of one, of them all, how many,
@@ -62,7 +64,7 @@ def where(city_id: str, place_id: str) -> dict | None:
         return None
     travel_map, node = found
     return {'world': travel_map['world'], 'region': travel_map['regions'][node['region']].get('cards'),
-            'town': node['safe'] and node['city'] != 'vallarith-road', 'map': travel_map}
+            'town': node['safe'] and node['city'] != 'vallarith-road', 'map': travel_map, 'node': node['id']}
 
 
 def drama(connection, data: dict) -> str:
@@ -70,9 +72,12 @@ def drama(connection, data: dict) -> str:
     return (data.get('intensity') or {}).get('drama') or DEFAULT_DRAMA if chosen == 'world' else chosen
 
 
-def unnamed(world: str) -> set[str]:
-    return {item['id'] for item in cards.cards(world) if any(UNNAMED.search(item.get(field) or '')
-                                                             for field in ('title', *cards.TEXT))}
+def unnamed(world: str, faction: bool = False) -> set[str]:
+    """The cards that name someone the game cannot fill in here."""
+    return {item['id'] for item in cards.cards(world) if any(
+        UNNAMED.search(item.get(field) or '') or (not faction and FACTION.search(item.get(field) or ''))
+        for field in ('title', *cards.TEXT)) or (not faction and any(
+            effect['kind'] in ('clock', 'reputation') for effect in item['effects']))}
 
 
 def recent(connection, world: str, day: date) -> set[str]:
@@ -89,9 +94,13 @@ def draw(connection, scene: str, seed: str, city_id: str, place_id: str, data: d
         return None
     world = found['world']
     has = {'injured'} if combat.condition(connection)['level'] else set()
+    powers = factions.local(world, found['node'])
     drawn = cards.draw(world, scene, seed, cards.DRAMA.index(drama(connection, data)), cards.PRESETS[preset], has,
-                       recent(connection, world, day) | unnamed(world), found['region'])
-    return drawn | {'map': found['map']} if drawn['card'] else None
+                       recent(connection, world, day) | unnamed(world, bool(powers)), found['region'])
+    if not drawn['card']:
+        return None
+    faction = powers[sum(map(ord, seed)) % len(powers)] if powers else None
+    return drawn | {'map': found['map'], 'world': world, 'faction': faction}
 
 
 def keep(connection, message_id: str, scene: str, day: date, card_id: str | None, lines: list[str]):
@@ -106,7 +115,7 @@ def drawn_today(connection, scene: str, day: date) -> bool:
 # Playing a card -------------------------------------------------------------------------------------
 
 def fill(text: str, names: dict[str, str]) -> str:
-    return re.sub(r'\{(pc|npc|town)\}', lambda match: names[match.group(1)], text)
+    return re.sub(r'\{(pc|npc|town|faction)\}', lambda match: names[match.group(1)], text)
 
 
 def npc(people: list[dict]) -> dict | None:
@@ -170,12 +179,25 @@ def fight(connection, effect: dict, context: dict) -> list[str]:
     return [f"It comes to a fight: {spec['group']} {'close' if spec['count'] > 1 else 'closes'} in."]
 
 
+def clocked(connection, effect: dict, context: dict) -> list[str]:
+    faction = context['faction']
+    clock = faction and factions.first_open(connection, faction)
+    if clock:
+        factions.tick(connection, context['world'], faction, clock, effect['shift'], context['now'], context['logged'])
+    return []
+
+
+def reputed(connection, effect: dict, context: dict) -> list[str]:
+    return [factions.shift(connection, context['faction'], effect['shift'])] if context['faction'] else []
+
+
 def feared(connection, effect: dict, context: dict) -> list[str]:
     return stress.add(connection, 'card', '', context['now'], context['rng'], context['logged'],
                       amount=effect['amount'], cause='what just happened')
 
 
-APPLY = {'coin': coin, 'supply': supply, 'wound': wound, 'feeling': feeling, 'fight': fight, 'stress': feared}
+APPLY = {'coin': coin, 'supply': supply, 'wound': wound, 'feeling': feeling, 'fight': fight, 'stress': feared,
+         'clock': clocked, 'reputation': reputed}
 
 
 def play(connection, drawn: dict, context: dict) -> tuple[list[str], int]:
@@ -184,9 +206,11 @@ def play(connection, drawn: dict, context: dict) -> tuple[list[str], int]:
     card = drawn['card']
     person = npc(context['people'])
     names = {'pc': context['name'] or 'the character', 'town': context['data']['name'],
+             'faction': drawn['faction']['name'] if drawn.get('faction') else 'the powers here',
              'npc': (person.get('full') or f"the {person.get('occupation') or person['role']}") if person
              else 'a stranger'}
-    context = context | {'npc': person, 'title': fill(card['title'], names).lower()}
+    context = context | {'npc': person, 'title': fill(card['title'], names).lower(), 'faction': drawn.get('faction'),
+                         'world': drawn.get('world')}
     truth, seen = fill(card['truth'], names), fill(card['seen'], names)
     record.add(connection, 'fact', fill(card['title'], names), truth, context['logged'], truth='world')
     if card['accuracy'] != 'true':

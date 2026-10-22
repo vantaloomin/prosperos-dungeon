@@ -1,0 +1,177 @@
+{
+ "about": "Built by scripts/world/vallarith_factions.py from worlds/vallarith/factions.json.",
+ "world": "vallarith",
+ "pace": 25,
+ "factions": [
+  {
+   "id": "kingdom-of-cyrel",
+   "name": "The Kingdom of Cyrel",
+   "kind": "realm",
+   "summary": "A stubborn fortress kingdom of three sister cities, fighting on two fronts and logging a third.",
+   "goals": [
+    "Hold the Badlands line",
+    "Beat Asania, or at least not lose",
+    "Take back Adlmyr",
+    "Cut the timber the war needs"
+   ],
+   "holds": [
+    "cyrel",
+    "eriane",
+    "kingswood",
+    "convila",
+    "bastion"
+   ],
+   "rivals": [
+    "kingdom-of-asania",
+    "unguruk-tribe",
+    "brynwyr-high-elves"
+   ],
+   "allies": [
+    "cyrel-timber-guild"
+   ],
+   "clocks": [
+    {
+     "id": "war-levy",
+     "name": "War levy",
+     "segments": 4,
+     "done": "Cyrel's war levy reaches the sister towns: every household gives a son to Bastion or pays three crowns, and the crimps are out on the roads for those who run."
+    },
+    {
+     "id": "retake-adlmyr",
+     "name": "Retake Adlmyr",
+     "segments": 8,
+     "done": "Cyrel's army storms Adlmyr and takes the fallen walls back from the Unguruk. The road through the Badlands is Cyrel's again, for now, and the graves outside Bastion are new."
+    }
+   ]
+  },
+  {
+   "id": "kingdom-of-asania",
+   "name": "The Kingdom of Asania",
+   "kind": "realm",
+   "summary": "Splendid, magical, land-hungry and always ready for war. Allied with Trein's sorcerers, careful around Wrenspire.",
+   "goals": [
+    "Take Cyrel's land",
+    "Keep the crystal coming",
+    "Stay first among the Kingdoms of Man"
+   ],
+   "holds": [
+    "asania"
+   ],
+   "rivals": [
+    "kingdom-of-cyrel"
+   ],
+   "allies": [],
+   "clocks": [
+    {
+     "id": "push-across-the-cyrel-border",
+     "name": "Push across the Cyrel border",
+     "segments": 6,
+     "done": "Asania's army crosses the border on the lake road. Eriane burns, and refugees choke the Cyrel road all the way to Kingswood."
+    }
+   ]
+  },
+  {
+   "id": "cyrel-timber-guild",
+   "name": "The Cyrel Timber Guild",
+   "kind": "company",
+   "summary": "The guild that owns Kingswood's cutting crews and most of its debts. It has bought the Heartwood cutting rights from the town's reeve, in secret.",
+   "goals": [
+    "Fell the Heartwood before the season ends"
+   ],
+   "holds": [
+    "kingswood",
+    "cyrel"
+   ],
+   "rivals": [
+    "brynwyr-high-elves"
+   ],
+   "allies": [],
+   "clocks": [
+    {
+     "id": "buy-out-the-sawmill",
+     "name": "Buy out the sawmill",
+     "segments": 6,
+     "done": "The Timber Guild buys Kingswood's sawmill outright. Wages drop by a fifth the same week, and the men who complain are not taken on again."
+    }
+   ]
+  },
+  {
+   "id": "brynwyr-high-elves",
+   "name": "The High Elves of Brynwyr",
+   "kind": "realm",
+   "summary": "A closed, ancient people defending their forest from Cyrel and its loggers, with wardens on the land and sea-elves on the water.",
+   "goals": [
+    "Not one more tree",
+    "Keep the Heartwood",
+    "Keep humans out"
+   ],
+   "holds": [
+    "brynwyr",
+    "kingswood"
+   ],
+   "rivals": [
+    "kingdom-of-cyrel",
+    "cyrel-timber-guild"
+   ],
+   "allies": [],
+   "clocks": [
+    {
+     "id": "move-the-border-stones",
+     "name": "Move the border stones",
+     "segments": 6,
+     "done": "The wardens of Brynwyr move the border stones a mile toward Kingswood in one night, and shoot anyone who tries to move them back."
+    }
+   ]
+  },
+  {
+   "id": "unguruk-tribe",
+   "name": "The Unguruk Tribe",
+   "kind": "tribe",
+   "summary": "Orcs, half-orcs and human exiles in a walled camp at the heart of the Badlands. Proud, tough, and nursing a long grudge against Cyrel.",
+   "goals": [
+    "Hold Adlmyr",
+    "Break Bastion",
+    "Respect"
+   ],
+   "holds": [
+    "adlmyr"
+   ],
+   "rivals": [
+    "kingdom-of-cyrel"
+   ],
+   "allies": [],
+   "clocks": [
+    {
+     "id": "siege-works-at-adlmyr",
+     "name": "Siege works at Adlmyr",
+     "segments": 6,
+     "done": "The Unguruk finish their works at Adlmyr and start raiding past the ward-keep. Smoke rises from the farms on the Kingswood road."
+    }
+   ]
+  },
+  {
+   "id": "mossrun-expedition",
+   "name": "The Mossrun Expedition",
+   "kind": "company",
+   "summary": "A mining concern grown over five generations from two strikes, one iron and one Ley crystal, into an empire of mines serving several cities. Run by the Ilvar family, whose wives die in childbirth and whose fathers are always dying when the children come home.",
+   "goals": [
+    "More mines",
+    "More wealth",
+    "Keep the Ilvar secret"
+   ],
+   "holds": [
+    "mossrun"
+   ],
+   "rivals": [],
+   "allies": [],
+   "clocks": [
+    {
+     "id": "the-deep-nine-reaches-what-it-is-digging-toward",
+     "name": "The Deep Nine reaches what it is digging toward",
+     "segments": 8,
+     "done": "The Deep Nine breaks into something old under Mossrun. The shaft is sealed with the night shift still in it, and the miners who came up will not say what they heard."
+    }
+   ]
+  }
+ ]
+}

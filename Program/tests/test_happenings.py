@@ -66,7 +66,7 @@ def test_the_drama_setting_and_intensity_decide_what_can_turn_up(client, connect
     call = dealt.calls[0]
     assert call['level'] == 0 and call['intensity'] == cards.PRESETS['restrained']
     # Cards that need someone the game cannot name yet never come up.
-    assert happenings.unnamed('vallarith') <= call['recent']
+    assert happenings.unnamed('vallarith', faction=True) <= call['recent']
 
 
 def test_a_road_card_can_bring_a_fight(client, connected, provider, app, dealt):

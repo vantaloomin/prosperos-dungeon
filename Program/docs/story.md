@@ -320,6 +320,25 @@ story, with the deck and region from the travel map (`world`, `regions.*.cards`)
 - Each draw is kept (`story_cards`, branched with the story), so telling a turn again draws nothing new, and a
   card is not drawn again within the deck's `repeat_days`.
 
+## Factions
+
+`dungeon/factions.py`, with each world's factions in play in `dungeon/world/data/factions/<world>.json` (Vallarith's
+built by `scripts/world/vallarith_factions.py` from the world package: the Kingdom of Cyrel, Asania, the Timber
+Guild, the High Elves of Brynwyr, the Unguruk, the Mossrun expedition), each with goals, the travel-map places it
+holds, rivals, allies and clocks.
+
+- **Clocks run on the world clock.** Each story day that passes (`pass_time`), each open clock moves a segment with
+  the file's `pace` chance (25 in 100). A full clock's `done` happens: the record keeps it as the world's truth, and
+  on the character's next line in a town "News reaches town: …" goes to the narrator and the journal. Life Cards'
+  `clock` effects move the first open clock of a faction with a hand in the place. `factions.tick` is the one way
+  a clock moves, so other systems (a story director, jobs) can nudge them.
+- **Standing** (`story_reputation`, -5 to 5): an enemy, distrusted, frowned on, unknown, noticed, trusted, honoured.
+  Life Cards' `reputation` effects move it. The panel's Powers lists the factions the character knows of (holding
+  a place they have been, or that know them), with the standing (and its number with the dice shown).
+- **The narrator** gets "## The powers here": each faction holding the place, its summary, goals, clocks and the
+  character's standing, to act through their people without announcing a clock.
+- Life Cards naming `{faction}` can now be drawn where a faction holds the place, and name one of them.
+
 ## Rewrite
 
 `dungeon/passages.py`. The automatic rewrites still run when there is time; whatever the checks find and do not
