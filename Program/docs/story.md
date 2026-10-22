@@ -116,9 +116,25 @@ Attack, Second Wind), upcasting and spells' other effects (conditions, areas, co
   "Face Danger +iron" and lands the action die and both challenge dice. Resisting stress is Endure Stress (+heart);
   clinging on is Endure Harm (+iron).
 
-Not yet (Milestone 4, next steps): vows as progress tracks, the suffer moves on spirit and supply, Ironsworn's XP
-and asset upgrades, and Starforged (its Datasworn package's planet
-images are non-commercial); Basic Roleplaying.
+Supply, spirit and vows under Ironsworn are described below. Not yet: Starforged (its Datasworn package's planet
+images are non-commercial).
+
+- **Percentile** (`dungeon/rules/brp.py`, content in `dungeon/rules/packs/brp`: the core of Chaosium's Basic
+  Roleplaying from its ORC Content Document, transcribed for a world before firearms). Vanta's call: the app names
+  the ruleset "Percentile", and BRP appears only in the ORC notice and credit on the start screen and the sheet. A
+  character buys STR, CON, SIZ, INT, POW, DEX and CHA point-based as written (all at 10, 24 points, DEX, INT and POW
+  3 a point, each 3 to 21) and picks a profession and a personality type; code spreads the skill points (the
+  personality's +20s, the profession's 250 and INT x10 personal points over the profession's skills, none past 75).
+  A premade takes a profession from its strongest MARVEL stat. Each action rolls d100 under the skill its words name
+  (climbing is Climb, haggling Bargain, looking about Spot), else a characteristic roll (Idea, Charm, Luck, Effort).
+  Easy doubles the chance, hard halves it, very hard and extreme take 20 and 40 more off the half. Critical (1/20),
+  special (1/5) and fumble follow the Skill Results table; critical is critical_success, special and success
+  success, failure failure, fumble critical_failure. A skill that succeeds gets an experience check, rolled after a
+  night's rest (d100 plus half INT over the skill raises it 1D6). First Aid on the character's own wound restores
+  1D3 hit points once a wound. The roll card reads "Climb 75%" and lands the two percentile dice.
+
+Not yet: powers (magic, sorcery, psychic abilities), hit locations, fatigue, sanity, parrying with a weapon or a
+shield, training and research.
 
 ## The turn loop
 
@@ -384,6 +400,29 @@ The same fight on Ironsworn's moves (`dungeon/combat_iron.py`):
 
 Not in v0: zones beyond near and engaged, armour, ranged weapons and ammunition, allies, injuries with lasting
 effects, healers and medicine, a fight started by an NPC without a danger roll.
+
+### Fights under Percentile
+
+The same fight on BRP's rules (`dungeon/combat_brp.py`):
+
+- **Foes are the pack's sample characters and animals**, read from the foe's name (a thug or bandit is a Thug, a
+  raider or guard a Viking, a wolf a Wolf), else by how tough the MARVEL spec is: hit points, armour, Dodge and their
+  first attack.
+- **The character's attack** keeps the turn's d100 against the carried weapon's skill (a sword is Melee Weapon
+  (Sword), bare hands Brawl), and the foe dodges. The Attack and Defense Matrix decides: a dodge at the attack's
+  level or better stops it, and each level short takes the attack down one. Damage is the weapon's dice plus the
+  damage modifier (half for a bow or a thrown weapon), less armour; a special impales (the dice twice), a critical
+  does the dice's most and ignores armour. The roll card reads "Sword, Broad 59% (special)".
+- **Foes attack** with their skill. The character dodges the first attack each round, and every one when the line
+  says they defend, dodge or parry. A dodge that works earns Dodge an experience check, as a hit does the weapon.
+- **Major wounds.** A blow of half the character's hit points or more is a major wound. A Luck roll (POW x5) lets it
+  heal clean; a failure rolls the Major Wound Table and takes characteristic points for good, unless Injury
+  persistence is none. At 2 hit points or fewer after one, or on a result that leaves them unable to fight, the
+  character collapses: the defeat table without death. At 0 hit points the wound is fatal, and the defeat table
+  decides (someone may yet drag them clear).
+- **Morale:** once a foe is down or under half its hit points, the rest roll Luck; a failure breaks them.
+- **Healing is slow**, as written: each hit point back takes 7 days divided by a 1D3 roll (3, 4 or 7 nights' rest).
+  The rest of the game reads hit points as the same words as 5E (unhurt to at 0 hit points).
 
 ### Supply, spirit and vows under Ironsworn
 

@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
-import type { IronswornChoices, PersonaGender, Ruleset, Srd52Choices, Story as StoryData, StoryIntensity, StoryStart as StartChoices } from '../../types'
+import type { BrpChoices, IronswornChoices, PersonaGender, Ruleset, Srd52Choices, Story as StoryData, StoryIntensity, StoryStart as StartChoices } from '../../types'
 import { Field, TextArea, TextInput } from '../../components/Fields'
 import { Stepper } from '../../components/NumberFields'
 import { Loading, Notice } from '../../components/Feedback'
 import { GENDERS } from '../worlds/worldsText'
 import { WORLDS_KEY } from '../worlds/useWorlds'
-import { arrayPlaced, skillChoices, skillId, pointsLeft, pointsText, premadeLine, startingStats } from './storyText'
+import { arrayPlaced, brpCost, skillChoices, skillId, pointsLeft, pointsText, premadeLine, startingStats } from './storyText'
 import { SessionZero } from './SessionZero'
 
 /** Campaign start (dungeon/campaign.py): play a premade character from this town, or make your own; then session zero
@@ -69,11 +69,13 @@ function MakeYourOwn({ choices, ruleset, busy, onBegin, onBack }: MakeProps) {
   const [stats, setStats] = useState(() => startingStats(choices))
   const [build, setBuild] = useState<Build | null>(null)
   const [iron, setIron] = useState<IronBuild | null>(null)
+  const [percent, setPercent] = useState<PercentBuild | null>(() => choices.brp ? startingPercent(choices.brp) : null)
   const years = age ? Number(age) : null
-  const five = ruleset === 'srd52' && !!choices.srd52
-  const sworn = ruleset === 'ironsworn' && !!choices.ironsworn
-  const valid = !!name.trim() && builtFor(five ? build : sworn ? iron : true, pointsLeft(stats, choices.points)) && adultAge(years)
-  const submit = () => onBegin({ persona: { name: name.trim(), gender, age: years, about: about.trim() }, ...(five ? { build } : sworn ? { ironsworn: iron } : { stats }) }, name.trim())
+  const kind = rulesKind(ruleset, choices)
+  const native = { srd52: build, ironsworn: iron, brp: percentReady(percent, choices.brp), marvel: true }[kind]
+  const valid = !!name.trim() && builtFor(native, pointsLeft(stats, choices.points)) && adultAge(years)
+  const sheetPart = kind === 'marvel' ? { stats } : { [BODY_KEYS[kind]]: native }
+  const submit = () => onBegin({ persona: { name: name.trim(), gender, age: years, about: about.trim() }, ...sheetPart }, name.trim())
   return (
     <form className="story-make" onSubmit={(event) => { event.preventDefault(); if (valid) submit() }}>
       <TextInput label="Name" value={name} onChange={setName} required maxLength={80} />
@@ -85,7 +87,7 @@ function MakeYourOwn({ choices, ruleset, busy, onBegin, onBack }: MakeProps) {
       <TextInput label="Age" type="number" value={age} onChange={setAge} min={18} max={120} />
       <TextArea label="About you" hint="Who they are, what they want, what they're running from. The narrator only knows what you write here."
         value={about} onChange={setAbout} rows={4} maxLength={2000} />
-      <RulesBuild choices={choices} five={five} sworn={sworn} stats={stats} onStats={setStats} onBuild={setBuild} onIron={setIron} />
+      <RulesBuild choices={choices} kind={kind} stats={stats} percent={percent} onStats={setStats} onBuild={setBuild} onIron={setIron} onPercent={setPercent} />
       <div className="form-actions">
         <button type="submit" className="button primary" disabled={busy || !valid}>Next: how it plays</button>
         {onBack && <button type="button" className="button" onClick={onBack}>Back</button>}
@@ -99,16 +101,74 @@ function builtFor(build: unknown, left: number): boolean {
   return build === true ? left >= 0 : !!build
 }
 
+type RulesKind = 'marvel' | 'srd52' | 'ironsworn' | 'brp'
+/** Where each ruleset's build goes in the start request (dungeon/story_routes.py StoryStart). */
+const BODY_KEYS: Record<Exclude<RulesKind, 'marvel'>, string> = { srd52: 'build', ironsworn: 'ironsworn', brp: 'brp' }
+
+/** The ruleset whose build the form shows: one the start choices carry, else MARVEL. */
+function rulesKind(ruleset: Ruleset | undefined, choices: StartChoices): RulesKind {
+  return ruleset && ruleset !== 'marvel' && choices[ruleset] ? ruleset : 'marvel'
+}
+
 interface RulesBuildProps {
-  choices: StartChoices; five: boolean; sworn: boolean; stats: Record<string, number>
+  choices: StartChoices; kind: RulesKind; stats: Record<string, number>; percent: PercentBuild | null
   onStats: (stats: Record<string, number>) => void; onBuild: (build: Build | null) => void; onIron: (build: IronBuild | null) => void
+  onPercent: (build: PercentBuild) => void
 }
 
 /** The character's sheet in the campaign's ruleset. */
-function RulesBuild({ choices, five, sworn, stats, onStats, onBuild, onIron }: RulesBuildProps) {
-  if (five && choices.srd52) return <Srd52Build choices={choices.srd52} onChange={onBuild} />
-  if (sworn && choices.ironsworn) return <IronswornBuild choices={choices.ironsworn} onChange={onIron} />
+function RulesBuild({ choices, kind, stats, percent, onStats, onBuild, onIron, onPercent }: RulesBuildProps) {
+  if (kind === 'srd52' && choices.srd52) return <Srd52Build choices={choices.srd52} onChange={onBuild} />
+  if (kind === 'ironsworn' && choices.ironsworn) return <IronswornBuild choices={choices.ironsworn} onChange={onIron} />
+  if (kind === 'brp' && choices.brp && percent) return <PercentileBuild choices={choices.brp} build={percent} onChange={onPercent} />
   return <MarvelStats choices={choices} stats={stats} onChange={onStats} />
+}
+
+type PercentBuild = { characteristics: Record<string, number>; profession: string; personality: string }
+
+function startingPercent(choices: BrpChoices): PercentBuild {
+  return { characteristics: Object.fromEntries(choices.characteristics.map((item) => [item.id, choices.start])),
+    profession: choices.professions[0].id, personality: choices.personalities[0].id }
+}
+
+function percentLeft(build: PercentBuild, choices: BrpChoices): number {
+  return choices.points - brpCost(build.characteristics, choices.start, choices.costly, choices.costly_price)
+}
+
+/** The build, when its characteristics cost no more than the points. */
+function percentReady(build: PercentBuild | null, choices: BrpChoices | undefined): PercentBuild | null {
+  return build && choices && percentLeft(build, choices) >= 0 ? build : null
+}
+
+/** A Percentile character (dungeon/rules/brp.py build): characteristics bought from the points, a profession and a
+ * personality; code spreads the skill points. */
+function PercentileBuild({ choices, build, onChange: update }: { choices: BrpChoices; build: PercentBuild; onChange: (build: PercentBuild) => void }) {
+  const left = percentLeft(build, choices)
+  const [min, max] = choices.range
+  const profession = choices.professions.find((item) => item.id === build.profession)
+  return (
+    <fieldset className="story-build">
+      <legend>Your character</legend>
+      <p className={left < 0 ? 'story-points over' : 'story-points'}>{left} of {choices.points} points left (DEX, INT and POW cost {choices.costly_price} a point).</p>
+      <div className="story-stats">
+        {choices.characteristics.map((item) => (
+          <Stepper key={item.id} label={item.id.toUpperCase()} value={build.characteristics[item.id]} min={min} max={max} hint={item.name}
+            format={String} onChange={(value) => update({ ...build, characteristics: { ...build.characteristics, [item.id]: value } })} />
+        ))}
+      </div>
+      <Field label="Profession" hint={profession?.skills.join(', ')}>
+        {(id, describedBy) => <select id={id} value={build.profession} aria-describedby={describedBy} onChange={(event) => update({ ...build, profession: event.target.value })}>
+          {choices.professions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select>}
+      </Field>
+      <Field label="Personality" hint={choices.personalities.find((item) => item.id === build.personality)?.about}>
+        {(id, describedBy) => <select id={id} value={build.personality} aria-describedby={describedBy} onChange={(event) => update({ ...build, personality: event.target.value })}>
+          {choices.personalities.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select>}
+      </Field>
+      <p className="subtle story-attribution">{choices.attribution}</p>
+    </fieldset>
+  )
 }
 
 type IronBuild = { stats: Record<string, number>; assets: string[] }

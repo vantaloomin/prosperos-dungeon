@@ -19,7 +19,8 @@ Code runs the fight; the narrator writes it. One line of the player's is one rou
   until a line that tries to get free (slip the bonds, pick the lock, run) succeeds.
 
 Under 5E the same fight runs on hit points, Armor Class and SRD stat blocks (dungeon/combat5e.py); under Ironsworn
-on health, harm, initiative and progress tracks (dungeon/combat_iron.py).
+on health, harm, initiative and progress tracks (dungeon/combat_iron.py); under BRP on skills, the Attack and Defense
+Matrix, hit points and major wounds (dungeon/combat_brp.py).
 
 Each round is decided once, kept with the player's line (story_rounds), and retold the same way. The fight and the
 character's wounds are game state, branched with the story (dungeon/timeline.py SAVED).
@@ -28,7 +29,7 @@ import json
 import random
 import re
 
-from dungeon import combat5e, combat_iron, record, sheet
+from dungeon import combat5e, combat_brp, combat_iron, record, sheet
 from dungeon.database import encode, optional
 from dungeon.rules import marvel
 
@@ -88,16 +89,28 @@ def set_condition(connection, level: int, dead: bool = False, rested: int = 0):
     # Under 5E the hit points follow a wound dealt outside a fight (a Life Card, a fall).
     combat5e.follow_level(connection, max(0, min(DYING, level)))
     combat_iron.follow_level(connection, max(0, min(DYING, level)))
+    combat_brp.follow_level(connection, max(0, min(DYING, level)))
 
 
 def word(connection, level: int) -> str:
     """The character's condition in words: MARVEL's wound levels, or under 5E what the hit points read as."""
-    return (combat5e.WORDS if fifth(connection) else combat_iron.WORDS if sworn(connection) else LEVELS)[level]
+    return (combat5e.WORDS if fifth(connection) or basic(connection) else combat_iron.WORDS if sworn(connection)
+            else LEVELS)[level]
 
 
 def sworn(connection) -> bool:
     """Whether the fight runs on Ironsworn's health and harm (dungeon/combat_iron.py)."""
     return combat_iron.health(connection) is not None
+
+
+def basic(connection) -> bool:
+    """Whether the fight runs on BRP's hit points and skills (dungeon/combat_brp.py)."""
+    return combat_brp.hit_points(connection) is not None
+
+
+def points_of(connection) -> tuple[int, int] | None:
+    """The character's hit points, under a ruleset that keeps them."""
+    return combat5e.hit_points(connection) or combat_brp.hit_points(connection)
 
 
 def fifth(connection) -> bool:
@@ -113,6 +126,12 @@ def mend(connection, nights: int) -> list[str]:
         lines = combat5e.long_rest(connection, nights)
         if lines and now['level']:
             connection.execute('UPDATE story_wounds SET level=0, rested=0 WHERE id=1')
+        return lines
+    if basic(connection) and not now['dead'] and now['level'] < DYING:
+        # BRP heals slowly, as written (dungeon/combat_brp.py rest).
+        lines = combat_brp.rest(connection, nights)
+        hp, most = combat_brp.hit_points(connection)
+        connection.execute('UPDATE story_wounds SET level=? WHERE id=1', (combat5e.level_for(hp, most),))
         return lines
     if sworn(connection) and not now['dead'] and now['level'] < DYING:
         # Ironsworn: Make Camp, +1 health a night.
@@ -136,8 +155,8 @@ def mend(connection, nights: int) -> list[str]:
 def adjust(connection, actions: list[dict]) -> list[dict]:
     """Wounds make actions harder: Wounded slows physical ones, Maimed everything and physical ones twice."""
     level = condition(connection)['level']
-    if fifth(connection) or sworn(connection):
-        # 5E and Ironsworn have no wound penalties: hit points and health are whole until they run out.
+    if fifth(connection) or sworn(connection) or basic(connection):
+        # 5E, Ironsworn and BRP have no wound penalties: hit points and health are whole until they run out.
         return actions
     adjusted = []
     for action in actions:
@@ -176,8 +195,8 @@ def condition_text(connection) -> str:
                "free (kept by the game)." if held else ''
     if not now['level']:
         return prisoner
-    points = combat5e.hit_points(connection)
-    hp = f", {points[0]} of {points[1]} hit points" if points else ''
+    points = points_of(connection)
+    hp = f", {max(0, points[0])} of {points[1]} hit points" if points else ''
     if (left := combat_iron.health(connection)) is not None:
         hp = f', health {left} of 5'
     return (f"The player's character is {word(connection, now['level'])}{hp} (kept by the game; write the wounds as they "
@@ -273,7 +292,7 @@ def player_moves(connection, state: dict, rolls: list[dict], items: list[dict], 
                  lines: list[str]) -> tuple[bool, bool]:
     """The player's rolled actions against the foes: (got away, guarded this round). Under 5E a dodge needs no roll
     and an attack is made against the target's AC."""
-    guarded, five = False, fifth(connection)
+    guarded, five, percent = False, fifth(connection), basic(connection)
     for roll in rolls:
         landed = roll['band'] in SUCCESS
         if five and (spell := combat5e.spell_in(connection, roll)):
@@ -284,10 +303,13 @@ def player_moves(connection, state: dict, rolls: list[dict], items: list[dict], 
                 return True, guarded
             lines.append("The player's character tries to get away and cannot.")
         elif GUARD.search(roll['action']):
-            guarded = guarded or landed or five
+            # Under 5E a dodge needs no roll; under BRP a line that defends dodges every attack this round.
+            guarded = guarded or landed or five or percent
         elif roll['stat'] == 'Vitality' and ATTACK.search(roll['action']) and (targets := standing(state)):
             if five:
                 combat5e.strike(connection, roll, aimed_at(roll, targets), items, rng, lines)
+            elif percent:
+                combat_brp.strike(connection, roll, aimed_at(roll, targets), items, rng, lines)
             elif 'npc' in targets[0]:
                 combat_iron.strike(connection, state, roll, aimed_at(roll, targets), items, rng, lines)
             else:
@@ -348,16 +370,19 @@ def play_round(connection, state: dict, rolls: list[dict], items: list[dict], rn
     escaped, guarded = player_moves(connection, state, rolls, items, rng, lines)
     if escaped:
         return state, lines, 'escaped'
-    five, iron = fifth(connection), sworn(connection)
+    five, iron, percent = fifth(connection), sworn(connection), basic(connection)
     if five:
         combat5e.morale(state, standing, rng, lines)
+    elif percent:
+        combat_brp.morale(state, standing, rng, lines)
     elif not iron:
         morale(state, rng, lines)
     if not standing(state):
         lines.append('No foe is left standing: the fight is won.')
         return state, lines, 'won'
-    if five or iron:
-        level = (combat5e if five else combat_iron).foes_attack(connection, state, standing, guarded, rng, lines)
+    if five or iron or percent:
+        level = (combat5e if five else combat_brp if percent else combat_iron).foes_attack(connection, state, standing,
+                                                                                         guarded, rng, lines)
         set_condition(connection, level)
     else:
         level = foes_move(connection, state, guarded, rng, lines)
@@ -383,6 +408,8 @@ def defeat(connection, state: dict, rng, now: str, saved: bool | None = None) ->
         set_condition(connection, DOWN)
         if fifth(connection):
             combat5e.set_hp(connection, 1, now)
+        if basic(connection):
+            combat_brp.set_hp(connection, 1)
         if outcome == 'robbed':
             connection.execute('UPDATE story_purse SET coins=0')
         if outcome == 'captured':
@@ -452,6 +479,8 @@ def begin(connection, people: list[dict], rolls: list[dict], start: dict | None,
         foes = combat5e.foes_from(spec, zone, rng)
     elif sworn(connection):
         foes = combat_iron.foes_from(spec, zone)
+    elif basic(connection):
+        foes = combat_brp.foes_from(spec, zone)
     else:
         foes = foes_from(spec, zone)
     # Ironsworn: whoever starts it has the upper hand.
@@ -473,6 +502,9 @@ def fall(connection, state: dict, rng, now: str, lines: list[str], events: list)
             return ''
         lines.append(f"The player's character drops to 0 hit points. Death saves: {rolled}: "
                      f"{'stable' if saved else 'three failures'}.")
+    elif basic(connection):
+        # BRP: a collapse from a major wound is not death; a fatal wound leaves it to the defeat table.
+        saved = True if state.pop('collapsed', False) and combat_brp.hit_points(connection)[0] > 0 else None
     elif sworn(connection):
         saved, how = combat_iron.face_death(connection, rng)
         lines.append(f"The player's character is brought to the brink of death and faces it: {how or 'it takes them.'}")
@@ -495,11 +527,11 @@ def prompt_text(lines: list[str], connection) -> str:
 def view(connection, shown: bool) -> dict:
     """The fight and the character's wounds for the screen: levels with the dice shown, words otherwise."""
     state, now = fight(connection), condition(connection)
-    points = combat5e.hit_points(connection)
+    points = points_of(connection)
     return {'condition': word(connection, now['level']), 'dead': now['dead'], 'captors': captors(connection),
             'fight': state and {'round': state['round'],
                                 'foes': [{'name': foe['name'], 'state': foe_word(foe),
                                           'wound': foe['wound'] if shown else None}
                                          | ({'hp': foe['hp'], 'max_hp': foe['max_hp']} if shown and 'hp' in foe else {})
                                          for foe in state['foes']]}} \
-        | ({'hp': points[0], 'max_hp': points[1]} if points else {})
+        | ({'hp': max(0, points[0]), 'max_hp': points[1]} if points else {})
