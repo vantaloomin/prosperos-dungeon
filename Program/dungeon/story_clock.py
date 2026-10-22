@@ -22,6 +22,13 @@ WORDS = {'one': 1, 'an': 1, 'a': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 
 SPANS = (
     (r'\b(sleep|go to bed|turn in|rest for the night|bed down|camp for the night)\b', 8 * 60),
     (r'\b(nap|doze|rest a while|take a rest)\b', 60),
+    # A stretch of the day spent at something: "I spend the day felling trees and come back at dusk".
+    (r'\b(spend|spends|spending|work|works|working|pass|passes|passing)\b.*\b(the|all|a|the whole|a whole) day\b',
+     10 * 60),
+    (r'\b(spend|spends|spending|work|works|working|pass|passes|passing)\b.*\b(the|all) (morning|afternoon)\b',
+     4 * 60),
+    (r'\b(spend|spends|spending|work|works|working|pass|passes|passing)\b.*\b(the|all) evening\b',
+     3 * 60),
     (r'\b(travel|ride|walk|head|hike|journey|march)\b.*\b(to|toward|towards|into|out of)\b', 30),
 )
 
@@ -47,9 +54,9 @@ def advance(connection, minutes: int):
 
 
 def waited(text: str) -> int | None:
-    """'I wait two hours' or 'wait 20 minutes', in minutes."""
+    """'I wait two hours', 'wait 20 minutes' or 'I work the saws for three hours', in minutes."""
     numbers = '|'.join(sorted(WORDS, key=len, reverse=True))
-    match = re.search(rf'\bwait\w*\b.*?\b(\d+|{numbers})\s+(hour|minute)s?\b', text, re.I)
+    match = re.search(rf'\b(?:wait\w*\b.*?|for\s+)\b(\d+|{numbers})\s+(hour|minute)s?\b', text, re.I)
     if not match:
         return None
     amount = int(match.group(1)) if match.group(1).isdigit() else WORDS[match.group(1).lower()]
