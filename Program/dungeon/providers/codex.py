@@ -22,6 +22,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
+from dungeon import subprocesses
 from dungeon.errors import DomainError, require
 from dungeon.providers.capabilities import EFFORTS
 from dungeon.providers.events import Chunk
@@ -117,7 +118,7 @@ def listed_model(item: dict) -> dict | None:
 async def app_server(command: list[str], work, seconds: float = 20):
     """Run `work(result)` against `codex app-server` (JSON-RPC lines on stdio) after its handshake."""
     with tempfile.TemporaryDirectory(prefix='dungeon-codex-') as directory:
-        process = await asyncio.create_subprocess_exec(
+        process = await subprocesses.start(
             *command, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.DEVNULL, cwd=directory, limit=2_000_000)
 
@@ -188,7 +189,7 @@ class CodexProvider:
             instructions.write_text(system + AGENTS_NOTE, encoding='utf-8')
             work = Path(directory) / 'work'
             work.mkdir()
-            process = await asyncio.create_subprocess_exec(
+            process = await subprocesses.start(
                 *codex_arguments(executable, config, str(work), str(instructions)), stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL, cwd=str(work),
                 limit=2_000_000)
@@ -213,9 +214,9 @@ class CodexProvider:
 
     async def check(self, _config: dict, _key: str | None) -> dict:
         executable = executable_path()
-        process = await asyncio.create_subprocess_exec(executable, 'login', 'status',
-                                                       stdout=asyncio.subprocess.DEVNULL,
-                                                       stderr=asyncio.subprocess.DEVNULL)
+        process = await subprocesses.start(executable, 'login', 'status',
+                                           stdout=asyncio.subprocess.DEVNULL,
+                                           stderr=asyncio.subprocess.DEVNULL)
         try:
             code = await asyncio.wait_for(process.wait(), 15)
             require(code == 0, 'Codex is not signed in. Run codex login in your terminal.', 409)

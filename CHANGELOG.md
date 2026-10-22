@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Claude and ChatGPT sign-in on Windows.** Testing a Claude Code or Codex profile no longer fails with a server
+  error when Dungeon runs in development mode (dev.bat); if the CLI can't be started, the test says so plainly.
 - **Work and oaths.** Cyrel's reeve, the Timber Guild and the wardens past the stones put work your way: find a
   deserter, collect a debt, carry a message nobody should know about. It pays and wins standing, and failing it
   costs you. Promises you make in the story are kept as oaths with deadlines, and the people you swore to remember

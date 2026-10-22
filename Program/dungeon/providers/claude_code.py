@@ -33,6 +33,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
+from dungeon import subprocesses
 from dungeon.errors import DomainError, require
 from dungeon.providers.events import Chunk
 from dungeon.providers.requests import transcript
@@ -113,8 +114,8 @@ async def help_text(executable: str) -> str:
     except OSError:
         key = (executable, None)
     if key not in _help_texts:
-        process = await asyncio.create_subprocess_exec(executable, '--help', stdout=asyncio.subprocess.PIPE,
-                                                       stderr=asyncio.subprocess.DEVNULL, env=cli_environment())
+        process = await subprocesses.start(executable, '--help', stdout=asyncio.subprocess.PIPE,
+                                           stderr=asyncio.subprocess.DEVNULL, env=cli_environment())
         try:
             output, _ = await asyncio.wait_for(process.communicate(), 20)
         except TimeoutError:
@@ -187,9 +188,9 @@ async def claude_output(process, config: dict | None = None):
 async def login_state(executable: str, config: dict | None = None) -> dict:
     """`claude auth status`: only whether the CLI is signed in, how, and to which account's email when it says,
     so two profiles' accounts can be told apart. Nothing else from it is kept."""
-    process = await asyncio.create_subprocess_exec(executable, 'auth', 'status', '--json',
-                                                   stdout=asyncio.subprocess.PIPE,
-                                                   stderr=asyncio.subprocess.DEVNULL, env=cli_environment(config))
+    process = await subprocesses.start(executable, 'auth', 'status', '--json',
+                                       stdout=asyncio.subprocess.PIPE,
+                                       stderr=asyncio.subprocess.DEVNULL, env=cli_environment(config))
     try:
         output, _ = await asyncio.wait_for(process.communicate(), 20)
     except TimeoutError as error:
@@ -213,7 +214,7 @@ class ClaudeCodeProvider:
         with tempfile.TemporaryDirectory(prefix='dungeon-claude-') as directory:
             system_file = Path(directory) / 'system.txt'
             system_file.write_text(system, encoding='utf-8')
-            process = await asyncio.create_subprocess_exec(
+            process = await subprocesses.start(
                 *claude_arguments(executable, config, str(system_file), listing), stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL, cwd=directory,
                 env=cli_environment(config), limit=2_000_000)

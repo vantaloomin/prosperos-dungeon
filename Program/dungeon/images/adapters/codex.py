@@ -21,6 +21,7 @@ import tempfile
 import time
 from pathlib import Path
 
+from dungeon import subprocesses
 from dungeon.images.adapters.base import AdapterError, Check, ImageResult, media_type
 
 TIMEOUT_SECONDS = 600
@@ -163,7 +164,7 @@ class CodexAdapter:
                            remote_id=thread)
 
     async def run(self, args, stdin: bytes | None, budget) -> tuple[int, str, str]:
-        process = await asyncio.create_subprocess_exec(
+        process = await subprocesses.start(
             *args, stdin=asyncio.subprocess.PIPE if stdin is not None else asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         try:
@@ -185,9 +186,9 @@ class CodexAdapter:
             await process.wait()
 
     async def output(self, args) -> str:
-        process = await asyncio.create_subprocess_exec(*args, stdin=asyncio.subprocess.DEVNULL,
-                                                       stdout=asyncio.subprocess.PIPE,
-                                                       stderr=asyncio.subprocess.STDOUT)
+        process = await subprocesses.start(*args, stdin=asyncio.subprocess.DEVNULL,
+                                           stdout=asyncio.subprocess.PIPE,
+                                           stderr=asyncio.subprocess.STDOUT)
         try:
             async with asyncio.timeout(20):
                 stdout, _ = await process.communicate()
