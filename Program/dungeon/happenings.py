@@ -32,6 +32,7 @@ ACTIVE = True
 # Cards that need someone the game cannot name yet: a bonded companion, a beat's absent character; and a faction,
 # where no faction has a hand.
 UNNAMED = re.compile(r'\{(bond|them)\}')
+BOND = re.compile(r'\{bond\}')
 FACTION = re.compile(r'\{faction\}')
 WAGE_ID = 'day-wage'
 DEFAULT_WAGE = 100
@@ -72,10 +73,11 @@ def drama(connection, data: dict) -> str:
     return (data.get('intensity') or {}).get('drama') or DEFAULT_DRAMA if chosen == 'world' else chosen
 
 
-def unnamed(world: str, faction: bool = False) -> set[str]:
-    """The cards that name someone the game cannot fill in here."""
+def unnamed(world: str, faction: bool = False, them: bool = False) -> set[str]:
+    """The cards that name someone the game cannot fill in here: {them} only an off-page beat can (dungeon/beats.py)."""
+    who = BOND if them else UNNAMED
     return {item['id'] for item in cards.cards(world) if any(
-        UNNAMED.search(item.get(field) or '') or (not faction and FACTION.search(item.get(field) or ''))
+        who.search(item.get(field) or '') or (not faction and FACTION.search(item.get(field) or ''))
         for field in ('title', *cards.TEXT)) or (not faction and any(
             effect['kind'] in ('clock', 'reputation') for effect in item['effects']))}
 
@@ -87,16 +89,20 @@ def recent(connection, world: str, day: date) -> set[str]:
 
 
 def draw(connection, scene: str, seed: str, city_id: str, place_id: str, data: dict, preset: str,
-         day: date) -> dict | None:
-    """One draw for a scene at a place: {'card', 'veiled', 'map'}, or None when nothing happens."""
+         day: date, has: set[str] | None = None, skip: set[str] | None = None, forced: bool = False) -> dict | None:
+    """One draw for a scene at a place: {'card', 'veiled', 'map'}, or None when nothing happens. A beat names
+    `has` (its character's needs, such as captive) and `skip` (the cards drawn lately); `forced` skips the roll for
+    whether anything happens."""
     found = where(city_id, place_id)
     if found is None or not ACTIVE:
         return None
     world = found['world']
-    has = {'injured'} if combat.condition(connection)['level'] else set()
+    beat = scene == 'beat'
+    has = has if beat else ({'injured'} if combat.condition(connection)['level'] else set())
     powers = factions.local(world, found['node'])
-    drawn = cards.draw(world, scene, seed, cards.DRAMA.index(drama(connection, data)), cards.PRESETS[preset], has,
-                       recent(connection, world, day) | unnamed(world, bool(powers)), found['region'])
+    skipped = (skip or set()) if beat else recent(connection, world, day)
+    drawn = cards.draw(world, scene, seed, cards.DRAMA.index(drama(connection, data)), cards.PRESETS[preset],
+                       has or set(), skipped | unnamed(world, bool(powers), beat), found['region'], forced=forced)
     if not drawn['card']:
         return None
     faction = powers[sum(map(ord, seed)) % len(powers)] if powers else None
@@ -115,7 +121,7 @@ def drawn_today(connection, scene: str, day: date) -> bool:
 # Playing a card -------------------------------------------------------------------------------------
 
 def fill(text: str, names: dict[str, str]) -> str:
-    return re.sub(r'\{(pc|npc|town|faction)\}', lambda match: names[match.group(1)], text)
+    return re.sub(r'\{(pc|npc|town|faction|them)\}', lambda match: names[match.group(1)], text)
 
 
 def npc(people: list[dict]) -> dict | None:

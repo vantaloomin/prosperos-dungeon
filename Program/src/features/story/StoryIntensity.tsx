@@ -1,15 +1,15 @@
 import { useState } from 'react'
 import { api } from '../../api'
 import type { DramaLevel, IntensityPreset, StoryIntensity as Intensity } from '../../types'
-import { Field } from '../../components/Fields'
+import { Field, Toggle } from '../../components/Fields'
 import { Notice } from '../../components/Feedback'
 import { dramaChoices, intensityChoices } from './storyText'
 
 /** How far the story goes on the page (dungeon/story.py intensity) and how eventful it is (dungeon/happenings.py):
- * the world's own, or the player's, at any time. */
+ * the world's own, or the player's, at any time; and whether off-page beats are shown (dungeon/beats.py). */
 export function StoryIntensity({ intensity, onSaved }: { intensity: Intensity; onSaved: () => void }) {
   const [error, setError] = useState('')
-  const save = async (change: { intensity: IntensityPreset } | { drama: DramaLevel }) => {
+  const save = async (change: { intensity: IntensityPreset } | { drama: DramaLevel } | { cutaways: boolean }) => {
     setError('')
     try { await api('/settings', change, 'PUT'); onSaved() }
     catch (failure) { setError(failure instanceof Error ? failure.message : 'That setting was not saved.') }
@@ -27,6 +27,8 @@ export function StoryIntensity({ intensity, onSaved }: { intensity: Intensity; o
         {dramaChoices(intensity.drama_world ?? 'uneasy').map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </select>}
     </Field>
+    <Toggle label="Meanwhile cutaways" hint="Short scenes of what happens to the people you know while you are elsewhere. Your character still only learns it when word reaches them."
+      checked={Boolean(intensity.cutaways)} onChange={(checked) => void save({ cutaways: checked })} />
     {error && <Notice tone="error">{error}</Notice>}
   </>)
 }

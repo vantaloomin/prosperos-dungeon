@@ -14,6 +14,7 @@ from datetime import datetime
 
 from dungeon import (
     authors_note,
+    beats,
     combat,
     factions,
     feelings,
@@ -73,7 +74,7 @@ def intensity(connection, data: dict) -> dict:
     drama, world_drama = settings(connection)['drama'], world.get('drama') or happenings.DEFAULT_DRAMA
     return {'preset': world_preset if chosen == 'world' else chosen, 'chosen': chosen, 'world': world_preset,
             'voice': world.get('voice') or '', 'drama': world_drama if drama == 'world' else drama,
-            'drama_chosen': drama, 'drama_world': world_drama}
+            'drama_chosen': drama, 'drama_world': world_drama, 'cutaways': bool(settings(connection)['cutaways'])}
 
 
 def no_model() -> DomainError:
@@ -135,7 +136,8 @@ def present(connection, data: dict, place_id: str, moment: datetime) -> list[dic
     """Who the townsfolk rules put at the place now: the people seeded there and residents whose rules bring them."""
     day = moment.date()
     seeded = [] if place_id.startswith('~') else townsfolk.at_place(data, place_id, day)
-    people, seen = [], set()
+    # The dead, taken, missing and conscripted are not about (dungeon/beats.py).
+    people, seen = [], beats.gone(connection)
     for sheet in [*seeded, *townsfolk.reaching(data, place_id, day)]:
         if sheet['key'] in seen:
             continue
@@ -489,7 +491,8 @@ def clear(database) -> dict:
                       'story_inventory', 'story_purse', 'story_stock', 'story_trades', 'story_wounds', 'story_fight',
                       'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
                       'story_rounds', 'story_map', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
-                      'story_cards', 'story_clocks', 'story_reputation'):
+                      'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_beats', 'story_word',
+                      'story_offpage'):
             connection.execute(f'DELETE FROM {table}')
         timeline.clear(connection)
     return story(database)
@@ -526,7 +529,7 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
            fought: list[str] | None = None, traded: list[str] | None = None,
            looked: list[str] | None = None, travelled: list[str] | None = None,
            rested: list[str] | None = None, tended: list[str] | None = None,
-           carded: list[str] | None = None) -> dict:
+           carded: list[str] | None = None, meanwhile: list[str] | None = None) -> dict:
     view = scene(connection, now)
     craft = narration_prompt.craft_for(config.get('context_tokens'), prompt_library.text(connection, 'narrator-craft'))
     who_text, name = persona_text(connection)
@@ -538,7 +541,7 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
     shop, level = shop_view(connection, view), intensity(connection, view['data'])
     found = happenings.where(view['city']['id'], view['place']['id'])
     memory = '\n\n'.join(part for part in (record.summary_text(connection), record.prompt_text(connection),
-                                             quests.prompt_text(connection, now),
+                                             quests.prompt_text(connection, now), beats.prompt_text(connection),
                                              found and factions.prompt_text(connection, found['world'], found['node']))
                          if part)
     place_text = scene_text(view) + (f"\n\n{inventory.shop_prompt(shop, view['data']['currency'])}" if shop else '')
@@ -547,7 +550,8 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
                                      intensity=narration_prompt.Intensity.preset(level['preset'], level['voice']),
                                      outcomes=outcomes, rolls_shown=dice_shown(connection))
     for extra in (travel.prompt_text(travelled or []), rest.prompt_text(rested or []),
-                  injuries.treatment_text(tended or []), happenings.prompt_text(carded or []), combat.prompt_text(fought or [], connection),
+                  injuries.treatment_text(tended or []), happenings.prompt_text(carded or []),
+                  beats.cutaway_text(meanwhile or []), combat.prompt_text(fought or [], connection),
                   counter_text(traded or []), finds.prompt_text(looked or [])):
         if extra:
             system += '\n\n' + extra
@@ -751,7 +755,9 @@ def town_turn(state, user: dict) -> list[str]:
         if not found or not found['town'] or combat.fight(connection):
             return []
         # The news among the powers since the character was last in a town (dungeon/factions.py).
-        lines = factions.news(connection, found['world'], database.now())
+        # And the word about the people they know (dungeon/beats.py).
+        lines = factions.news(connection, found['world'], database.now()) + beats.heard(
+            connection, story_clock.now(connection, database.clock), database.now())
         if lines:
             happenings.keep(connection, user['id'], 'news', day, None, lines)
         if not happenings.drawn_today(connection, 'town', day):
@@ -764,6 +770,21 @@ def town_turn(state, user: dict) -> list[str]:
                 happenings.keep(connection, user['id'], 'news', day, None, lines + work)
             lines += drawn + work
             pass_time(database, connection, minutes)
+        return lines
+
+
+def beats_turn(state, user: dict) -> list[str]:
+    """The lives going on off the page (dungeon/beats.py), once for each line; the cutaways the narrator may show."""
+    database = state.database
+    with database.connect(write=True) as connection:
+        kept = beats.saved(connection, user['id'])
+        if kept is not None:
+            return kept
+        now = story_clock.now(connection, database.clock)
+        view = scene(connection, now)
+        lines = beats.fire(connection, user['id'], view, intensity(connection, view['data'])['preset'], now,
+                           database.now(), getattr(state, 'dice', None))
+        beats.keep(connection, user['id'], datetime.fromisoformat(view['local_time']).date(), lines)
         return lines
 
 
@@ -916,13 +937,15 @@ async def answer(state, user: dict, on_text=None) -> dict:
     travelled = travel_turn(state, user, rolls) if in_story else []
     rested = rest_turn(state, user, rolls) if in_story else []
     carded = town_turn(state, user) if in_story else []
+    meanwhile = beats_turn(state, user) if in_story else []
     fought = fight_round(state, user, rolls) if in_story else []
     traded = counter_turn(state, user, rolls) if in_story else []
     tended = treat_turn(state, user, rolls) if in_story else []
     looked = look_turn(state, user, rolls) if in_story else []
     with database.connect() as connection:
         packet = prompt(connection, story_clock.now(connection, database.clock), config, user,
-                        turn.outcomes(rolls) if in_story else None, fought, traded, looked, travelled, rested, tended, carded)
+                        turn.outcomes(rolls) if in_story else None, fought, traded, looked, travelled, rested, tended, carded,
+                        meanwhile)
     text, error, flagged = await told(state, packet, config, in_story, steps, on_text)
     status = 'complete' if text and not error else 'failed'
     error = None if status == 'complete' else error or 'The model returned no story text.'

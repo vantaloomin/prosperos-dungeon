@@ -20,7 +20,7 @@ def dealt(monkeypatch):
     class Dealer:
         next, calls = None, []
 
-        def draw(self, world, scene, seed, level, intensity, has, recent, region=None, veils=frozenset()):
+        def draw(self, world, scene, seed, level, intensity, has, recent, region=None, veils=frozenset(), forced=False):
             self.calls.append({'scene': scene, 'level': level, 'region': region, 'recent': recent,
                                'intensity': intensity})
             found = cards.card(world, self.next)

@@ -138,6 +138,7 @@ ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"
                                                        '(0, 15, 30, 60, 90, 120, 180))'),
                  ('workspace_settings', 'drama', "TEXT NOT NULL DEFAULT 'world' CHECK (drama IN ('world', 'quiet', "
                                                  "'uneasy', 'eventful', 'merciless'))"),
+                 ('workspace_settings', 'cutaways', 'INTEGER NOT NULL DEFAULT 0'),
                  ('workspace_settings', 'injury_persistence', "TEXT NOT NULL DEFAULT 'permanent' CHECK "
                                                               "(injury_persistence IN ('permanent', 'temporary', 'none'))"))
 

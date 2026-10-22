@@ -89,6 +89,8 @@ class SettingsUpdate(Input):
     turn_budget: Literal[0, 15, 30, 60, 90, 120, 180] | None = None
     # How eventful the story is (dungeon/happenings.py): the world's own level, or the player's.
     drama: Literal['world', 'quiet', 'uneasy', 'eventful', 'merciless'] | None = None
+    # Short "meanwhile" cutaways of off-page beats for the player (dungeon/beats.py).
+    cutaways: bool | None = None
     # Injury persistence (dungeon/injuries.py): lasting injuries stay, fade, or never happen.
     injury_persistence: Literal['permanent', 'temporary', 'none'] | None = None
     # The first-run notice: the story is AI written, and the user is 18 or older. Only ever confirmed.
