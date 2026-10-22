@@ -88,9 +88,12 @@ def check(connection, approach: str, difficulty: str = 'normal', text: str = '',
         move, stat = (('endure_harm', 'iron') if approach == 'Vitality' else ('endure_stress', 'heart')) if save \
             else (None, None)
         result = ironsworn.roll(found, approach, difficulty, text, rng, stat, move) | {'ruleset': ironsworn.ID}
-        if result['momentum'] != found['momentum']:
-            set_native(connection, found | {'momentum': result['momentum']}, '')
-        return result
+        # Resupply brings supply back (dungeon/sworn.py).
+        restocked = min(5 - found['supply'], ironsworn.RESUPPLY.get(result['band'], 0)) \
+            if result['move'] == 'resupply' else 0
+        if result['momentum'] != found['momentum'] or restocked:
+            set_native(connection, found | {'momentum': result['momentum'], 'supply': found['supply'] + restocked}, '')
+        return result | ({'skill': f"{result['skill']} (+{restocked} supply)"} if restocked else {})
     return marvel.roll(stats(connection).get(approach), difficulty, rng) | {'ruleset': marvel.ID, 'target': None,
                                                                             'skill': None}
 

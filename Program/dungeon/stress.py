@@ -14,7 +14,7 @@ The track is game state, branched with the story (dungeon/timeline.py SAVED).
 """
 import random
 
-from dungeon import injuries, sheet
+from dungeon import injuries, sheet, sworn
 from dungeon.database import optional
 
 TOP = 12
@@ -44,6 +44,8 @@ def save(connection, value: int, killed: int | None = None):
     connection.execute('INSERT INTO story_stress (id, points, kills) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET '
                        'points=excluded.points, kills=excluded.kills',
                        (max(0, min(TOP, value)), kills(connection) if killed is None else killed))
+    # Under Ironsworn, spirit follows the track.
+    sworn.follow_stress(connection, max(0, min(TOP, value)), TOP)
 
 
 def word(value: int) -> str:

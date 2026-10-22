@@ -24,7 +24,7 @@ import random
 import re
 from pathlib import Path
 
-from dungeon import inventory
+from dungeon import inventory, sworn
 from dungeon.database import decode, encode, many, optional
 
 MAPS = Path(__file__).parent / 'world' / 'data' / 'travel'
@@ -212,7 +212,11 @@ def minutes(legs: list[dict], hours_a_day: int) -> tuple[int, int, int]:
 
 
 def eat(connection, food: list[str], days: int) -> tuple[list[str], int]:
-    """A food from the pack for each day on the road, in the map's order; the days left without."""
+    """A food from the pack for each day on the road, in the map's order; the days left without. Under Ironsworn a
+    day costs a point of supply instead (dungeon/sworn.py)."""
+    if (supplied := sworn.spend_supply(connection, days)) is not None:
+        spent, left = supplied
+        return ([f'{spent} supply ({left} left)'] if spent else []), days - spent
     eaten = []
     for _ in range(days):
         row = next((found for item_id in food if (found := optional(

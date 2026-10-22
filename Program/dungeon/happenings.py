@@ -22,7 +22,7 @@ again draws nothing new.
 import re
 from datetime import date, timedelta
 
-from dungeon import combat, factions, feelings, growth, injuries, inventory, record, stress, table, tiers, travel
+from dungeon import combat, factions, feelings, growth, injuries, inventory, record, stress, sworn, table, tiers, travel
 from dungeon.database import encode, many
 from dungeon.life import cards
 
@@ -149,6 +149,10 @@ def coin(connection, effect: dict, context: dict) -> list[str]:
 def supply(connection, effect: dict, context: dict) -> list[str]:
     travel_map, food = context['map'], context['map']['food']
     if effect['shift'] > 0:
+        if gained := sworn.restock(connection, effect['shift']):
+            return [f"Supplies: +{gained} supply."]
+        if sworn.played(connection):
+            return []
         city = food_city(travel_map, food[0])
         if city is None:
             return []

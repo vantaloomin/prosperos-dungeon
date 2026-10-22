@@ -375,6 +375,24 @@ The same fight on Ironsworn's moves (`dungeon/combat_iron.py`):
 Not in v0: zones beyond near and engaged, armour, ranged weapons and ammunition, allies, injuries with lasting
 effects, healers and medicine, a fight started by an NPC without a danger roll.
 
+### Supply, spirit and vows under Ironsworn
+
+`dungeon/sworn.py` keeps Ironsworn's tracks outside a fight:
+
+- **Supply.** Ironsworn keeps its abstract Supply track: a day on the road costs a point of supply instead of a food
+  from the pack, and with none left the character goes hungry as before. A Life Card's food comes as supply.
+  Resupply, read from the action's words (forage, hunt for, scavenge), brings back 2 on a strong hit and 1 on a weak
+  one, shown on the roll card ("+2 supply").
+- **Spirit** follows the stress track: 5 while steady, down to 0 at its top. Resisting stress is Endure Stress on
+  heart.
+- **Vows.** A quest or an oath done is a vow fulfilled. Its rank comes from the quest's tier (tier 1 dangerous,
+  2 formidable, 3 extreme, higher epic; an oath is dangerous) and gives experience as written, 1 for troublesome to
+  5 for epic. Code spends it: 2 upgrades an asset (its next ability), else 3 buys a new asset that fits the
+  character's best stat. MARVEL's milestones give Ironsworn nothing; its growth is its vows.
+
+Not yet: progress tracks for vows marked as the story goes, journeys as progress tracks, Sojourn, debilities from
+the suffer moves, bonds.
+
 ## Going back
 
 Every line the player sends is a save point (`dungeon/timeline.py`): the game state as the line arrives (the scene,
