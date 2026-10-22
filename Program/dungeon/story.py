@@ -30,6 +30,7 @@ from dungeon import (
     jobs,
     pace,
     passages,
+    plotting,
     prompt_library,
     quests,
     record,
@@ -69,6 +70,31 @@ OPENING_KINDS = ('cafe', 'tavern', 'bar', 'restaurant', 'market', 'park')
 
 # Story mode's player has no persona yet, so the narrator speaks to them as "you", as Story mode always has.
 NARRATION = narration_prompt.Format(pov='second', tense='present', length='short')
+# An OOC line is a question for the game master. Companion's note had the model answer as the AI, and it then
+# announced itself unasked; here it answers as the table's game master, from what the game holds.
+OUT_OF_CHARACTER = (
+    "The player's latest message is out of character (it starts with OOC: or is in double parentheses): a question "
+    'for the game master, not part of the story. Answer it plainly and briefly, out of the story, from what the game '
+    'holds here (the scene, the record, the quests, the map) and nothing invented; say so when the game does not '
+    "know. Keep hidden truth hidden. Only if they ask what you are, say you are an AI model ({model}) running the "
+    'game. The story resumes with their next message.')
+
+
+def map_text(connection, view: dict) -> str:
+    """The travel map as the character knows it, for an OOC answer about where they can go."""
+    known = travel.view(connection, view['city']['id'], view['place']['id'])
+    if not known:
+        return ''
+    names = {place['id']: place['name'] for place in known['places']}
+    here = next((place['name'] for place in known['places'] if place['here']), view['city']['name'])
+    roads = [f"{names[road['from']]} to {names[road['to']]}: {road['hours']} hours by {road['terrain']}, "
+             f"{road['danger']} danger" for road in known['roads']]
+    # A town on the map is a city of its own (Kingswood), with its places; a place on the Road is only itself.
+    town = view['city']['id'] in names
+    places = ', '.join(place['name'] for place in view['data']['places']) if town else ''
+    return (f"\n\n## The map as the character knows it\nHere: {here}."
+            + (f" Places in {view['city']['name']}, reached by going there: {places}." if places else '')
+            + "\nKnown roads:\n" + '\n'.join(f'- {road}' for road in roads))
 
 
 def intensity(connection, data: dict) -> dict:
@@ -577,7 +603,8 @@ def clear(database) -> dict:
                       'story_rounds', 'story_map', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
                       'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_beats', 'story_word',
                       'story_offpage', 'story_tier', 'story_marks', 'story_dark',
-                      'story_director', 'story_arcs', 'story_threads', 'story_nemeses'):
+                      'story_director', 'story_arcs', 'story_threads', 'story_nemeses', 'story_seeds',
+                      'story_arc_beats'):
             connection.execute(f'DELETE FROM {table}')
         timeline.clear(connection)
         chapters.clear(connection)
@@ -656,7 +683,7 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
         if extra:
             system += '\n\n' + extra
     if in_character.out_of_character(latest['text']):
-        system += '\n\n' + in_character.OUT_OF_CHARACTER_NOTE.format(name='the narrator', model=default_name(config))
+        system += '\n\n' + OUT_OF_CHARACTER.format(model=default_name(config)) + map_text(connection, view)
     budget = (window - config['max_output_tokens']) * CHARS_PER_TOKEN - len(system)
     # Older messages are in the summary; the narrator reads the rest word for word.
     chat = model_messages(rows, max(budget, 2000))
@@ -733,6 +760,13 @@ def scene_break(connection, user: dict, travelled: list[str], rested: list[str],
     if fought and not combat.fight(connection):
         return 'fight'
     return None
+
+
+def opening_turn(state, user: dict) -> list[str]:
+    """A line that opens a new chapter begins with a short "previously" (dungeon/chapters.py)."""
+    with state.database.connect() as connection:
+        text = chapters.opening(connection, user)
+    return [text] if text else []
 
 
 def recall_turn(state, rolls: list[dict]) -> list[str]:
@@ -998,10 +1032,13 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
     database = state.database
     with database.connect() as connection:
         rolls, judge = turn.saved(connection, user['id']), referee.own_model(connection)
+        # Mid-fight nothing is obvious: "I go for the nearest one" is an attack, not a walk.
+        fighting = combat.fight(connection) is not None
     if rolls:
         return rolls
     since = steps.clock()
-    actions = await referee.decide(state, user['text'], None if pace.obvious(user['text']) else judge)
+    actions = await referee.decide(state, user['text'],
+                                   None if pace.obvious(user['text']) and not fighting else judge)
     steps.timed('referee', since)
     if hazard := quests.danger_action(user['city_id'], user['place_id'], getattr(state, 'dice', None)):
         actions = [*actions, hazard]
@@ -1067,9 +1104,9 @@ async def afterwards(state, user: dict, reply: dict, packet: dict, steps: pace.S
             there = [{'key': row['key'], 'name': row['name']} for row in feelings.met(connection)
                      if row['key'] in {person['sheet']['key'] for person in packet['people']}]
             ask = (quests.ending_ask(connection) + quests.oath_ask() + feelings.feelings_ask(there)
-                   + growth.dark_ask())
+                   + growth.dark_ask() + plotting.ENGAGED_ASK)
             extra = (quests.ending_schema(connection) | quests.OATH_SCHEMA | feelings.feelings_schema(there)
-                     | growth.dark_schema())
+                     | growth.dark_schema() | plotting.ENGAGED_SCHEMA)
         answered = await record.extract(state, user['text'], reply, ask, extra)
         with database.connect(write=True) as connection:
             for item in quests.endings(answered):
@@ -1084,6 +1121,10 @@ async def afterwards(state, user: dict, reply: dict, packet: dict, steps: pace.S
             for oath in quests.oaths(answered):
                 quests.swear(connection, user['city_id'], oath, story_clock.now(connection, database.clock))
             feelings.from_answer(connection, answered, {person['key'] for person in there})
+        # A detail the player took an interest in may be given a meaning; arc stages get their beats planned
+        # (dungeon/plotting.py).
+        await plotting.adopt(state, plotting.engaged(answered), reply['id'], getattr(state, 'dice', None))
+        await plotting.plan(state)
         steps.timed('extraction', since)
         since = steps.clock()
         with database.connect() as connection:
@@ -1133,7 +1174,7 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
     rested = rest_turn(state, user, rolls) if in_story else []
     carded = town_turn(state, user) if in_story else []
     meanwhile = beats_turn(state, user) if in_story else []
-    noted = director_turn(state, user) + recall_turn(state, rolls) if in_story else []
+    noted = director_turn(state, user) + recall_turn(state, rolls) + opening_turn(state, user) if in_story else []
     fought = fight_round(state, user, rolls) if in_story else []
     traded = counter_turn(state, user, rolls) if in_story else []
     tended = treat_turn(state, user, rolls) if in_story else []
@@ -1160,6 +1201,7 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
             if found := happenings.where(packet['city_id'], scene_row(connection)['place_id']):
                 director.touch(connection, found['world'], f"{user['text']}\n{text}",
                                director.scene_kind(rolls, fought, packet['people']), user['id'], database.now())
+                plotting.after_line(connection, text, user['id'])
         reply = add(connection, database.now(), 'narrator', text, scene_row(connection), reply_to=user['id'],
                     status=status, error=error,
                     flags=flagged)

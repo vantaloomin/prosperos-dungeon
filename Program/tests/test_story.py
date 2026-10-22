@@ -98,7 +98,10 @@ def test_the_narrator_stays_in_the_story_unless_the_user_steps_out(client, clock
     provider.replies = [[Chunk("I'm an AI language model writing the narrator."), Chunk('', 'stop')]]
     honest = say(client, 'OOC: what are you?', 'story-0002')
     assert 'AI language model' in honest['reply']['text']
-    assert 'out of character' in provider.requests[-1]['system']
+    system = provider.requests[-1]['system']
+    assert 'out of character' in system and 'question for the game master' in system
+    # It answers as the game master and names the model only if asked.
+    assert 'Only if they ask what you are' in system
 
 
 def test_a_failed_reply_can_be_told_again_and_a_new_story_started(client, clock, provider):
@@ -206,3 +209,15 @@ def test_a_line_that_goes_somewhere_in_town_moves_the_story_there(client, clock,
     # A rest taken somewhere by name is taken there.
     say(client, 'I spend the night at the bunkhouses.', 'story-0004')
     assert ok(client.get('/api/story'))['scene']['place']['id'] == 'bunkhouses'
+
+
+def test_an_ooc_question_gets_the_map_as_the_character_knows_it(client, clock, provider):
+    connect(client)
+    ok(client.put('/api/story/scene', json={'city_id': 'kingswood', 'place_id': 'felled-oak'}))
+    ok(client.delete('/api/story'))
+    ok(client.post('/api/story/start', json={'premade_id': 'agna-holt'}))
+    provider.replies = [[Chunk('Convila, Eriane or the keep.'), Chunk('', 'stop')]]
+    say(client, 'OOC: where can I travel from here?', 'story-0001')
+    system = provider.requests[-1]['system']
+    assert 'Places in Kingswood, reached by going there: the Green, the Felled Oak' in system
+    assert '- Kingswood to Convila: 8 hours by the forest road, low danger' in system

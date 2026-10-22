@@ -89,10 +89,12 @@ def obvious(text: str) -> bool:
 
 
 def named_dead(dead: set[str], text: str) -> list[str]:
-    """The dead the narration names, by their full subject or a first name of more than two letters."""
+    """The dead the narration names, by their full subject or a first name of more than two letters. Only a name
+    counts as a first name: "five fresh graves" is not named by "five, maybe six"."""
     found = []
     for subject in sorted(dead):
-        names = {subject, subject.removeprefix('the ').split(' ')[0]}
+        first = subject.removeprefix('the ').split(' ')[0]
+        names = {subject, first} if first[:1].isupper() else {subject}
         if any(len(name) > 2 and re.search(rf'(?<![\w-]){re.escape(name)}(?![\w-])', text, re.I) for name in names):
             found.append(subject)
     return found

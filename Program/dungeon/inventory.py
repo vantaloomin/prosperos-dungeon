@@ -115,7 +115,15 @@ def prompt_text(connection, city_id: str, currency: dict) -> str:
         return ''
     things = ', '.join(f"{row['name']}" + (f" (x{row['qty']})" if row['qty'] > 1 else '') for row in rows)
     return (f"Carrying (kept by the game; nothing else, and nothing appears or goes without the game): "
-            f"{things or 'nothing'}. Purse: {money_text(purse(connection), currency)}.")
+            f"{things or 'nothing'}. Purse: {money_text(purse(connection), currency)}. {money_words(currency)}".rstrip())
+
+
+def money_words(currency: dict) -> str:
+    """How money is said: the symbol alone reads as 'credits' to a model ("three-quarters of a credit")."""
+    if not currency.get('symbol') or not currency.get('name'):
+        return ''
+    return (f"Money here is {currency['name']} ({currency['symbol']} is only how the game writes it); in the "
+            'story say amounts in words, as people here would.')
 
 
 # The shop ----------------------------------------------------------------------------------------
@@ -236,7 +244,7 @@ def shop_prompt(view: dict, currency: dict) -> str:
     haggled = f"\nToday's prices after haggling: {haggle_text(view['haggled'])}." if view.get('haggled') else ''
     return ('## The shop here (stock and prices kept by the game; quote them exactly, invent nothing)\n'
             f"{view['keeper'] or 'The shopkeeper'} sells:\n" + '\n'.join(lines) + haggled +
-            '\nThe shopkeeper can name what is there and its price, but nothing changes hands until the game says '
+            f'\n{money_words(currency)}'.rstrip() + '\nThe shopkeeper can name what is there and its price, but nothing changes hands until the game says '
             'so.')
 
 

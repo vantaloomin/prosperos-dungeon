@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 from conftest import Chunk, tell
 
-from dungeon import quests
+from dungeon import quests, record
 
 
 def ok(response):
@@ -67,7 +67,9 @@ def test_the_continuity_model_says_when_a_turn_ended_a_quest(client, connected, 
                               '"outcome": "The Guild withdrew the contract."}, {"id": "nothing", "status": "done", '
                               '"outcome": "x"}]}')]
     tell(client, 'I show the factor the warden arrow.', 'story-0001')
-    assert 'These quests are open:' in provider.requests[-1]['system']
+    # A quest settled is a scene break too, so the chapter's summary is asked for after it.
+    asked = next(request for request in reversed(provider.requests) if request['system'].startswith(record.EXTRACT))
+    assert 'These quests are open:' in asked['system']
     quest = ok(client.get('/api/story/journal'))['quests'][0]
     assert (quest['status'], quest['outcome'], quest['left']) == ('done', 'The Guild withdrew the contract.', '')
 

@@ -32,7 +32,8 @@ docs/requirements.md). The narrator gets the names of the people present, with a
 that person gives it. The screen lists them only as the user would see them ("the barista", "a regular").
 
 The narrator stays in the story. Sentences saying it is an AI are dropped (`in_character.Guard`), and OOC: or
-((…)) gets a plain answer. Its model is the **Story narrator** job in Settings > Models.
+((…)) gets a plain answer from the game master, from what
+the game holds and the travel map as the character knows it; it names the model only when asked. Its model is the **Story narrator** job in Settings > Models.
 
 ## Campaign start
 
@@ -89,12 +90,25 @@ the schema, or an answer that still cannot be read, is asked again without it. A
 JSON even then is asked one field at a time: the facts as lines, then their kinds, subjects and truths, each for all
 of them in one question. Code checks every fact against the record either way.
 
+**What Continuity is told and what code refuses.** The prompt defines each kind (a secret is something someone
+hides, a relationship is a tie between two people, a death is a named person dying), and the last 20 facts are sent
+as "Already in the record" so the model does not repeat them. Code also drops a fact that says the same as one already
+kept (most of its words shared with one on the same subject), and an item the character "took" or "picked up" that
+their pack does not hold: the narrator cannot hand out gear the game never gave. A threat or ultimatum someone made
+of the character is not their oath.
+
 "What you know" on the Story screen is the player's journal: every fact their character knows. They can correct or
 remove one, or add their own note; each correction is logged in `record_corrections`. Hidden truth never shows here,
 unless the player turns on the **GM view** there (workspace setting `gm_view`): it shows the whole record, hidden
 truth included, to correct or remove, and "Ask again" on a fact the model pulled from the story asks the Continuity
 model for that one fact again from its turn, without redoing the turn. The new fact is checked against the record and
 logged like a correction.
+
+The journal also shows **the story so far** as the narrator keeps it (the rolling summary). With the GM view on,
+**Behind the story** (`dungeon/gm.py`, `GET /api/story/gm`) shows what the game keeps behind it: every quest with
+its hidden truth and whether the character knows of it, the director's arcs at their stages with their truths and
+antagonists, its open threads and nemeses, how everyone met feels (each axis set by hand there) and their
+impressions, the factions' standing (set by hand), the dark tracks' points, and the log of corrections to the record.
 
 The narrator reads the latest messages word for word. Once 30 recent ones plus 20 more are waiting, the oldest 20 are
 folded into one rolling summary (`story_summary`) by the Continuity model, or the Default one without it, and the
@@ -193,7 +207,9 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
 
 - **Starting.** A fight starts when the player attacks someone in the scene, by name or by what they do ("I punch
   the barkeep"), or when a dangerous place's threat brings a foe (Kingswood's Heartwood: a ley-mad boar, or two
-  wardens who want the character taken).
+  wardens who want the character taken). An attack on someone the scene does not hold, an extra the narrator brought
+  in ("I punch him", "I hit the big logger"), fights a stand-in named as the line names them. Mid-fight every line
+  goes to the Referee, so "I go for the nearest one" is an attack, not a walk.
 - **A round.** The player's rolled actions land first. An attack that succeeds wounds its target by the band (a
   success with a cost one level, a success two, a critical three), plus one with a sword or felling axe and minus
   one bare-handed. A successful dodge, block or parry makes the foes' attacks hard this round; a successful flight
@@ -203,7 +219,7 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
 - **Wounds.** Grazed, Hurt, Wounded, Maimed, Dying. Wounded makes physical actions a step harder; Maimed makes every
   action a step harder and physical ones two. MARVEL heals gritty: a wound drops one level after nights of rest set
   by its severity (Grazed 1, Hurt 2, Wounded 4, Maimed 7; see "Rest"), and a new wound starts the count again. The narrator is told the character's condition every turn.
-- **Defeat.** At Dying the character rolls Vitality to cling on (which rules death out), then the defeat table is
+- **Defeat.** At Dying the character rolls their Vitality (hard) to cling on (which rules death out), then the defeat table is
   weighted by what the foes want: beasts kill, wardens capture, robbers rob, a brawl ends with the character
   beaten and thrown out, and sometimes someone drags them clear. Death is real: a dead character plays no more
   lines, and "Go back here" on an earlier line brings them back.
@@ -518,8 +534,29 @@ who is not there; the words that tell code play touched it; and its antagonist, 
   character, becomes a nemesis half the time: a grudge, the stat the character relies on most, a thread. Three days
   on they come back through the note, with a plan. Killed on the page, they stay dead.
 
-Not in v0 (M3, "Director, full"): checking which seeds reached the page and paying them off, adopting improvised
-details, the director model drafting each stage's beats, GM-view co-planning and "previously" chapter openers.
+### The director: seeds, adopted details and planned beats
+
+`dungeon/plotting.py` is the director, full (M3):
+
+- **Seeds pay off (the Chekhov list, `story_seeds`).** Every seed the note plants is logged with its arc and the
+  truth it points to, and a payoff window of 30 lines. After each narration code checks which seeds reached the page
+  (two of their words or more). When a seed's arc is due or its window is closing (5 lines left), the note asks for
+  it to come back; once it does, it is paid. A seed whose window ends unpaid is retired.
+- **Adopted details.** The Continuity model's question after each turn also asks which details the narrator made up
+  the player's line took an interest in (a stranger at the bar, a symbol on a door). Half the time the director gives
+  one a meaning tied to the hottest arc thread: drafted by the **director** model when one is chosen for that job in
+  Settings > Models, else from the thread's own truth. It is refused if it has the dead acting, then kept as hidden
+  truth in the record and as a seed already on the page.
+- **Beats planned a stage at a time (`story_arc_beats`).** When an arc reaches a stage with no plan, the director
+  model drafts three beats from the stage's truth and the hottest threads; code keeps those that name none of the
+  dead, and without the model the plan is the stage's own seed and word. When the arc is due, the note gives its next
+  beat.
+- **Co-planning in the GM view.** "Behind the story" lists the seeds (planted, paid, retired) and each arc's planned
+  beats. The player can bring a seed back next or retire it, and cut, restore or move up a beat.
+- **"Previously" openers.** When a chapter ends, the Continuity model (or the Default one) gives its title, a summary
+  and the hook it leaves open, before the next line. The line that opens the next chapter carries a hidden
+  "## Previously" from them and the hottest threads the character knows of, and the narrator begins with two or
+  three sentences of it. The chapter list shows each chapter's hook as "Still open".
 
 ## Rewrite
 

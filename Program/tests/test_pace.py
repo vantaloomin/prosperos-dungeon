@@ -92,3 +92,11 @@ def test_a_streamed_turn_without_a_model_says_why(client):
         events = [json.loads(line) for line in response.iter_lines() if line]
     assert events == [{'error': 'Add a text model in Settings > Models to tell the story.', 'code': 'no_connection',
                        'status': 409}]
+
+
+def test_only_a_name_counts_as_a_first_name_for_the_dead():
+    assert pace.named_dead({'Old Tom'}, 'Old Tom waves.') == ['Old Tom']
+    assert pace.named_dead({'Hesk Varro'}, 'Hesk waves.') == ['Hesk Varro']
+    # A record subject that is not a name is matched whole, never by its first word.
+    assert pace.named_dead({'five fresh graves by the road'}, 'It is five, maybe six.') == []
+    assert pace.named_dead({'the warden'}, 'A warden waits.') == []

@@ -3,8 +3,9 @@ management"; docs/story.md "Chapters and the branch tree").
 
 - **Chapters close at scene breaks.** A change of place, a journey or a rest, the end of a fight or of a quest, or
   the player closing one themselves (with a name, if they like) leaves a break pending; the player's next line opens
-  the next chapter. The chapter that ended is summarized after the turn by the Continuity model (or the Default
-  one), which also names it unless the player did.
+  the next chapter. The chapter that ends is summarized as the break is made by the Continuity model, when one is
+  chosen, which also names it unless the player did and says what it leaves open; the next chapter opens with a
+  short "previously" from that.
 - **Chapters follow the branches.** A chapter starts at one of the player's lines and its end is recorded on the
   branch where it ended, so both are seen through dungeon/timeline.py `visible` like the messages: a branch shares
   its parent's chapters up to where it forked, and an end on another branch is not this branch's.
@@ -18,15 +19,17 @@ management"; docs/story.md "Chapters and the branch tree").
 from dungeon import record, timeline
 from dungeon.database import identifier, many, optional
 from dungeon.errors import require
-from dungeon.text_models import config_for
+from dungeon.text_models import config_for, routes
 
 REASONS = ('place', 'time', 'fight', 'quest', 'player')
 BREAK_SAVED = 'story_chapter_break'
 SUMMARIZE = """You keep the chapters of a tabletop roleplaying game's story. Read one chapter and give it a short \
-title (two to six words, no quotation marks) and a summary of what happened in it, in order, in past tense, in at \
-most 120 words. Answer with JSON only: {"title": "...", "summary": "..."}"""
-SHAPE = {'type': 'object', 'additionalProperties': False, 'required': ['title', 'summary'],
-         'properties': {'title': {'type': 'string'}, 'summary': {'type': 'string'}}}
+title (two to six words, no quotation marks), a summary of what happened in it, in order, in past tense, in at most \
+120 words, and the hook it leaves: the question still open at its end, in one sentence. Answer with JSON only: \
+{"title": "...", "summary": "...", "hook": "..."}"""
+SHAPE = record.strict({'title': {'type': 'string'}, 'summary': {'type': 'string'}, 'hook': {'type': 'string'}})
+PREVIOUSLY = ('## Previously (a new chapter opens with this line: begin with a short "Previously" of two or three '
+              'sentences drawn from this, then go on with the scene)')
 IRONMAN = 'This is an Ironman campaign: there is no going back.'
 
 
@@ -34,6 +37,11 @@ IRONMAN = 'This is an Ironman campaign: there is no going back.'
 
 def pending(connection) -> dict | None:
     return optional(connection, 'SELECT reason, title FROM story_chapter_break WHERE id=1')
+
+
+def held(connection) -> dict | None:
+    """The break waiting, with the summary of the chapter it ends when that is ready."""
+    return optional(connection, 'SELECT * FROM story_chapter_break WHERE id=1')
 
 
 def mark(connection, reason: str, title: str = ''):
@@ -58,13 +66,14 @@ def ends(connection, branch_id: str | None = None) -> dict[str, dict]:
 def arrive(connection, line: dict, now: str):
     """The player's line opens a chapter when it is the story's first or a break is pending."""
     opened = visible(connection, 'story_chapters')
-    held = pending(connection)
-    if opened and held is None:
+    waiting = held(connection)
+    if opened and waiting is None:
         return
     if opened:
-        connection.execute('INSERT INTO story_chapter_ends (chapter_id, branch_id, seq, reason, title, summary, '
-                           "created_at) VALUES (?, ?, ?, ?, ?, '', ?)",
-                           (opened[-1]['id'], line['branch_id'], line['seq'], held['reason'], held['title'], now))
+        connection.execute('INSERT INTO story_chapter_ends (chapter_id, branch_id, seq, reason, title, summary, hook, '
+                           'created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                           (opened[-1]['id'], line['branch_id'], line['seq'], waiting['reason'],
+                            waiting['title'] or waiting['named'], waiting['summary'], waiting['hook'], now))
     connection.execute('INSERT INTO story_chapters (id, branch_id, seq, created_at) VALUES (?, ?, ?, ?)',
                        (identifier(), line['branch_id'], line['seq'], now))
     connection.execute('DELETE FROM story_chapter_break')
@@ -95,40 +104,62 @@ def listing(connection, branch_id: str | None = None) -> list[dict]:
         end = closed.get(row['id'])
         turns = sum(line['role'] == 'user' for line in lines_of(connection, row['seq'], end and end['seq'], branch_id))
         result.append({'id': row['id'], 'number': number, 'title': (end and end['title']) or f'Chapter {number}',
-                       'summary': end['summary'] if end else '', 'open': end is None, 'turns': turns,
+                       'summary': end['summary'] if end else '', 'hook': end['hook'] if end else '',
+                       'open': end is None, 'turns': turns,
                        'ended_by': end['reason'] if end else None, 'branch_id': row['branch_id'], 'seq': row['seq']})
     return result
 
 
+async def summed(state, config: dict, lines: list[dict]) -> dict:
+    """A chapter's title, summary and the hook it leaves, from its lines."""
+    answer = await record.schema_first(state, config, SUMMARIZE, record.transcript(lines), SHAPE,
+                                       lambda answer: isinstance(record.read_json(answer), dict))
+    data = record.read_json(answer) or {}
+    return {'summary': str(data.get('summary') or '').strip()[:1200] or answer.strip()[:1200],
+            'title': str(data.get('title') or '').strip().strip('"')[:80], 'hook': str(data.get('hook') or '').strip()[:300]}
+
+
 async def summarize(state):
-    """The chapters that ended on this branch and have no summary yet, summarized and named."""
+    """The chapter a pending break ends, summarized as the break is made, so the next chapter can open with
+    "previously"; and any chapter that ended without a summary (no model then, or a failure), summarized now."""
     database = state.database
     with database.connect() as connection:
-        waiting = [(chapter, end) for chapter in visible(connection, 'story_chapters')
-                   if (end := ends(connection).get(chapter['id'])) and not end['summary']]
-        config = config_for(connection, 'continuity')
-    if not waiting or config is None:
+        config = config_for(connection, record.JOB) if routes(connection).get(record.JOB) else None
+        waiting, opened = held(connection), visible(connection, 'story_chapters')
+        late = [(chapter, end) for chapter in opened if (end := ends(connection).get(chapter['id'])) and not end['summary']]
+        current = opened and waiting and not waiting['summary'] and lines_of(connection, opened[-1]['seq'], None)
+    if config is None:
         return
-    for chapter, end in waiting:
-        with database.connect() as connection:
-            text = record.transcript(lines_of(connection, chapter['seq'], end['seq']))
-        try:
-            answer = await record.schema_first(state, config, SUMMARIZE, text, SHAPE,
-                                               lambda answer: isinstance(record.read_json(answer), dict))
-        except Exception:  # noqa: BLE001 - the chapter stays unsummarized until the next try.
-            return
-        data = record.read_json(answer) or {}
-        summary = str(data.get('summary') or '').strip()[:1200] or answer.strip()[:1200]
-        title = end['title'] or str(data.get('title') or '').strip().strip('"')[:80]
-        with database.connect(write=True) as connection:
-            connection.execute('UPDATE story_chapter_ends SET summary=?, title=? WHERE chapter_id=? AND branch_id=?',
-                               (summary, title, end['chapter_id'], end['branch_id']))
+    try:
+        if current:
+            done = await summed(state, config, current)
+            with database.connect(write=True) as connection:
+                connection.execute('UPDATE story_chapter_break SET summary=?, named=?, hook=? WHERE id=1',
+                                   (done['summary'], done['title'], done['hook']))
+        for chapter, end in late:
+            with database.connect() as connection:
+                lines = lines_of(connection, chapter['seq'], end['seq'])
+            done = await summed(state, config, lines)
+            with database.connect(write=True) as connection:
+                connection.execute('UPDATE story_chapter_ends SET summary=?, title=?, hook=? WHERE chapter_id=? AND '
+                                   'branch_id=?', (done['summary'], end['title'] or done['title'], done['hook'],
+                                                   end['chapter_id'], end['branch_id']))
+    except Exception:  # noqa: BLE001 - the chapter stays unsummarized until the next try.
+        return
 
 
-def previously(connection) -> str:
-    """The last chapter's summary, for the narrator's opening of the next one ("previously")."""
-    closed = [chapter for chapter in listing(connection) if not chapter['open'] and chapter['summary']]
-    return closed[-1]['summary'] if closed else ''
+def opening(connection, line: dict) -> str:
+    """When the line opens a chapter after another: the "previously" it begins with, from the chapter that ended, the
+    hook it left and the hottest threads the character knows of."""
+    chapters = listing(connection)
+    if len(chapters) < 2 or chapters[-1]['seq'] != line['seq'] or not chapters[-2]['summary']:
+        return ''
+    ended = chapters[-2]
+    from dungeon import director  # the director reads the record; chapters need it only here.
+    threads = [row['seen'] for row in director.threads(connection) if row['known'] and row['seen']][:2]
+    parts = [ended['summary'], ended['hook'] and f"Still open: {ended['hook']}",
+             threads and 'On the character\'s mind: ' + ' '.join(threads)]
+    return PREVIOUSLY + '\n' + '\n'.join(part for part in parts if part)
 
 
 # The tree ----------------------------------------------------------------------------------------

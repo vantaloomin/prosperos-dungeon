@@ -149,7 +149,11 @@ ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"
                                                        '8000, 16000, 32000, 64000))'),
                  ('record_entries', 'weight', 'INTEGER NOT NULL DEFAULT 1'),
                  ('record_entries', 'turn', 'INTEGER NOT NULL DEFAULT 0'),
-                 ('story_branches', 'ending', "TEXT NOT NULL DEFAULT ''"))
+                 ('story_branches', 'ending', "TEXT NOT NULL DEFAULT ''"),
+                 ('story_chapter_ends', 'hook', "TEXT NOT NULL DEFAULT ''"),
+                 ('story_chapter_break', 'summary', "TEXT NOT NULL DEFAULT ''"),
+                 ('story_chapter_break', 'named', "TEXT NOT NULL DEFAULT ''"),
+                 ('story_chapter_break', 'hook', "TEXT NOT NULL DEFAULT ''"))
 
 
 # Tables renamed since they were made: (old, new). Renamed before the schema runs, so their rows carry over.
