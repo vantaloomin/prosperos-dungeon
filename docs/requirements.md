@@ -513,11 +513,15 @@ with nobody's hand on it. The director is that hand. It is code that holds the c
 state, and it gets a model's help with ideas. It decides what the world pushes toward. It never
 decides what the player does, and like everything else it never changes roll odds.
 
-- **The campaign has a spine.** Each world names a default spine arc for each era (Vallarith
-  Post-Reform: the Eight Pieces). The director seeds it from the first chapter. Several other
-  arcs run beside it (the world's planned beats, faction plots, threads that come out of play).
-  If the player keeps choosing one of those over the spine, the director promotes it to spine.
-  The old spine doesn't vanish: it carries on in the background on its own clocks.
+- **The campaign's spine emerges from play.** In the first chapters the director seeds several
+  arcs at the player's tier (Vallarith Post-Reform: the Eight Pieces through the Heartwood, the
+  Long Border through Bastion's deserters, the Failing Wards through the keep). It commits to
+  the one the player bites on hardest, measured by thread heat, as the campaign's spine. If the
+  player hasn't bitten on any by the end of the third chapter, the director falls back to the
+  world's default spine for that era. Arcs that aren't chosen don't vanish: they carry on in the
+  background on their own clocks and can come back as side arcs. If the player later turns hard
+  toward another arc, the director can promote it, so the player's choices can still take canon
+  somewhere else.
 - **Threads are the GM's notebook.** Code keeps a list of open threads: leads, mysteries, grudges,
   debts, promises and oaths, unanswered questions, and villains' agendas. Each one has an arc it
   feeds (or none yet), a stage, a heat score (how recently and strongly play touched it), the hidden
