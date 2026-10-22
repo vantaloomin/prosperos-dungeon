@@ -330,12 +330,14 @@ decides what the narrator sees each turn.
   chapter summaries, and facts pulled in by relevance: who is present, where the scene is, and
   anything just mentioned (names, places, items, promises). This builds on Companion's and Study's
   summarizing, and on Mabry's continuity file.
-- **A code-kept canon ledger is the source of truth.** Code records facts as structured entries:
+- **A code-kept record is the source of truth.** (Called "the record" since 2026-10-22, Vanta's
+  choice; earlier docs and code said "ledger". Hidden truth is what is "off the record" for the
+  character.) Code records facts as structured entries:
   deaths, items, injuries, promises, locations, secrets, relationships, clock states. After each
   narration a cheap model extracts new facts the narrator introduced (a scar, a name, a rumor).
-  Code checks them against the ledger and stores them, and rejects any that contradict it.
-  Summaries are prose on top, and the ledger wins any conflict.
-- **Hidden truth and character knowledge are separate.** Each ledger entry is marked as world
+  Code checks them against the record and stores them, and rejects any that contradict it.
+  Summaries are prose on top, and the record wins any conflict.
+- **Hidden truth and character knowledge are separate.** Each record entry is marked as world
   truth, character belief, or both, which keeps the journal and wrong-footing rules from
   "Quests and factions" and "NPC minds" intact.
 - **The player sees and edits what their character knows.** Corrections are logged, so a model
@@ -349,16 +351,17 @@ decides what the narrator sees each turn.
 Round 2, decided 2026-10-21:
 
 - **Contradictions are rewritten before the player sees them.** If a narration clashes with the
-  ledger (a dead NPC waves, spent coin reappears), code has the narrator redo that passage first.
-  A setting skips the check for speed on slow local models.
+  record (a dead NPC waves, spent coin reappears), code has the narrator redo that passage first.
+  A setting skips the check for speed on slow local models; a skipped contradiction is then
+  flagged for the player to rewrite (see "Flagged passages and Rewrite").
 - **Chapters close at scene breaks.** Code starts a new chapter on a location change, time skip,
   rest, or the end of a fight or quest step, and summarizes the one that ended. The player can
   also close a chapter themselves and name it. Chapters give the story view and branch view
   their structure.
-- **Branches are sealed, except a player notebook.** Each branch forks the ledger at the branch
+- **Branches are sealed, except a player notebook.** Each branch forks the record at the branch
   point (with new dice). The character and NPCs know only what happened on their branch. A
   player-only notebook spans every branch, and no model ever reads it as character knowledge.
-- **Characters forget, but grudges stick.** The ledger keeps every fact. What NPCs and the player
+- **Characters forget, but grudges stick.** The record keeps every fact. What NPCs and the player
   character are treated as remembering fades by importance and age, while big events (betrayal,
   a death, a debt) stay. Memories tied to strong feelings (fear, hatred, love) stay sharp
   regardless of age. A roll can recall a faded detail.
@@ -366,11 +369,11 @@ Round 2, decided 2026-10-21:
 Added 2026-10-21 from the competitive research (Vanta: "do all 3"):
 
 - **Fact extraction is schema-first.** The cheap model that pulls new facts out of each narration
-  fills a JSON Schema of ledger entry types (death, item, wound, promise, location, secret,
+  fills a JSON Schema of record entry types (death, item, wound, promise, location, secret,
   relationship, clock), not free text. Where the backend supports it, the schema constrains the
   output directly (grammar sampling on llama.cpp-style servers, structured output on hosted APIs,
   `--json-schema` / `--output-schema` on the CLIs). Weak local models fall back to asking one
-  field at a time. Code still checks every fact against the ledger before storing it. In the GM
+  field at a time. Code still checks every fact against the record before storing it. In the GM
   view, a single extracted fact can be regenerated or cleared without redoing the whole turn.
   (Pattern from the zTracker SillyTavern extension.)
 
@@ -388,7 +391,7 @@ Decided 2026-10-21.
 - **Campaigns are separate, with a legacy option.** Each campaign starts from a fresh copy of its
   world. At campaign start the player may import a finished campaign's outcome as world history,
   so an old character can be a legend, a villain or a corpse.
-- **Export as a backup or as a book.** A full campaign file (ledger, branches, saves, settings)
+- **Export as a backup or as a book.** A full campaign file (record, branches, saves, settings)
   for backup or moving machines, importable again. The story of one branch also exports as a
   readable book in Markdown, EPUB or PDF.
 
@@ -401,7 +404,7 @@ art on top.
 - **Passive art (setting, off by default).** When on, code triggers images from game events: a new
   named character appears, the scene moves to a new location or time of day, a portrait goes out
   of date, or a big moment happens (a death, a reveal, a defeat, a chapter end). Most triggers are
-  plain code checks on ledger and state changes; for less clear moments the decision model (Jev)
+  plain code checks on record and state changes; for less clear moments the decision model (Jev)
   answers "is this worth illustrating?". Passive art runs in the background and never holds up
   the text. A per-session cap limits how many images it makes.
 
@@ -486,7 +489,7 @@ them sets the player's tier (see "Scaling and tiers").
 
 Decided 2026-10-21. Characters the player isn't with keep living. Key NPCs already follow life-sim
 schedules and factions run clocks; a beat is a rolled event in an absent character's own story,
-stored in the ledger as hidden truth.
+stored in the record as hidden truth.
 
 - **Beats run on world time, with a turn minimum.** Beats fire as in-world time passes (for
   example each day), so a long rest or journey moves everyone along. A beat also fires at least
@@ -593,7 +596,7 @@ them. Code is `Program/dungeon/narration/`.
   unflinching. The Story narrator no longer carries Companion's self-harm rule, since characters
   in a dark story may come to harm; the app's crisis note on the real player's own words stays.
 - **Prose rules that code can check are checked in code** after every narration, before the
-  player sees it (`prose.py`), the same principle as rewriting ledger contradictions:
+  player sees it (`prose.py`), the same principle as rewriting record contradictions:
   - **Hard:** em dashes in any form (the character, a double hyphen, a spaced hyphen or en dash).
     Always fixed: the rewrite pass first, then a mechanical replacement that cannot fail.
   - **Strong:** dialogue echoes, reported speech, more than four bare lines of dialogue in a row,
@@ -646,7 +649,7 @@ requests (Claude Code 2.1.306, Codex CLI 0.163.0):
 ### Decide before describing
 
 Decided 2026-10-21 (from the competitive research). Whenever the player looks into something the
-ledger doesn't yet cover (a chest, a room, a body, a stranger's purse, what's behind a door), code
+record doesn't yet cover (a chest, a room, a body, a stranger's purse, what's behind a door), code
 decides and stores what is there before the narrator writes a word about it: rolled from the
 place's or NPC's tables, or drawn from the world data. The narrator gets it as a fact and
 describes only that. Nothing is decided at the moment the player checks for it, so a trap exists
@@ -662,14 +665,33 @@ Referee, the narrator, fact extraction and a contradiction rewrite, so speed is 
   hosted). How long each step took is logged with the turn and shown in the dice log once it
   ships, so slow steps are visible.
 - **The narration streams** as it is written.
-- **Fact extraction runs after the text is on screen,** not before. Its results land in the ledger
+- **Fact extraction runs after the text is on screen,** not before. Its results land in the record
   before the next turn starts.
-- **The contradiction check runs only when it is needed:** when the narration names a ledger
+- **The contradiction check runs only when it is needed:** when the narration names a record
   entity that is dead, spent, held elsewhere or somewhere else. A clean turn costs no extra call.
 - **Obvious actions skip the model.** The keyword Referee handles clear cases (walking, looking,
   plain talk) with no model call.
 - **Over budget, the optional steps give way first:** the prose rewrite pass, then the
-  contradiction rewrite (logged for the GM view instead). Dice and the ledger are never skipped.
+  contradiction rewrite. Dice and the record are never skipped. A skipped rewrite becomes a
+  flagged passage (below), so it is offered to the player rather than lost.
+
+### Flagged passages and Rewrite
+
+Decided 2026-10-22 (Vanta's idea). Automatic rewrites still run when there is time; the player
+picks up whatever they didn't fix.
+
+- **Problems left in the text are highlighted.** When a check finds a record contradiction or a
+  strong prose tell it did not rewrite (over budget, or the skip setting is on), that passage gets
+  a soft highlight and a **Rewrite** button. Hovering or tapping shows why it was flagged.
+- **The reason never leaks hidden truth.** If the clash is with something the character knows
+  ("Brother Aldous is dead"), the reason says so. If it is with hidden truth, it says only that the
+  passage conflicts with the story so far; the full reason is in the GM view.
+- **Any passage can be rewritten on request,** flagged or not: the player selects text and picks
+  Rewrite, with an optional note ("less purple", "she wouldn't say that").
+- **A rewrite changes wording only.** It keeps the same dice, bands and record facts, so it never
+  rerolls; going back to an earlier turn is still the way to get new dice. The rewritten passage
+  goes through the same checks, and the fact extractor reruns on it. The original is kept, so
+  the player can switch back.
 
 ## Referee model (proposed)
 

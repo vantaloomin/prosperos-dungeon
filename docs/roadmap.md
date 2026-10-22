@@ -41,7 +41,7 @@ Milestone 5.
    code rolls d100 plus stat onto the six-band outcome ladder. The narrator writes the result in
    the persona's voice and never contradicts a roll.
 3. **Roll visibility toggle:** hidden or exposed.
-4. **Ledger v0:** code records facts (deaths, items, wounds, promises, locations). Recall is the
+4. **Record v0:** code records facts (deaths, items, wounds, promises, locations). Recall is the
    recent turns plus one rolling summary.
 5. **NPCs v0:** named NPCs act on their own initiative, with trust, affection, respect, fear and
    desire axes, and short memories of the player.
@@ -58,11 +58,14 @@ Milestone 5.
 11. **Turn speed budget** (added 2026-10-21 from the competitive research): each turn has a time
     budget, and how long each step took is logged. The narration streams, fact
     extraction runs after the text is on screen, and the contradiction check runs only when the
-    narration names a ledger entity that is dead, spent or elsewhere. Obvious actions go through
-    the keyword Referee with no model call. See "Turn speed" in the requirements.
+    narration names a record entity that is dead, spent or elsewhere. Obvious actions go through
+    the keyword Referee with no model call. Anything a check flags but doesn't fix in time is
+    highlighted with a Rewrite button, and the player can rewrite any passage on request (same
+    dice and facts, new wording; added 2026-10-22). See "Turn speed" and "Flagged passages and
+    Rewrite" in the requirements.
 12. **Decide before describing** (added 2026-10-21): when the player looks into something unseen
     (a chest, a room, a pocket, a stranger's purse), code rolls and stores what is there in the
-    ledger before the narrator mentions it. The narrator describes only what is stored.
+    record before the narrator mentions it. The narrator describes only what is stored.
 
 **Not in the slice:** other rulesets, travel map, factions and clocks, off-page beats, Life Cards
 events, art, tiers, chapters and the branch tree, world packages, DB editor, themes.
@@ -87,7 +90,7 @@ hurt or die, and go back to an earlier turn and try again with new dice.
 ## Milestone 3: Memory and campaigns
 
 - **Schema-first fact extraction** (added 2026-10-21 from the competitive research): the extractor
-  fills a JSON Schema for ledger entries, constrained by grammar or structured output where the
+  fills a JSON Schema for record entries, constrained by grammar or structured output where the
   backend supports it, and falls back to one field at a time on weak local models. The GM view
   can regenerate or clear a single extracted fact. See "Fact extraction" in the requirements.
 - Full layered recall, model fact extraction checked by code, rewrite-on-contradiction (with skip

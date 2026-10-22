@@ -19,7 +19,7 @@ database. Milestone 2 wires the draws into the story clock, travel, rests and of
 | Veils | A card lists its veil `topics`. A veiled card still happens; the draw is flagged `veiled` and the narrator fades it to black. |
 | Off-page beats | `beat` cards happen to `{them}`, an absent connected character, and can wound, capture, turn or kill them. |
 | NPC minds | `feeling` effects move the trust, affection, respect, fear and desire axes; `rumor` effects feed "word gets around", true or false. |
-| Hidden truth | `truth` is the fact the ledger keeps; `seen` is what reaches the character; `accuracy` says whether the journal entry is right, half right or wrong. |
+| Hidden truth | `truth` is the fact the record keeps; `seen` is what reaches the character; `accuracy` says whether the journal entry is right, half right or wrong. |
 | Markets, travel, injuries | `market`, `fight`, `wound`, `supply`, `time` and `pursuer` effects are applied by the Milestone 2 systems. |
 
 ## Scenes and drama
@@ -78,7 +78,7 @@ sacrifice, child-harm.
 | `needs` | What must be true: `bond` (a bonded character, `{bond}`), `party`, `debt`, `wanted`, `injured`, `caster` (the character uses Ley magic), `captive` (the beat's character is captured). |
 | `where` | Regions it belongs to; empty means anywhere. Vallarith: cyrel, badlands, asania, trein, gulf, dwarfholds, brynwyr, kujuur, fjallagracht, etryona, wrenspire. |
 | `intensity`, `topics` | See above. |
-| `truth` | What actually happened, in the third person. The ledger keeps it as hidden fact. |
+| `truth` | What actually happened, in the third person. The record keeps it as hidden fact. |
 | `seen` | What the character sees or hears, in the second person. For a beat, how the news reaches them. |
 | `accuracy` | true, partial or false: how far `seen` matches `truth`. Partial and false create a wrong-footing record. |
 | `pressure` | Optional: the choice the moment puts to the player. The narrator offers it; code never answers it. |
