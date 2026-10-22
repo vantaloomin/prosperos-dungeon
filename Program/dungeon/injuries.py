@@ -170,11 +170,11 @@ def outcome(connection, band: str, by: str) -> list[str]:
     combat.set_condition(connection, level)
     connection.execute('UPDATE story_wounds SET treated=1 WHERE id=1')
     if change > 0:
-        return [f"{by} treats the wound well: the character goes from {combat.LEVELS[now['level']]} to "
-                f'{combat.LEVELS[level]}.']
+        return [f"{by} treats the wound well: the character goes from {combat.word(connection, now['level'])} to "
+                f'{combat.word(connection, level)}.']
     if change < 0:
-        return [f'{by} makes it worse: the wound goes bad, and the character is now {combat.LEVELS[level]}.']
-    return [f"{by} does what can be done, and it is not enough: the character is still {combat.LEVELS[level]}."]
+        return [f'{by} makes it worse: the wound goes bad, and the character is now {combat.word(connection, level)}.']
+    return [f"{by} does what can be done, and it is not enough: the character is still {combat.word(connection, level)}."]
 
 
 def treat(connection, text: str, people: list[dict], rolls: list[dict], currency: dict, rng=None) -> list[str]:

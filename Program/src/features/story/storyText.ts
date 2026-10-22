@@ -164,8 +164,9 @@ export function fightText(fight: StoryFight): string {
   const condition = fight.condition === 'unhurt' ? '' : `You are ${fight.condition}${points}.`
   const foes = fight.fight?.foes.map((foe) => `${foe.name} (${foe.state}${foeNumbers(foe)})`).join(', ')
   const lasting = fight.injuries?.length ? `Lasting: ${fight.injuries.join(', ')}.` : ''
+  const held = fight.captors ? `Held prisoner by ${fight.captors}.` : ''
   const nerve = fight.stress ? `Nerve: ${fight.stress}.` : ''
-  return [condition, nerve, lasting, foes ? `Fighting: ${foes}.` : ''].filter(Boolean).join(' ')
+  return [condition, held, nerve, lasting, foes ? `Fighting: ${foes}.` : ''].filter(Boolean).join(' ')
 }
 
 const PRESET_NAMES: Record<Exclude<IntensityPreset, 'world'>, string> = {

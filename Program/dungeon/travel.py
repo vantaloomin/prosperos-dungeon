@@ -127,7 +127,11 @@ def threat_text(threat: str | dict) -> str:
 
 
 def plan(connection, city_id: str, place_id: str, text: str, rng=None) -> dict | None:
-    """The journey a line sets out on, its roads rolled for encounters: None when it goes nowhere on the map."""
+    """The journey a line sets out on, its roads rolled for encounters: None when it goes nowhere on the map, or the
+    character is held prisoner (dungeon/combat.py captors)."""
+    held = optional(connection, 'SELECT captors FROM story_wounds WHERE id=1')
+    if held and held['captors']:
+        return None
     found = node_at(city_id, place_id)
     if found is None:
         return None

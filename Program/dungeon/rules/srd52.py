@@ -2,11 +2,15 @@
 
 - **The sheet.** Six ability scores, a class, a species and a background from the pack, a level, proficiency in the
   class's saving throws and in skills (the background's two and the class's own picks), hit points from the class's
-  hit die and Constitution, and Armor Class (unarmored: 10 + Dexterity; Barbarians add Constitution, Monks Wisdom).
+  hit die and Constitution, and Armor Class from the armour in the class's starting equipment (option A: a Fighter's
+  Chain Mail, a Cleric's Chain Shirt and Shield), else unarmored: 10 + Dexterity (Barbarians add Constitution, Monks
+  Wisdom).
   A new character takes the standard array (15, 14, 13, 12, 10, 8) placed where the player likes, then the
   background's +2 and +1.
 - **A check** is a d20 plus the ability modifier, plus the proficiency bonus when the character is proficient in the
-  skill (or the save), against a DC: 10 easy, 15 normal, 20 hard, 25 very hard, 30 extreme. Advantage rolls two d20
+  skill (or the save), against a DC. The Referee's difficulty is MARVEL's, where a hard check passes about half the
+  time, so it maps to the DC that does the same for a starting character: 10 easy, 12 normal, 15 hard, 20 very hard,
+  25 extreme. Advantage rolls two d20
   and keeps the higher, disadvantage the lower.
 - **The outcome ladder: pass or fail as written** (the pack's `resolution.outcome_mapping`). Meeting the DC is a
   success, else a failure. A natural 20 or 1 is a critical only on attack rolls and death saves.
@@ -34,7 +38,7 @@ ABILITY_NAMES = {'str': 'Strength', 'dex': 'Dexterity', 'con': 'Constitution', '
                  'wis': 'Wisdom', 'cha': 'Charisma'}
 STANDARD_ARRAY = (15, 14, 13, 12, 10, 8)
 SCORE_RANGE = (1, 30)
-DCS = {'easy': 10, 'normal': 15, 'hard': 20, 'very_hard': 25, 'extreme': 30}
+DCS = {'easy': 10, 'normal': 12, 'hard': 15, 'very_hard': 20, 'extreme': 25}
 # What each of the Referee's approaches leans on, when the action's words name no skill. Essence is the class's
 # spellcasting ability, else Wisdom.
 EQUIVALENT = {'Mind': 'int', 'Allure': 'cha', 'Resolve': 'wis', 'Vitality': 'str', 'Essence': None, 'Luck': 'dex'}
@@ -107,9 +111,27 @@ def spell_ability(class_id: str) -> str | None:
     return found.get('ability') if isinstance(found, dict) else None
 
 
-def armor_class(class_id: str, scores: dict[str, int]) -> int:
+def starting_armor(class_id: str) -> list[str]:
+    """The armour (and shield) in the class's starting equipment, option A."""
+    text = by_id('classes')[class_id]['starting_equipment']
+    first = text.split('(B)')[0]
+    named = [item for item in pack('equipment')['items'] if item.get('category') == 'armor'
+             and re.search(rf"\b{re.escape(item['name'])}\b", first)]
+    # "Studded Leather Armor" is not also "Leather Armor".
+    return [item['id'] for item in named if not any(item is not other and item['name'] in other['name']
+                                                    for other in named)]
+
+
+def armor_class(class_id: str, scores: dict[str, int], armor: list[str] | None = None) -> int:
+    worn = [item for item in pack('equipment')['items'] if item['id'] in (armor or [])]
+    body = next((item for item in worn if item.get('armor_type') != 'shield'), None)
+    shield = sum(item.get('ac_bonus', 0) for item in worn if item.get('armor_type') == 'shield')
+    dex = modifier(scores['dex'])
+    if body:
+        allowed = min(dex, body['dex_max']) if body.get('dex_max') is not None else dex
+        return body['ac_base'] + (allowed if body.get('dex_bonus') else 0) + shield
     extra = UNARMORED.get(class_id)
-    return 10 + modifier(scores['dex']) + (modifier(scores[extra]) if extra else 0)
+    return 10 + dex + (modifier(scores[extra]) if extra else 0) + shield
 
 
 def with_background(scores: dict[str, int], background: dict) -> dict[str, int]:
@@ -140,7 +162,8 @@ def build(class_id: str, species_id: str, background_id: str, scores: dict[str, 
     hp = chosen['hit_die'] + modifier(final['con'])
     made = {'class': class_id, 'species': species_id, 'background': background_id, 'level': 1, 'xp': 0,
             'abilities': final, 'skills': sorted(set(from_background) | set(picks)), 'saves': chosen['saving_throws'],
-            'max_hp': max(1, hp), 'hp': max(1, hp), 'ac': armor_class(class_id, final),
+            'max_hp': max(1, hp), 'hp': max(1, hp), 'armor': starting_armor(class_id),
+            'ac': armor_class(class_id, final, starting_armor(class_id)),
             'speed': species[species_id]['speed'], 'spell_ability': spell_ability(class_id),
             'features': step(class_id, 1)['features']}
     return with_spells(made)
@@ -207,7 +230,7 @@ def advance(sheet: dict) -> tuple[dict, list[str]]:
     before = found['max_hp']
     found['max_hp'] += max(1, by_id('classes')[found['class']]['hit_die'] // 2 + 1 + modifier(found['abilities']['con']))
     found['hp'] += found['max_hp'] - before
-    found['ac'] = armor_class(found['class'], found['abilities'])
+    found['ac'] = armor_class(found['class'], found['abilities'], found.get('armor'))
     found['features'] = list(dict.fromkeys(found.get('features', []) + features))
     gained.insert(0, f"{found['max_hp'] - before} more hit points")
     gained += features

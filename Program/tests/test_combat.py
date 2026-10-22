@@ -1,4 +1,6 @@
 """Combat v0 (dungeon/combat.py): rounds, wounds, morale, the defeat table and healing."""
+import random
+
 from conftest import Chunk, narrator, tell
 
 from dungeon import combat
@@ -151,3 +153,22 @@ def test_an_attack_on_someone_the_scene_does_not_hold_brings_a_stand_in():
     assert combat.stand_in([roll('hack at the roots blocking the trail', 'success')]) is None
     assert combat.stand_in([roll('charm him', 'success', 'Allure')]) is None
     assert combat.ATTACK.search('go for the nearest one with my sword, low and fast')
+
+
+def test_a_prisoner_stays_held_until_they_get_free(client, connected, provider, app):
+    # Playtest 5E finding 4 (MARVEL too): a capture leaves the character held.
+    kingswood(client, 'felled-oak')
+    with app.state.database.connect(write=True) as connection:
+        state = {'round': 2, 'wants': 'capture', 'foes': [foe(name='warden of Brynwyr')]}
+        seed = next(seed for seed in range(200) if combat.defeat(connection, state, random.Random(seed), 'now')[0]
+                    == 'captured')
+        assert seed is not None
+        assert combat.captors(connection) == 'warden of Brynwyr'
+        assert 'prisoner of warden of Brynwyr' in combat.condition_text(connection)
+        assert combat.escape(connection, [roll('I slip my bonds', 'failure', 'Luck')]) == [
+            "The player's character tries to get free of warden of Brynwyr and cannot; they are still held."]
+    assert client.put('/api/story/scene', json={'city_id': 'kingswood', 'place_id': 'the-sawpit'}).status_code == 409
+    with app.state.database.connect(write=True) as connection:
+        assert combat.escape(connection, [roll('I pick the lock', 'success', 'Luck')]) == [
+            "The player's character gets free of warden of Brynwyr."]
+        assert combat.captors(connection) is None

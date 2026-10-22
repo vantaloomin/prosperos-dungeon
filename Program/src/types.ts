@@ -325,6 +325,8 @@ export interface StoryBranch { id: string; playing: boolean; turns: number; last
 /** The fight and the character's wounds (dungeon/combat.py); a foe's `wound` level (and 5E hit points) only with the dice shown. */
 export interface StoryFight {
   condition: string; dead: boolean; injuries?: string[]; stress?: string
+  /** Who holds the character prisoner, if anyone. */
+  captors?: string | null
   /** Hit points, under 5E. */
   hp?: number; max_hp?: number
   fight: { round: number; foes: { name: string; state: string; wound: number | null; hp?: number; max_hp?: number }[] } | null
