@@ -267,6 +267,12 @@ def level(natural: int, chance: int, floor: bool = True) -> str:
     return 'failure'
 
 
+def shown(chance: int) -> int:
+    """The chance as the roll card shows it: 96-00 always fails, so nothing reads over 95%. The full chance still
+    sets criticals and specials."""
+    return min(chance, 95)
+
+
 BANDS = {'critical': 'critical_success', 'special': 'success', 'success': 'success', 'failure': 'failure',
          'fumble': 'critical_failure'}
 
@@ -290,7 +296,7 @@ def check(sheet: dict, approach: str, difficulty: str, text: str = '', rng: rand
     floor = skill is None or not isinstance(skills()[skill]['base'], int) or skills()[skill]['base'] >= 5
     degree = level(natural, chance, floor)
     return {'natural': natural, 'die': 100, 'bonus': 0, 'shift': 0, 'total': natural, 'target': chance,
-            'skill': f'{label} {chance}%' + (f' ({degree})' if degree in ('critical', 'special', 'fumble') else ''),
+            'skill': f'{label} {shown(chance)}%' + (f' ({degree})' if degree in ('critical', 'special', 'fumble') else ''),
             'ability': skill or stat, 'rolls': [natural], 'band': BANDS[degree], 'degree': degree,
             'brp_skill': skill, 'easy': difficulty == 'easy'}
 

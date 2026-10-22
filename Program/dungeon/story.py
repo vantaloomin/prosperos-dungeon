@@ -112,7 +112,8 @@ def intensity(connection, data: dict) -> dict:
     drama, world_drama = table.rule(connection, 'drama'), world.get('drama') or happenings.DEFAULT_DRAMA
     return {'preset': world_preset if chosen == 'world' else chosen, 'chosen': chosen, 'world': world_preset,
             'voice': world.get('voice') or '', 'drama': world_drama if drama == 'world' else drama,
-            'drama_chosen': drama, 'drama_world': world_drama, 'cutaways': table.rule(connection, 'cutaways')}
+            'drama_chosen': drama, 'drama_world': world_drama, 'cutaways': table.rule(connection, 'cutaways'),
+            'defeat': table.rule(connection, 'defeat'), 'ruleset': ruleset_of(connection)}
 
 
 def no_model() -> DomainError:
@@ -1100,6 +1101,8 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
         moment = story_clock.now(connection, database.clock)
         if mend := injuries.decide(connection, user['text'], scene(connection, moment)['people']):
             actions = [*actions, mend]
+        if injuries.unhurt(connection, user['text']):
+            actions = injuries.untreated(actions)
         if memory := remembering.recall_action(connection, user['text']):
             # The recall roll is the line's Mind roll; the Referee's own is dropped for it.
             actions = [*(action for action in actions if action['stat'] != 'Mind'), memory]

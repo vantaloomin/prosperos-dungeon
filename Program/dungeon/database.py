@@ -147,6 +147,8 @@ ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"
                  ('workspace_settings', 'drama', "TEXT NOT NULL DEFAULT 'world' CHECK (drama IN ('world', 'quiet', "
                                                  "'uneasy', 'eventful', 'merciless'))"),
                  ('workspace_settings', 'cutaways', 'INTEGER NOT NULL DEFAULT 0'),
+                 ('workspace_settings', 'defeat', "TEXT NOT NULL DEFAULT 'as_written' CHECK (defeat IN "
+                                                  "('as_written', 'by_aim'))"),
                  ('workspace_settings', 'roll_dice', 'INTEGER NOT NULL DEFAULT 0'),
                  ('workspace_settings', 'injury_persistence', "TEXT NOT NULL DEFAULT 'permanent' CHECK "
                                                               "(injury_persistence IN ('permanent', 'temporary', 'none'))"),
@@ -171,6 +173,7 @@ ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"
                  ('story_campaign', 'show_odds', 'INTEGER'), ('story_campaign', 'roll_dice', 'INTEGER'),
                  ('story_campaign', 'show_adult_side', 'INTEGER'), ('story_campaign', 'gm_view', 'INTEGER'),
                  ('story_campaign', 'cutaways', 'INTEGER'),
+                 ('story_campaign', 'defeat', "TEXT CHECK (defeat IN ('as_written', 'by_aim'))"),
                  ('story_rolls', 'ruleset', "TEXT NOT NULL DEFAULT 'marvel'"), ('story_rolls', 'target', 'INTEGER'),
                  ('story_rolls', 'skill', 'TEXT'))
 

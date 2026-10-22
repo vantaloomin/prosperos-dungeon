@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { DramaLevel, IntensityPreset, StoryIntensity as Intensity } from '../../types'
+import type { DefeatRule, DramaLevel, IntensityPreset, StoryIntensity as Intensity } from '../../types'
 import { Field, Toggle } from '../../components/Fields'
 import { Notice } from '../../components/Feedback'
 import { dramaChoices, intensityChoices } from './storyText'
@@ -11,7 +11,7 @@ import { useTable } from './table'
 export function StoryIntensity({ intensity, onSaved }: { intensity: Intensity; onSaved: () => void }) {
   const { save: keep } = useTable()
   const [error, setError] = useState('')
-  const save = async (change: { intensity: IntensityPreset } | { drama: DramaLevel } | { cutaways: boolean }) => {
+  const save = async (change: { intensity: IntensityPreset } | { drama: DramaLevel } | { cutaways: boolean } | { defeat: DefeatRule }) => {
     setError('')
     try { await keep(change); onSaved() }
     catch (failure) { setError(failure instanceof Error ? failure.message : 'That setting was not saved.') }
@@ -31,6 +31,8 @@ export function StoryIntensity({ intensity, onSaved }: { intensity: Intensity; o
     </Field>
     <Toggle label="Meanwhile cutaways" hint="Short scenes of what happens to the people you know while you are elsewhere. Your character still only learns it when word reaches them."
       checked={Boolean(intensity.cutaways)} onChange={(checked) => void save({ cutaways: checked })} />
+    {intensity.ruleset === 'srd52' && <Toggle label="Foes decide a defeat" hint="Off: at 0 hit points the death saves decide, as written. On: only foes out to kill bring the death saves; others take what they came for, a prisoner, a purse or a beaten stranger thrown out."
+      checked={intensity.defeat === 'by_aim'} onChange={(checked) => void save({ defeat: checked ? 'by_aim' : 'as_written' })} />}
     {error && <Notice tone="error">{error}</Notice>}
   </>)
 }

@@ -75,6 +75,8 @@ def test_success_levels_follow_the_skill_results_table():
     # 01-05 always succeeds, 96 always fails; 85% fumbles only on 00.
     assert brp.level(5, 2) == 'success' and brp.level(96, 99) == 'failure' and brp.level(99, 85) == 'failure'
     assert brp.chance_for(60, 'easy') == 120 and brp.chance_for(61, 'hard') == 31 and brp.chance_for(60, 'very_hard') == 10
+    # The card never reads over 95% (96-00 always fails); the full 120% still sets the critical.
+    assert brp.shown(120) == 95 and brp.shown(60) == 60 and brp.level(6, 120) == 'critical'
 
 
 def test_a_roll_reads_its_skill_from_the_words_and_earns_an_experience_check(client, app):
