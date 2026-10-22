@@ -112,6 +112,23 @@ def test_at_0_hit_points_the_death_saves_decide(client, app):
         assert any(row['kind'] == 'death' for row in record.entries(connection))
 
 
+def test_with_defeat_by_aim_foes_who_want_a_prisoner_take_one(client, app):
+    fighter(client)
+    ok(client.put('/api/story/table', json={'defeat': 'by_aim'}))
+    with app.state.database.connect(write=True) as connection:
+        wardens = {'round': 1, 'wants': 'capture', 'foes': combat5e.foes_from({'name': 'the warden'}, 'engaged',
+                                                                             Always(4))}
+        lines, events = [], []
+        # No death saves: the wardens' table decides, and its low roll is a capture.
+        combat.fall(connection, wardens, Always(1), 'now', lines, events)
+        assert 'Death saves' not in lines[0] and events == [('captured', 'the warden')]
+        # Foes out to kill still bring the death saves.
+        killers = wardens | {'wants': 'kill'}
+        lines = []
+        combat.fall(connection, killers, Always(10), 'now', lines, [])
+        assert 'Death saves: 10, 10, 10' in lines[0]
+
+
 def test_wounds_outside_a_fight_move_the_hit_points_and_a_long_rest_restores_them(client, app):
     fighter(client)
     with app.state.database.connect(write=True) as connection:

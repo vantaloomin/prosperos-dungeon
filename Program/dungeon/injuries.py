@@ -30,7 +30,7 @@ from dungeon.rules import marvel
 
 TABLE = Path(__file__).parent / 'rules' / 'injuries.json'
 PERSISTENCE = ('permanent', 'temporary', 'none')
-TREAT = re.compile(r'\b(treat|tend|bandag|bind up|binds up|dress|stitch|sew up|sews up|splint|patch(es)? (me |myself '
+TREAT = re.compile(r'\b(treat|tend|bandag|bind up|binds up|binds? (?:my|the|his|her|their) wound|dress|stitch|sew up|sews up|splint|patch(es)? (me |myself '
                    r'|it |the wound |up)|clean (the|my) (wound|cut)|poultice|see to (the|my) wound|set (the|my) bone)\w*',
                    re.I)
 HEALER = re.compile(r'\b(healer|physician|surgeon|bonesetter|apothecary|herb ?woman|herbalist|midwife|leech)\b', re.I)
@@ -147,6 +147,17 @@ def wanted(connection, text: str) -> bool:
     return bool(TREAT.search(text)) and 0 < now['level'] < combat.DYING and not now['dead']
 
 
+def unhurt(connection, text: str) -> bool:
+    """A line that treats a wound the character does not have: nothing to roll, and the narrator is told so."""
+    now = combat.condition(connection)
+    return bool(TREAT.search(text)) and now['level'] == 0 and not now['dead'] and not combat.fight(connection)
+
+
+def untreated(actions: list[dict]) -> list[dict]:
+    """The actions with no treatment among them, for a character with no wound."""
+    return [action for action in actions if not TREAT.search(action['action'])]
+
+
 def decide(connection, text: str, people: list[dict]) -> dict | None:
     """The character's own roll to treat a wound with supplies from the pack, when no healer is there to do it."""
     if not wanted(connection, text) or healer_in(people) or combat.fight(connection) or treated(connection):
@@ -180,6 +191,8 @@ def outcome(connection, band: str, by: str) -> list[str]:
 
 def treat(connection, text: str, people: list[dict], rolls: list[dict], currency: dict, rng=None) -> list[str]:
     """The treatment a line asks for: by a healer there, for a fee, or by the character with supplies."""
+    if unhurt(connection, text):
+        return ["The character has no wound to treat."]
     if not wanted(connection, text) or combat.fight(connection):
         return []
     if treated(connection):

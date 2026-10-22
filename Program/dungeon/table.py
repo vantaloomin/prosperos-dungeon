@@ -4,8 +4,8 @@ Settings follow the user from world to world (dungeon/restore.py KEPT_SETTINGS),
 dice on in one campaign and they were on in every other. The Table keeps them with the campaign (story_campaign), so
 each world's campaign plays by its own.
 
-- **Tone** (intensity, drama, injury_persistence) is the world's at the start of every campaign: 'world' for the
-  dials, permanent injuries.
+- **Tone** (intensity, drama, injury_persistence, defeat) is the world's at the start of every campaign: 'world' for
+  the dials, permanent injuries, a 5E defeat as written (death saves).
 - **Display taste** (show_odds, roll_dice, show_adult_side, gm_view, cutaways) starts where the player last left it,
   which the workspace settings remember.
 
@@ -16,7 +16,7 @@ stays changed.
 """
 from dungeon.database import optional, settings
 
-TONE = {'intensity': 'world', 'drama': 'world', 'injury_persistence': 'permanent'}
+TONE = {'intensity': 'world', 'drama': 'world', 'injury_persistence': 'permanent', 'defeat': 'as_written'}
 TASTE = ('show_odds', 'roll_dice', 'show_adult_side', 'gm_view', 'cutaways')
 RULES = (*TONE, *TASTE)
 

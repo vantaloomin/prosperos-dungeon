@@ -176,6 +176,7 @@ class TableUpdate(Input):
     show_adult_side: bool | None = None
     gm_view: bool | None = None
     cutaways: bool | None = None
+    defeat: Literal['as_written', 'by_aim'] | None = None
 
 
 class IronswornBuild(Input):

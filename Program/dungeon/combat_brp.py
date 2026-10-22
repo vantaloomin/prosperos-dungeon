@@ -191,7 +191,7 @@ def strike(connection, roll: dict, target: dict, items: list[dict], rng, lines: 
     weapon = weapon_of(items, roll['action'])
     chance = found['skills'][weapon['skill']]
     attack = brp.level(roll['natural'], chance)
-    combat5e.record_roll(connection, roll, f"{weapon['name']} {chance}% ({attack})", 0, roll['natural'], chance,
+    combat5e.record_roll(connection, roll, f"{weapon['name']} {brp.shown(chance)}% ({attack})", 0, roll['natural'], chance,
                          brp.BANDS[attack])
     target['zone'] = 'engaged'
     dodge = brp.level(rng.randint(1, 100), target['dodge']) if target['dodge'] and attack not in ('failure', 'fumble') \

@@ -368,14 +368,17 @@ export interface StoryIntensity {
   drama: Exclude<DramaLevel, 'world'>; drama_chosen: DramaLevel; drama_world: Exclude<DramaLevel, 'world'>
   /** "Meanwhile" cutaways of off-page beats (dungeon/beats.py). */
   cutaways?: boolean
+  /** A 5E defeat (dungeon/combat.py fall): death saves as written, or what the foes were after. */
+  defeat?: DefeatRule; ruleset?: Ruleset
 }
+export type DefeatRule = 'as_written' | 'by_aim'
 export type DramaLevel = 'world' | 'quiet' | 'uneasy' | 'eventful' | 'merciless'
 /** A session zero preset (dungeon/table.py PRESETS): the tone it sets and the director's hand (null: the world's). */
 export interface TablePreset { id: string; name: string; about: string; hand: StoryHand | null; rules: Pick<TableRules, 'intensity' | 'drama' | 'injury_persistence'> }
 /** The Table (dungeon/table.py): this campaign's rules. Tone starts as the world's; what is shown, as you last left it. */
 export interface TableRules {
   intensity: IntensityPreset; drama: DramaLevel; injury_persistence: InjuryPersistence
-  show_odds: boolean; roll_dice: boolean; show_adult_side: boolean; gm_view: boolean; cutaways: boolean
+  show_odds: boolean; roll_dice: boolean; show_adult_side: boolean; gm_view: boolean; cutaways: boolean; defeat?: DefeatRule
 }
 export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; bands?: BandStep[] | null; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null; injury_persistence: InjuryPersistence; table?: TableRules; factions?: StoryFaction[]; tier?: StoryTier | null; campaign?: StoryCampaign; message_id?: string }
 /** A faction the character knows of (dungeon/factions.py): standing in words, with the number when the dice are shown. */

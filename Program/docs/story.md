@@ -56,7 +56,7 @@ the rules as `table`; `GET /api/story/start` gives `presets` and `table`, the ru
 ## The Table
 
 Each campaign keeps its own rules (`dungeon/table.py`, columns on `story_campaign`), so they no longer follow the
-player from world to world the way settings do. Tone (intensity, how eventful, lasting injuries) starts as the world's
+player from world to world the way settings do. Tone (intensity, how eventful, lasting injuries, a 5E defeat) starts as the world's
 at every new campaign; what is shown (the dice, rolling them, townsfolk's adult side, the GM view, meanwhile
 cutaways) starts where the player last left it, which the workspace settings remember. A rule the player sets before
 the campaign begins is kept. A campaign from before the Table keeps the rules it was played by. The rules are not in
@@ -127,7 +127,8 @@ images are non-commercial).
   personality's +20s, the profession's 250 and INT x10 personal points over the profession's skills, none past 75).
   A premade takes a profession from its strongest MARVEL stat. Each action rolls d100 under the skill its words name
   (climbing is Climb, haggling Bargain, looking about Spot), else a characteristic roll (Idea, Charm, Luck, Effort).
-  Easy doubles the chance, hard halves it, very hard and extreme take 20 and 40 more off the half. Critical (1/20),
+  The roll card never shows a chance over 95% (96-00 always fails), though the full chance still sets criticals
+  and specials. Easy doubles the chance, hard halves it, very hard and extreme take 20 and 40 more off the half. Critical (1/20),
   special (1/5) and fumble follow the Skill Results table; critical is critical_success, special and success
   success, failure failure, fumble critical_failure. A skill that succeeds gets an experience check, rolled after a
   night's rest (d100 plus half INT over the skill raises it 1D6). First Aid on the character's own wound restores
@@ -374,7 +375,9 @@ The same fight, on 5E's numbers from the SRD 5.2.1 pack (`dungeon/combat5e.py`):
 - **Morale** is a Wisdom save, DC 10, when a foe is badly hurt or down.
 - **At 0 hit points, death saves** (d20, 10 or more a success, three of either decides; a natural 1 is two
   failures). A natural 20 is back up with 1 hit point and still fighting. Three failures is death. Stable, the
-  defeat table decides the rest without death, and the character comes to with 1 hit point.
+  defeat table decides the rest without death, and the character comes to with 1 hit point. With "Foes decide a
+  defeat" on at the Table (`defeat` 'by_aim'; off, 'as_written', by default), only foes out to kill bring the death
+  saves; wardens, robbers and brawlers skip them and the defeat table takes what they came for.
 - **A long rest** (a night's sleep) restores every hit point, as written. Lasting injuries still need their own care.
 - The Story screen shows the character's hit points, and the foes' while the dice are shown.
 
@@ -560,7 +563,8 @@ rest, decided before the narrator writes it. A journey line is not; a rest with 
 **Lasting injuries** setting beside the story (`injury_persistence`): Permanent (the default), Temporary or None.
 
 - **Lasting injuries are rolled.** A foe's hit that leaves the character Maimed (or worse), or a foe's critical hit,
-  rolls on the table once that round: a lost eye, a limp, a ruined hand, two lost fingers, a disfiguring scar,
+  rolls on the table once that round, but only from foes who would kill: a brawl to drive the character off leaves
+  bruises, not a lost eye (`combat.maimed_by`). The table: a lost eye, a limp, a ruined hand, two lost fingers, a disfiguring scar,
   ribs that knit wrong, a deaf ear, a tremor in the sword hand. The same one never twice. It goes in the record
   as a wound, shows as "Lasting: …" under the character's condition, and the narrator is told what people see.
 - **Each one makes some actions a step harder**, by the words in the action (a limp: run, climb, chase, sneak; a
@@ -576,6 +580,8 @@ rest, decided before the narrator writes it. A journey line is not; a rest with 
   - A success mends a level now, a critical two; a critical failure turns the wound bad, a level worse. A wound is
     treated once ("now it needs rest"); a fresh wound can be treated again. Each line's treatment is kept
     (`story_treatments`) and the narrator gets "## The treatment".
+  - With no wound at all ("I bind my wounds" unhurt), nothing is rolled: the Referee's roll for the line is dropped
+    and the narrator is told the character has no wound to treat.
 
 ## Stress
 
@@ -867,7 +873,7 @@ free grid of widgets is an optional mode late in Milestone 6.
 | `PATCH /api/story/journal/{id}` `{text}` / `DELETE /api/story/journal/{id}` | Corrects or removes a fact, logged; 404 for hidden truth or a fact not in the journal. |
 | `GET /api/story/gear` | `{coins, currency, slots: {used, max}, items, shop}`. `shop` is null away from a shop, else `{place_id, open, keeper, stock, offers}`; `offers` maps the character's items to what the shop pays. |
 | `POST /api/story/shop/buy` `{item_id, qty?}` / `POST /api/story/shop/sell` `{inventory_id, qty?}` | Trades at the counter. 404 with no shop here or no such item, 409 when closed, out of stock, too dear, too heavy, or not something the shop buys. |
-| `GET /api/story/table` / `PUT /api/story/table` | This campaign's rules (`intensity`, `drama`, `injury_persistence`, `show_odds`, `roll_dice`, `show_adult_side`, `gm_view`, `cutaways`); a change to what is shown is remembered for the next campaign. `GET /api/story` carries them as `table`. |
+| `GET /api/story/table` / `PUT /api/story/table` | This campaign's rules (`intensity`, `drama`, `injury_persistence`, `show_odds`, `roll_dice`, `show_adult_side`, `gm_view`, `cutaways`, `defeat`); a change to what is shown is remembered for the next campaign. `GET /api/story` carries them as `table`. |
 | `DELETE /api/story` | Starts a new story: the history, every branch, the record and the people met go, the scene stays. |
 
 ## People you've met

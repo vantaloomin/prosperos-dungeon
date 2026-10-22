@@ -220,3 +220,8 @@ def test_a_stand_in_who_is_beaten_does_not_come_back_fresh(client, connected, pr
     # A line later the player can pick a new fight.
     tell(client, 'I punch him.', 'story-0003')
     assert '## The fight' in provider.requests[-1]['system']
+
+def test_only_foes_who_would_kill_leave_a_lasting_injury():
+    brawl, killers = {'wants': 'drive_off', 'hurt_by': 'the logger'}, {'wants': 'kill', 'hurt_by': 'the logger'}
+    assert combat.maimed_by(brawl) is None and 'hurt_by' not in brawl
+    assert combat.maimed_by(killers) == 'the logger' and combat.maimed_by({'wants': 'kill'}) is None

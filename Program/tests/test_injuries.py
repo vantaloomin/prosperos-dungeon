@@ -107,3 +107,13 @@ def test_a_healer_treats_for_a_fee_and_a_bad_treatment_goes_bad(app):
         lines = injuries.treat(connection, 'I bandage it.', [], [{'action': 'treat the wound', 'band':
                                                                    'critical_failure'}], CROWNS)
         assert 'goes bad' in lines[0] and combat.condition(connection)['level'] == 4
+
+
+def test_treating_a_wound_the_character_does_not_have_rolls_nothing(client, connected, provider, app):
+    begin(client)
+    reply(provider, 'Nothing to bind.')
+    tell(client, 'I bind my wounds.', 'story-0001')
+    assert 'The character has no wound to treat.' in provider.requests[-1]['system']
+    with app.state.database.connect() as connection:
+        assert connection.execute('SELECT COUNT(*) FROM story_rolls').fetchone()[0] == 0
+    assert injuries.untreated([{'action': 'bind my wounds'}, {'action': 'look around'}]) == [{'action': 'look around'}]

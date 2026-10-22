@@ -30,6 +30,7 @@ import random
 import re
 
 from dungeon import combat5e, combat_brp, combat_iron, record, referee, sheet, timeline
+from dungeon import table as campaign_table
 from dungeon.database import encode, identifier, optional
 from dungeon.rules import marvel
 
@@ -453,6 +454,13 @@ def defeat(connection, state: dict, rng, now: str, saved: bool | None = None) ->
     return outcome, DEFEAT_TEXT[outcome]
 
 
+def maimed_by(state: dict) -> str | None:
+    """Who left the character a lasting injury this round. A brawl to drive them off leaves bruises, not a lost eye:
+    only foes who would kill can maim."""
+    cause = state.pop('hurt_by', None)
+    return cause if cause and deadly(state) else None
+
+
 def deadly(state: dict) -> bool:
     """Whether the foes would kill: a brawl to drive someone off ends in a beating, never a death."""
     return any(outcome == 'death' for outcome, _ in DEFEAT[state['wants']])
@@ -499,7 +507,7 @@ def turn(connection, message_id: str, people: list[dict], rolls: list[dict], sta
         ending = fall(connection, state, rng, now, lines, events)
     if ending == 'won' and fifth(connection):
         lines += combat5e.gain(connection, combat5e.fight_xp(state), 'the fight won', now)
-    if cause := state.pop('hurt_by', None):
+    if cause := maimed_by(state):
         events.append(('maimed', cause))
     for card in state.pop('cards', []):
         card_for(connection, message_id, card, now)
@@ -558,9 +566,9 @@ def begin(connection, people: list[dict], rolls: list[dict], start: dict | None,
 
 def fall(connection, state: dict, rng, now: str, lines: list[str], events: list) -> str:
     """The character dropped: under 5E the death saves first (a natural 20 is back up and fighting), then the defeat
-    table. Returns how the fight stands: '' when it goes on, else 'dying'."""
+    table. With the Table's defeat 'by_aim', only foes out to kill bring the death saves; for the rest the table decides. Returns how the fight stands: '' when it goes on, else 'dying'."""
     saved = None
-    if fifth(connection):
+    if fifth(connection) and (state['wants'] == 'kill' or campaign_table.rule(connection, 'defeat') == 'as_written'):
         saved, up, saves = combat5e.death_saves(rng)
         rolled = ', '.join(str(natural) for natural in saves)
         if up:

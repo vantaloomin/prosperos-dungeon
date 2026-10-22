@@ -19,7 +19,8 @@ def test_kingswood_is_grim_and_unflinching_until_the_player_turns_it_down(client
     ok(client.post('/api/story/start', json={'premade_id': 'agna-holt'}))
     assert ok(client.get('/api/story'))['intensity'] | {'voice': ''} == \
         {'preset': 'unflinching', 'chosen': 'world', 'world': 'unflinching', 'voice': '', 'drama': 'eventful',
-         'drama_chosen': 'world', 'drama_world': 'eventful', 'cutaways': False}
+         'drama_chosen': 'world', 'drama_world': 'eventful', 'cutaways': False,
+         'defeat': 'as_written', 'ruleset': 'marvel'}
     narrator = narrator_after(client, provider, 'story-0001')
     assert '- Violence: unflinching: explicit' in narrator and 'Voice: grim and earthy' in narrator
 
