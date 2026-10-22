@@ -33,7 +33,7 @@ function Rules({ sheet }: { sheet: Sheet }) {
 function Ironsworn({ sheet }: { sheet: IronswornSheet }) {
   return <>
     <p>{Object.entries(sheet.stats).map(([stat, value]) => `${stat} ${value}`).join(' · ')}</p>
-    <p>Health {sheet.health} · Spirit {sheet.spirit} · Supply {sheet.supply} · Momentum {signed(sheet.momentum)} (max {sheet.momentum_max}, reset {sheet.momentum_reset})</p>
+    <p>Health {sheet.health} · Spirit {sheet.spirit} · Supply {sheet.supply} · Momentum {signed(sheet.momentum)} (max {sheet.momentum_max}, reset {sheet.momentum_reset}) · Experience {sheet.xp}</p>
     {!!sheet.debilities.length && <p className="subtle">{sheet.debilities.join(', ')}</p>}
     <details>
       <summary>Assets</summary>

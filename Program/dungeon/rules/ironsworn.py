@@ -14,6 +14,12 @@
 - **Momentum** is burned by code when it beats a challenge die the roll did not: the result improves and momentum
   resets. Negative momentum cancels an action die that equals it. A strong hit or weak hit on the moves that say so
   takes momentum (MOMENTUM).
+- **Supply** is abstract: a day on the road costs a point of it (dungeon/travel.py), and Resupply brings it back
+  (+2 on a strong hit, +1 on a weak one). Spirit follows the stress track (dungeon/stress.py): the more strain, the
+  less spirit.
+- **Vows.** Quests and oaths are the character's vows, ranked by the quest's tier (an oath is dangerous). A vow
+  kept is Fulfill Your Vow, and gives experience by its rank (1 troublesome to 5 epic). Code spends it as written:
+  2 to upgrade an asset (its next ability), else 3 for a new asset that fits the character's best stat.
 """
 import json
 import random
@@ -55,6 +61,12 @@ STAT_WORDS = (
 # Momentum a move gives on a hit: {move: (strong, weak)}.
 MOMENTUM = {'face_danger': (1, 0), 'secure_an_advantage': (2, 1), 'gather_information': (2, 1), 'compel': (1, 0),
             'make_camp': (0, 0), 'heal': (0, 0), 'resupply': (0, 0)}
+# Supply Resupply brings back, by band.
+RESUPPLY = {'critical_success': 2, 'success': 2, 'success_cost': 1}
+RANKS = ('troublesome', 'dangerous', 'formidable', 'extreme', 'epic')
+# A vow's rank by its quest's tier.
+RANK_BY_TIER = {1: 'dangerous', 2: 'formidable', 3: 'extreme'}
+UPGRADE, NEW_ASSET = 2, 3
 
 
 @cache
@@ -120,15 +132,61 @@ def momentum_reset(sheet: dict) -> int:
     return {0: 2, 1: 1}.get(len(sheet.get('debilities', [])), 0)
 
 
+def abilities(sheet: dict, asset: str) -> list[dict]:
+    """An asset's abilities the character has: those it starts with, then each upgrade's next one."""
+    listed = assets()[asset]['abilities']
+    upgrades = sheet.get('upgrades', {}).get(asset, 0)
+    later = [ability for ability in listed if not ability.get('enabled')][:upgrades]
+    return [ability for ability in listed if ability.get('enabled') or ability in later]
+
+
 def view(sheet: dict) -> dict:
     found = assets()
     return {'ruleset': ID, 'ruleset_name': NAME, **sheet, 'momentum_max': momentum_max(sheet),
             'momentum_reset': momentum_reset(sheet),
             'asset_list': [{'id': asset, 'name': found[asset]['name'], 'category': found[asset]['category'],
-                            'abilities': [plain(ability['text']) for ability in found[asset]['abilities']
-                                          if ability.get('enabled')]}
+                            'abilities': [plain(ability['text']) for ability in abilities(sheet, asset)]}
                            for asset in sheet['assets'] if asset in found],
             'attribution': attribution()}
+
+
+# Vows and experience ----------------------------------------------------------------------------------------
+
+def rank_of(tier: int | None) -> str:
+    return RANK_BY_TIER.get(tier or 1, 'epic')
+
+
+def vow_xp(rank: str) -> int:
+    return RANKS.index(rank) + 1
+
+
+def upgradable(sheet: dict) -> str | None:
+    return next((asset for asset in sheet['assets'] if asset in assets()
+                 and len(abilities(sheet, asset)) < len(assets()[asset]['abilities'])), None)
+
+
+def new_asset(sheet: dict) -> str | None:
+    top = max(STATS, key=lambda stat: (sheet['stats'][stat], -STATS.index(stat)))
+    fits = suggested(top)['assets'] + [asset for asset in assets() if asset.startswith(('path/', 'combat_talent/'))]
+    return next((asset for asset in fits if asset not in sheet['assets'] and asset in assets()), None)
+
+
+def spend(sheet: dict) -> list[str]:
+    """Experience spent as written, as far as it goes: an upgrade (the next ability of an asset) for 2, else a new
+    asset for 3. Changes `sheet`; returns what the character gained."""
+    gained = []
+    while True:
+        asset = upgradable(sheet)
+        if asset and sheet['xp'] >= UPGRADE:
+            sheet['xp'] -= UPGRADE
+            sheet.setdefault('upgrades', {})[asset] = sheet.get('upgrades', {}).get(asset, 0) + 1
+            gained.append(f"{assets()[asset]['name']} grows: {plain(abilities(sheet, asset)[-1]['text'])}")
+        elif not asset and sheet['xp'] >= NEW_ASSET and (fresh := new_asset(sheet)):
+            sheet['xp'] -= NEW_ASSET
+            sheet['assets'].append(fresh)
+            gained.append(f"a new asset, {assets()[fresh]['name']}")
+        else:
+            return gained
 
 
 def described(sheet: dict) -> str:

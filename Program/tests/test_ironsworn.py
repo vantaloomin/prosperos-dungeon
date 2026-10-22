@@ -7,7 +7,7 @@ from conftest import tell
 from test_rulesets import reply, start
 from test_travel import ok
 
-from dungeon import record, sheet
+from dungeon import quests, record, sheet, stress, travel
 from dungeon.rules import ironsworn
 
 
@@ -171,3 +171,45 @@ def test_at_0_health_a_miss_on_endure_harm_means_facing_death(client, app):
         events = []
         combat.fall(connection, state, Always(10), 'now', lines, events)
         assert events[0][0] == 'death' and combat.condition(connection)['dead']
+
+
+def test_supply_feeds_the_road_and_resupply_brings_it_back(client, app):
+    sworn(client)
+    with app.state.database.connect(write=True) as connection:
+        # Two days on the road: two supply, not a food from the pack.
+        assert travel.eat(connection, ['bread'], 2) == (['2 supply (3 left)'], 0)
+        assert travel.eat(connection, ['bread'], 5) == (['3 supply (0 left)'], 2)
+        # Resupply: a strong hit (6 + wits 2 beats 1 and 2) brings back 2 supply.
+        rolled = sheet.check(connection, 'Mind', text='I forage for roots and berries', rng=Dice(6, 1, 2))
+        assert rolled['move'] == 'resupply' and rolled['skill'].endswith('(+2 supply)')
+        assert sheet.native(connection)['supply'] == 2
+
+
+def test_spirit_follows_the_stress_track(client, app):
+    sworn(client)
+    with app.state.database.connect(write=True) as connection:
+        stress.save(connection, 5)
+        assert sheet.native(connection)['spirit'] == 2
+        stress.save(connection, 0)
+        assert sheet.native(connection)['spirit'] == 5
+
+
+def test_a_vow_fulfilled_gives_experience_spent_on_assets():
+    character = ironsworn.build({'iron': 3, 'heart': 2, 'wits': 2, 'edge': 1, 'shadow': 1}, made()['assets'])
+    character['xp'] = ironsworn.vow_xp(ironsworn.rank_of(2))
+    assert ironsworn.rank_of(2) == 'formidable' and character['xp'] == 3
+    # 2 upgrades the veteran (its second ability); 1 is left.
+    grown = ironsworn.spend(character)
+    assert grown[0].startswith('Veteran grows') and character['xp'] == 1
+    assert len(ironsworn.view(character)['asset_list'][0]['abilities']) == 2
+
+
+def test_a_quest_done_under_ironsworn_is_a_vow_fulfilled(client, app):
+    sworn(client)
+    with app.state.database.connect(write=True) as connection:
+        quest_id = quests.create(connection, 'oath', 'kingswood', 'An oath to Tamsin', 'Find her brother.', '', '',
+                                 None, giver='Tamsin')
+        lines = quests.end(connection, quest_id, 'done', 'Found him.', 'now')
+        assert any(line.startswith('The character fulfils a dangerous vow (An oath to Tamsin): 2 experience')
+                   for line in lines)
+        assert sheet.native(connection)['upgrades'] == {'path/veteran': 1}

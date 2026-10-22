@@ -20,7 +20,7 @@ import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from dungeon import director, factions, feelings, growth, inventory, record, tiers
+from dungeon import director, factions, feelings, growth, inventory, record, sworn, tiers
 from dungeon.database import decode, encode, identifier, many, optional
 
 ADVENTURES = Path(__file__).parent / 'world' / 'data' / 'adventures'
@@ -108,7 +108,9 @@ def settle(connection, quest: dict, status: str, stamp: str = '') -> list[str]:
     town_quest = status == 'done' and quest.get('kind') not in ('job', 'oath')
     reached = growth.milestone(connection, quest['title'] if town_quest else 'a rise in standing', stamp) \
         if town_quest or risen else ''
-    lines = [line for line in (risen, reached) if line]
+    # Under Ironsworn a quest or an oath done is a vow fulfilled.
+    vowed = sworn.fulfil(connection, quest) if status == 'done' else ''
+    lines = [line for line in (risen, reached, vowed) if line]
     for line in lines:
         record.add(connection, 'fact', 'The character', line, stamp or 'game')
     return lines
