@@ -7,7 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse
 from pydantic import Field
 
-from dungeon import campaign, quests, record, sheet, story, story_clock
+from dungeon import campaign, growth, quests, record, sheet, story, story_clock
 from dungeon.errors import DomainError
 from dungeon.models import Input, PersonaInput
 
@@ -121,7 +121,7 @@ class SheetChange(Input):
 @router.get('/sheet')
 def read_sheet(request: Request):
     with request.app.state.database.connect() as connection:
-        return sheet.view(connection)
+        return sheet.view(connection) | {'growth': growth.view(connection, story.dice_shown(connection))}
 
 
 @router.put('/sheet')
@@ -129,7 +129,7 @@ def change_sheet(request: Request, body: SheetChange):
     database = request.app.state.database
     with database.connect(write=True) as connection:
         sheet.set_stats(connection, body.stats, database.now())
-        return sheet.view(connection)
+        return sheet.view(connection) | {'growth': growth.view(connection, story.dice_shown(connection))}
 
 
 class StoryStart(Input):

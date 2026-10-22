@@ -46,7 +46,7 @@ export function Story({ go }: { go: (view: View) => void }) {
     setStreamed('')
     setError('')
     try { await request() } catch (failure) { setError(failure instanceof Error ? failure.message : 'That did not work. Try again.') }
-    finally { setPending(null); await Promise.all([client.invalidateQueries({ queryKey: STORY_KEY }), client.invalidateQueries({ queryKey: ['story-journal'] }), client.invalidateQueries({ queryKey: ['story-gear'] })]) }
+    finally { setPending(null); await Promise.all([client.invalidateQueries({ queryKey: STORY_KEY }), client.invalidateQueries({ queryKey: ['story-journal'] }), client.invalidateQueries({ queryKey: ['story-gear'] }), client.invalidateQueries({ queryKey: ['story-sheet'] })]) }
   }
   const grow = (piece: string) => setStreamed((before) => before + piece)
   const send = (text: string) => run(text, () => streamApi('/story/messages/stream', { text, client_id: newId() }, grow))

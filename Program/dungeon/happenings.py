@@ -22,7 +22,7 @@ again draws nothing new.
 import re
 from datetime import date, timedelta
 
-from dungeon import combat, factions, feelings, injuries, inventory, record, stress, tiers, travel
+from dungeon import combat, factions, feelings, growth, injuries, inventory, record, stress, tiers, travel
 from dungeon.database import encode, many, settings
 from dungeon.life import cards
 
@@ -205,8 +205,13 @@ def feared(connection, effect: dict, context: dict) -> list[str]:
                       amount=effect['amount'], cause='what just happened')
 
 
+def corrupted(connection, effect: dict, context: dict) -> list[str]:
+    return growth.darken(connection, 'corruption', effect['shift'], context.get('preset') or 'unflinching',
+                         context['logged'], context['rng'])
+
+
 APPLY = {'coin': coin, 'supply': supply, 'wound': wound, 'feeling': feeling, 'fight': fight, 'stress': feared,
-         'clock': clocked, 'reputation': reputed}
+         'clock': clocked, 'reputation': reputed, 'corruption': corrupted}
 
 
 def play(connection, drawn: dict, context: dict) -> tuple[list[str], int]:

@@ -2332,6 +2332,36 @@
      "true": true
     }
    ]
+  },
+  {
+   "id": "heartwood-whisper",
+   "title": "Something under the Heartwood",
+   "scenes": [
+    "rest"
+   ],
+   "tone": "grey",
+   "drama": 1,
+   "weight": 3,
+   "where": [
+    "cyrel"
+   ],
+   "intensity": {
+    "horror": 1
+   },
+   "truth": "Something under the Heartwood reached up through {pc}'s sleep and offered them what they want most. Part of them said yes.",
+   "seen": "{pc} wakes with sap under their nails and iron in their mouth, from a dream of an open hand that offered everything.",
+   "accuracy": "partial",
+   "pressure": null,
+   "effects": [
+    {
+     "kind": "corruption",
+     "shift": 1
+    },
+    {
+     "kind": "stress",
+     "amount": 1
+    }
+   ]
   }
  ],
  "tables": {

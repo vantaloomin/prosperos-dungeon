@@ -383,6 +383,22 @@ CREATE TABLE IF NOT EXISTS story_tier (
   points INTEGER NOT NULL DEFAULT 0
 );
 
+-- Progression (dungeon/growth.py): the stats marked by use since the last rest and how often each was used since the
+-- last milestone; the dark tracks, their lasting changes and whether one has cost the player the character.
+CREATE TABLE IF NOT EXISTS story_marks (
+  stat TEXT PRIMARY KEY,
+  marked INTEGER NOT NULL DEFAULT 0,
+  uses INTEGER NOT NULL DEFAULT 0,
+  last_message TEXT
+);
+
+CREATE TABLE IF NOT EXISTS story_dark (
+  track TEXT PRIMARY KEY,
+  points INTEGER NOT NULL DEFAULT 0,
+  changes TEXT NOT NULL DEFAULT '[]',
+  lost INTEGER NOT NULL DEFAULT 0
+);
+
 -- Off-page beats (dungeon/beats.py): what has become of the people the character is connected to, each beat that
 -- happened, the word of it still travelling to the character, and when the off-page clock last looked.
 CREATE TABLE IF NOT EXISTS story_fates (

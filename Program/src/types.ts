@@ -217,7 +217,7 @@ export interface StoryRoll {
   total: number; band: Band; label: string
 }
 /** The persona's MARVEL stats (dungeon/sheet.py) and the die each one rolls. */
-export interface Sheet { stats: Record<string, number>; stat_names: string[]; range: [number, number]; dice: Record<string, number | null> }
+export interface Sheet { stats: Record<string, number>; stat_names: string[]; range: [number, number]; dice: Record<string, number | null>; growth?: SheetGrowth }
 /** Someone the user has met in their story (dungeon/story_people.py), with where their rules put them now. */
 export interface StoryPerson {
   key: string; name: string; role: string; city: string; meetings: number; last_met_at: string; notes: string[]
@@ -241,6 +241,8 @@ export type StoryArc = 'grounded' | 'classic' | 'epic'
 export type StoryPace = 'slow' | 'steady' | 'fast'
 export interface StoryStart { premades: Premade[]; points: number; range: [number, number]; stat_names: string[]; meanings: Record<string, string>; arc?: { arc: StoryArc; pace: StoryPace } | null }
 /** The character's tier on the shared ladder and its track (dungeon/tiers.py); the numbers only with the dice shown. */
+/** Growth by use and the dark tracks (dungeon/growth.py); points only with the dice shown. */
+export interface SheetGrowth { marked: string[]; dark: { id: string; name: string; word: string; changes: string[]; points?: number; top?: number }[] }
 export interface StoryTier { tier: string; words: string; track: string; arc: StoryArc; pace: StoryPace; points?: number; next?: number | null }
 /** A fact the game keeps that the player's character knows (dungeon/record.py). */
 export interface JournalEntry { id: string; kind: string; subject: string; text: string; truth: 'belief' | 'both'; source: 'code' | 'narrator' | 'player'; created_at: string }

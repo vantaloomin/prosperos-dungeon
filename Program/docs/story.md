@@ -400,6 +400,30 @@ work done (4 times the work's tier, doubled for work above the character; oaths 
 
 The track is game state (`story_tier`, in `timeline.SAVED`).
 
+## Progression
+
+`dungeon/growth.py`, with the dark tracks in `dungeon/rules/dark.json`. MARVEL characters grow by use, plus
+milestones (5e and Ironsworn will keep their own growth rules).
+
+- **Use.** A roll of the character's that mattered (one that succeeded, or one with a danger riding on it) marks
+  its stat (`story_marks`, once a line however often it is told). After a night's rest code rolls for each marked
+  stat, Basic Roleplaying style: over three times the stat on a d100, it rises a point. The marks clear. The sheet
+  shows a marked stat with a dot.
+- **Milestones.** A town's own quest done, or a rise in tier (`dungeon/tiers.py`), gives 2 points to the stat used
+  most since the last one. The rise and the boost go in the record, so the narrator knows.
+- **Dark tracks:** corruption, addiction and infamy, 0 to 10, with thresholds at 3, 6 and 9. Every turn the
+  Continuity model is also asked whether the character did something that feeds one (a pact with something under
+  the Heartwood, a drug, an atrocity others saw); each it names rises a point. Life Cards' `corruption` effects
+  move it too (the Vallarith deck's "Something under the Heartwood" rest card). Each threshold grants power
+  (corruption +2 Essence, addiction +1 Vitality, infamy +1 Allure) and rolls a lasting change to body, mind or how
+  people treat them, from those the intensity setting allows. The top of a track costs the player the character:
+  the story stops, as it does for a death, until they go back to an earlier line.
+- **Shown as the dice are.** The sheet shows the tracks in words ("Corruption: tainted") with their lasting changes,
+  and the points only with the dice shown. The narrator gets "## What the character is becoming" and shows it
+  without naming the track.
+
+Marks and dark tracks are game state (`timeline.SAVED`).
+
 ## Rewrite
 
 `dungeon/passages.py`. The automatic rewrites still run when there is time; whatever the checks find and do not
