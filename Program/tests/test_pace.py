@@ -3,7 +3,7 @@ import json
 
 from conftest import Chunk, tell
 
-from dungeon import ledger, pace
+from dungeon import pace, record
 
 
 def ok(response):
@@ -57,7 +57,7 @@ def test_over_budget_the_rewrite_and_the_contradiction_check_give_way(client, co
     ok(client.put('/api/settings', json={'turn_budget': 30, 'show_odds': True}))
     app.state.pace_clock = Slow()
     with app.state.database.connect(write=True) as connection:
-        ledger.record(connection, 'death', 'Old Tom', 'Old Tom drowned off the pier.', app.state.database.now())
+        record.add(connection, 'death', 'Old Tom', 'Old Tom drowned off the pier.', app.state.database.now())
     # Old Tom is named and the prose has a strong tell, but no time is left: one call, the narrator's.
     provider.replies = [reply('Old Tom waves from the door -- a testament to the night.')]
     tell(client, 'I sit down at the bar.', 'story-0001')

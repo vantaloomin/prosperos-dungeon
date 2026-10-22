@@ -7,7 +7,7 @@ dice against those odds. No model decides anything and the model never sees the 
 alone, so the same world and seed always give the same result.
 
 Companion recorded outcomes and the marks they left per companion timeline; Dungeon keeps only the engine until the
-game's own records (the ledger) use it.
+game's own records (the record) use it.
 """
 import json
 import random

@@ -128,6 +128,17 @@ ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"
                                                        '(0, 15, 30, 60, 90, 120, 180))'))
 
 
+# Tables renamed since they were made: (old, new). Renamed before the schema runs, so their rows carry over.
+RENAMED_TABLES = (('ledger_entries', 'record_entries'), ('ledger_corrections', 'record_corrections'))
+
+
+def rename_tables(connection):
+    tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    for old, new in RENAMED_TABLES:
+        if old in tables and new not in tables:
+            connection.execute(f'ALTER TABLE {old} RENAME TO {new}')
+
+
 def add_columns(connection):
     for table, column, definition in ADDED_COLUMNS:
         columns = {row[1] for row in connection.execute(f'PRAGMA table_info({table})')}
@@ -137,6 +148,7 @@ def add_columns(connection):
 
 def initialize(connection, timestamp: str):
     claim_identity(connection)
+    rename_tables(connection)
     connection.executescript(SCHEMA)
     add_columns(connection)
     for table in SINGLETONS:

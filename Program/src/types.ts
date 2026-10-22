@@ -233,7 +233,7 @@ export interface Gear {
 export interface Premade { id: string; name: string; gender: PersonaGender; age: number | null; about: string; stats: Record<string, number> }
 /** Campaign start: the town's premades and the point-buy for making your own. */
 export interface StoryStart { premades: Premade[]; points: number; range: [number, number]; stat_names: string[]; meanings: Record<string, string> }
-/** A fact the game keeps that the player's character knows (dungeon/ledger.py). */
+/** A fact the game keeps that the player's character knows (dungeon/record.py). */
 export interface JournalEntry { id: string; kind: string; subject: string; text: string; truth: 'belief' | 'both'; source: 'code' | 'narrator' | 'player'; created_at: string }
 export interface JournalQuest { id: string; title: string; hook: string; status: 'open' | 'done' | 'failed' | 'missed'; outcome: string; left: string }
 export interface Journal { entries: JournalEntry[]; quests: JournalQuest[] }

@@ -3,7 +3,7 @@
 A town's adventure file (world/data/adventures/<city>.json) lists its quests and its dangerous places. When a
 story begins there, its quests start: each has a hook the player may know, a truth only the narrator is told, and a
 deadline on the story clock. Code keeps the deadline: once the clock passes it with the quest still open, the stakes
-land and go in the ledger. The narrator is told what is happening every turn and lets it press on the scene; it
+land and go in the record. The narrator is told what is happening every turn and lets it press on the scene; it
 never ends a quest itself. When a Continuity model is chosen, it says when a turn ended one.
 
 In a dangerous place each turn brings a hidden-cost roll: the character's Luck against the place, and on a failure
@@ -17,7 +17,7 @@ import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from dungeon import ledger
+from dungeon import record
 from dungeon.database import many
 
 ADVENTURES = Path(__file__).parent / 'world' / 'data' / 'adventures'
@@ -64,13 +64,13 @@ def left_text(due_at: str | None, now: datetime) -> str:
 
 
 def check(connection, now: datetime, stamp: str):
-    """Deadlines the story clock has passed: the quest is missed and its stakes go in the ledger."""
+    """Deadlines the story clock has passed: the quest is missed and its stakes go in the record."""
     for quest in rows(connection, 'open'):
         if quest['due_at'] and datetime.fromisoformat(quest['due_at']) <= now:
             connection.execute("UPDATE story_quests SET status='missed', known=1, outcome=? WHERE id=?",
                                (quest['missed'], quest['id']))
             if quest['missed']:
-                ledger.record(connection, 'fact', quest['title'], quest['missed'], stamp)
+                record.add(connection, 'fact', quest['title'], quest['missed'], stamp)
 
 
 def end(connection, quest_id: str, status: str, outcome: str):

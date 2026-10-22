@@ -6,7 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse
 from pydantic import Field
 
-from dungeon import campaign, ledger, quests, sheet, story, story_clock
+from dungeon import campaign, quests, record, sheet, story, story_clock
 from dungeon.errors import DomainError
 from dungeon.models import Input, PersonaInput
 
@@ -166,13 +166,13 @@ class JournalChange(Input):
 
 
 def journal_view(connection, database) -> dict:
-    return {'entries': ledger.entries(connection),
+    return {'entries': record.entries(connection),
             'quests': quests.view(connection, story_clock.now(connection, database.clock))}
 
 
 @router.get('/journal')
 def journal(request: Request):
-    """What the player's character knows, from the ledger (dungeon/ledger.py); hidden truth stays out."""
+    """What the player's character knows, from the record (dungeon/record.py); hidden truth stays out."""
     with request.app.state.database.connect() as connection:
         return journal_view(connection, request.app.state.database)
 
@@ -181,7 +181,7 @@ def journal(request: Request):
 def add_note(request: Request, body: JournalNote):
     database = request.app.state.database
     with database.connect(write=True) as connection:
-        ledger.record(connection, 'fact', body.subject, body.text, database.now(), 'player')
+        record.add(connection, 'fact', body.subject, body.text, database.now(), 'player')
         return journal_view(connection, request.app.state.database)
 
 
@@ -189,7 +189,7 @@ def add_note(request: Request, body: JournalNote):
 def change_note(request: Request, entry_id: str, body: JournalChange):
     database = request.app.state.database
     with database.connect(write=True) as connection:
-        ledger.correct(connection, entry_id, database.now(), body.text)
+        record.correct(connection, entry_id, database.now(), body.text)
         return journal_view(connection, request.app.state.database)
 
 
@@ -197,7 +197,7 @@ def change_note(request: Request, entry_id: str, body: JournalChange):
 def remove_note(request: Request, entry_id: str):
     database = request.app.state.database
     with database.connect(write=True) as connection:
-        ledger.correct(connection, entry_id, database.now())
+        record.correct(connection, entry_id, database.now())
         return journal_view(connection, request.app.state.database)
 
 

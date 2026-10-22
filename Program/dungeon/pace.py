@@ -6,10 +6,10 @@ summary, so each turn has a time budget and every step is timed and logged with 
 - Obvious actions (walking, looking, plain talk) skip the Referee's model; the keyword rules settle them.
 - The narration streams as it is written (dungeon/story_routes.py), and fact extraction and the summary run after
   the reply is on screen. They finish before the next turn starts.
-- The contradiction check runs only when the narration names someone the ledger says is dead; a clean turn costs
+- The contradiction check runs only when the narration names someone the record says is dead; a clean turn costs
   no extra call.
 - Over budget, the optional steps give way: the prose rewrite first, then the contradiction rewrite (logged as
-  skipped). Dice and the ledger are never skipped. The em dash fix always runs; it costs nothing.
+  skipped). Dice and the record are never skipped. The em dash fix always runs; it costs nothing.
 """
 import re
 import time

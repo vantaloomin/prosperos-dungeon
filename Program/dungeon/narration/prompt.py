@@ -6,7 +6,7 @@
    phrases never to use. prose.py checks the mechanical ones again after every turn.
 3. Settings the player chooses: narration format (point of view, tense, length), intensity per category
    with veils, and the tone's voice.
-4. The turn: the persona, what the game remembers (the story so far and the ledger), the scene and the outcomes
+4. The turn: the persona, what the game remembers (the story so far and the record), the scene and the outcomes
    the code decided, written last so they sit nearest the player's words.
 
 CORE and CRAFT are the defaults of the 'story-narrator' and 'narrator-craft' prompts a power user may

@@ -1,7 +1,7 @@
-"""The canon ledger and the story so far (dungeon/ledger.py)."""
+"""The record and the story so far (dungeon/record.py)."""
 from conftest import Chunk, tell
 
-from dungeon import ledger
+from dungeon import record
 
 
 def ok(response):
@@ -18,7 +18,7 @@ def route_continuity(client):
     ok(client.put('/api/models/routes', json={'job': 'continuity', 'profile_id': profiles[0]['id']}))
 
 
-def test_facts_the_narrator_brings_in_are_kept_unless_they_contradict_the_ledger(client, connected, app, provider):
+def test_facts_the_narrator_brings_in_are_kept_unless_they_contradict_the_record(client, connected, app, provider):
     # Without a Continuity model nothing is asked after the turn.
     provider.replies = [reply('The barman nods.')]
     tell(client, 'I order a drink.', 'story-0001')
@@ -26,7 +26,7 @@ def test_facts_the_narrator_brings_in_are_kept_unless_they_contradict_the_ledger
 
     route_continuity(client)
     with app.state.database.connect(write=True) as connection:
-        ledger.record(connection, 'death', 'Old Tom', 'Old Tom drowned off the pier.', app.state.database.now())
+        record.add(connection, 'death', 'Old Tom', 'Old Tom drowned off the pier.', app.state.database.now())
     # The narration names the dead, so the contradiction check runs and its rewrite is used.
     provider.replies = [
         reply('Old Tom waves from the door. The bouncer swings and breaks your nose.'),
@@ -37,7 +37,7 @@ def test_facts_the_narrator_brings_in_are_kept_unless_they_contradict_the_ledger
               ' "truth": "world"}, {"kind": "mood", "subject": "you", "text": "You feel sad."}]}')]
     tell(client, 'I shove past the bouncer.', 'story-0002')
     assert 'The record says these people are dead: old tom.' in provider.requests[-2]['system']
-    assert provider.requests[-1]['system'] == ledger.EXTRACT
+    assert provider.requests[-1]['system'] == record.EXTRACT
     assert "The narrator: Old Tom's stool" in provider.requests[-1]['messages'][0]['content']
     known = ok(client.get('/api/story/journal'))['entries']
     # The dead stay dead, hidden truth stays out of the journal, and a made-up kind is dropped.
@@ -69,22 +69,22 @@ def test_the_player_corrects_their_journal_and_it_is_logged(client, app):
     assert client.delete(f"/api/story/journal/{entry['id']}").status_code == 404
     with app.state.database.connect() as connection:
         log = [(row['before'], row['after']) for row in connection.execute(
-            'SELECT before, after FROM ledger_corrections ORDER BY created_at, rowid')]
-        hidden = ledger.record(connection, 'secret', 'Gus', 'Gus is a fence.', app.state.database.now(),
+            'SELECT before, after FROM record_corrections ORDER BY created_at, rowid')]
+        hidden = record.add(connection, 'secret', 'Gus', 'Gus is a fence.', app.state.database.now(),
                                truth='world')
     assert log == [('Nell owes the co-op money.', 'Nell owes Gus money.'), ('Nell owes Gus money.', None)]
     assert client.delete(f"/api/story/journal/{hidden['id']}").status_code == 404
 
 
 def test_older_turns_fold_into_the_story_so_far(client, connected, app, provider, monkeypatch):
-    monkeypatch.setattr(ledger, 'RECENT', 4)
-    monkeypatch.setattr(ledger, 'FOLD', 2)
+    monkeypatch.setattr(record, 'RECENT', 4)
+    monkeypatch.setattr(record, 'FOLD', 2)
     provider.replies = [reply(f'Narration {number}.') for number in range(1, 4)]
     provider.replies.append(reply('You arrived and asked about Turn 1.'))
     for number in range(1, 4):
         tell(client, f'Turn {number}.', f'story-000{number}')
     # Six messages: four recent plus two to fold, so the third reply folds the first two.
-    assert provider.requests[-1]['system'] == ledger.SUMMARIZE
+    assert provider.requests[-1]['system'] == record.SUMMARIZE
     assert 'The player: Turn 1.\n\nThe narrator: Narration 1.' in provider.requests[-1]['messages'][0]['content']
     assert 'Turn 2.' not in provider.requests[-1]['messages'][0]['content']
 
@@ -95,3 +95,24 @@ def test_older_turns_fold_into_the_story_so_far(client, connected, app, provider
     narrator = provider.requests[-2]
     assert '## The story so far (older turns, summarized)\nYou arrived and asked about Turn 1.' in narrator['system']
     assert 'Turn 1.' not in str(narrator['messages']) and 'Turn 2.' in str(narrator['messages'])
+
+
+def test_an_older_workspace_keeps_its_facts_under_the_new_name(tmp_path):
+    """The ledger was renamed the record (2026-10-22): the tables carry their rows over, and saves made before the
+    rename still put their facts back."""
+    import json
+    import sqlite3
+
+    from dungeon import timeline
+    from dungeon.database import rename_tables
+    connection = sqlite3.connect(tmp_path / 'old.sqlite3')
+    connection.execute('CREATE TABLE ledger_entries (id TEXT PRIMARY KEY, subject TEXT)')
+    connection.execute("INSERT INTO ledger_entries VALUES ('a', 'Old Tom')")
+    connection.execute('CREATE TABLE ledger_corrections (id TEXT PRIMARY KEY)')
+    rename_tables(connection)
+    rename_tables(connection)
+    assert connection.execute('SELECT subject FROM record_entries').fetchall() == [('Old Tom',)]
+    assert not connection.execute("SELECT 1 FROM sqlite_master WHERE name LIKE 'ledger%'").fetchall()
+    connection.execute('DELETE FROM record_entries')
+    timeline.restore(connection, json.dumps({'ledger_entries': [{'id': 'b', 'subject': 'Gus'}]}), ('record_entries',))
+    assert connection.execute('SELECT subject FROM record_entries').fetchall() == [('Gus',)]

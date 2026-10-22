@@ -9,13 +9,14 @@ The game state is every table in SAVED, kept as rows. A system that keeps state 
 """
 import json
 
-from dungeon.database import identifier, many, one, optional
+from dungeon.database import RENAMED_TABLES, identifier, many, one, optional
 from dungeon.errors import require
 
-SAVED = ('story_scene', 'story_people', 'character_stats', 'ledger_entries', 'story_summary',
+SAVED = ('story_scene', 'story_people', 'character_stats', 'record_entries', 'story_summary',
          'story_clock', 'story_quests', 'story_inventory', 'story_purse', 'story_stock', 'story_trades',
          'story_wounds', 'story_fight', 'story_haggles', 'story_finds')
 ROOT = 'first'
+OLD_NAMES = {new: old for old, new in RENAMED_TABLES}
 
 
 # The game state ----------------------------------------------------------------------------------
@@ -28,7 +29,8 @@ def restore(connection, saved: str, tables: tuple[str, ...] = SAVED):
     rows = json.loads(saved)
     for table in tables:
         connection.execute(f'DELETE FROM {table}')
-        for row in rows.get(table, []):
+        # A save from before a table was renamed keeps its rows under the old name.
+        for row in rows.get(table, rows.get(OLD_NAMES.get(table, ''), [])):
             columns = ', '.join(row)
             connection.execute(f"INSERT INTO {table} ({columns}) VALUES ({', '.join('?' * len(row))})",
                                tuple(row.values()))
