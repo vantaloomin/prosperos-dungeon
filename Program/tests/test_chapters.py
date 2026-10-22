@@ -1,19 +1,24 @@
 """Chapters, the branch tree, bookmarks, Ironman and the notebook (dungeon/chapters.py)."""
 import json
 
-from conftest import Chunk, tell
+from conftest import Chunk, narrator, tell
 from test_inventory import begin
 from test_travel import ok
 
-from dungeon import chapters, combat
+from dungeon import chapters, combat, record
 
 
 def reply(text):
     return [Chunk(text), Chunk('', 'stop')]
 
 
-def summary(title, text):
-    return reply(json.dumps({'title': title, 'summary': text}))
+def summary(title, text, hook='The bill.'):
+    return reply(json.dumps({'title': title, 'summary': text, 'hook': hook}))
+
+
+def route_continuity(client):
+    profiles = ok(client.get('/api/models'))['profiles']
+    ok(client.put('/api/models/routes', json={'job': 'continuity', 'profile_id': profiles[0]['id']}))
 
 
 def campaign(client):
@@ -22,33 +27,44 @@ def campaign(client):
 
 def test_a_scene_break_opens_the_next_chapter_and_the_one_that_ended_is_summarized(client, connected, provider):
     begin(client)
-    provider.replies = [reply('Pell weighs the coin.'), reply('You sleep badly.'), reply('Morning comes grey.'),
-                        summary('A night at Pell\'s', 'You paid Pell and slept in the back room.')]
+    route_continuity(client)
+    narrations = iter(['Pell weighs the coin.', 'You sleep badly.', 'Previously: you paid Pell. Morning comes grey.',
+                       'The street is wet.'])
+    summaries = iter([summary("A night at Pell's", 'You paid Pell and slept in the back room.'),
+                      summary('Something else', 'You got up.')])
+
+    def respond(system, messages):
+        if system == chapters.SUMMARIZE:
+            return next(summaries)
+        return reply('{"facts": []}') if system.startswith(record.EXTRACT) else reply(next(narrations))
+    provider.respond = respond
     tell(client, 'I pay Pell.', 'story-0001')
     assert [(chapter['number'], chapter['open']) for chapter in campaign(client)['chapters']] == [(1, True)]
-    # A rest is time passing: the next line opens chapter 2.
+    # A rest is time passing: the chapter is summarized as the break is made, and the next line opens chapter 2.
     tell(client, 'I go to bed and sleep.', 'story-0002')
     assert campaign(client)['pending'] == {'reason': 'time', 'title': ''}
+    asked = next(request for request in reversed(provider.requests) if request['system'] == chapters.SUMMARIZE)
+    assert 'The player: I pay Pell.' in asked['messages'][0]['content']
     tell(client, 'I get up.', 'story-0003')
+    # It opens with "previously", from the chapter that ended and the hook it left.
+    opened = narrator(provider)['system']
+    assert chapters.PREVIOUSLY in opened and 'You paid Pell and slept in the back room.' in opened
+    assert 'Still open: The bill.' in opened
     first, second = campaign(client)['chapters']
-    assert provider.requests[-1]['system'] == chapters.SUMMARIZE
-    assert 'The player: I pay Pell.' in provider.requests[-1]['messages'][0]['content']
-    assert 'I get up.' not in provider.requests[-1]['messages'][0]['content']
-    assert (first['title'], first['summary'], first['ended_by'], first['turns']) == (
-        "A night at Pell's", 'You paid Pell and slept in the back room.', 'time', 2)
+    assert (first['title'], first['summary'], first['ended_by'], first['turns'], first['hook']) == (
+        "A night at Pell's", 'You paid Pell and slept in the back room.', 'time', 2, 'The bill.')
     assert (second['title'], second['open'], second['turns']) == ('Chapter 2', True, 1)
     # The player closes one with a name; the model's title never replaces it.
     ok(client.post('/api/story/chapters/close', json={'title': 'The grey morning'}))
-    provider.replies = [reply('The street is wet.'), summary('Something else', 'You got up.')]
     tell(client, 'I step outside.', 'story-0004')
     assert campaign(client)['chapters'][1]['title'] == 'The grey morning'
     lines = ok(client.get(f"/api/story/chapters/{second['id']}"))['lines']
-    assert [line['text'] for line in lines] == ['I get up.', 'Morning comes grey.']
+    assert [line['text'] for line in lines] == ['I get up.', 'Previously: you paid Pell. Morning comes grey.']
 
 
 def test_chapters_follow_the_branches_and_the_tree_marks_how_each_ended(client, connected, provider, app):
     begin(client)
-    provider.replies = [reply('One.'), reply('Two.'), summary('The start', 'It began.'), reply('Three.')]
+    provider.replies = [reply('One.'), reply('Two.'), reply('Three.')]
     tell(client, 'I look around.', 'story-0001')
     ok(client.post('/api/story/chapters/close', json={'title': ''}))
     second = tell(client, 'I walk on.', 'story-0002')['message']

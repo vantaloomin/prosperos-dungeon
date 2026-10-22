@@ -188,9 +188,10 @@ OATH_SCHEMA = {'oaths': {'type': 'array', 'items': record.strict({
 
 def oath_ask() -> str:
     """Added to the Continuity model's question every turn: oaths the player's character swore."""
-    return ('\n\nOnly if the player\'s character this turn made a promise, oath, threat or bargain they are bound to '
-            'keep, add "oaths": [{"to": "who it was made to, by name", "text": "what they swore, in one sentence", '
-            '"days": the days it gives them, or null}] to your answer.')
+    return ('\n\nOnly if the player\'s character this turn, in their own words, made a promise, oath or bargain they '
+            'are bound to keep, add "oaths": [{"to": "who it was made to, by name", "text": "what they swore, in one '
+            'sentence", "days": the days it gives them, or null}] to your answer. A demand, threat or ultimatum '
+            'someone else made of the character is not their oath.')
 
 
 def oaths(answer: str) -> list[dict]:

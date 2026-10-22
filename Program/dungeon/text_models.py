@@ -41,6 +41,9 @@ JOBS = [
     {'key': 'continuity', 'name': 'Continuity', 'detail': 'After each turn, lists the new facts the narrator brought '
      'in for the record, and now and then folds older turns into the story so far. Facts are only kept when you choose '
      'a profile here; the story so far uses the Default without one. A small, fast model is plenty.'},
+    {'key': 'director', 'name': 'Director', 'detail': 'Drafts the next beats of each story arc as it moves a stage, and '
+     'gives a meaning to a detail you took an interest in. Off unless you choose a profile here: without one, beats '
+     'come from the world\'s own arcs and code ties the detail to a thread.'},
     {'key': 'recall', 'name': 'Semantic recall', 'detail': 'Embeddings that find related parts of the story, from a '
      'recall profile (Settings > Models > Recall) or built-in recall when it is on. Without either, recall matches '
      'keywords only.'},

@@ -4,10 +4,11 @@ everything, secrets included"; docs/story.md "The GM view").
 With the workspace setting `gm_view` on, the player sees what the game keeps behind the story: every quest with
 its hidden truth, how everyone met feels and why, the director's arcs at their stages with their truths, its threads
 and nemeses, the factions' standing, the dark tracks' points, and the log of every correction made to the record.
-They can set a person's feelings and a faction's standing by hand. The record itself is edited from the journal
+They can set a person's feelings and a faction's standing by hand, and plan with the director (dungeon/plotting.py):
+the Chekhov list of seeds, to cash one in or retire it, and each arc's planned beats, to cut and reorder. The record itself is edited from the journal
 (dungeon/record.py), which shows hidden truth too while the GM view is on.
 """
-from dungeon import director, feelings, growth, quests, record
+from dungeon import director, feelings, growth, plotting, quests, record
 from dungeon.database import decode, many, optional
 from dungeon.errors import require
 
@@ -47,7 +48,7 @@ def view(connection, world: str | None) -> dict:
         'factions': many(connection, 'SELECT faction_id, value FROM story_reputation ORDER BY faction_id'),
         'dark': growth.view(connection, True)['dark'],
         'corrections': corrections(connection),
-    }
+    } | plotting.view(connection)
 
 
 def set_feelings(connection, key: str, values: dict[str, int]):
