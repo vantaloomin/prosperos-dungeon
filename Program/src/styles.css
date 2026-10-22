@@ -131,6 +131,12 @@ textarea { resize: vertical; line-height: 1.6; }
 .story-log { flex: 1; overflow-y: auto; max-width: 760px; width: 100%; margin: 0 auto; padding: 20px 32px; }
 .story-narration { font-family: var(--read-font); font-size: 1.0625rem; line-height: 1.75; margin-bottom: 20px; overflow-wrap: anywhere; }
 .story-narration p { white-space: pre-wrap; margin-bottom: 1em; }
+.story-flagged { margin: 0 -8px 1em; padding: 4px 8px; border-radius: 6px; background: var(--accent-tint); }
+.story-flagged p { margin-bottom: 0.25em; }
+.story-flag { display: flex; align-items: center; justify-content: flex-start; gap: 6px; font-family: var(--ui-font, inherit); font-size: 0.8125rem; }
+.story-flag svg, .story-rewrite svg { width: 14px; height: 14px; }
+.story-rewrite { display: flex; flex-direction: column; gap: 8px; margin: -8px 0 20px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; }
+.story-rewrite label { display: flex; flex-direction: column; gap: 4px; }
 .story-user { margin: 0 0 20px auto; max-width: 85%; padding: 10px 14px; border-radius: 12px; background: var(--accent-tint); white-space: pre-wrap; overflow-wrap: anywhere; width: fit-content; }
 .story-turn { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; margin: -12px 0 20px; }
 .story-rolls { list-style: none; margin: 0; padding: 0; max-width: 85%; width: fit-content; font-size: 0.8125rem; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }

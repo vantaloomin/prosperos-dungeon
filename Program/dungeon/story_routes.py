@@ -56,6 +56,25 @@ async def retry(request: Request, background: BackgroundTasks):
     return result
 
 
+class StoryRewrite(Input):
+    passage: str = Field(min_length=1, max_length=20000)
+    note: str = Field('', max_length=300)
+
+
+@router.post('/messages/{message_id}/rewrite')
+async def rewrite(request: Request, message_id: str, body: StoryRewrite, background: BackgroundTasks):
+    result = await story.rewritten(request.app.state, message_id, body.passage, body.note)
+    background.add_task(story.settled, request.app.state)
+    return result
+
+
+@router.post('/messages/{message_id}/switch')
+async def switch_wording(request: Request, message_id: str, background: BackgroundTasks):
+    result = await story.switched(request.app.state, message_id)
+    background.add_task(story.settled, request.app.state)
+    return result
+
+
 def streamed(state, start) -> StreamingResponse:
     """A turn as newline-delimited JSON: {"text": piece} as the narration is written, then {"done": result} once
     the reply is saved (or {"error": message, "status": n}). Fact extraction runs after "done" (dungeon/pace.py)."""

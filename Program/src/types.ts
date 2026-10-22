@@ -203,7 +203,12 @@ export interface StoryMessage {
   rolls?: StoryRoll[]
   /** How long the turn took, step by step, and what gave way for time (dungeon/pace.py); with the dice shown. */
   pace?: TurnPace | null
+  /** A narration's paragraphs with a problem the checks left, each with why, and whether it was rewritten and can
+   *  switch back (dungeon/passages.py). */
+  flags?: StoryFlag[]
+  previous?: boolean
 }
+export interface StoryFlag { passage: string; why: string[] }
 export interface TurnPace { steps: Record<string, number>; skipped: string[]; budget: number; total: number }
 export type Band = 'critical_failure' | 'failure' | 'failure_upside' | 'success_cost' | 'success' | 'critical_success'
 /** One MARVEL roll (dungeon/rules/marvel.py): d100 plus the stat die, less the difficulty shift. */
