@@ -323,6 +323,98 @@ def fivee_fight(play):
     play.say(draft)
 
 
+def fivee_caster(play):
+    """M4: a 5E wizard: cantrips and prepared spells, slots spent and failing when gone, spell attacks in a fight,
+    XP for a won fight, and a long rest giving the slots back."""
+    srd = play.dungeon.call('GET', '/api/story/start').get('srd52') or {}
+    background = next((item for item in srd.get('backgrounds') or [] if item['id'] == 'sage'),
+                      (srd.get('backgrounds') or [{}])[0])
+    wizard = next(item for item in srd.get('classes') or [] if item['id'] == 'wizard')
+    ids = {skill['name']: skill['id'] for skill in srd.get('skills') or []}
+    picks = [ids.get(name, name) for name in wizard['skills']['from'] if name not in (background.get('skills') or [])]
+    play.start(persona={'name': 'Oriel Fenn', 'gender': 'man', 'age': 34,
+                        'about': 'A hedge scholar from Eriane who reads ley lines for the Guild and lies about it.'},
+               ruleset='srd52', build={'class_id': 'wizard', 'species_id': 'human', 'background_id': background['id'],
+                                       'scores': {'int': 15, 'con': 14, 'dex': 13, 'wis': 12, 'cha': 10, 'str': 8},
+                                       'skills': picks[:wizard['skills']['count']]})
+    sheet = play.sheet()
+    spells = sheet.get('spells') or {}
+
+    def spoken(spell_id: str) -> str:
+        return spell_id.replace('-', ' ').title()
+
+    cantrips = [spoken(spell) for spell in spells.get('cantrips') or []]
+    levelled = [spoken(spell) for spell in spells.get('prepared') or []]
+    play.write(f"- cantrips {cantrips}; prepared {levelled}; slots {spells.get('slots')}\n")
+    if not cantrips:
+        play.flag('The wizard has no cantrips on the sheet.')
+        return
+    cantrip = next((name for name in cantrips if name == 'Fire Bolt'), cantrips[0])
+    play.say(f'I cast {cantrip} at the empty bottle on the fence post outside.', {'roll': True})
+    # Two first-level slots: the third cast should fail for want of one.
+    for _ in range(3):
+        if levelled:
+            play.say(f'I cast {levelled[0]} at the scarecrow in the stump field.')
+    names = [cantrip]
+    play.sheet()
+    play.move('the-heartwood')
+    for line in ('I walk into the Heartwood, reading the ley in the bark.', 'I go deeper toward the hum.',
+                 'I keep going, slow, a spell ready.', 'I press on.'):
+        view = play.say(line)
+        if view and (view.get('fight') or {}).get('fight'):
+            break
+    for _ in range(5):
+        view = play.say(f'I cast {names[0]} at the nearest one.')
+        fight = (view or {}).get('fight') or {}
+        if not fight.get('fight') or fight.get('dead'):
+            break
+    play.sheet()
+    play.move('the-wayhouse')
+    play.say('I sleep the night at the Wayhouse.')
+    play.sheet()
+
+
+def ironsworn(play):
+    """M4: an Ironsworn character (3, 2, 2, 1, 1 and three assets): moves read from the words, the action roll with
+    momentum, a fight with a thug on health and harm, a day's travel, the Heartwood contract as a vow, and rest."""
+    choices = play.dungeon.call('GET', '/api/story/start').get('ironsworn') or {}
+    stats = [stat['id'] for stat in choices.get('stats') or []]
+    assets = choices.get('assets') or []
+    if len(stats) != 5 or len(assets) < 3:
+        play.flag(f'Ironsworn choices look wrong: stats {stats}, {len(assets)} assets.')
+        return
+    placed = dict(zip(('iron', 'edge', 'wits', 'heart', 'shadow'), choices.get('array') or [3, 2, 2, 1, 1]))
+    by_category = {}
+    for asset in assets:
+        by_category.setdefault(asset['category'], asset['id'])
+    picks = list(by_category.values())[:choices.get('count') or 3]
+    play.start(persona={'name': 'Hald Brenner', 'gender': 'man', 'age': 41,
+                        'about': 'A sworn sword out of Bastion who keeps his oaths and little else.'},
+               ruleset='ironsworn', ironsworn={'stats': placed, 'assets': picks})
+    play.sheet()
+    play.say('I ask the keeper who in Kingswood needs a sword they can trust.')
+    play.say('I search the notice post on the green for anything about the Heartwood.')
+    play.say('I talk the factor round to telling me the truth about the double wages.', {'roll': True})
+    play.say('I swear an iron vow to see the Heartwood contract through, whatever it costs, and I mean it.')
+    play.move('the-sawpit')
+    play.say('I pick out the loudest thug in the room.')
+    play.say('I shove him off his stool and hit him.', {'fight': True})
+    for line in ('I hit him again.', 'I keep at him.', 'I finish it.', 'I fight on.'):
+        view = play.say(line)
+        if not ((view or {}).get('fight') or {}).get('fight'):
+            break
+    play.sheet()
+    if (play.story().get('fight') or {}).get('dead'):
+        # Dead in a bar brawl: go back to before the fight so the rest of the scenario can play.
+        play.back(next(n for n, line in enumerate(reversed(play.lines()), 1) if 'shove him' in line['text']))
+    play.say('I set out for Convila along the forest road.')
+    play.sheet()
+    play.say('I make camp outside the walls for the night and keep a watch.')
+    play.sheet()
+    play.journal()
+
+
 SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl, 'road': road,
              'director': director, 'chapters': chapters, 'ironman': ironman, 'gm_view': gm_view, 'memory': memory,
-             'legacy': legacy, 'fivee_checks': fivee_checks, 'fivee_fight': fivee_fight}
+             'legacy': legacy, 'fivee_checks': fivee_checks, 'fivee_fight': fivee_fight,
+             'fivee_caster': fivee_caster, 'ironsworn': ironsworn}

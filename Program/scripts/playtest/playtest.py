@@ -199,10 +199,20 @@ class Play:
                    f"around: {', '.join(label(p) for p in scene.get('around') or [])}")
         for card in self.cards(user.get('id')):
             self.write(f'- {card[0]}: {card[1]}')
+        for line in self.rounds(user.get('id')):
+            self.write(f'- round: {line}')
         flags = next((m for m in reversed(view['messages']) if m['role'] == 'narrator'), {}).get('flags')
         if flags:
             self.write(f'- flagged passages: {json.dumps(flags, ensure_ascii=False)}')
         self.write()
+
+    def rounds(self, message_id) -> list[str]:
+        """The fight round kept with the line, if one was fought (a fight can start and end on the same line)."""
+        if not message_id:
+            return []
+        with self.dungeon.database() as connection:
+            row = connection.execute('SELECT lines FROM story_rounds WHERE message_id=?', (message_id,)).fetchone()
+        return json.loads(row[0]) if row else []
 
     def cards(self, message_id):
         """The hidden things kept with the line: the director's note, beats, Life Cards (story_cards)."""
@@ -223,7 +233,7 @@ class Play:
             self.flag(f'Expected a roll for "{text}" and none was made.')
         if expect.get('no_roll') and user.get('rolls'):
             self.flag(f'Expected no roll for "{text}", got {len(user["rolls"])}.')
-        if expect.get('fight') and not (view.get('fight') or {}).get('fight'):
+        if expect.get('fight') and not (view.get('fight') or {}).get('fight') and not self.rounds(user.get('id')):
             self.flag(f'Expected a fight after "{text}" and none is on.')
         if expect.get('place') and view['scene']['place']['id'] != expect['place']:
             self.flag(f"Expected to be at {expect['place']}, at {view['scene']['place']['id']}.")
@@ -264,7 +274,7 @@ class Play:
 
     def sheet(self):
         sheet = self.dungeon.call('GET', '/api/story/sheet')
-        self.write(f"- sheet: {json.dumps(sheet, ensure_ascii=False)[:600]}\n")
+        self.write(f"- sheet: {json.dumps(sheet, ensure_ascii=False)[:2000]}\n")
         return sheet
 
     def people(self):
