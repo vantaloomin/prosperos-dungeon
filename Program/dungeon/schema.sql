@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS workspace_settings (
   turn_budget INTEGER NOT NULL DEFAULT 0 CHECK (turn_budget IN (0, 15, 30, 60, 90, 120, 180)),
   -- How eventful the story is (dungeon/happenings.py): the world's own level, or one the player chose.
   drama TEXT NOT NULL DEFAULT 'world' CHECK (drama IN ('world', 'quiet', 'uneasy', 'eventful', 'merciless')),
+  cutaways INTEGER NOT NULL DEFAULT 0,
   -- Injury persistence (dungeon/injuries.py): lasting injuries stay, fade, or never happen.
   injury_persistence TEXT NOT NULL DEFAULT 'permanent' CHECK (injury_persistence IN ('permanent', 'temporary', 'none')),
   -- The first-run notice: the story is AI written, and the user is 18 or older.
@@ -370,6 +371,37 @@ CREATE TABLE IF NOT EXISTS story_cards (
   card_id TEXT,
   lines TEXT NOT NULL,
   PRIMARY KEY (message_id, scene)
+);
+
+-- Off-page beats (dungeon/beats.py): what has become of the people the character is connected to, each beat that
+-- happened, the word of it still travelling to the character, and when the off-page clock last looked.
+CREATE TABLE IF NOT EXISTS story_fates (
+  key TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  state TEXT NOT NULL,
+  since TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS story_beats (
+  message_id TEXT NOT NULL,
+  key TEXT NOT NULL,
+  card_id TEXT NOT NULL,
+  at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS story_word (
+  about TEXT NOT NULL,
+  text TEXT NOT NULL,
+  truth TEXT NOT NULL,
+  heard_at TEXT NOT NULL,
+  told INTEGER NOT NULL DEFAULT 0,
+  message_id TEXT
+);
+
+CREATE TABLE IF NOT EXISTS story_offpage (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  checked_at TEXT,
+  quiet INTEGER NOT NULL DEFAULT 0
 );
 
 -- The factions' progress clocks (dungeon/factions.py): how far each has run, when it filled, and whether the news

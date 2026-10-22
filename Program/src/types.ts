@@ -255,6 +255,8 @@ export interface StoryIntensity {
   preset: Exclude<IntensityPreset, 'world'>; chosen: IntensityPreset; world: Exclude<IntensityPreset, 'world'>; voice: string
   /** How eventful the story is (dungeon/happenings.py): the level in play, the player's choice, the world's own. */
   drama: Exclude<DramaLevel, 'world'>; drama_chosen: DramaLevel; drama_world: Exclude<DramaLevel, 'world'>
+  /** "Meanwhile" cutaways of off-page beats (dungeon/beats.py). */
+  cutaways?: boolean
 }
 export type DramaLevel = 'world' | 'quiet' | 'uneasy' | 'eventful' | 'merciless'
 export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null; injury_persistence: InjuryPersistence; factions?: StoryFaction[] }

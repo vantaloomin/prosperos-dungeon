@@ -354,6 +354,30 @@ own text (`kind` job or oath, with `title`, `hook`, `truth`, `missed`), and for 
   character made. Each becomes an Oath quest to the one it was sworn to, due in the days it gives (7 if it gives
   none). Broken or let lapse, it costs that person two points of trust and one of respect, and the record keeps it.
 
+## Off-page beats and word getting around
+
+`dungeon/beats.py`. The people the character is connected to keep living while the character is elsewhere: anyone
+they have met more than once, or who feels strongly about them (a feeling at 2 or more either way), who is not in
+the scene and is not dead.
+
+- **When.** Each story day passed since the last look may bring a beat (the world deck's `beat` scene, at the drama
+  level), up to three a line; with no day passed, the third quiet line in a row brings one for sure, so a long
+  scene does not freeze the world. `beats.fire` takes a `pressure` (a person's key) for the story director to say
+  who the next beat lands on.
+- **What it does.** Code plays the card on `{them}`: the record keeps its truth as the world's (a death as the
+  world's death), feelings move, a faction's standing moves, and a fate sticks (`story_fates`: wounded, sick,
+  captured, dead, turned, missing, …). The dead, captured, missing and conscripted are gone from town: the
+  townsfolk rules leave them out until something changes it. A captive draws only cards a captive can (an escape).
+  The narrator gets "## Off the page" with everyone not as the character last saw them, kept from the character.
+- **Word gets around.** What the character would hear (the card's `seen`, as wrong as the card says) travels a day
+  (`story_word`) and reaches them on their next line in a town: "Word reaches the character: …" goes to the
+  narrator, and into the journal as belief when it is not the whole truth.
+- **Cutaways.** "Meanwhile cutaways" in the side panel (`workspace_settings.cutaways`, off by default) gives the
+  narrator "## Meanwhile" with the beat as it happens, to show the player apart from the scene.
+
+Fates, beats, word and the off-page clock are game state (`timeline.SAVED`); each line's beats are kept with it
+(`story_cards` scene `beat`), so telling the line again brings the same ones.
+
 ## Rewrite
 
 `dungeon/passages.py`. The automatic rewrites still run when there is time; whatever the checks find and do not
