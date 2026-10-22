@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Request
 
 from dungeon import lore
-from dungeon.models import LoreFile, LoreSwitch
+from dungeon.models import LoreFile, LoreSwitch, LoreWhen
 
 router = APIRouter(prefix='/api')
 
@@ -35,3 +35,8 @@ def delete_book(request: Request, book_id: str):
 @router.put('/lore/entries/{entry_id}')
 def switch_entry(request: Request, entry_id: str, body: LoreSwitch):
     return lore.set_entry(db(request), entry_id, body.enabled)
+
+
+@router.put('/lore/entries/{entry_id}/when')
+def entry_when(request: Request, entry_id: str, body: LoreWhen):
+    return lore.set_when(db(request), entry_id, body.when)

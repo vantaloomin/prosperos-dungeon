@@ -54,6 +54,11 @@ class LoreSwitch(Input):
     enabled: bool
 
 
+class LoreWhen(Input):
+    """When a lore entry applies besides its keywords (dungeon/lore_moments.py): conditions such as "weather:rain"."""
+    when: list[Annotated[str, Field(max_length=160)]] = Field(max_length=40)
+
+
 class PromptUpdate(Input):
     text: str = Field(min_length=1, max_length=20000)
 

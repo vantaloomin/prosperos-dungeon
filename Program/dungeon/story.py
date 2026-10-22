@@ -28,6 +28,7 @@ from dungeon import (
     injuries,
     inventory,
     jobs,
+    lore,
     pace,
     passages,
     plotting,
@@ -685,6 +686,9 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
                       *(row['text'] for row in rows[-2:])])
     place_text = scene_text(view) + (f"\n\n{inventory.shop_prompt(shop, view['data']['currency'])}" if shop else '')
     window = remembering.room(connection, config)
+    # Lorebook entries switched on: always-on ones, those named lately and those that fit the moment (dungeon/lore.py).
+    lore_text = lore.prompt_text(connection, view['data'], view['place']['id'], local_moment(view['data'], now),
+                                 [row['text'] for row in rows], name or '')
     # The summary gives way first, then the record's facts, so the recent turns keep at least half the window.
     for summary_kept, facts in ((True, record.IN_PROMPT), (False, record.IN_PROMPT), (False, record.IN_PROMPT // 4)):
         memory = '\n\n'.join(part for part in (summary_kept and record.summary_text(connection),
@@ -692,7 +696,7 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
                                                  quests.prompt_text(connection, now), beats.prompt_text(connection),
                                                  found and factions.prompt_text(connection, found['world'],
                                                                                 found['node']),
-                                                 found and tiers.prompt_text(connection, found))
+                                                 found and tiers.prompt_text(connection, found), lore_text)
                              if part)
         system = narration_prompt.system(prompt_library.text(connection, 'story-narrator'), craft, scene=place_text,
                                          persona=who_text, persona_name=name, memory=memory, narration=NARRATION,
