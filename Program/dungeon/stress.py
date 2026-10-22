@@ -16,7 +16,6 @@ import random
 
 from dungeon import injuries, sheet
 from dungeon.database import optional
-from dungeon.rules import marvel
 
 TOP = 12
 THRESHOLDS = (4, 8, 12)
@@ -56,8 +55,7 @@ def add(connection, event: str, who: str, now, rng=None, logged: str = '', amoun
     """The stress an event costs (or `amount`, for `cause`), after the character's Resolve; and the conditions it
     leaves past a threshold."""
     rng = rng or random.SystemRandom()
-    resolve = sheet.stats(connection)['Resolve']
-    band = marvel.roll(resolve, 'normal', rng)['band']
+    band = sheet.check(connection, 'Resolve', 'normal', rng=rng, save=True)['band']
     share, extra = RESISTED[band]
     taken = int((COST[event] if amount is None else amount) * share) + extra
     cause = cause or CAUSE[event].format(who=who)

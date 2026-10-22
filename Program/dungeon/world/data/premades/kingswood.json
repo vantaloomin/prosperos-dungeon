@@ -13,6 +13,11 @@
         "Vitality": 16,
         "Essence": 4,
         "Luck": 12
+      },
+      "srd52": {
+        "class": "fighter",
+        "species": "human",
+        "background": "soldier"
       }
     },
     {
@@ -28,6 +33,11 @@
         "Vitality": 8,
         "Essence": 11,
         "Luck": 12
+      },
+      "srd52": {
+        "class": "rogue",
+        "species": "elf",
+        "background": "criminal"
       }
     },
     {
@@ -43,6 +53,11 @@
         "Vitality": 6,
         "Essence": 7,
         "Luck": 12
+      },
+      "srd52": {
+        "class": "bard",
+        "species": "human",
+        "background": "sage"
       }
     }
   ]

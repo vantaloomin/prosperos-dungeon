@@ -270,7 +270,7 @@ def play_round(connection, state: dict, rolls: list[dict], items: list[dict], rn
 def defeat(connection, state: dict, rng, now: str) -> tuple[str, str]:
     """The character went down: cling on with Vitality, then what the winners do with them."""
     rng = rng or random.SystemRandom()
-    clung = marvel.roll(sheet.stats(connection).get('Vitality', 10), 'hard', rng)['band'] in SUCCESS
+    clung = sheet.check(connection, 'Vitality', 'hard', rng=rng, save=True)['band'] in SUCCESS
     table = [(outcome, weight) for outcome, weight in DEFEAT[state['wants']] if not (clung and outcome == 'death')]
     pick = rng.randint(1, sum(weight for _, weight in table))
     outcome = next(name for name, weight in _running(table) if pick <= weight)

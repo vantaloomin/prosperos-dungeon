@@ -55,7 +55,9 @@ from dungeon.narration import prompt as narration_prompt
 from dungeon.narration import prose
 from dungeon.providers.chat import INCOMPLETE
 from dungeon.providers.scheduling import CONVERSATION
-from dungeon.rules import marvel
+from dungeon.rules import marvel, srd52
+from dungeon.sheet import native as native_sheet
+from dungeon.sheet import ruleset as ruleset_of
 from dungeon.sheet import stats as sheet_stats
 from dungeon.text_models import config_for, default_name, key_for
 from dungeon.world import catalog, changes, custom, generators, inside, life_details, townsfolk
@@ -296,7 +298,10 @@ def persona_text(connection) -> tuple[str, str | None]:
     lines = [f"{row['name']}" + (f' ({details})' if details else '') + '.']
     if row['about']:
         lines.append(row['about'].strip())
-    stats = sheet_stats(connection)
+    native = native_sheet(connection) if ruleset_of(connection) == srd52.ID else None
+    if native:
+        lines.append(srd52.described(native))
+    stats = {} if native else sheet_stats(connection)
     if strong := [marvel.MEANINGS[stat] for stat, value in stats.items() if value >= STRONG]:
         lines.append(f"Good at: {'; '.join(strong)}.")
     if weak := [marvel.MEANINGS[stat] for stat, value in stats.items() if value <= WEAK]:
@@ -403,7 +408,7 @@ def story(database) -> dict:
         view = scene(connection, story_clock.now(connection, database.clock))
         return {'scene': scene_view(view), 'messages': with_rolls(connection, messages(connection)),
                 'people': people(connection, view), 'ready': config_for(connection, JOB) is not None,
-                'dice_shown': dice_shown(connection), 'bands': turn.bands() if dice_shown(connection) else None,
+                'dice_shown': dice_shown(connection), 'bands': turn.bands(ruleset_of(connection)) if dice_shown(connection) else None,
                 'branches': timeline.branches(connection),
                 'campaign': chapters.view(connection),
                 'fight': combat.view(connection, dice_shown(connection)) | {
@@ -604,7 +609,7 @@ def clear(database) -> dict:
                       'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_beats', 'story_word',
                       'story_offpage', 'story_tier', 'story_marks', 'story_dark',
                       'story_director', 'story_arcs', 'story_threads', 'story_nemeses', 'story_seeds',
-                      'story_arc_beats'):
+                      'story_arc_beats', 'story_sheet'):
             connection.execute(f'DELETE FROM {table}')
         timeline.clear(connection)
         chapters.clear(connection)
@@ -1168,7 +1173,8 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
     if rolls:
         with database.connect() as connection:
             shown = dice_shown(connection)
-        await emit({'actions': turn.announced(rolls, shown)} | ({'bands': turn.bands()} if shown else {}))
+            ruleset = ruleset_of(connection)
+        await emit({'actions': turn.announced(rolls, shown)} | ({'bands': turn.bands(ruleset)} if shown else {}))
         for roll in rolls:
             await emit({'roll': turn.shown(roll) if shown else turn.hidden(roll)})
     travelled = travel_turn(state, user, rolls) if in_story else []
