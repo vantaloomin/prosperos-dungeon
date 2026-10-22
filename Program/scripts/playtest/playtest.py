@@ -104,7 +104,7 @@ def set_up(dungeon: Dungeon, account_dir: str, model: str, helper_model: str, ef
     who = dungeon.call('POST', f"/api/models/profiles/{narrator['id']}/check")
     jobs = {job['key'] for job in dungeon.call('GET', '/api/models')['jobs']}
     for job, profile in (('chat', narrator), ('story', narrator), ('referee', helper), ('continuity', helper),
-                         ('director', helper)):
+                         ('director', helper), ('importer', narrator)):
         if job in jobs:
             dungeon.call('PUT', '/api/models/routes', {'job': job, 'profile_id': profile['id']})
     return who.get('note', '')
@@ -132,6 +132,8 @@ class Play:
 
     def start(self, premade=None, persona=None, stats=None, **choices):
         body = {'premade_id': premade} if premade else {'persona': persona, 'stats': stats}
+        # The dice show, so the transcript has every roll (the Table keeps it per campaign).
+        choices['table'] = {'show_odds': True} | (choices.get('table') or {})
         self.dungeon.call('POST', '/api/story/start', body | choices)
         view = self.story()
         scene = view['scene']
