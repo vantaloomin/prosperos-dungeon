@@ -25,7 +25,7 @@ from dungeon import (
 from dungeon.database import one
 from dungeon.errors import require
 from dungeon.models import PersonaInput
-from dungeon.rules import marvel, srd52
+from dungeon.rules import ironsworn, marvel, srd52
 
 PREMADES = Path(__file__).parent / 'world' / 'data' / 'premades'
 # Point-buy at the start: the six stats share POINTS, each from START_RANGE, so the default sheet (all 10) fits.
@@ -50,7 +50,7 @@ def view(database) -> dict:
             'stat_names': list(marvel.STATS), 'meanings': marvel.MEANINGS,
             # The rulesets a campaign can be played in, the world's own first (dungeon/sheet.py).
             'rulesets': [{'id': key, 'name': name} for key, name in sheet.RULESETS.items()],
-            'ruleset': sheet.default_for(world), 'srd52': srd52_choices(),
+            'ruleset': sheet.default_for(world), 'srd52': srd52_choices(), 'ironsworn': ironsworn_choices(),
             'arc': world and {'arc': tiers.track(world)['arc'], 'pace': tiers.track(world)['pace'],
                               'hand': director.DEFAULT_HAND},
             # Session zero (dungeon/table.py): the presets, and the rules as a new campaign would start.
@@ -71,6 +71,29 @@ def srd52_choices() -> dict:
             'skills': [{'id': skill['id'], 'name': skill['name'], 'ability': skill['ability']}
                        for skill in srd52.pack('rules')['skills']],
             'array': list(srd52.STANDARD_ARRAY), 'attribution': srd52.attribution()}
+
+
+def ironsworn_choices() -> dict:
+    """What an Ironsworn character is built from: the five stats, the array, the pack's assets by category."""
+    return {'stats': [{'id': stat, 'name': stat, 'about': ironsworn.pack()['rules']['stats'][stat]['description']}
+                      for stat in ironsworn.STATS],
+            'array': list(ironsworn.ARRAY), 'count': ironsworn.ASSETS,
+            'assets': [{'id': key, 'name': asset['name'], 'category': asset['category'],
+                        'about': ironsworn.plain(next((ability['text'] for ability in asset['abilities']
+                                                       if ability.get('enabled')), ''))}
+                       for key, asset in ironsworn.assets().items()],
+            'attribution': ironsworn.attribution()}
+
+
+# A premade's Ironsworn stat from its strongest MARVEL stat.
+IRONSWORN_BY_STAT = {'Vitality': 'iron', 'Mind': 'wits', 'Allure': 'heart', 'Resolve': 'heart', 'Essence': 'wits',
+                     'Luck': 'edge'}
+
+
+def premade_ironsworn(chosen: dict) -> dict:
+    top = max(marvel.STATS, key=lambda stat: chosen['stats'].get(stat, 0))
+    quick = ironsworn.suggested(IRONSWORN_BY_STAT[top])
+    return ironsworn.build(quick['stats'], quick['assets'])
 
 
 def premade_build(chosen: dict) -> dict:
@@ -97,7 +120,8 @@ def bought(stats: dict[str, int]) -> dict[str, int]:
 def begin(database, premade_id: str | None = None, persona: PersonaInput | None = None,
           stats: dict[str, int] | None = None, arc: str | None = None, pace: str | None = None,
           hand: str | None = None, ironman: bool = False, legacy_of: dict | None = None,
-          ruleset: str | None = None, build: dict | None = None, rules: dict | None = None) -> dict:
+          ruleset: str | None = None, build: dict | None = None, iron: dict | None = None,
+          rules: dict | None = None) -> dict:
     """Start the story as a premade character or one the player made; only a story with nothing in it yet. The
     ruleset (the world's own by default) is chosen now and locked; under 5E a made character is `build` (class,
     species, background, the standard array placed, the class's skills). `rules` are session zero's (dungeon/table.py)."""
@@ -114,13 +138,18 @@ def begin(database, premade_id: str | None = None, persona: PersonaInput | None 
         require(chosen is not None, 'That character is not in this town.', 404)
         persona = PersonaInput(name=chosen['name'], gender=chosen['gender'], age=chosen['age'], about=chosen['about'])
         stats = chosen['stats']
-        native = premade_build(chosen) if ruleset == srd52.ID else None
+        native = premade_build(chosen) if ruleset == srd52.ID else premade_ironsworn(chosen) \
+            if ruleset == ironsworn.ID else None
     else:
         require(persona is not None and bool((persona.name or '').strip()), 'Give your character a name.', 422)
         if ruleset == srd52.ID:
             require(build is not None, 'Choose a class, species and background, and place the standard array.', 422)
             native = srd52.build(build['class_id'], build['species_id'], build['background_id'], build['scores'],
                                  build['skills'])
+            stats = {stat: marvel.DEFAULT_STAT for stat in marvel.STATS}
+        elif ruleset == ironsworn.ID:
+            require(iron is not None, 'Place 3, 2, 2, 1 and 1 on the five stats and choose three assets.', 422)
+            native = ironsworn.build(iron['stats'], iron['assets'])
             stats = {stat: marvel.DEFAULT_STAT for stat in marvel.STATS}
         else:
             stats = bought(stats or {})

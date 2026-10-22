@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
-import type { PersonaGender, Ruleset, Srd52Choices, Story as StoryData, StoryIntensity, StoryStart as StartChoices } from '../../types'
+import type { IronswornChoices, PersonaGender, Ruleset, Srd52Choices, Story as StoryData, StoryIntensity, StoryStart as StartChoices } from '../../types'
 import { Field, TextArea, TextInput } from '../../components/Fields'
 import { Stepper } from '../../components/NumberFields'
 import { Loading, Notice } from '../../components/Feedback'
@@ -68,10 +68,12 @@ function MakeYourOwn({ choices, ruleset, busy, onBegin, onBack }: MakeProps) {
   const [about, setAbout] = useState('')
   const [stats, setStats] = useState(() => startingStats(choices))
   const [build, setBuild] = useState<Build | null>(null)
+  const [iron, setIron] = useState<IronBuild | null>(null)
   const years = age ? Number(age) : null
   const five = ruleset === 'srd52' && !!choices.srd52
-  const valid = !!name.trim() && (five ? !!build : pointsLeft(stats, choices.points) >= 0) && adultAge(years)
-  const submit = () => onBegin({ persona: { name: name.trim(), gender, age: years, about: about.trim() }, ...(five ? { build } : { stats }) }, name.trim())
+  const sworn = ruleset === 'ironsworn' && !!choices.ironsworn
+  const valid = !!name.trim() && builtFor(five ? build : sworn ? iron : true, pointsLeft(stats, choices.points)) && adultAge(years)
+  const submit = () => onBegin({ persona: { name: name.trim(), gender, age: years, about: about.trim() }, ...(five ? { build } : sworn ? { ironsworn: iron } : { stats }) }, name.trim())
   return (
     <form className="story-make" onSubmit={(event) => { event.preventDefault(); if (valid) submit() }}>
       <TextInput label="Name" value={name} onChange={setName} required maxLength={80} />
@@ -83,12 +85,69 @@ function MakeYourOwn({ choices, ruleset, busy, onBegin, onBack }: MakeProps) {
       <TextInput label="Age" type="number" value={age} onChange={setAge} min={18} max={120} />
       <TextArea label="About you" hint="Who they are, what they want, what they're running from. The narrator only knows what you write here."
         value={about} onChange={setAbout} rows={4} maxLength={2000} />
-      {five && choices.srd52 ? <Srd52Build choices={choices.srd52} onChange={setBuild} /> : <MarvelStats choices={choices} stats={stats} onChange={setStats} />}
+      <RulesBuild choices={choices} five={five} sworn={sworn} stats={stats} onStats={setStats} onBuild={setBuild} onIron={setIron} />
       <div className="form-actions">
         <button type="submit" className="button primary" disabled={busy || !valid}>Next: how it plays</button>
         {onBack && <button type="button" className="button" onClick={onBack}>Back</button>}
       </div>
     </form>
+  )
+}
+
+/** Whether the made character's sheet is ready: a 5E or Ironsworn build chosen, else MARVEL's points not overspent. */
+function builtFor(build: unknown, left: number): boolean {
+  return build === true ? left >= 0 : !!build
+}
+
+interface RulesBuildProps {
+  choices: StartChoices; five: boolean; sworn: boolean; stats: Record<string, number>
+  onStats: (stats: Record<string, number>) => void; onBuild: (build: Build | null) => void; onIron: (build: IronBuild | null) => void
+}
+
+/** The character's sheet in the campaign's ruleset. */
+function RulesBuild({ choices, five, sworn, stats, onStats, onBuild, onIron }: RulesBuildProps) {
+  if (five && choices.srd52) return <Srd52Build choices={choices.srd52} onChange={onBuild} />
+  if (sworn && choices.ironsworn) return <IronswornBuild choices={choices.ironsworn} onChange={onIron} />
+  return <MarvelStats choices={choices} stats={stats} onChange={onStats} />
+}
+
+type IronBuild = { stats: Record<string, number>; assets: string[] }
+
+/** An Ironsworn character (dungeon/rules/ironsworn.py build): 3, 2, 2, 1 and 1 on the five stats, three assets. */
+function IronswornBuild({ choices, onChange }: { choices: IronswornChoices; onChange: (build: IronBuild | null) => void }) {
+  const [stats, setStats] = useState<Record<string, number>>(() => Object.fromEntries(choices.stats.map((stat, index) => [stat.id, choices.array[index]])))
+  const [picks, setPicks] = useState<string[]>([])
+  const report = (next: IronBuild) => onChange(arrayPlaced(next.stats, choices.array) && next.assets.length === choices.count ? next : null)
+  const place = (stat: string, value: number) => { const next = { ...stats, [stat]: value }; setStats(next); report({ stats: next, assets: picks }) }
+  const toggle = (asset: string) => {
+    const next = picks.includes(asset) ? picks.filter((item) => item !== asset) : [...picks, asset].slice(-choices.count)
+    setPicks(next)
+    report({ stats, assets: next })
+  }
+  const categories = [...new Set(choices.assets.map((asset) => asset.category))]
+  return (
+    <fieldset className="story-build">
+      <legend>Your Ironsworn character</legend>
+      <p className="subtle">Place 3, 2, 2, 1 and 1, one on each stat.</p>
+      <div className="story-abilities">
+        {choices.stats.map((stat) => <label key={stat.id} className="field" title={stat.about}>{stat.name}
+          <select value={stats[stat.id]} onChange={(event) => place(stat.id, Number(event.target.value))}>
+            {[...new Set(choices.array)].map((value) => <option key={value} value={value}>{value}</option>)}
+          </select>
+        </label>)}
+      </div>
+      {!arrayPlaced(stats, choices.array) && <p className="story-points over">Use 3 once, 2 twice and 1 twice.</p>}
+      <p className="subtle">Choose {choices.count} assets ({picks.length} chosen).</p>
+      {categories.map((category) => <details key={category}>
+        <summary>{category}</summary>
+        <div className="story-skills">
+          {choices.assets.filter((asset) => asset.category === category).map((asset) => <label key={asset.id} className="checkbox" title={asset.about}>
+            <input type="checkbox" checked={picks.includes(asset.id)} onChange={() => toggle(asset.id)} />{asset.name}
+          </label>)}
+        </div>
+      </details>)}
+      <p className="subtle story-attribution">{choices.attribution}</p>
+    </fieldset>
   )
 }
 

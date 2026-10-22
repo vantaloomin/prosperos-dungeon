@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, threadKind } from '../../src/features/story/storyText.ts'
+import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, challengeDice, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, threadKind } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -253,4 +253,12 @@ test('xpLine and spellLine read a 5E character\'s level and spells', () => {
   assert.equal(xpLine(20, 400000, null), 'Level 20 · 400000 XP, the highest level')
   assert.equal(spellLine({ ability: 'Intelligence', attack: 5, dc: 13, cantrips: [], prepared: [], slots: [{ level: 1, left: 1, of: 2 }, { level: 2, left: 3, of: 3 }] }),
     'Intelligence: spell attack +5 · save DC 13 · slots: 1st 1 of 2, 2nd 3 of 3')
+})
+
+test('an Ironsworn roll reads its move and lands an action die and two challenge dice', () => {
+  const roll = { action: 'I climb', stat: 'Vitality', difficulty: 'normal', die: 6, natural: 4, bonus: 3, shift: 0, total: 7, band: 'success', label: 'Success', ruleset: 'ironsworn', target: null, skill: 'Face Danger +iron vs 5 and 6' } as const
+  assert.equal(rollWhat(roll), 'Face Danger +iron')
+  assert.equal(rollText(roll), 'Face Danger +iron vs 5 and 6: 4 + 3 = 7, Success')
+  assert.deepEqual(challengeDice(roll.skill), [5, 6])
+  assert.deepEqual(diceFaces(roll).map((face) => [face.sides, face.value]), [[6, '4'], [10, '5'], [10, '6']])
 })
