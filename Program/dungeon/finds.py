@@ -2,7 +2,7 @@
 
 When the player looks into something the story hasn't settled (a chest, a drawer, a crate, a body, a stranger's
 purse, a room), code rolls what is there from the town's tables (world/data/finds/<city>.json) and stores it before
-the narrator writes a word: in story_finds, and in the ledger as a fact. The narrator is told what is there and
+the narrator writes a word: in story_finds, and in the record as a fact. The narrator is told what is there and
 describes only that. The same thing looked into again holds the same contents, so a trap or a coin was there
 before anyone looked.
 
@@ -17,7 +17,7 @@ import random
 import re
 from pathlib import Path
 
-from dungeon import inventory, ledger
+from dungeon import inventory, record
 from dungeon.database import decode, encode, many, optional
 
 FINDS = Path(__file__).parent / 'world' / 'data' / 'finds'
@@ -112,7 +112,7 @@ def look(connection, city: dict, place: dict, text: str, rolls: list[dict], rng,
         return [f"Inside {where} is {what}, but the player's character misses it this time: they find nothing."]
     if not row['seen']:
         connection.execute('UPDATE story_finds SET seen=1 WHERE key=?', (key,))
-        ledger.record(connection, 'fact', where, f'Inside: {what}.', now)
+        record.add(connection, 'fact', where, f'Inside: {what}.', now)
     return [f'Inside {where}: {what}. Describe only this; there is nothing else in it.']
 
 
@@ -134,7 +134,7 @@ def take(connection, city: dict, place: dict, text: str, now: str) -> list[str]:
             connection.execute('UPDATE story_finds SET contents=? WHERE key=?', (encode(kept), row['key']))
             lines.append(f"The player's character takes {'; '.join(moved)} from the {row['word']}; it is in their "
                          'pack or purse now.')
-            ledger.record(connection, 'item', "the player's character", f"Took {'; '.join(moved)} from the "
+            record.add(connection, 'item', "the player's character", f"Took {'; '.join(moved)} from the "
                           f"{row['word']} at {place['name']}.", now)
     return lines
 

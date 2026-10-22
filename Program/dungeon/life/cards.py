@@ -12,7 +12,7 @@ written up in docs/life-cards.md.
 - **Intensity** filters what can happen: a card that needs violence at Mature is left out below Mature. Topics on
   the player's **veil** list stay in play; the draw says so, and the narrator fades them to black.
 - A card keeps the hidden **truth** apart from what the character **sees**, and says how accurate that is, so the
-  journal records belief and the ledger records fact.
+  journal records belief and the record records fact.
 - **Effects** are what code applies (prices, feelings, fates, rumors, fights). Nothing here applies them yet: the
   Milestone 2 systems read them.
 

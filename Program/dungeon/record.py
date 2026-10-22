@@ -1,10 +1,10 @@
-"""The canon ledger and the story so far (docs/story.md "The ledger"; requirements "Memory and context").
+"""The record and the story so far (docs/story.md "The record"; requirements "Memory and context").
 
-The ledger is the source of truth: facts as structured entries (deaths, items, wounds, promises, locations,
+The record is the source of truth: facts as structured entries (deaths, items, wounds, promises, locations,
 secrets, relationships, other facts), each marked as world truth, the character's belief, or both. Code records
 the facts it decides; after each narration the Continuity model, when one is chosen for that job, lists the new
-facts the narrator brought in, and code keeps those that do not contradict the ledger. The narrator is given the
-ledger every turn and never contradicts it.
+facts the narrator brought in, and code keeps those that do not contradict the record. The narrator is given the
+record every turn and never contradicts it.
 
 The player sees and corrects what their character knows (truth 'belief' or 'both'); every correction is logged.
 Hidden truth ('world') stays out of their view.
@@ -52,16 +52,16 @@ plain prose, at most {SUMMARY_WORDS} words. Keep everything that still matters; 
 with the summary only."""
 
 
-# The ledger --------------------------------------------------------------------------------------
+# The record --------------------------------------------------------------------------------------
 
 def dead(connection) -> set[str]:
-    return {row['subject'].lower() for row in many(connection, "SELECT subject FROM ledger_entries WHERE kind='death' "
+    return {row['subject'].lower() for row in many(connection, "SELECT subject FROM record_entries WHERE kind='death' "
                                                                 'AND removed=0')}
 
 
-def record(connection, kind: str, subject: str, text: str, now: str, source: str = 'code', truth: str = 'both',
+def add(connection, kind: str, subject: str, text: str, now: str, source: str = 'code', truth: str = 'both',
            message_id: str | None = None) -> dict | None:
-    """A new entry, or None when the narrator's fact contradicts the ledger (the dead do nothing more)."""
+    """A new entry, or None when the narrator's fact contradicts the record (the dead do nothing more)."""
     require(kind in KINDS, f'{kind} is not a kind of fact.', 422)
     require(truth in TRUTHS, f'{truth} is not a kind of truth.', 422)
     subject, text = subject.strip()[:120], text.strip()[:500]
@@ -69,35 +69,35 @@ def record(connection, kind: str, subject: str, text: str, now: str, source: str
     if source == 'narrator' and kind != 'death' and subject.lower() in dead(connection):
         return None
     entry_id = identifier()
-    connection.execute('INSERT INTO ledger_entries (id, kind, subject, text, truth, source, message_id, created_at) '
+    connection.execute('INSERT INTO record_entries (id, kind, subject, text, truth, source, message_id, created_at) '
                        'VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (entry_id, kind, subject, text, truth, source, message_id, now))
-    return one(connection, 'SELECT * FROM ledger_entries WHERE id=?', (entry_id,))
+    return one(connection, 'SELECT * FROM record_entries WHERE id=?', (entry_id,))
 
 
 def entries(connection, known_only: bool = True) -> list[dict]:
-    """The ledger, newest first; only what the character knows unless asked for everything."""
+    """The record, newest first; only what the character knows unless asked for everything."""
     hidden = "AND truth != 'world'" if known_only else ''
-    return many(connection, f'SELECT id, kind, subject, text, truth, source, created_at FROM ledger_entries '
+    return many(connection, f'SELECT id, kind, subject, text, truth, source, created_at FROM record_entries '
                             f'WHERE removed=0 {hidden} ORDER BY created_at DESC, rowid DESC')
 
 
 def correct(connection, entry_id: str, now: str, text: str | None = None) -> None:
     """The player changes (text) or removes (None) what their character knows; the change is logged."""
-    row = optional(connection, "SELECT * FROM ledger_entries WHERE id=? AND removed=0 AND truth != 'world'",
+    row = optional(connection, "SELECT * FROM record_entries WHERE id=? AND removed=0 AND truth != 'world'",
                    (entry_id,))
     require(row is not None, 'That fact is not in your journal.', 404)
     if text is None:
-        connection.execute('UPDATE ledger_entries SET removed=1 WHERE id=?', (entry_id,))
+        connection.execute('UPDATE record_entries SET removed=1 WHERE id=?', (entry_id,))
     else:
         require(bool(text.strip()), 'Write the fact, or remove it.', 422)
-        connection.execute("UPDATE ledger_entries SET text=?, source='player' WHERE id=?", (text.strip()[:500], entry_id))
-    connection.execute('INSERT INTO ledger_corrections (id, entry_id, before, after, created_at) VALUES (?, ?, ?, ?, ?)',
+        connection.execute("UPDATE record_entries SET text=?, source='player' WHERE id=?", (text.strip()[:500], entry_id))
+    connection.execute('INSERT INTO record_corrections (id, entry_id, before, after, created_at) VALUES (?, ?, ?, ?, ?)',
                        (identifier(), entry_id, row['text'], text, now))
 
 
 def prompt_text(connection) -> str:
-    """The ledger for the narrator: what is true, including what the player's character does not know."""
-    rows = many(connection, 'SELECT kind, subject, text, truth FROM ledger_entries WHERE removed=0 '
+    """The record for the narrator: what is true, including what the player's character does not know."""
+    rows = many(connection, 'SELECT kind, subject, text, truth FROM record_entries WHERE removed=0 '
                             "ORDER BY kind IN ('death', 'promise') DESC, created_at DESC, rowid DESC LIMIT ?",
                 (IN_PROMPT,))
     if not rows:
@@ -147,7 +147,7 @@ async def extract(state, user_text: str, reply: dict, ask: str = '') -> str:
     facts = checked(answer)
     with database.connect(write=True) as connection:
         for fact in facts or []:
-            record(connection, fact['kind'], fact['subject'], fact['text'], database.now(), 'narrator', fact['truth'],
+            add(connection, fact['kind'], fact['subject'], fact['text'], database.now(), 'narrator', fact['truth'],
                    reply['id'])
     return answer
 

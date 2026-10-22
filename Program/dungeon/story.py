@@ -19,10 +19,10 @@ from dungeon import (
     finds,
     in_character,
     inventory,
-    ledger,
     pace,
     prompt_library,
     quests,
+    record,
     referee,
     safety,
     story_clock,
@@ -446,11 +446,11 @@ def arrive(connection, now: str) -> dict:
 
 
 def clear(database) -> dict:
-    """A new story: the history, the people met and the ledger go, the scene stays where it is."""
+    """A new story: the history, the people met and the record go, the scene stays where it is."""
     with database.connect(write=True) as connection:
         connection.execute('DELETE FROM story_messages')
         connection.execute('DELETE FROM story_people')
-        for table in ('ledger_entries', 'ledger_corrections', 'story_summary', 'story_clock', 'story_quests',
+        for table in ('record_entries', 'record_corrections', 'story_summary', 'story_clock', 'story_quests',
                       'story_inventory', 'story_purse', 'story_stock', 'story_trades', 'story_wounds', 'story_fight',
                       'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
                       'story_rounds'):
@@ -497,7 +497,7 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
         if extra:
             who_text = f'{who_text}\n{extra}' if who_text else extra
     shop, level = shop_view(connection, view), intensity(connection, view['data'])
-    memory = '\n\n'.join(part for part in (ledger.summary_text(connection), ledger.prompt_text(connection),
+    memory = '\n\n'.join(part for part in (record.summary_text(connection), record.prompt_text(connection),
                                              quests.prompt_text(connection, now)) if part)
     place_text = scene_text(view) + (f"\n\n{inventory.shop_prompt(shop, view['data']['currency'])}" if shop else '')
     system = narration_prompt.system(prompt_library.text(connection, 'story-narrator'), craft, scene=place_text,
@@ -512,7 +512,7 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
         system += '\n\n' + in_character.OUT_OF_CHARACTER_NOTE.format(name='the narrator', model=default_name(config))
     budget = (config['context_tokens'] - config['max_output_tokens']) * CHARS_PER_TOKEN - len(system)
     # Older messages are in the summary; the narrator reads the rest word for word.
-    after = ledger.summary(connection)['through_seq']
+    after = record.summary(connection)['through_seq']
     rows = [row for row in messages(connection) if after < row['seq'] <= latest['seq']]
     chat = model_messages(rows, max(budget, 2000))
     if not in_character.out_of_character(latest['text']):
@@ -670,7 +670,7 @@ async def told(state, packet: dict, config: dict, in_story: bool, steps: pace.St
     else:
         steps.skip('rewrite')
     with state.database.connect() as connection:
-        names = pace.named_dead(ledger.dead(connection), text)
+        names = pace.named_dead(record.dead(connection), text)
     if names and steps.has_time():
         since = steps.clock()
         text = await pace.contradiction(text, names, rewrite)
@@ -689,7 +689,7 @@ async def afterwards(state, user: dict, reply: dict, packet: dict, steps: pace.S
             there = [{'key': row['key'], 'name': row['name']} for row in feelings.met(connection)
                      if row['key'] in {person['sheet']['key'] for person in packet['people']}]
             ask = quests.ending_ask(connection) + feelings.feelings_ask(there)
-        answered = await ledger.extract(state, user['text'], reply, ask)
+        answered = await record.extract(state, user['text'], reply, ask)
         with database.connect(write=True) as connection:
             for item in quests.endings(answered):
                 quests.end(connection, item['id'], item['status'], item['outcome'])
@@ -698,7 +698,7 @@ async def afterwards(state, user: dict, reply: dict, packet: dict, steps: pace.S
         since = steps.clock()
         with database.connect() as connection:
             rows = messages(connection)
-        await ledger.fold(state, rows)
+        await record.fold(state, rows)
         steps.timed('summary', since)
         with database.connect(write=True) as connection:
             if optional(connection, 'SELECT 1 FROM story_messages WHERE id=?', (user['id'],)):
@@ -741,7 +741,7 @@ async def answer(state, user: dict, on_text=None) -> dict:
     return reply
 
 
-def record(database, text: str, client_id: str) -> tuple[dict, dict | None]:
+def received(database, text: str, client_id: str) -> tuple[dict, dict | None]:
     """The user's message, saved once whatever retries come; with the narrator's reply if it already has one."""
     with database.connect(write=True) as connection:
         user = optional(connection, 'SELECT * FROM story_messages WHERE client_id=?', (client_id,))
@@ -759,7 +759,7 @@ def record(database, text: str, client_id: str) -> tuple[dict, dict | None]:
 
 
 async def send(state, text: str, client_id: str, on_text=None) -> dict:
-    user, reply = record(state.database, text, client_id)
+    user, reply = received(state.database, text, client_id)
     return {'message': user, 'reply': reply or await answer(state, user, on_text)}
 
 
@@ -774,7 +774,7 @@ async def retry(state, on_text=None) -> dict:
         require(user is not None and user['branch_id'] == timeline.active(connection),
                 'There is nothing to retell yet.', 409)
         # The facts the old reply brought in go with it.
-        connection.execute('DELETE FROM ledger_entries WHERE message_id IN (SELECT id FROM story_messages WHERE '
+        connection.execute('DELETE FROM record_entries WHERE message_id IN (SELECT id FROM story_messages WHERE '
                            'reply_to=?)', (user['id'],))
         connection.execute('DELETE FROM story_messages WHERE reply_to=?', (user['id'],))
         # So are the meetings and feelings it moved; the kept rolls move them again.

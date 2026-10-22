@@ -36,7 +36,7 @@ top of it, milestone by milestone, as set out in [the roadmap](../../docs/roadma
 | `story_scene`, `story_messages`, `story_people` | Where the story is, the story so far, and the people the user has met |
 | `story_branches`, `story_timeline`, `story_saves` | The story's branches, which one is played, and the game state at each of the player's lines |
 | `character_stats`, `story_rolls` | MARVEL stats, and the rolls of each turn |
-| `ledger_entries`, `ledger_corrections`, `story_summary` | The canon ledger, the player's corrections to it, and the story so far |
+| `record_entries`, `record_corrections`, `story_summary` | The record, the player's corrections to it, and the story so far |
 | `story_inventory`, `story_purse`, `story_stock`, `story_trades` | What the character carries, their money, the shops' stock and the trade log (`dungeon/inventory.py`) |
 | `story_finds`, `story_looks` | What is inside things the player looked into, and what each line looked into and took (`dungeon/finds.py`) |
 | `story_turn_steps` | How long each step of a turn took and what gave way for time (`dungeon/pace.py`) |

@@ -64,22 +64,22 @@ dice. The character's six stats (table `character_stats`, 1 to 30, 10 to start) 
 the Story screen. "Show the dice" in Settings > World shows each roll under the user's line; off, rolls stay
 hidden and the story reads the same.
 
-## The ledger and the story so far
+## The record and the story so far
 
-The ledger (`dungeon/ledger.py`, table `ledger_entries`) is what the game holds true: deaths, items, wounds,
+The record (`dungeon/record.py`, table `record_entries`) is what the game holds true: deaths, items, wounds,
 promises, places, secrets, relationships and other facts, each marked as world truth (hidden from the player's
 character), the character's belief, or both. Code records the facts it decides. After each narration the
 **Continuity** model, when one is chosen for that job in Settings > Models, lists the new lasting facts in JSON;
-code keeps the well-formed ones and refuses any about someone the ledger says is dead. "Tell it again" drops the
+code keeps the well-formed ones and refuses any about someone the record says is dead. "Tell it again" drops the
 old reply's facts with it. The narrator gets the record every turn (every death and promise, then the newest of the
 rest, 40 in all), with hidden truth marked as hidden, and is told never to contradict it.
 
 "What you know" on the Story screen is the player's journal: every fact their character knows. They can correct or
-remove one, or add their own note; each correction is logged in `ledger_corrections`. Hidden truth never shows here.
+remove one, or add their own note; each correction is logged in `record_corrections`. Hidden truth never shows here.
 
 The narrator reads the latest messages word for word. Once 30 recent ones plus 20 more are waiting, the oldest 20 are
 folded into one rolling summary (`story_summary`) by the Continuity model, or the Default one without it, and the
-narrator gets that summary as "The story so far" in their place. The ledger and the summary are branched with the
+narrator gets that summary as "The story so far" in their place. The record and the summary are branched with the
 story.
 
 ## What is happening
@@ -91,7 +91,7 @@ dangerous places. Kingswood ships "The Heartwood contract" and a hidden one, "Th
   time. The narrator gets "What is happening" every turn: each open quest, its truth, how long is left and whether
   the character knows of it yet. It lets them press on the scene and never ends one itself.
 - **Deadlines** are code's: when the story clock passes one with the quest still open, the quest is missed, its
-  stakes go in the ledger, and the narrator is told it is over.
+  stakes go in the record, and the narrator is told it is over.
 - **Ending a quest:** with a Continuity model chosen, its question after each turn lists the open quests, and it may
   answer that the turn settled one (done or failed, with a sentence). Unknown ids are ignored.
 - **Dangerous places:** each turn in one adds a Luck roll at the place's difficulty to the turn's rolls (shown with
@@ -157,7 +157,7 @@ effects, healers and medicine, a fight started by an NPC without a danger roll.
 ## Going back
 
 Every line the player sends is a save point (`dungeon/timeline.py`): the game state as the line arrives (the scene,
-the people met, the sheet, the ledger and the summary: the tables in `timeline.SAVED`) is kept in `story_saves`. "Go back here" under any of
+the people met, the sheet, the record and the summary: the tables in `timeline.SAVED`) is kept in `story_saves`. "Go back here" under any of
 the player's lines starts a new branch from just before it, puts that state back and returns the line to the
 composer to send again. Nothing is rolled until it is sent, so the dice are always new.
 
@@ -177,7 +177,7 @@ player uses for it, how many draws and a weighted table of catalog items, coins,
 narrator gets "What is there" and describes only that.
 
 - **Rolled once, kept.** Contents are stored (`story_finds`, keyed by town, place and the word used) and noted in
-  the ledger as a fact the character knows. Looking again shows the same things, whatever the dice.
+  the record as a fact the character knows. Looking again shows the same things, whatever the dice.
 - **A failed search misses it.** When the line's Mind roll fails, the narrator is told what is there and that the
   character misses it; the contents stay unseen for a better look.
 - **Taking it.** A line that takes what was found ("I take the coins", "I pocket the knife", "I take everything in
@@ -209,7 +209,7 @@ every step is timed.
   ordering, asking about something) has nothing to roll, so no model is asked. Telling or asking someone *to* do
   something is persuasion and still goes to the Referee.
 - **Over budget, the optional steps give way:** the prose rewrite first, then the contradiction check. Dice, the
-  ledger and the em dash fix are never skipped.
+  record and the em dash fix are never skipped.
 
 Not in v0: dead and spent items or people elsewhere in the contradiction check (only the dead), a GM view of
 skipped checks, and the dice log.
@@ -260,7 +260,7 @@ A fixed layout for Milestone 1 (`src/features/story/Story.tsx`); the free grid o
 | `PATCH /api/story/journal/{id}` `{text}` / `DELETE /api/story/journal/{id}` | Corrects or removes a fact, logged; 404 for hidden truth or a fact not in the journal. |
 | `GET /api/story/gear` | `{coins, currency, slots: {used, max}, items, shop}`. `shop` is null away from a shop, else `{place_id, open, keeper, stock, offers}`; `offers` maps the character's items to what the shop pays. |
 | `POST /api/story/shop/buy` `{item_id, qty?}` / `POST /api/story/shop/sell` `{inventory_id, qty?}` | Trades at the counter. 404 with no shop here or no such item, 409 when closed, out of stock, too dear, too heavy, or not something the shop buys. |
-| `DELETE /api/story` | Starts a new story: the history, every branch, the ledger and the people met go, the scene stays. |
+| `DELETE /api/story` | Starts a new story: the history, every branch, the record and the people met go, the scene stays. |
 
 ## People you've met
 

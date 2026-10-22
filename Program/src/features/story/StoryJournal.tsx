@@ -7,7 +7,7 @@ import { journalKind, questState } from './storyText'
 
 const JOURNAL_KEY = ['story-journal']
 
-/** What your character knows (dungeon/ledger.py): facts the game keeps, which you can correct or add to. */
+/** What your character knows (dungeon/record.py): facts the game keeps, which you can correct or add to. */
 export function StoryJournal({ open }: { open?: boolean }) {
   const client = useQueryClient()
   const journal = useQuery({ queryKey: JOURNAL_KEY, queryFn: () => api<Journal>('/story/journal') })

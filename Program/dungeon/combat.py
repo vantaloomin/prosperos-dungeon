@@ -22,7 +22,7 @@ import json
 import random
 import re
 
-from dungeon import ledger
+from dungeon import record
 from dungeon.database import encode, optional
 from dungeon.rules import marvel
 
@@ -237,12 +237,12 @@ def defeat(connection, state: dict, rng, now: str) -> tuple[str, str]:
     winners = state['foes'][0]['name']
     if outcome == 'death':
         set_condition(connection, DYING, dead=True)
-        ledger.record(connection, 'death', "the player's character", f'Killed by {winners}.', now)
+        record.add(connection, 'death', "the player's character", f'Killed by {winners}.', now)
     else:
         set_condition(connection, DOWN)
         if outcome == 'robbed':
             connection.execute('UPDATE story_purse SET coins=0')
-        ledger.record(connection, 'fact', "the player's character", f'Beaten by {winners}. {DEFEAT_TEXT[outcome]}', now)
+        record.add(connection, 'fact', "the player's character", f'Beaten by {winners}. {DEFEAT_TEXT[outcome]}', now)
     return outcome, DEFEAT_TEXT[outcome]
 
 
