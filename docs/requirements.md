@@ -507,7 +507,7 @@ stored in the record as hidden truth.
 
 ## The director
 
-Decided 2026-10-22, from a friend's feedback that Vanta shared: play should feel like a game
+Decided 2026-10-22 (Vanta's cards), from a friend's feedback that Vanta shared: play should feel like a game
 master is steering toward a larger story. Not a preset list of beats, and not an open sandbox
 with nobody's hand on it. The director is that hand. It is code that holds the campaign's plot
 state, and it gets a model's help with ideas. It decides what the world pushes toward. It never
