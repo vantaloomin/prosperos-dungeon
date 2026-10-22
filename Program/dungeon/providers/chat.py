@@ -253,10 +253,13 @@ class ChatProvider:
 
     async def check(self, config: dict, key: str | None) -> dict:
         """List the service's models without generating anything."""
-        if config['provider'] == 'codex':
-            return await self.codex.check(config, key)
-        if config['provider'] == 'claude_code':
-            return await self.claude_code.check(config, key)
+        cli = {'codex': (self.codex, 'Codex'), 'claude_code': (self.claude_code, 'Claude Code')}.get(config['provider'])
+        if cli:
+            try:
+                return await cli[0].check(config, key)
+            except (OSError, NotImplementedError) as error:
+                raise DomainError(f'The {cli[1]} CLI could not be started on this computer: '
+                                  f'{error or type(error).__name__}', 502, 'provider') from error
         config = await self.builtin_address(config)
         validate_key(config['provider'], key)
         async with httpx.AsyncClient(transport=self.transport, timeout=15, follow_redirects=False,
