@@ -77,8 +77,10 @@ async def switch_wording(request: Request, message_id: str, background: Backgrou
 
 
 def streamed(state, start) -> StreamingResponse:
-    """A turn as newline-delimited JSON: {"text": piece} as the narration is written, then {"done": result} once
-    the reply is saved (or {"error": message, "status": n}). Fact extraction runs after "done" (dungeon/pace.py)."""
+    """A turn as newline-delimited JSON: the turn's stages as they happen ({"stage": "reading"}, {"actions": [...]}
+    and one {"roll": {...}} each, {"stage": "writing"}; dungeon/story.py `answer`), {"text": piece} as the narration
+    is written, then {"done": result} once the reply is saved (or {"error": message, "status": n}). Fact extraction
+    runs after "done" (dungeon/pace.py)."""
     pieces: asyncio.Queue = asyncio.Queue()
 
     async def on_text(piece: str):
@@ -86,7 +88,7 @@ def streamed(state, start) -> StreamingResponse:
 
     async def run():
         try:
-            await pieces.put({'done': await start(on_text)})
+            await pieces.put({'done': await start(on_text, pieces.put)})
         except DomainError as failure:
             await pieces.put({'error': failure.message, 'code': failure.code, 'status': failure.status})
         finally:
@@ -105,13 +107,13 @@ def streamed(state, start) -> StreamingResponse:
 @router.post('/messages/stream')
 async def send_streamed(request: Request, body: StoryMessage):
     state = request.app.state
-    return streamed(state, lambda on_text: story.send(state, body.text, body.client_id, on_text))
+    return streamed(state, lambda on_text, on_event: story.send(state, body.text, body.client_id, on_text, on_event))
 
 
 @router.post('/retry/stream')
 async def retry_streamed(request: Request):
     state = request.app.state
-    return streamed(state, lambda on_text: story.retry(state, on_text))
+    return streamed(state, lambda on_text, on_event: story.retry(state, on_text, on_event))
 
 
 class SheetChange(Input):

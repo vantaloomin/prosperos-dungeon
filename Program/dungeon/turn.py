@@ -41,3 +41,22 @@ def shown(row: dict) -> dict:
     """A roll as the screen shows it while the dice are on."""
     return {key: row[key] for key in ('action', 'stat', 'difficulty', 'die', 'natural', 'bonus', 'shift', 'total',
                                       'band')} | {'label': ladder.LABELS[row['band']]}
+
+
+def hidden(row: dict) -> dict:
+    """A roll as the screen shows it while the dice are hidden: what was tried and with which stat, never the odds."""
+    return {'action': row['action'], 'stat': row['stat']}
+
+
+def announced(rolls: list[dict], dice_shown: bool) -> list[dict]:
+    """The actions a turn rolls for, as the turn stream names them before the results (dungeon/story_routes.py)."""
+    return [{'action': row['action'], 'stat': row['stat']} | ({'difficulty': row['difficulty']} if dice_shown else {})
+            for row in rolls]
+
+
+def bands() -> list[dict]:
+    """The ruleset's bands by total, worst first, for the screen's band strip; the top band has no ceiling. (A natural
+    roll of CRITICAL_NATURAL or less is a critical failure whatever the total.)"""
+    return [{'band': band, 'label': ladder.LABELS[band], 'ceiling': ceiling} for ceiling, band in marvel.CEILINGS] + [
+        {'band': 'critical_success', 'label': ladder.LABELS['critical_success'], 'ceiling': None}]
+

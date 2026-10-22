@@ -1,5 +1,6 @@
 """The turn loop (dungeon/turn.py): the Referee's actions are rolled on the persona's stats before the narrator
 writes, and the narrator is told how each landed."""
+import json
 import random
 
 from conftest import Chunk, tell
@@ -70,3 +71,44 @@ def test_the_sheet_holds_the_personas_stats(client):
     assert changed['stats']['Mind'] == 15 and changed['dice']['Mind'] == 12 and changed['dice']['Luck'] == 4
     assert client.put('/api/story/sheet', json={'stats': {'Strength': 12}}).status_code == 422
     assert client.put('/api/story/sheet', json={'stats': {'Mind': 31}}).status_code == 422
+
+
+def streamed_events(client, text, client_id):
+    with client.stream('POST', '/api/story/messages/stream', json={'text': text, 'client_id': client_id}) as response:
+        return [json.loads(line) for line in response.iter_lines() if line]
+
+
+def test_a_streamed_turn_shows_its_stages_and_rolls_before_the_narration(client, connected, app):
+    ok(client.put('/api/settings', json={'show_odds': True}))
+    events = streamed_events(client, 'I attack the man at the bar.', 'turn-0005')
+    kinds = [next(iter(event)) for event in events]
+    first_text = kinds.index('text')
+    assert kinds[:4] == ['stage', 'actions', 'roll', 'stage'] and first_text == 4
+    assert events[0] == {'stage': 'reading'} and events[3] == {'stage': 'writing'} and kinds[-1] == 'done'
+    action, = events[1]['actions']
+    assert action['stat'] == 'Vitality' and action['difficulty']
+    assert [band['band'] for band in events[1]['bands']] == ['failure', 'failure_upside', 'success_cost', 'success',
+                                                            'critical_success']
+    assert events[1]['bands'][-1]['ceiling'] is None
+    roll = events[2]['roll']
+    assert roll['total'] == roll['natural'] + roll['bonus'] - roll['shift'] and roll['label']
+    # The roll streamed is the one kept with the line.
+    assert ok(client.get('/api/story'))['messages'][0]['rolls'] == [roll]
+    # Telling it again streams the same dice again.
+    with client.stream('POST', '/api/story/retry/stream', json={}) as response:
+        again = [json.loads(line) for line in response.iter_lines() if line]
+    assert [event['roll'] for event in again if 'roll' in event] == [roll]
+
+
+def test_hidden_dice_stream_only_what_was_tried_and_the_stat(client, connected, app):
+    events = streamed_events(client, 'I attack the man at the bar.', 'turn-0006')
+    actions = next(event for event in events if 'actions' in event)
+    assert actions == {'actions': [{'action': actions['actions'][0]['action'], 'stat': 'Vitality'}]}
+    assert [event['roll'] for event in events if 'roll' in event] == [
+        {'action': actions['actions'][0]['action'], 'stat': 'Vitality'}]
+    assert ok(client.get('/api/story'))['bands'] is None
+
+
+def test_a_line_with_nothing_to_roll_streams_no_actions(client, connected):
+    kinds = [next(iter(event)) for event in streamed_events(client, 'I sit down and look around.', 'turn-0007')]
+    assert 'actions' not in kinds and 'roll' not in kinds and kinds[:2] == ['stage', 'stage']

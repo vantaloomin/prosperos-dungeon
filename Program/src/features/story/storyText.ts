@@ -1,4 +1,4 @@
-import type { Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace, StoryArc, StoryPace, StoryTier, SheetGrowth, StoryHand, JournalThread } from '../../types'
+import type { BandStep, HiddenRoll, TurnAction, TurnEvent, TurnSoFar, Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace, StoryArc, StoryPace, StoryTier, SheetGrowth, StoryHand, JournalThread } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -237,4 +237,41 @@ export function reworded(draft: string, saved: string): Set<string> {
     const said = words(sentence)
     return said && !before.includes(` ${said} `)
   }))
+}
+
+/** A turn before any of it has been told. */
+export const NO_TURN: TurnSoFar = { stage: null, actions: [], bands: null, rolls: [] }
+
+/** A turn under way with one more of its stream events (dungeon/story.py answer). */
+export function turnAfter(turn: TurnSoFar, event: TurnEvent): TurnSoFar {
+  if ('stage' in event) return { ...turn, stage: event.stage }
+  if ('actions' in event) return { ...turn, actions: event.actions, bands: event.bands ?? null }
+  return { ...turn, rolls: [...turn.rolls, event.roll] }
+}
+
+export const isShown = (roll: StoryRoll | HiddenRoll): roll is StoryRoll => 'band' in roll
+
+/** "Rolling Allure, hard" while the dice are shown; "Testing your Allure" while they are hidden. */
+export function actionLine(action: TurnAction): string {
+  return action.difficulty ? `Rolling ${action.stat}, ${action.difficulty.replace('_', ' ')}` : `Testing your ${action.stat}`
+}
+
+/** Each band's share of the strip (totals 1 to 100), worst first. */
+export function bandSpans(bands: BandStep[]): (BandStep & { from: number; to: number })[] {
+  return bands.map((step, index) => ({ ...step, from: index ? (bands[index - 1].ceiling ?? 100) + 1 : 1, to: step.ceiling ?? 100 }))
+}
+
+/** Where a total sits on the strip, as a percentage. */
+export function markerAt(total: number): number {
+  return Math.min(100, Math.max(1, total))
+}
+
+/** "2 short of Success at a cost" when the next band up was 5 or fewer away; '' otherwise. */
+export function nearMiss(roll: StoryRoll, bands: BandStep[]): string {
+  // A critical failure is set by the natural roll, not the total, so it has no step of its own.
+  const index = bands.findIndex((step) => step.band === roll.band)
+  const ceiling = bands[index]?.ceiling
+  if (ceiling === null || ceiling === undefined) return ''
+  const short = ceiling + 1 - roll.total
+  return short > 0 && short <= 5 ? `${short} short of ${bands[index + 1].label.toLowerCase()}` : ''
 }

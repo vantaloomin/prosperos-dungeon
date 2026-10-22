@@ -3,13 +3,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowDown, MapPin, RotateCcw, Send, Settings2, Timer, Undo2 } from 'lucide-react'
 import { api, newId, streamApi } from '../../api'
 import type { View } from '../../workspace'
-import type { CitySummary, Story as StoryData, StoryBack, StoryMessage, StoryScene } from '../../types'
+import type { BandStep, CitySummary, Story as StoryData, StoryBack, StoryMessage, StoryScene, TurnEvent, TurnSoFar } from '../../types'
 import { Loading, Notice } from '../../components/Feedback'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { InfoTip } from '../../components/InfoTip'
 import { AiFooter, CrisisNote } from '../../components/Safety'
-import { aroundText, fightText, journeyTo, paceText, placeGroups, rollText, sceneTime, spotsText, whereText } from './storyText'
+import { aroundText, fightText, journeyTo, NO_TURN, paceText, placeGroups, sceneTime, spotsText, turnAfter, whereText } from './storyText'
+import { RollCard, TurnLive } from './StoryTurn'
 import { StoryPeople } from './StoryPeople'
 import { CityOptions } from '../world/CityOptions'
 import { AuthorsNote } from './AuthorsNote'
@@ -36,6 +37,8 @@ export function Story({ go }: { go: (view: View) => void }) {
   const [pending, setPending] = useState<string | null>(null)
   // The narration so far while it streams in (dungeon/pace.py).
   const [streamed, setStreamed] = useState('')
+  // The turn's stages and rolls so far, before and around the narration (dungeon/story.py answer).
+  const [turn, setTurn] = useState<TurnSoFar>(NO_TURN)
   const [error, setError] = useState('')
   // How many lines the story had when the turn began: once the saved story has more, the turn is in it.
   const [since, setSince] = useState(0)
@@ -49,6 +52,7 @@ export function Story({ go }: { go: (view: View) => void }) {
     setSince(story.data.messages.length)
     setPending(text)
     setStreamed('')
+    setTurn(NO_TURN)
     setError('')
     try { await request() } catch (failure) { setError(failure instanceof Error ? failure.message : 'That did not work. Try again.') }
     finally {
@@ -57,7 +61,8 @@ export function Story({ go }: { go: (view: View) => void }) {
     }
   }
   const grow = (piece: string) => setStreamed((before) => before + piece)
-  const send = (text: string) => run(text, () => streamApi('/story/messages/stream', { text, client_id: newId() }, grow))
+  const note = (event: unknown) => setTurn((before) => turnAfter(before, event as TurnEvent))
+  const send = (text: string) => run(text, () => streamApi('/story/messages/stream', { text, client_id: newId() }, grow, note))
   const change = (request: () => Promise<StoryData>) => run(null, () => request().then(update))
   return (
     <section className="story" aria-labelledby="story-heading">
@@ -65,7 +70,8 @@ export function Story({ go }: { go: (view: View) => void }) {
         <StoryHeader story={story.data} change={change} onDraft={(text) => setDraft({ text, at: Date.now() })} />
         {!story.data.ready && <NoModel go={go} />}
         {!story.data.messages.length && pending === null ? <StoryStart onStarted={update} /> : <>
-          <StoryLog messages={story.data.messages} pending={story.data.messages.length > since ? null : pending} streamed={streamed} onRetry={() => void run('', () => streamApi('/story/retry/stream', {}, grow))}
+          <StoryLog messages={story.data.messages} pending={story.data.messages.length > since ? null : pending} streamed={streamed} turn={turn} bands={story.data.bands}
+            onRetry={() => void run('', () => streamApi('/story/retry/stream', {}, grow, note))}
             onRewrite={(id, passage, note) => change(() => api<StoryData>(`/story/messages/${id}/rewrite`, { passage, note }))}
             onSwitch={(id) => change(() => api<StoryData>(`/story/messages/${id}/switch`, {}))}
             onBack={(id) => void run(null, () => api<StoryBack>('/story/back', { message_id: id }).then((data) => { update(data); setDraft({ text: data.draft, at: Date.now() }) }))} />
@@ -181,7 +187,10 @@ function GoElsewhere({ scene, journeys, onDone, onDraft, onMove }: GoProps) {
 }
 
 interface Rewrites { onRewrite: (id: string, passage: string, note: string) => Promise<void>; onSwitch: (id: string) => Promise<void> }
-interface LogProps extends Rewrites { messages: StoryMessage[]; pending: string | null; streamed: string; onRetry: () => void; onBack: (id: string) => void }
+interface LogProps extends Rewrites {
+  messages: StoryMessage[]; pending: string | null; streamed: string; turn: TurnSoFar; bands?: BandStep[] | null
+  onRetry: () => void; onBack: (id: string) => void
+}
 
 /** How near the bottom (px) still counts as reading the newest text, so the log keeps following it. */
 const FOLLOW = 80
@@ -205,17 +214,16 @@ function useFollow(shown: string, pending: string | null) {
   return { log, end, onScroll, toEnd, behind: !atEnd && readTo !== shown }
 }
 
-function StoryLog({ messages, pending, streamed, onRetry, onBack, onRewrite, onSwitch }: LogProps) {
+function StoryLog({ messages, pending, streamed, turn, bands, onRetry, onBack, onRewrite, onSwitch }: LogProps) {
   const { log, end, onScroll, toEnd, behind } = useFollow(`${messages.length}:${streamed.length}`, pending)
   const last = messages[messages.length - 1]
   return (
     <div className="story-log" aria-live="polite" ref={log} onScroll={onScroll}>
-      {messages.map((message) => <StoryLine key={message.id} message={message} onBack={pending ? undefined : onBack}
+      {messages.map((message) => <StoryLine key={message.id} message={message} bands={bands} onBack={pending ? undefined : onBack}
         rewrites={pending === null ? { onRewrite, onSwitch } : undefined} draft={pending === null && message === last ? streamed : undefined} />)}
       {pending && <p className="story-user">{pending}</p>}
-      {pending !== null && (streamed
-        ? <div className="story-narration">{streamed.split(/\n{2,}/).map((part, index) => <p key={index}>{part}</p>)}</div>
-        : <p className="subtle">The narrator is writing…</p>)}
+      {pending !== null && <TurnLive turn={turn} writing={!!streamed} />}
+      {pending !== null && !!streamed && <div className="story-narration">{streamed.split(/\n{2,}/).map((part, index) => <p key={index}>{part}</p>)}</div>}
       {last?.status === 'failed' && !pending && <button type="button" className="text-button" onClick={onRetry}><RotateCcw aria-hidden="true" />Try again</button>}
       <div ref={end} />
       {behind && <button type="button" className="button story-newer" onClick={toEnd}><ArrowDown aria-hidden="true" />New text below</button>}
@@ -225,14 +233,14 @@ function StoryLog({ messages, pending, streamed, onRetry, onBack, onRewrite, onS
 
 /** `onBack` goes back to before a line of the player's, to send it again with new dice; `rewrites` rewords a
  *  narration (none while a turn is being told). */
-interface LineProps { message: StoryMessage; onBack?: (id: string) => void; rewrites?: Rewrites; draft?: string }
+interface LineProps { message: StoryMessage; bands?: BandStep[] | null; onBack?: (id: string) => void; rewrites?: Rewrites; draft?: string }
 
-function StoryLine({ message, onBack, rewrites, draft }: LineProps) {
+function StoryLine({ message, bands, onBack, rewrites, draft }: LineProps) {
   if (message.role === 'scene') return <p className="story-move">{message.text}</p>
   if (message.role === 'user') return <>
     <p className="story-user">{message.text}</p>
     <div className="story-turn">
-      {!!message.rolls?.length && <ul className="story-rolls" aria-label="Rolls">{message.rolls.map((roll, index) => <li key={index} title={roll.action}>{rollText(roll)}</li>)}</ul>}
+      {message.rolls?.map((roll, index) => <RollCard key={index} roll={roll} bands={bands} />)}
       <div className="story-turn-actions">
         {/* How long the turn took is for tuning, not the story: it waits in a tooltip until the dice log ships. */}
         {message.pace && <span className="story-pace" title={paceText(message.pace)}><Timer aria-hidden="true" /><span className="visually-hidden">{paceText(message.pace)}</span></span>}
