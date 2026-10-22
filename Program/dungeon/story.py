@@ -28,6 +28,7 @@ from dungeon import (
     injuries,
     inventory,
     jobs,
+    library,
     lore,
     pace,
     passages,
@@ -689,6 +690,8 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
     # Lorebook entries switched on: always-on ones, those named lately and those that fit the moment (dungeon/lore.py).
     lore_text = lore.prompt_text(connection, view['data'], view['place']['id'], local_moment(view['data'], now),
                                  [row['text'] for row in rows], name or '')
+    # Passages of the world's reference library that fit the last few messages (dungeon/library.py).
+    shelf, passages_given = library.prompt_text(connection, [row['text'] for row in rows], latest['seq'])
     # The summary gives way first, then the record's facts, so the recent turns keep at least half the window.
     for summary_kept, facts in ((True, record.IN_PROMPT), (False, record.IN_PROMPT), (False, record.IN_PROMPT // 4)):
         memory = '\n\n'.join(part for part in (summary_kept and record.summary_text(connection),
@@ -696,7 +699,8 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
                                                  quests.prompt_text(connection, now), beats.prompt_text(connection),
                                                  found and factions.prompt_text(connection, found['world'],
                                                                                 found['node']),
-                                                 found and tiers.prompt_text(connection, found), lore_text)
+                                                 found and tiers.prompt_text(connection, found), lore_text,
+                                                 shelf)
                              if part)
         system = narration_prompt.system(prompt_library.text(connection, 'story-narrator'), craft, scene=place_text,
                                          persona=who_text, persona_name=name, memory=memory, narration=NARRATION,
@@ -717,7 +721,7 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
     chat = model_messages(rows, max(budget, 2000))
     if not in_character.out_of_character(latest['text']):
         chat = steered(chat, authors_note.prompt_text(connection, 'story'))
-    return {'system': system, 'messages': chat, 'people': view['people'],
+    return {'system': system, 'messages': chat, 'people': view['people'], 'library': passages_given,
             'city_id': view['city']['id'], 'day': datetime.fromisoformat(view['local_time']).date()}
 
 
@@ -1226,6 +1230,7 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
             feelings.from_rolls(connection, rolls)
             growth.mark(connection, rolls, user['id'])
             remembering.refresh(connection, f"{user['text']}\n{text}")
+            library.mark_given(connection, packet['library'], user['seq'])
             if reason := scene_break(connection, user, travelled, rested, fought):
                 chapters.mark(connection, reason)
             # What the line touched in the GM's notebook, and the scene's kind (dungeon/director.py).
