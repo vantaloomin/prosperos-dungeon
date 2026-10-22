@@ -50,7 +50,8 @@ def resource_for(config):
     if config.get('provider') == 'codex':
         return 'codex-cli', 1
     if config.get('provider') == 'claude_code':
-        return 'claude-cli', 2
+        # Each Claude account has its own plan limits, so its own two places.
+        return 'claude-cli' + (f":{config['cli_account_dir']}" if config.get('cli_account_dir') else ''), 2
     return f'{parts.scheme}://{parts.netloc.lower()}', 2
 
 

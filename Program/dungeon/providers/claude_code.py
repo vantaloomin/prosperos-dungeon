@@ -19,6 +19,11 @@ ANTHROPIC_API_KEY is left out of the CLI's environment so a key set for the Anth
 silently takes the place of the plan, and so are the variables a parent Claude Code session sets for
 itself, so Dungeon started from a Claude Code terminal does not hand that session's context on.
 
+A profile can name its own account folder, so two Claude accounts can each have a profile: the CLI keeps each
+account's sign-in in its folder (CLAUDE_CONFIG_DIR). The user signs in to it once in a terminal with that
+variable set; the app only passes the folder on. With a folder set, a sign-in token from the environment
+(CLAUDE_CODE_OAUTH_TOKEN) is left out, since it would win over the folder's account.
+
 Claude follows Anthropic's usage policy, so this profile suits the non-explicit jobs only.
 """
 import asyncio
@@ -74,8 +79,28 @@ def inherited(name: str) -> bool:
     return True
 
 
-def cli_environment() -> dict:
-    return {**{name: value for name, value in os.environ.items() if inherited(name)}, **QUIET_ENV}
+def account_dir(config: dict | None) -> str:
+    return ((config or {}).get('cli_account_dir') or '').strip()
+
+
+def cli_environment(config: dict | None = None) -> dict:
+    """The CLI's environment: the user's own, less what would replace the plan login, and the profile's account
+    folder when it names one."""
+    environment = {name: value for name, value in os.environ.items() if inherited(name)}
+    if folder := account_dir(config):
+        environment.pop('CLAUDE_CODE_OAUTH_TOKEN', None)
+        environment['CLAUDE_CONFIG_DIR'] = folder
+    return {**environment, **QUIET_ENV}
+
+
+def login_step(config: dict | None = None) -> str:
+    """How to sign in: plain `claude` for the usual account, with the folder set for a profile's own account."""
+    folder = account_dir(config)
+    if not folder:
+        return LOGIN_STEP
+    command = f'$env:CLAUDE_CONFIG_DIR="{folder}"; claude' if os.name == 'nt' else f'CLAUDE_CONFIG_DIR="{folder}" claude'
+    return (f'The Claude account for this profile is not signed in. In a terminal on this computer run {command} '
+            'and sign in with that account, then test again.')
 
 
 _help_texts: dict[tuple, str] = {}
@@ -118,14 +143,14 @@ def conversation(messages: list[dict]) -> str:
     return transcript('', messages).lstrip()
 
 
-def failure(text: str) -> DomainError:
+def failure(text: str, config: dict | None = None) -> DomainError:
     if any(sign in text.lower() for sign in AUTH_SIGNS):
-        return DomainError(LOGIN_STEP, 409, 'provider')
+        return DomainError(login_step(config), 409, 'provider')
     return DomainError('Claude Code could not complete the request. Check its login, the model and that your '
                        'plan includes it.', 502, 'provider')
 
 
-def claude_event(data: dict) -> Chunk:
+def claude_event(data: dict, config: dict | None = None) -> Chunk:
     kind = data.get('type')
     if kind == 'stream_event':
         event = data.get('event') or {}
@@ -135,12 +160,12 @@ def claude_event(data: dict) -> Chunk:
         return Chunk()
     if kind == 'result':
         if data.get('is_error') or data.get('subtype') != 'success':
-            raise failure(str(data.get('result') or ''))
+            raise failure(str(data.get('result') or ''), config)
         return Chunk(str(data.get('result') or ''), 'stop', done=True, usage=dict(data.get('usage') or {}))
     return Chunk()
 
 
-async def claude_output(process):
+async def claude_output(process, config: dict | None = None):
     """Text streams as it is written; the closing result carries usage, and the whole reply for a CLI that
     did not stream it."""
     streamed = False
@@ -148,7 +173,7 @@ async def claude_output(process):
     async for line in process.stdout:
         if not line.strip():
             continue
-        event = claude_event(json.loads(line))
+        event = claude_event(json.loads(line), config)
         if event.done:
             completed = True
             yield Chunk('' if streamed else event.text, 'stop', done=True, usage=event.usage)
@@ -159,11 +184,12 @@ async def claude_output(process):
             'Claude Code exited before completing the response. Check its login and model.', 502)
 
 
-async def login_state(executable: str) -> dict:
-    """`claude auth status`: only whether the CLI is signed in and how. Nothing else from it is kept."""
+async def login_state(executable: str, config: dict | None = None) -> dict:
+    """`claude auth status`: only whether the CLI is signed in, how, and to which account's email when it says,
+    so two profiles' accounts can be told apart. Nothing else from it is kept."""
     process = await asyncio.create_subprocess_exec(executable, 'auth', 'status', '--json',
                                                    stdout=asyncio.subprocess.PIPE,
-                                                   stderr=asyncio.subprocess.DEVNULL, env=cli_environment())
+                                                   stderr=asyncio.subprocess.DEVNULL, env=cli_environment(config))
     try:
         output, _ = await asyncio.wait_for(process.communicate(), 20)
     except TimeoutError as error:
@@ -176,8 +202,8 @@ async def login_state(executable: str) -> dict:
         status = {}
     status = status if isinstance(status, dict) else {}
     signed_in = process.returncode == 0 and status.get('loggedIn', True) is not False
-    require(signed_in, LOGIN_STEP, 409)
-    return {'method': str(status.get('authMethod') or '')}
+    require(signed_in, login_step(config), 409)
+    return {'method': str(status.get('authMethod') or ''), 'email': str(status.get('email') or '')}
 
 
 class ClaudeCodeProvider:
@@ -190,13 +216,13 @@ class ClaudeCodeProvider:
             process = await asyncio.create_subprocess_exec(
                 *claude_arguments(executable, config, str(system_file), listing), stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL, cwd=directory,
-                env=cli_environment(), limit=2_000_000)
+                env=cli_environment(config), limit=2_000_000)
             try:
                 async with asyncio.timeout(config['timeout_seconds']):
                     process.stdin.write(conversation(messages).encode('utf-8'))
                     await process.stdin.drain()
                     process.stdin.close()
-                    async for event in claude_output(process):
+                    async for event in claude_output(process, config):
                         yield event
             except TimeoutError as error:
                 raise DomainError('Claude Code reached the configured time limit.', 504, 'timeout') from error
@@ -209,10 +235,11 @@ class ClaudeCodeProvider:
 
     async def check(self, config: dict, _key: str | None) -> dict:
         executable = executable_path(config)
-        state = await login_state(executable)
+        state = await login_state(executable, config)
         models = [{'id': model, 'name': name, 'context_tokens': None, 'max_output_tokens': None,
                    'limit_source': 'unreported', 'supported_efforts': list(EFFORTS)} for model, name in MODELS]
-        note = 'Claude Code is signed in. These names always use the newest model of each family; your plan ' \
+        who = f" as {state['email']}" if state['email'] else ''
+        note = f'Claude Code is signed in{who}. These names always use the newest model of each family; your plan ' \
                'may not include all of them.'
         if 'api' in state['method'].lower():
             note += ' Claude Code is signed in with an API key, so replies are billed to that key, not your plan.'

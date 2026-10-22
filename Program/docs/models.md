@@ -52,7 +52,15 @@ connection runs `claude auth status`, keeps only whether it is signed in and whe
 and lists the model aliases (`sonnet`, `opus`, `haiku`, `fable`), since the CLI has no model list; any full
 model name can be typed instead. If the CLI is not signed in, it says to run `claude` once in a terminal.
 Claude follows Anthropic's usage policy, so the profile help says to keep adult scenes on another profile.
-Two requests run at once; no usage is shown on the card.
+Two requests run at once per account; no usage is shown on the card.
+
+**More than one Claude account.** A profile's optional *Claude account folder* runs the CLI with
+`CLAUDE_CONFIG_DIR` set to that folder, where Claude Code keeps that account's sign-in, so two plans can each
+have a profile (and each job can use either). The user signs in once in a terminal with the variable set; when
+the folder's account is not signed in, Test connection gives the exact command (`$env:CLAUDE_CONFIG_DIR="…";
+claude` on Windows). With a folder set, `CLAUDE_CODE_OAUTH_TOKEN` is left out, since it would win over the
+folder's account. Test connection names the account's email when `claude auth status` reports one, and each
+account queues on its own.
 
 Not copied from the Study: the LM Studio native protocol and its verified background interruption
 (local servers use the OpenAI-compatible API, and background work here yields between streamed

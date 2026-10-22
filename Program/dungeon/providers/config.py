@@ -124,6 +124,9 @@ class ProfileConfig(Input):
     embedding_model: str = Field(default='', max_length=200)
     # Where the Claude Code CLI is installed, when it is not on PATH. Models are set up on the PC only.
     cli_path: str = Field(default='', max_length=500)
+    # The folder that keeps this profile's own Claude account (CLAUDE_CONFIG_DIR), so two accounts can each have a
+    # profile; empty uses the account Claude Code is usually signed in to.
+    cli_account_dir: str = Field(default='', max_length=500)
 
     @model_validator(mode='after')
     def validate_capabilities(self, info: ValidationInfo):
@@ -134,6 +137,9 @@ class ProfileConfig(Input):
         self.cli_path = self.cli_path.strip()
         if self.cli_path and (self.provider != 'claude_code' or not os.path.isabs(self.cli_path)):
             raise ValueError('The Claude Code location must be a full path to the program on this computer.')
+        self.cli_account_dir = self.cli_account_dir.strip()
+        if self.cli_account_dir and (self.provider != 'claude_code' or not os.path.isabs(self.cli_account_dir)):
+            raise ValueError('The Claude account folder must be a full path to a folder on this computer.')
         if self.provider == 'claude_code' and self.reasoning_effort not in {None, 'low', 'medium', 'high', 'xhigh', 'max'}:
             raise ValueError('Claude Code takes an effort of low, medium, high, xhigh or max.')
         if self.provider == 'anthropic' and self.temperature is not None and self.temperature > 1:
