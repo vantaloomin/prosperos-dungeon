@@ -9,6 +9,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { PersonaForm } from './PersonaForm'
 import { Cities } from '../world/Cities'
 import { WorldPackages } from './WorldPackages'
+import { WorldLibrary, WorldLore } from './WorldLore'
 import { AdultSideSettings } from '../settings/HiddenValues'
 import { TownsfolkMix } from '../settings/TownsfolkMix'
 import { CityPick, SOMEWHERE_NEW } from './CityPick'
@@ -64,6 +65,8 @@ export function Worlds() {
         <h2 id="world-makeup-heading">What {data.world.name} is made of</h2>
         <Cities />
         <WorldPackages />
+        <WorldLore />
+        <WorldLibrary />
         <AdultSideSettings />
         <TownsfolkMix />
       </section>

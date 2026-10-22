@@ -771,3 +771,25 @@ img.avatar, img.portrait { object-fit: cover; object-position: center top; paddi
 .entity-card .dialog-body p { margin: 0; }
 .entity-known { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 .entity-actions { margin-top: 6px; }
+/* Lore and the reference library on the Worlds page (src/features/worlds/WorldLore.tsx). */
+.world-lore { display: grid; gap: 8px; margin-top: 24px; }
+.world-lore h3 { display: flex; align-items: center; gap: 8px; margin: 0; }
+.world-lore h3 svg { width: 18px; height: 18px; color: var(--accent); }
+.world-lore > p { margin: 0; }
+.world-lore .search-field { display: flex; align-items: center; gap: 8px; max-width: 360px; }
+.world-lore .search-field svg { width: 16px; height: 16px; color: var(--muted); flex: 0 0 auto; }
+.world-lore .search-field input { flex: 1; min-width: 0; }
+.lore-search, .lore-search-form { margin: 8px 0; }
+.lore-search-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.lore-entries { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.lore-entry { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--canvas); }
+.lore-entry.off { opacity: 0.65; }
+.lore-entry p { margin: 0; }
+.lore-entry-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.lore-now { font-size: 0.75rem; color: var(--accent); }
+.lore-when { display: grid; gap: 6px; }
+.lore-when-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.lore-when-chips li { display: inline-flex; align-items: center; gap: 2px; padding: 0 2px 0 10px; border: 1px solid var(--border); border-radius: 999px; font-size: 0.82rem; }
+.lore-when-chips .icon-button { width: 26px; height: 26px; }
+.lore-when-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.lore-when-add select { max-width: 100%; }
