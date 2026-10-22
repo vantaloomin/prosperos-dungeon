@@ -213,7 +213,7 @@ def scene(connection, now: datetime) -> dict:
                       'neighborhood': hood, 'spots': inside.names(inside.for_place(place, data.get('era')))},
             'local_time': moment.isoformat(timespec='minutes'), 'weather': weather_text(weather) if weather else '',
             'people': present(connection, data, place['id'], moment), 'data': data, 'now': now,
-            'known': story_people.known(connection)}
+            'known': story_people.known(connection), 'dead': record.dead(connection)}
 
 
 def initiative(sheet: dict, data: dict, moment: datetime | None) -> str:
@@ -264,7 +264,19 @@ def scene_text(view: dict) -> str:
     lines += [person_line(person, {'id': place['id']}, data, view['known'].get(person['sheet']['key']), moment)
               for person in view['people']] or \
         ['- Nobody the story knows; only passers-by.']
+    lines += away_lines(view)
     return '## Scene\n' + '\n'.join(lines)
+
+
+def away_lines(view: dict) -> list[str]:
+    """The notables who run this place but are not here now, so the narrator invents no one else in their post."""
+    here = {person['sheet'].get('full') for person in view['people']}
+    return [f"- Not here now: {notable['name']} ({notable.get('pronouns', 'they/them')}), the {notable['role']} "
+            f"here. Whoever minds the place stands in; {notable['name']} is still the {notable['role']}, so invent "
+            "no other."
+            for notable in view['data'].get('notables', [])
+            if notable.get('place') == view['place']['id'] and notable.get('staff') and notable['name'] not in here
+            and notable['name'].lower() not in view.get('dead', set())]
 
 
 def scene_view(view: dict) -> dict:
@@ -527,6 +539,8 @@ def move(database, city_id: str, place_id: str | None) -> dict:
         moving_from = scene_row(connection)['city_id']
         if scene_row(connection) != {'city_id': data['id'], 'place_id': place['id']}:
             place_scene(connection, data['id'], place['id'], database.now())
+            # The next line opens a chapter in the new place (dungeon/chapters.py).
+            chapters.mark(connection, 'place')
             pass_time(database, connection, story_clock.ACROSS_TOWN_MINUTES if moving_from == data['id'] else
                       story_clock.ANOTHER_CITY_MINUTES)
             arrive(connection, database.now())
@@ -758,7 +772,8 @@ def haggle_lines(connection, city: str, shop: dict, day: str, rolls: list[dict],
 def scene_break(connection, user: dict, travelled: list[str], rested: list[str], fought: list[str]) -> str | None:
     """Why the line ends a chapter, if it does: a new place, time passing on the road or in rest, a fight over."""
     now = scene_row(connection)
-    if (now['city_id'], now['place_id']) != (user['city_id'], user['place_id']):
+    # A line that went somewhere opened its own chapter as it arrived (received).
+    if (now['city_id'], now['place_id']) != (user['city_id'], user['place_id']) and not chapters.opens(connection, user):
         return 'place'
     if travelled or rested:
         return 'time'
@@ -1230,11 +1245,15 @@ def received(database, text: str, client_id: str) -> tuple[dict, dict | None]:
             require(not growth.lost(connection), f'Your character is lost to {growth.lost(connection)}.' + after, 409)
             user = add(connection, database.now(), 'user', text, scene_row(connection), client_id=client_id)
             timeline.save(connection, user['id'])
+            walked = None if in_character.out_of_character(text) else walked_to(connection, text)
+            if walked and (walked['city_id'], walked['id']) != (user['city_id'], user['place_id']):
+                # A line that goes somewhere opens the chapter there.
+                chapters.mark(connection, 'place')
             # A break left pending by the last line opens a new chapter with this one (dungeon/chapters.py).
             chapters.arrive(connection, user, database.now())
             # The time the line takes passes as it is sent: the narrator writes the scene after it.
             if not in_character.out_of_character(text):
-                if walked := walked_to(connection, text):
+                if walked:
                     # "I go to the shrine": the story moves there before the narrator writes, as "Go somewhere
                     # else" would.
                     place_scene(connection, walked['city_id'], walked['id'], database.now())

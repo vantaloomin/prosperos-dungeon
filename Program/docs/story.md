@@ -152,8 +152,8 @@ impressions, the factions' standing (set by hand), the dark tracks' points, and 
 
 The narrator reads the latest messages word for word. Once 30 recent ones plus 20 more are waiting, the oldest 20 are
 folded into one rolling summary (`story_summary`) by the Continuity model, or the Default one without it, and the
-narrator gets that summary as "The story so far" in their place. The record and the summary are branched with the
-story.
+narrator gets that summary as "The story so far" in their place. The summary calls the character by name, never
+"the player" or "the party". The record and the summary are branched with the story.
 
 ## Layered recall and forgetting
 
@@ -183,7 +183,9 @@ story.
 
 - **Chapters close at scene breaks:** a new place, a journey or a rest, a fight over, a quest done or failed, or the
   player ending one themselves ("End the chapter", with a name if they like). The break waits
-  (`story_chapter_break`, branched game state) and the player's next line opens the next chapter. After that turn the
+  (`story_chapter_break`, branched game state) and the player's next line opens the next chapter. "Go somewhere else"
+  leaves a break too, and a line that goes somewhere ("I go to the shrine") opens the new chapter itself, so the move
+  is not left as a one-line chapter. After that turn the
   Continuity model (or the Default one) summarizes and names the chapter that ended; a name the player gave stays.
 - **Chapters follow the branches.** A chapter (`story_chapters`) starts at one of the player's lines, and its end
   (`story_chapter_ends`) is kept on the branch where it ended. Both are read through `timeline.visible` like the
@@ -209,7 +211,8 @@ story.
   (`POST /api/worlds/import`, the file as the body) makes it a new world under the persona that played it (made
   again if this install has none); saved credentials stay behind, as with any restore.
 - **Legacy.** At campaign start, another world's story can come in as history ("An earlier story"): its character,
-  whether they died, and what its chapters say they did. As a **legend**, the world remembers them and their deeds.
+  whether they died, and what its chapters say they did (given as an old account for the narrator to retell in the
+  past tense, never to quote). As a **legend**, the world remembers them and their deeds.
   As a **villain**, they are believed gone but live on, turned, as hidden truth and a nemesis the director brings
   back. As a **corpse**, the record holds their death, so the narrator never has them act. These facts are weight 3
   and never fade.
@@ -628,15 +631,16 @@ who is not there; the words that tell code play touched it; and its antagonist, 
   Settings > Models, else from the thread's own truth. It is refused if it has the dead acting, then kept as hidden
   truth in the record and as a seed already on the page.
 - **Beats planned a stage at a time (`story_arc_beats`).** When an arc reaches a stage with no plan, the director
-  model drafts three beats from the stage's truth and the hottest threads; code keeps those that name none of the
-  dead, and without the model the plan is the stage's own seed and word. When the arc is due, the note gives its next
+  model drafts three beats from the stage's truth, where the arc plays and the hottest threads of that arc only;
+  code keeps those that name none of the dead and none of another arc's own names (its cast and places), and without the model the plan is the stage's own seed and word. When the arc is due, the note gives its next
   beat.
 - **Co-planning in the GM view.** "Behind the story" lists the seeds (planted, paid, retired) and each arc's planned
   beats. The player can bring a seed back next or retire it, and cut, restore or move up a beat.
 - **"Previously" openers.** When a chapter ends, the Continuity model (or the Default one) gives its title, a summary
   and the hook it leaves open, before the next line. The line that opens the next chapter carries a hidden
   "## Previously" from them and the hottest threads the character knows of, and the narrator begins with two or
-  three sentences of it. The chapter list shows each chapter's hook as "Still open".
+  three sentences of it. Only when it is worth it: after 6 of the player's lines since the last one, or a chapter the
+  player closed themselves; a short chapter just read gets none. The chapter list shows each chapter's hook as "Still open".
 
 ## Rewrite
 
@@ -740,4 +744,6 @@ and -4 or less a step harder. With the dice shown, "People you've met" shows the
 little, likes you").
 
 Named people (a city's notables) also bring their own business to every scene: who they are and what they are
-after right now (their `wants`, else their drawn goal), and the narrator is told they pursue it unprompted.
+after right now (their `wants`, else their drawn goal), and the narrator is told they pursue it unprompted. A notable
+who runs the place (its keeper, its priest) but is not there now is still named to the narrator as away, so no
+other keeper is made up in their post.

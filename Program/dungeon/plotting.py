@@ -19,6 +19,7 @@ director"; docs/story.md "The director: seeds, adopted details and planned beats
 
 All of it is game state, branched with the story (dungeon/timeline.py SAVED).
 """
+import json
 import random
 import re
 
@@ -40,8 +41,9 @@ COMMON = {'the', 'and', 'with', 'from', 'that', 'this', 'into', 'their', 'there'
 DRAFT = """You help a game master plan the next stage of a story arc in a tabletop roleplaying game. You never write \
 the story itself. Given the arc, the truth of its new stage and the threads the player cares about, draft {count} \
 candidate beats: short things the world could do next to bring this stage into play (a person who comes looking, an \
-event, a discovery). Each is one sentence. Never decide what the player's character does. Answer with JSON only: \
-{{"beats": ["...", "..."]}}"""
+event, a discovery). Each is one sentence. Use only the people, groups and places named here, and keep each person \
+where they are; bring in no one from another story. Never decide what the player's character does. Answer with JSON \
+only: {{"beats": ["...", "..."]}}"""
 DRAFT_SHAPE = record.strict({'beats': {'type': 'array', 'items': {'type': 'string'}}})
 MEANING = """You help a game master. The player has taken an interest in a detail the narrator made up. Give it a \
 hidden meaning that ties it to the thread below, in one or two sentences, consistent with the thread's truth and \
@@ -187,10 +189,44 @@ def unplanned(connection, world: str) -> list[tuple[str, int, dict]]:
     return result
 
 
-def checked_beats(connection, drafted: list) -> list[str]:
+def checked_beats(connection, drafted: list, foreign: set[str] = frozenset()) -> list[str]:
+    """The drafted beats kept: none naming the dead, none using another arc's own words (its cast and places)."""
     dead = [name for name in record.dead(connection) if len(name) > 2]
     return [str(text).strip()[:300] for text in drafted if isinstance(text, str) and str(text).strip()
-            and not any(name in text.lower() for name in dead)][:BEATS]
+            and not any(name in text.lower() for name in dead) and not words_of(text) & foreign][:BEATS]
+
+
+# A capitalized word not opening a sentence: a name (its possessive dropped).
+NAME = re.compile(r"(?<![.!?:]\s)(?<!^)(?<![.!?:]\s\")\b([A-Z][a-z-]{2,})(?:'s)?\b")
+
+
+def names_in(found: dict) -> set[str]:
+    """The proper names an arc's own text uses (its cast, groups and places), lowercased."""
+    text = '  '.join([found.get('seen', ''), str((found.get('antagonist') or {}).get('name', ''))]
+                     + [str(stage.get(key, '')) for stage in found['stages'] for key in ('truth', 'seed', 'word')])
+    names = set()
+    for part in re.split(r'(?<=[.!?:])\s+|\s{2,}', text):
+        names |= {name.lower() for name in NAME.findall(part)}
+    return names - COMMON
+
+
+def foreign_words(world: str, arc_id: str) -> set[str]:
+    """Names that belong to the world's other arcs and not to this one, so a beat cannot borrow their cast."""
+    found = director.data(world)['arcs']
+    # A word the arcs also use in lower case ("keep", "new") is no name.
+    plain = set(WORD.findall(json.dumps([{key: value for key, value in arc.items() if key != 'words'} for arc in found])))
+    own = {name for arc in found if arc['id'] == arc_id for name in names_in(arc)}
+    return {name for arc in found if arc['id'] != arc_id for name in names_in(arc)} - own - plain
+
+
+def drafting(found: dict, stage: dict, hot: list[dict]) -> str:
+    """What the director model is given for one arc's stage: the arc, where it plays, and only its own threads."""
+    where = ', '.join((found.get('antagonist') or {}).get('where') or [])
+    own = [row for row in hot if row.get('arc_id') in (found['id'], None)][:3]
+    return (f"The arc: {found['name']}." + (f" It plays in: {where}." if where else '')
+            + f"\nIts new stage: {stage['truth']}\nThe world's own beat: {stage['word']}\n"
+            + ('The threads of this arc the player cares about: '
+               + '; '.join(f"{row['title']} ({row['truth']})" for row in own) if own else ''))
 
 
 def store(connection, arc_id: str, stage: int, texts: list[str], source: str):
@@ -206,13 +242,11 @@ async def plan(state):
         world = director.state(connection)['world']
         waiting = unplanned(connection, world) if world and director.ACTIVE else []
         config = model(connection)
-        hot = director.threads(connection)[:3]
+        hot = director.threads(connection)
     for arc_id, number, stage in waiting:
         drafted = []
         if config is not None:
-            found = director.arc(world, arc_id)
-            asking = (f"The arc: {found['name']}. Its new stage: {stage['truth']}\nThe world's own beat: {stage['word']}\n"
-                      'The threads the player cares about: ' + '; '.join(f"{row['title']} ({row['truth']})" for row in hot))
+            asking = drafting(director.arc(world, arc_id), stage, hot)
             try:
                 answer = await record.schema_first(state, config, DRAFT.format(count=BEATS), asking, DRAFT_SHAPE,
                                                    lambda answer: isinstance((record.read_json(answer) or {}).get('beats'), list))
@@ -222,7 +256,7 @@ async def plan(state):
         with database.connect(write=True) as connection:
             if beats(connection, arc_id, number):
                 continue
-            kept = checked_beats(connection, drafted)
+            kept = checked_beats(connection, drafted, foreign_words(world, arc_id))
             store(connection, arc_id, number, kept or [stage['word'], stage['seed']], 'model' if kept else 'world')
 
 

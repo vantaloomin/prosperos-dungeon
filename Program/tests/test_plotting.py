@@ -97,3 +97,16 @@ def test_each_arc_stage_gets_planned_beats_the_gm_can_cut_and_reorder(client, ap
         director.advance(connection, 'vallarith', NOW, NOW.replace(day=2), 'x', Road(1, 99, 99))
         connection.execute("UPDATE story_arcs SET stage=0 WHERE arc_id='the-eight-pieces'")
         assert 'Next beat (The Eight Pieces): The grove goes quiet.' in note(connection)
+
+
+def test_a_drafted_beat_keeps_to_its_own_arc():
+    # The Long Border's beats may not borrow the Eight Pieces' cast (playtest M3, finding 3).
+    foreign = plotting.foreign_words('vallarith', 'the-long-border')
+    assert {'gannet', 'pryce', 'heartwood'} <= foreign and 'cyrel' not in foreign
+    beats = ['A Gannet & Pryce clerk rides up to the Bastion.', 'Murga sends a rider down from the passes.']
+    asking = plotting.drafting(director.arc('vallarith', 'the-long-border'),
+                               director.arc('vallarith', 'the-long-border')['stages'][0],
+                               [{'arc_id': 'the-eight-pieces', 'title': 'The contract', 'truth': 'a cult'},
+                                {'arc_id': 'the-long-border', 'title': 'The levy', 'truth': 'short of men'}])
+    assert 'The levy' in asking and 'The contract' not in asking
+    assert [beat for beat in beats if not plotting.words_of(beat) & foreign] == beats[1:]

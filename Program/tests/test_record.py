@@ -85,7 +85,7 @@ def test_older_turns_fold_into_the_story_so_far(client, connected, app, provider
     for number in range(1, 4):
         tell(client, f'Turn {number}.', f'story-000{number}')
     # Six messages: four recent plus two to fold, so the third reply folds the first two.
-    assert provider.requests[-1]['system'] == record.SUMMARIZE
+    assert provider.requests[-1]['system'].startswith(record.SUMMARIZE)
     assert 'The player: Turn 1.\n\nThe narrator: Narration 1.' in provider.requests[-1]['messages'][0]['content']
     assert 'Turn 2.' not in provider.requests[-1]['messages'][0]['content']
 

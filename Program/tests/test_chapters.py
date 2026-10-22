@@ -25,10 +25,11 @@ def campaign(client):
     return ok(client.get('/api/story'))['campaign']
 
 
-def test_a_scene_break_opens_the_next_chapter_and_the_one_that_ended_is_summarized(client, connected, provider):
+def test_a_scene_break_opens_the_next_chapter_and_the_one_that_ended_is_summarized(client, connected, provider,
+                                                                                   monkeypatch):
     begin(client)
     route_continuity(client)
-    narrations = iter(['Pell weighs the coin.', 'You sleep badly.', 'Previously: you paid Pell. Morning comes grey.',
+    narrations = iter(['Pell weighs the coin.', 'You sleep badly.', 'Grey.', 'Morning comes grey.',
                        'The street is wet.'])
     summaries = iter([summary("A night at Pell's", 'You paid Pell and slept in the back room.'),
                       summary('Something else', 'You got up.')])
@@ -46,7 +47,11 @@ def test_a_scene_break_opens_the_next_chapter_and_the_one_that_ended_is_summariz
     asked = next(request for request in reversed(provider.requests) if request['system'] == chapters.SUMMARIZE)
     assert 'The player: I pay Pell.' in asked['messages'][0]['content']
     tell(client, 'I get up.', 'story-0003')
-    # It opens with "previously", from the chapter that ended and the hook it left.
+    # Two lines are too few for a "previously": the player has just read them.
+    assert chapters.PREVIOUSLY not in narrator(provider)['system']
+    # With enough lines it opens with one, from the chapter that ended and the hook it left (told again here).
+    monkeypatch.setattr(chapters, 'RECAP_TURNS', 2)
+    ok(client.post('/api/story/retry'))
     opened = narrator(provider)['system']
     assert chapters.PREVIOUSLY in opened and 'You paid Pell and slept in the back room.' in opened
     assert 'Still open: The bill.' in opened
@@ -59,7 +64,17 @@ def test_a_scene_break_opens_the_next_chapter_and_the_one_that_ended_is_summariz
     tell(client, 'I step outside.', 'story-0004')
     assert campaign(client)['chapters'][1]['title'] == 'The grey morning'
     lines = ok(client.get(f"/api/story/chapters/{second['id']}"))['lines']
-    assert [line['text'] for line in lines] == ['I get up.', 'Previously: you paid Pell. Morning comes grey.']
+    assert [line['text'] for line in lines] == ['I get up.', 'Morning comes grey.']
+
+
+def test_a_previously_waits_for_enough_lines_since_the_last():
+    def chapter(turns, ended_by='time'):
+        return {'turns': turns, 'ended_by': ended_by}
+    assert not chapters.recap_due([chapter(2)])
+    assert chapters.recap_due([chapter(2), chapter(3), chapter(1)])
+    # After one, the count starts again.
+    assert not chapters.recap_due([chapter(6), chapter(2)])
+    assert chapters.recap_due([chapter(6), chapter(1, 'player')])
 
 
 def test_chapters_follow_the_branches_and_the_tree_marks_how_each_ended(client, connected, provider, app):
@@ -120,3 +135,15 @@ def test_bookmarks_find_a_moment_and_the_notebook_is_never_read_by_a_model(clien
     assert 'Pell is hiding the key' not in str(provider.requests)
     assert [note['text'] for note in ok(client.get('/api/story/notebook'))['notes']] == ['Pell is hiding the key.']
     assert ok(client.delete(f"/api/story/notebook/{notes[0]['id']}"))['notes'] == []
+
+
+def test_going_somewhere_opens_the_next_chapter(client, connected, provider):
+    # Playtest M3, finding 2: "Go somewhere else" on the screen ends the chapter too.
+    begin(client)
+    provider.replies = [reply('One.')]
+    tell(client, 'I look around.', 'story-0001')
+    places = ok(client.get('/api/story'))['scene']['places']
+    here = ok(client.get('/api/story'))['scene']['place']['id']
+    ok(client.put('/api/story/scene', json={'city_id': ok(client.get('/api/story'))['scene']['city']['id'],
+                                            'place_id': next(place['id'] for place in places if place['id'] != here)}))
+    assert campaign(client)['pending']['reason'] == 'place'
