@@ -34,6 +34,10 @@ and for each town on its map the town's adventure, items, finds, premades and ci
 the data folder (`packages/<id>.sqlite`) when first asked for. It is built again whenever a source changes, which a
 fingerprint of the contents tells.
 
+Two worlds are built in: Vallarith (`packages/vallarith/`, grimdark fantasy, Kingswood its town) and Havenbrooke
+(`packages/havenbrooke/`, modern fantasy in the autumn of 2009, Haven and its university its town). Havenbrooke's
+school is in its own folder's engine data (`engine/institutions/havenbrooke.json`).
+
 ## In play
 
 - **Lore.** A campaign that starts in a world with a package gets the package's `lore` section as one of the

@@ -151,7 +151,7 @@ def supply(connection, effect: dict, context: dict) -> list[str]:
     if effect['shift'] > 0:
         if gained := sworn.restock(connection, effect['shift']):
             return [f"Supplies: +{gained} supply."]
-        if sworn.played(connection):
+        if sworn.played(connection) or not food:
             return []
         city = food_city(travel_map, food[0])
         if city is None:
