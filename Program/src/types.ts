@@ -297,7 +297,7 @@ export type StoryHand = 'soft' | 'guiding' | 'firm'
 /** Another world's story that can come into a new campaign as history (dungeon/legacy.py). */
 export interface LegacyCandidate { world_id: string; world: string; name: string; dead: boolean; chapters: number }
 export type LegacyRole = 'legend' | 'villain' | 'corpse'
-export interface StoryStart { rulesets?: { id: Ruleset; name: string }[]; ruleset?: Ruleset; srd52?: Srd52Choices; ironsworn?: IronswornChoices; legacy?: LegacyCandidate[]; premades: Premade[]; points: number; range: [number, number]; stat_names: string[]; meanings: Record<string, string>; arc?: { arc: StoryArc; pace: StoryPace; hand?: StoryHand } | null }
+export interface StoryStart { rulesets?: { id: Ruleset; name: string }[]; ruleset?: Ruleset; srd52?: Srd52Choices; ironsworn?: IronswornChoices; legacy?: LegacyCandidate[]; presets?: TablePreset[]; table?: TableRules; premades: Premade[]; points: number; range: [number, number]; stat_names: string[]; meanings: Record<string, string>; arc?: { arc: StoryArc; pace: StoryPace; hand?: StoryHand } | null }
 /** The character's tier on the shared ladder and its track (dungeon/tiers.py); the numbers only with the dice shown. */
 /** Growth by use and the dark tracks (dungeon/growth.py); points only with the dice shown. */
 export interface SheetGrowth { marked: string[]; dark: { id: string; name: string; word: string; changes: string[]; points?: number; top?: number }[] }
@@ -352,6 +352,8 @@ export interface StoryIntensity {
   cutaways?: boolean
 }
 export type DramaLevel = 'world' | 'quiet' | 'uneasy' | 'eventful' | 'merciless'
+/** A session zero preset (dungeon/table.py PRESETS): the tone it sets and the director's hand (null: the world's). */
+export interface TablePreset { id: string; name: string; about: string; hand: StoryHand | null; rules: Pick<TableRules, 'intensity' | 'drama' | 'injury_persistence'> }
 /** The Table (dungeon/table.py): this campaign's rules. Tone starts as the world's; what is shown, as you last left it. */
 export interface TableRules {
   intensity: IntensityPreset; drama: DramaLevel; injury_persistence: InjuryPersistence

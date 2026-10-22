@@ -44,6 +44,7 @@ def premades(city_id: str) -> list[dict]:
 def view(database) -> dict:
     with database.connect() as connection:
         city_id = story.scene_row(connection)['city_id']
+        rules = table.rules(connection)
     world = tiers.world_of(city_id)
     return {'premades': premades(city_id), 'points': POINTS, 'range': list(START_RANGE),
             'stat_names': list(marvel.STATS), 'meanings': marvel.MEANINGS,
@@ -52,6 +53,8 @@ def view(database) -> dict:
             'ruleset': sheet.default_for(world), 'srd52': srd52_choices(), 'ironsworn': ironsworn_choices(),
             'arc': world and {'arc': tiers.track(world)['arc'], 'pace': tiers.track(world)['pace'],
                               'hand': director.DEFAULT_HAND},
+            # Session zero (dungeon/table.py): the presets, and the rules as a new campaign would start.
+            'presets': table.PRESETS, 'table': rules,
             # Other worlds' stories, to bring in as history (dungeon/legacy.py).
             'legacy': legacy.candidates(database)}
 
@@ -117,10 +120,11 @@ def bought(stats: dict[str, int]) -> dict[str, int]:
 def begin(database, premade_id: str | None = None, persona: PersonaInput | None = None,
           stats: dict[str, int] | None = None, arc: str | None = None, pace: str | None = None,
           hand: str | None = None, ironman: bool = False, legacy_of: dict | None = None,
-          ruleset: str | None = None, build: dict | None = None, iron: dict | None = None) -> dict:
+          ruleset: str | None = None, build: dict | None = None, iron: dict | None = None,
+          rules: dict | None = None) -> dict:
     """Start the story as a premade character or one the player made; only a story with nothing in it yet. The
     ruleset (the world's own by default) is chosen now and locked; under 5E a made character is `build` (class,
-    species, background, the standard array placed, the class's skills)."""
+    species, background, the standard array placed, the class's skills). `rules` are session zero's (dungeon/table.py)."""
     with database.connect() as connection:
         where, values = timeline.visible(connection)
         require(one(connection, f'SELECT COUNT(*) AS n FROM story_messages WHERE {where}', values)['n'] == 0,
@@ -161,7 +165,8 @@ def begin(database, premade_id: str | None = None, persona: PersonaInput | None 
             sheet.set_native(connection, native, database.now())
         # Ironman (dungeon/chapters.py): chosen now, for the whole campaign.
         chapters.set_ironman(connection, ironman)
-        # The Table (dungeon/table.py): this campaign's rules, from the world's tone and the player's last taste.
+        # The Table (dungeon/table.py): session zero's rules, the rest from the world's tone and the player's last taste.
+        table.choose(connection, rules or {}, database.now())
         table.begin(connection)
         story_clock.start(connection, database.clock.now())
         quests.start(connection, city_id, database.clock.now())

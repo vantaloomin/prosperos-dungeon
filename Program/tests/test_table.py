@@ -66,3 +66,18 @@ def test_a_campaign_from_before_the_table_keeps_the_rules_it_played_by(app):
         connection.execute("UPDATE workspace_settings SET intensity='restrained', show_odds=0 WHERE id=1")
         rules = table.rules(connection)
     assert (rules['intensity'], rules['show_odds']) == ('mature', True)
+
+
+def test_session_zero_offers_presets_and_starts_the_campaign_by_its_rules(client):
+    choices = ok(client.get('/api/story/start'))
+    assert [preset['id'] for preset in choices['presets']] == ['as-written', 'gentler', 'harsher']
+    assert choices['table']['intensity'] == 'world'
+    gentler = choices['presets'][1]['rules']
+    ok(client.post('/api/story/start', json={'persona': ASH, 'stats': STATS, 'table': {**gentler, 'show_odds': True}}))
+    rules = ok(client.get('/api/story/table'))
+    assert (rules['intensity'], rules['drama'], rules['injury_persistence'], rules['show_odds']) == \
+        ('restrained', 'quiet', 'temporary', True)
+    # What is shown is remembered for the next campaign; the tone is not.
+    ok(client.delete('/api/story'))
+    rules = ok(client.get('/api/story/start'))['table']
+    assert (rules['intensity'], rules['show_odds']) == ('world', True)

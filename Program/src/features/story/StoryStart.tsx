@@ -1,63 +1,45 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
-import type { IronswornChoices, LegacyCandidate, LegacyRole, PersonaGender, Ruleset, Srd52Choices, Story as StoryData, StoryArc, StoryHand, StoryPace, StoryStart as StartChoices } from '../../types'
-import { Field, TextArea, TextInput, Toggle } from '../../components/Fields'
+import type { IronswornChoices, PersonaGender, Ruleset, Srd52Choices, Story as StoryData, StoryIntensity, StoryStart as StartChoices } from '../../types'
+import { Field, TextArea, TextInput } from '../../components/Fields'
 import { Stepper } from '../../components/NumberFields'
 import { Loading, Notice } from '../../components/Feedback'
 import { GENDERS } from '../worlds/worldsText'
 import { WORLDS_KEY } from '../worlds/useWorlds'
-import { ARC_NAMES, arrayPlaced, HAND_NAMES, LEGACY_ROLES, PACE_NAMES, skillChoices, skillId, pointsLeft, pointsText, premadeLine, startingStats } from './storyText'
+import { arrayPlaced, skillChoices, skillId, pointsLeft, pointsText, premadeLine, startingStats } from './storyText'
+import { SessionZero } from './SessionZero'
 
-/** Campaign start (dungeon/campaign.py): play a premade character from this town, or make your own. */
-export function StoryStart({ onStarted }: { onStarted: (data: StoryData) => void }) {
+/** Campaign start (dungeon/campaign.py): play a premade character from this town, or make your own; then session zero
+ * (./SessionZero.tsx) sets how the campaign plays. The ruleset is picked first, as it decides how a character is made. */
+export function StoryStart({ onStarted, intensity }: { onStarted: (data: StoryData) => void; intensity?: StoryIntensity }) {
   const choices = useQuery({ queryKey: ['story-start'], queryFn: () => api<StartChoices>('/story/start') })
   const client = useQueryClient()
   const [making, setMaking] = useState(false)
+  const [who, setWho] = useState<{ name: string; body: object } | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [arc, setArc] = useState<StoryArc | null>(null)
-  const [pace, setPace] = useState<StoryPace | null>(null)
-  const [hand, setHand] = useState<StoryHand | null>(null)
-  const [ironman, setIronman] = useState(false)
-  const [legacy, setLegacy] = useState<Legacy | null>(null)
   const [ruleset, setRuleset] = useState<Ruleset | null>(null)
   if (!choices.data) return <Loading label="Finding who you could be" />
   const begin = async (body: object) => {
     setBusy(true)
     setError('')
     try {
-      onStarted(await api<StoryData>('/story/start', { ...body, ...given({ arc, pace, hand, legacy, ruleset }), ironman }))
+      onStarted(await api<StoryData>('/story/start', { ...who?.body, ...body, ...(ruleset ? { ruleset } : {}) }))
       await Promise.all([client.invalidateQueries({ queryKey: ['story-sheet'] }), client.invalidateQueries({ queryKey: WORLDS_KEY })])
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'The story did not start. Try again.') }
     finally { setBusy(false) }
   }
-  const { premades, arc: world } = choices.data
+  if (who) return (<>
+    <SessionZero choices={choices.data} intensity={intensity} who={who.name} busy={busy} onStart={(body) => void begin(body)} onBack={() => setWho(null)} />
+    {error && <Notice tone="error">{error}</Notice>}
+  </>)
+  const { premades } = choices.data
   const own = making || !premades.length
   return (
     <section className="story-start" aria-labelledby="story-start-heading">
       <h2 id="story-start-heading">Who are you?</h2>
-      {world && <div className="story-arc">
-        <Field label="How far you can rise" hint="The work, foes and places that come to you grow with your name, up to this.">
-          {(id, describedBy) => <select id={id} value={arc ?? world.arc} aria-describedby={describedBy} onChange={(event) => setArc(event.target.value as StoryArc)}>
-            {(Object.entries(ARC_NAMES) as [StoryArc, string][]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>}
-        </Field>
-        <Field label="How fast">
-          {(id) => <select id={id} value={pace ?? world.pace} onChange={(event) => setPace(event.target.value as StoryPace)}>
-            {(Object.entries(PACE_NAMES) as [StoryPace, string][]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>}
-        </Field>
-        <Field label="How hard the story pushes" hint="How a game master's hand steers toward the larger story. It never decides what you do, or the dice.">
-          {(id, describedBy) => <select id={id} value={hand ?? world.hand ?? 'guiding'} aria-describedby={describedBy} onChange={(event) => setHand(event.target.value as StoryHand)}>
-            {(Object.entries(HAND_NAMES) as [StoryHand, string][]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>}
-        </Field>
-      </div>}
-      <Toggle label="Ironman" hint="No going back for this whole campaign: no earlier line, no other branch. If your character dies, the story ends there."
-        checked={ironman} onChange={setIronman} />
       <RulesetPick choices={choices.data} value={ruleset} onChange={setRuleset} />
-      <LegacyPick candidates={choices.data.legacy ?? []} value={legacy} onChange={setLegacy} />
       {!own && <>
         <p className="subtle">Play someone from this town, or make your own.</p>
         <ul className="story-premades">
@@ -65,20 +47,19 @@ export function StoryStart({ onStarted }: { onStarted: (data: StoryData) => void
             <li key={premade.id}>
               <strong>{premade.name}</strong> <span className="subtle">{premadeLine(premade)}</span>
               <p>{premade.about}</p>
-              <button type="button" className="button primary" disabled={busy} onClick={() => void begin({ premade_id: premade.id })}>Play as {premade.name.split(' ')[0]}</button>
+              <button type="button" className="button primary" onClick={() => setWho({ name: premade.name, body: { premade_id: premade.id } })}>Play as {premade.name.split(' ')[0]}</button>
             </li>
           ))}
         </ul>
         <button type="button" className="button" onClick={() => setMaking(true)}>Make your own…</button>
       </>}
-      {own && <MakeYourOwn choices={choices.data} ruleset={ruleset ?? choices.data.ruleset} busy={busy} onBegin={(body) => void begin(body)}
+      {own && <MakeYourOwn choices={choices.data} ruleset={ruleset ?? choices.data.ruleset} busy={busy} onBegin={(body, name) => setWho({ name, body })}
         onBack={premades.length ? () => setMaking(false) : undefined} />}
-      {error && <Notice tone="error">{error}</Notice>}
     </section>
   )
 }
 
-interface MakeProps { choices: StartChoices; ruleset?: Ruleset; busy: boolean; onBegin: (body: object) => void; onBack?: () => void }
+interface MakeProps { choices: StartChoices; ruleset?: Ruleset; busy: boolean; onBegin: (body: object, name: string) => void; onBack?: () => void }
 
 function MakeYourOwn({ choices, ruleset, busy, onBegin, onBack }: MakeProps) {
   const [name, setName] = useState('')
@@ -92,7 +73,7 @@ function MakeYourOwn({ choices, ruleset, busy, onBegin, onBack }: MakeProps) {
   const five = ruleset === 'srd52' && !!choices.srd52
   const sworn = ruleset === 'ironsworn' && !!choices.ironsworn
   const valid = !!name.trim() && builtFor(five ? build : sworn ? iron : true, pointsLeft(stats, choices.points)) && adultAge(years)
-  const submit = () => onBegin({ persona: { name: name.trim(), gender, age: years, about: about.trim() }, ...(five ? { build } : sworn ? { ironsworn: iron } : { stats }) })
+  const submit = () => onBegin({ persona: { name: name.trim(), gender, age: years, about: about.trim() }, ...(five ? { build } : sworn ? { ironsworn: iron } : { stats }) }, name.trim())
   return (
     <form className="story-make" onSubmit={(event) => { event.preventDefault(); if (valid) submit() }}>
       <TextInput label="Name" value={name} onChange={setName} required maxLength={80} />
@@ -106,7 +87,7 @@ function MakeYourOwn({ choices, ruleset, busy, onBegin, onBack }: MakeProps) {
         value={about} onChange={setAbout} rows={4} maxLength={2000} />
       <RulesBuild choices={choices} five={five} sworn={sworn} stats={stats} onStats={setStats} onBuild={setBuild} onIron={setIron} />
       <div className="form-actions">
-        <button type="submit" className="button primary" disabled={busy || !valid}>Begin the story</button>
+        <button type="submit" className="button primary" disabled={busy || !valid}>Next: how it plays</button>
         {onBack && <button type="button" className="button" onClick={onBack}>Back</button>}
       </div>
     </form>
@@ -167,30 +148,6 @@ function IronswornBuild({ choices, onChange }: { choices: IronswornChoices; onCh
       </details>)}
       <p className="subtle story-attribution">{choices.attribution}</p>
     </fieldset>
-  )
-}
-
-type Legacy = { world_id: string; role: LegacyRole }
-
-/** An earlier campaign's character, brought in as this world's history (dungeon/legacy.py). */
-function LegacyPick({ candidates, value, onChange }: { candidates: LegacyCandidate[]; value: Legacy | null; onChange: (value: Legacy | null) => void }) {
-  if (!candidates.length) return null
-  const line = (item: LegacyCandidate) => `${item.name}, from ${item.world}${item.dead ? ' (died)' : ''}`
-  return (
-    <div className="story-arc">
-      <Field label="An earlier story" hint="Bring a character from another world's story into this one, as history.">
-        {(id, describedBy) => <select id={id} value={value?.world_id ?? ''} aria-describedby={describedBy}
-          onChange={(event) => onChange(event.target.value ? { world_id: event.target.value, role: value?.role ?? 'legend' } : null)}>
-          <option value="">None</option>
-          {candidates.map((item) => <option key={item.world_id} value={item.world_id}>{line(item)}</option>)}
-        </select>}
-      </Field>
-      {value && <Field label="They come back as">
-        {(id) => <select id={id} value={value.role} onChange={(event) => onChange({ ...value, role: event.target.value as LegacyRole })}>
-          {(Object.entries(LEGACY_ROLES) as [LegacyRole, string][]).map(([role, label]) => <option key={role} value={role}>{label}</option>)}
-        </select>}
-      </Field>}
-    </div>
   )
 }
 
@@ -269,10 +226,6 @@ function PackSelect({ label, value, items, onChange }: { label: string; value: s
 }
 
 /** The start's optional choices, only those the player made. */
-function given(choices: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(choices).filter(([, value]) => value))
-}
-
 function adultAge(years: number | null): boolean {
   return years === null || (years >= 18 && years <= 120)
 }

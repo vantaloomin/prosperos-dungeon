@@ -46,6 +46,13 @@ The narrator gets the persona in its own layer, "The player's character": their 
 what their stats make them good and poor at (14 and up, 7 and down), in words, never numbers. It is told to voice
 them from what is there and invent nothing about their past.
 
+Session zero follows (`src/features/story/SessionZero.tsx`): one screen, "How this campaign plays", with three preset
+cards (`dungeon/table.py` PRESETS: "As the world is written", "Gentler", "Harsher"), the world's own pre-picked so
+Start is one click away. A preset sets the tone and the director's hand; "Fine-tune" shows every rule it set, whether
+the dice show, and what is chosen once for the campaign (how far and fast the character rises, Ironman, an earlier
+story). The ruleset stays on "Who are you?", as it decides how a character is made. `POST /api/story/start` takes
+the rules as `table`; `GET /api/story/start` gives `presets` and `table`, the rules a new campaign would start with.
+
 ## The Table
 
 Each campaign keeps its own rules (`dungeon/table.py`, columns on `story_campaign`), so they no longer follow the
