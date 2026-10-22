@@ -15,6 +15,7 @@ from datetime import datetime
 from dungeon import (
     authors_note,
     combat,
+    factions,
     feelings,
     finds,
     happenings,
@@ -373,7 +374,17 @@ def story(database) -> dict:
                     'stress': stress.view(connection, dice_shown(connection))},
                 'injury_persistence': injuries.persistence(connection),
                 'intensity': intensity(connection, view['data']),
-                'map': travel.view(connection, view['city']['id'], view['place']['id'])}
+                'map': travel.view(connection, view['city']['id'], view['place']['id']),
+                'factions': powers(connection, view)}
+
+
+def powers(connection, view: dict) -> list[dict]:
+    """The factions the character knows of (dungeon/factions.py), for the screen."""
+    found = happenings.where(view['city']['id'], view['place']['id'])
+    if found is None:
+        return []
+    visited = {row['node_id'] for row in many(connection, 'SELECT node_id FROM story_map WHERE visited=1')}
+    return factions.view(connection, found['world'], visited | {found['node']}, dice_shown(connection))
 
 
 def back(database, message_id: str) -> dict:
@@ -448,9 +459,15 @@ def place_scene(connection, city_id: str, place_id: str, now: str):
 
 
 def pass_time(database, connection, minutes: int):
-    """The story clock moves on, and any deadline it passes lands (dungeon/quests.py)."""
+    """The story clock moves on: any deadline it passes lands (dungeon/quests.py), and the factions' clocks run
+    (dungeon/factions.py)."""
+    before = story_clock.now(connection, database.clock)
     story_clock.advance(connection, minutes)
-    quests.check(connection, story_clock.now(connection, database.clock), database.now())
+    after = story_clock.now(connection, database.clock)
+    quests.check(connection, after, database.now())
+    row = optional(connection, 'SELECT city_id, place_id FROM story_scene WHERE id=1')
+    if row and (found := happenings.where(row['city_id'], row['place_id'])):
+        factions.advance(connection, found['world'], before, after, database.now())
 
 
 def arrive(connection, now: str) -> dict:
@@ -471,7 +488,7 @@ def clear(database) -> dict:
                       'story_inventory', 'story_purse', 'story_stock', 'story_trades', 'story_wounds', 'story_fight',
                       'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
                       'story_rounds', 'story_map', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
-                      'story_cards'):
+                      'story_cards', 'story_clocks', 'story_reputation'):
             connection.execute(f'DELETE FROM {table}')
         timeline.clear(connection)
     return story(database)
@@ -518,8 +535,11 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
         if extra:
             who_text = f'{who_text}\n{extra}' if who_text else extra
     shop, level = shop_view(connection, view), intensity(connection, view['data'])
+    found = happenings.where(view['city']['id'], view['place']['id'])
     memory = '\n\n'.join(part for part in (record.summary_text(connection), record.prompt_text(connection),
-                                             quests.prompt_text(connection, now)) if part)
+                                             quests.prompt_text(connection, now),
+                                             found and factions.prompt_text(connection, found['world'], found['node']))
+                         if part)
     place_text = scene_text(view) + (f"\n\n{inventory.shop_prompt(shop, view['data']['currency'])}" if shop else '')
     system = narration_prompt.system(prompt_library.text(connection, 'story-narrator'), craft, scene=place_text,
                                      persona=who_text, persona_name=name, memory=memory, narration=NARRATION,
@@ -720,17 +740,23 @@ def town_turn(state, user: dict) -> list[str]:
     """A day in town draws a Life Card once, on the first line of the story day there."""
     database = state.database
     with database.connect(write=True) as connection:
-        if (kept := optional(connection, "SELECT lines FROM story_cards WHERE message_id=? AND scene='town'",
-                             (user['id'],))):
-            return decode(kept['lines'])
+        kept = many(connection, "SELECT lines FROM story_cards WHERE message_id=? AND scene IN ('news', 'town') "
+                                "ORDER BY scene", (user['id'],))
+        if kept:
+            return [line for row in kept for line in decode(row['lines'])]
         view = scene(connection, story_clock.now(connection, database.clock))
         found = happenings.where(view['city']['id'], view['place']['id'])
         day = datetime.fromisoformat(view['local_time']).date()
-        if not found or not found['town'] or combat.fight(connection) or happenings.drawn_today(connection, 'town',
-                                                                                                  day):
+        if not found or not found['town'] or combat.fight(connection):
             return []
-        lines, minutes = life_card(database, connection, 'town', user['id'])
-        pass_time(database, connection, minutes)
+        # The news among the powers since the character was last in a town (dungeon/factions.py).
+        lines = factions.news(connection, found['world'], database.now())
+        if lines:
+            happenings.keep(connection, user['id'], 'news', day, None, lines)
+        if not happenings.drawn_today(connection, 'town', day):
+            drawn, minutes = life_card(database, connection, 'town', user['id'])
+            lines += drawn
+            pass_time(database, connection, minutes)
         return lines
 
 

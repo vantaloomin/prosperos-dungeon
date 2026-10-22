@@ -74,9 +74,10 @@ def no_hold_after_replies(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def no_life_cards(monkeypatch):
-    """Life Cards drawn into the story (dungeon/happenings.py) would add events to unrelated tests' turns;
-    tests/test_happenings.py turns them on."""
+    """Life Cards drawn into the story (dungeon/happenings.py) and factions' clocks moving (dungeon/factions.py)
+    would add events to unrelated tests' turns; tests/test_happenings.py and tests/test_factions.py turn them on."""
     monkeypatch.setattr('dungeon.happenings.ACTIVE', False)
+    monkeypatch.setattr('dungeon.factions.ACTIVE', False)
 
 
 @pytest.fixture(autouse=True)

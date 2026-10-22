@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Factions.** Cyrel's crown, the Timber Guild, the elves past the border stones and the powers beyond pursue
+  their own ends on the story clock: a war levy, a sawmill bought out, border stones moved in the night. The news
+  reaches you in town whether or not you had a hand in it. Powers beside the story shows who you know of and how
+  you stand with them.
 - **The world happens to you.** Life Cards now turn up in play: a day in Kingswood, a road, a night in the open can
   bring news, trouble, a choice or a fight, and the game keeps what really happened apart from what you were told.
   "How eventful" beside the story sets how often, from Quiet to Merciless; it never touches the dice.

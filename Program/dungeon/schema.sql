@@ -356,6 +356,23 @@ CREATE TABLE IF NOT EXISTS story_cards (
   PRIMARY KEY (message_id, scene)
 );
 
+-- The factions' progress clocks (dungeon/factions.py): how far each has run, when it filled, and whether the news
+-- has reached the character.
+CREATE TABLE IF NOT EXISTS story_clocks (
+  faction_id TEXT NOT NULL,
+  clock_id TEXT NOT NULL,
+  filled INTEGER NOT NULL DEFAULT 0,
+  done_at TEXT,
+  told INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (faction_id, clock_id)
+);
+
+-- The character's standing with each faction (dungeon/factions.py), -5 to 5.
+CREATE TABLE IF NOT EXISTS story_reputation (
+  faction_id TEXT PRIMARY KEY,
+  value INTEGER NOT NULL DEFAULT 0 CHECK (value BETWEEN -5 AND 5)
+);
+
 -- The character's stress track (dungeon/stress.py), and how many they have killed.
 CREATE TABLE IF NOT EXISTS story_stress (
   id INTEGER PRIMARY KEY CHECK (id = 1),
