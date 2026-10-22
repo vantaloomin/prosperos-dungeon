@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, threadKind } from '../../src/features/story/storyText.ts'
+import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, threadKind } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -245,4 +245,11 @@ test('a 5E build places the standard array once and picks only the skills left',
   assert.ok(!arrayPlaced({ str: 15, dex: 15, con: 13, int: 12, wis: 10, cha: 8 }, array))
   assert.deepEqual(skillChoices(['Athletics', 'Perception', 'Survival'], ['Athletics', 'Intimidation']), ['Perception', 'Survival'])
   assert.equal(skillId('Sleight of Hand'), 'sleight-of-hand')
+})
+
+test('xpLine and spellLine read a 5E character\'s level and spells', () => {
+  assert.equal(xpLine(2, 325, 900), 'Level 2 · 325 XP, 900 for level 3')
+  assert.equal(xpLine(20, 400000, null), 'Level 20 · 400000 XP, the highest level')
+  assert.equal(spellLine({ ability: 'Intelligence', attack: 5, dc: 13, cantrips: [], prepared: [], slots: [{ level: 1, left: 1, of: 2 }, { level: 2, left: 3, of: 3 }] }),
+    'Intelligence: spell attack +5 · save DC 13 · slots: 1st 1 of 2, 2nd 3 of 3')
 })

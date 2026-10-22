@@ -82,6 +82,10 @@ def grow(connection, now: str, rng=None) -> list[str]:
 
 def milestone(connection, why: str, now: str) -> str:
     """A milestone's bigger boost, to the stat used most since the last one."""
+    if sheet.ruleset(connection) != marvel.ID:
+        # 5E grows by XP: a milestone is worth the level's high encounter budget (dungeon/combat5e.py).
+        from dungeon import combat5e
+        return ' '.join(combat5e.gain(connection, combat5e.milestone_xp(connection), f'a milestone: {why}', now))
     row = optional(connection, 'SELECT stat FROM story_marks WHERE uses > 0 ORDER BY uses DESC, stat LIMIT 1')
     if row is None:
         return ''

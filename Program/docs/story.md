@@ -65,8 +65,26 @@ healers, townsfolk) keeps MARVEL stats for now.
   fight are saving throws (Wisdom, Constitution). The roll card reads "Athletics · DC 15" and lands a single d20. Growth by use is MARVEL's
   and does not run under 5E.
 
-Not yet (Milestone 4, next steps): 5E fights with hit points, AC and attacks; levels, XP and spells; Ironsworn and
-Starforged; Basic Roleplaying.
+### 5E levels and spells
+
+- **XP and levels** (`dungeon/combat5e.py gain`, `srd52.advance`). A won fight gives each beaten foe's XP (down or
+  broken, from its stat block); a milestone (a town quest done, a rise in standing) gives the level's high encounter
+  budget. XP reaching the advancement table's next row is a level, at once: the hit die's fixed average plus
+  Constitution in hit points, the class's features for the level, and at an Ability Score Improvement +2 to the
+  class's primary ability (up to 20, the rest to the next best). Proficiency follows the level.
+- **Spells** (`srd52.with_spells`, `sheet.cast`). A caster has the class's cantrips and prepared spells for its
+  level, picked by code (damaging and healing spells first, the highest level it can cast) and kept as it levels,
+  with the class's slots (Pact Magic's few slots of one level for a Warlock). A line that names a known spell casts
+  it: out of a fight it is a check with the spellcasting ability and proficiency against the DC; a levelled spell
+  spends the lowest slot it fits, and with none left it fails. A healing spell (Cure Wounds, Healing Word) always
+  works and heals the character. In a fight a damaging spell is a spell attack on AC, or the foe's save against the
+  spell save DC (8 + ability + proficiency), as in "Fights under 5E". A long rest gives every slot back.
+- The sheet shows the level, XP to the next, the features, the spells and the slots left.
+
+Not yet: choosing spells and the ability increase yourself, subclasses, class features in fights (Rage, Sneak
+Attack, Second Wind), upcasting and spells' other effects (conditions, areas, concentration).
+
+Not yet (Milestone 4, next steps): Ironsworn and Starforged; Basic Roleplaying.
 
 ## The turn loop
 

@@ -93,13 +93,14 @@ def fifth(connection) -> bool:
 def mend(connection, nights: int) -> list[str]:
     """Nights of good rest count toward the wound's mending: each level takes its own (MEND_NIGHTS)."""
     now = condition(connection)
+    if fifth(connection) and not now['dead'] and now['level'] < DYING:
+        # 5E heals as written: a long rest restores every hit point and spell slot.
+        lines = combat5e.long_rest(connection, nights)
+        if lines and now['level']:
+            connection.execute('UPDATE story_wounds SET level=0, rested=0 WHERE id=1')
+        return lines
     if nights <= 0 or now['dead'] or not 0 < now['level'] < DYING:
         return []
-    if fifth(connection):
-        # 5E heals as written: a long rest restores every hit point.
-        lines = combat5e.long_rest(connection, nights)
-        connection.execute('UPDATE story_wounds SET level=0, rested=0 WHERE id=1')
-        return lines
     level, rested = now['level'], now['rested'] + nights
     while 0 < level < DYING and rested >= MEND_NIGHTS[level]:
         rested -= MEND_NIGHTS[level]
@@ -224,7 +225,9 @@ def player_moves(connection, state: dict, rolls: list[dict], items: list[dict], 
     guarded, five = False, fifth(connection)
     for roll in rolls:
         landed = roll['band'] in SUCCESS
-        if FLEE.search(roll['action']):
+        if five and (spell := combat5e.spell_in(connection, roll)):
+            combat5e.cast(connection, roll, spell, standing(state), rng, lines)
+        elif FLEE.search(roll['action']):
             if landed:
                 lines.append("The player's character gets away.")
                 return True, guarded
@@ -368,6 +371,8 @@ def turn(connection, message_id: str, people: list[dict], rolls: list[dict], sta
     events += [('fled', foe['name']) for foe in state['foes'] if ending == 'won' and foe['broken'] and not down(foe)]
     if ending == 'dying':
         ending = fall(connection, state, rng, now, lines, events)
+    if ending == 'won' and fifth(connection):
+        lines += combat5e.gain(connection, combat5e.fight_xp(state), 'the fight won', now)
     if cause := state.pop('hurt_by', None):
         events.append(('maimed', cause))
     if aftermath and events and not condition(connection)['dead']:
