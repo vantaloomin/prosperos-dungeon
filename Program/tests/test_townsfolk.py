@@ -162,6 +162,23 @@ def test_in_an_older_era_nobody_works_the_other_sides_job(city_id):
     assert seen['men', 'men'] and seen['women', 'women'] and seen['men', None] and seen['women', None], seen
 
 
+def test_a_job_kept_to_an_age_goes_to_someone_that_age():
+    """A squire is young and a student 18 to 22 (Career.ages): never a 55-year-old squire."""
+    data = copy.deepcopy(catalog.city('kingswood'))
+    smith = next(career for career in data['careers'] if career['id'] == 'smith')
+    data['careers'].append(smith | {'id': 'squire', 'name': 'Squire', 'ages': [18, 24]})
+    assert list(catalog.careers_for(data)['squire']['ages']) == [18, 24]
+    assert list(catalog.careers()['undergraduate']['ages']) == [18, 22]
+    for n in range(300):
+        older = generators.resident(data, seed=f'age-{n}', role='friend', age=55, pronouns='he/him')
+        assert not older['job'] or older['job']['career']['id'] != 'squire'
+        assert townsfolk._occupation(data, f'old-{n}', 55, 'he/him') != 'squire'
+    young = {generators.town_career(data, f'y-{n}', pronouns='he/him', age=20)['id'] for n in range(400)}
+    assert 'squire' in young
+    assert generators.fits_age({'ages': (18, 24)}, 24) and not generators.fits_age({'ages': (18, 24)}, 25)
+    assert generators.fits_age({'name': 'Baker'}, 64) and generators.fits_age(None, 30)
+
+
 def test_a_they_them_resident_and_a_city_of_today_pick_from_every_job():
     data = catalog.city('london-1895')
     assert generators.fits_side(data, 'they/them') is None and generators.fits_side(catalog.city('london'), 'she') is None
