@@ -73,7 +73,7 @@ export function Story({ go }: { go: (view: View) => void }) {
       <div className="story-main">
         <StoryHeader story={story.data} change={change} onDraft={(text) => setDraft({ text, at: Date.now() })} />
         {!story.data.ready && <NoModel go={go} />}
-        {!story.data.messages.length && pending === null ? <StoryStart onStarted={update} /> : <>
+        {!story.data.messages.length && pending === null ? <StoryStart onStarted={update} intensity={story.data.intensity} /> : <>
           <StoryLog messages={story.data.messages} pending={story.data.messages.length > since ? null : pending} streamed={streamed} turn={turn} bands={story.data.bands}
             onRetry={() => void run('', () => streamApi('/story/retry/stream', {}, grow, note))}
             onRewrite={(id, passage, note) => change(() => api<StoryData>(`/story/messages/${id}/rewrite`, { passage, note }))}

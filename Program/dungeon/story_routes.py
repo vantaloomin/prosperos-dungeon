@@ -166,6 +166,18 @@ class Srd52Build(Input):
     skills: list[str] = Field(default_factory=list, max_length=8)
 
 
+class TableUpdate(Input):
+    """The Table (dungeon/table.py): this campaign's rules."""
+    intensity: Literal['world', 'restrained', 'mature', 'unflinching'] | None = None
+    drama: Literal['world', 'quiet', 'uneasy', 'eventful', 'merciless'] | None = None
+    injury_persistence: Literal['permanent', 'temporary', 'none'] | None = None
+    show_odds: bool | None = None
+    roll_dice: bool | None = None
+    show_adult_side: bool | None = None
+    gm_view: bool | None = None
+    cutaways: bool | None = None
+
+
 class StoryStart(Input):
     """A premade character by id, or one the player made: who they are and their bought stats."""
     premade_id: str | None = Field(None, min_length=1, max_length=80)
@@ -182,6 +194,8 @@ class StoryStart(Input):
     # The ruleset (dungeon/sheet.py), locked for the campaign; the world's own when left out.
     ruleset: Literal['marvel', 'srd52'] | None = None
     build: Srd52Build | None = None
+    # Session zero (dungeon/table.py): the campaign's rules from a preset, fine-tuned.
+    table: TableUpdate | None = None
 
 
 @router.get('/start')
@@ -193,7 +207,7 @@ def start_choices(request: Request):
 def start(request: Request, body: StoryStart):
     return campaign.begin(request.app.state.database, body.premade_id, body.persona, body.stats, body.arc,
                           body.pace, body.hand, body.ironman, body.legacy and body.legacy.model_dump(), body.ruleset,
-                          body.build and body.build.model_dump())
+                          body.build and body.build.model_dump(), body.table and body.table.model_dump(exclude_none=True))
 
 
 class StoryBack(Input):
@@ -261,18 +275,6 @@ def remove_bookmark(request: Request, bookmark_id: str):
 @router.post('/bookmarks/{bookmark_id}/go')
 def go_to_bookmark(request: Request, bookmark_id: str):
     return story.bookmark_go(request.app.state.database, bookmark_id)
-
-
-class TableUpdate(Input):
-    """The Table (dungeon/table.py): this campaign's rules."""
-    intensity: Literal['world', 'restrained', 'mature', 'unflinching'] | None = None
-    drama: Literal['world', 'quiet', 'uneasy', 'eventful', 'merciless'] | None = None
-    injury_persistence: Literal['permanent', 'temporary', 'none'] | None = None
-    show_odds: bool | None = None
-    roll_dice: bool | None = None
-    show_adult_side: bool | None = None
-    gm_view: bool | None = None
-    cutaways: bool | None = None
 
 
 @router.get('/table')
