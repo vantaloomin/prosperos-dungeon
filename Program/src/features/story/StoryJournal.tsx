@@ -4,6 +4,7 @@ import { api } from '../../api'
 import type { Journal, JournalEntry, JournalQuest, JournalThread } from '../../types'
 import { Notice } from '../../components/Feedback'
 import { Toggle } from '../../components/Fields'
+import { StoryGm } from './StoryGm'
 import { journalKind, questState, threadKind } from './storyText'
 
 const JOURNAL_KEY = ['story-journal']
@@ -20,10 +21,10 @@ export function StoryJournal({ open }: { open?: boolean }) {
     catch (failure) { setError(failure instanceof Error ? failure.message : 'That was not saved.') }
   }
   if (!journal.data) return null
-  const { entries, quests, threads = [], gm = false } = journal.data
+  const { entries, quests, threads = [], gm = false, summary = '' } = journal.data
   const setGm = async (checked: boolean) => {
     setError('')
-    try { await api('/settings', { gm_view: checked }, 'PUT'); await client.invalidateQueries({ queryKey: JOURNAL_KEY }) }
+    try { await api('/settings', { gm_view: checked }, 'PUT'); await Promise.all([client.invalidateQueries({ queryKey: JOURNAL_KEY }), client.invalidateQueries({ queryKey: ['story-gm'] })]) }
     catch (failure) { setError(failure instanceof Error ? failure.message : 'That setting was not saved.') }
   }
   return (
@@ -31,6 +32,7 @@ export function StoryJournal({ open }: { open?: boolean }) {
       <summary>{gm ? 'The whole record' : 'What you know'} ({entries.length})</summary>
       <Toggle label="GM view" hint="Shows everything the game keeps, secrets your character does not know included, so you can fix the model's mistakes. It spoils the story."
         checked={gm} onChange={(checked) => void setGm(checked)} />
+      <Behind gm={gm} summary={summary} />
       {!!quests.length && <Underway quests={quests} />}
       {!!threads.length && <Threads threads={threads} />}
       <ul>
@@ -43,6 +45,14 @@ export function StoryJournal({ open }: { open?: boolean }) {
       {error && <Notice tone="error">{error}</Notice>}
     </details>
   )
+}
+
+/** The GM view's panel while it is on, and the story so far as the narrator keeps it. */
+function Behind({ gm, summary }: { gm: boolean; summary: string }) {
+  return <>
+    {gm && <StoryGm />}
+    {summary && <details><summary>The story so far</summary><p className="story-note">{summary}</p></details>}
+  </>
 }
 
 /** The quests your character knows of (dungeon/quests.py), with the story time left. */

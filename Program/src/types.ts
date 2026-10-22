@@ -269,7 +269,19 @@ export interface JournalEntry { id: string; kind: string; subject: string; text:
 export interface JournalQuest { id: string; title: string; hook: string; status: 'open' | 'done' | 'failed' | 'missed'; outcome: string; left: string; kind?: 'authored' | 'job' | 'oath' }
 /** A thread in the director's notebook the character has come across, as they understand it (dungeon/director.py). */
 export interface JournalThread { id: string; kind: 'mystery' | 'grudge' | 'lead' | 'promise'; title: string; seen: string }
-export interface Journal { entries: JournalEntry[]; quests: JournalQuest[]; threads?: JournalThread[]; gm?: boolean }
+export interface Journal { entries: JournalEntry[]; quests: JournalQuest[]; threads?: JournalThread[]; gm?: boolean; summary?: string }
+export type FeelingAxis = 'trust' | 'affection' | 'respect' | 'fear' | 'desire'
+/** The GM view (dungeon/gm.py): what the game keeps behind the story, secrets included. */
+export interface GmView {
+  quests: { id: string; title: string; status: string; known: boolean; truth: string; kind: string }[]
+  people: { key: string; name: string; feelings: Record<FeelingAxis, number>; impressions: string[] }[]
+  arcs: { id: string; title: string; stage: number; stages: number; bite: number; truth: string; antagonist: string }[]
+  threads: { id: string; kind: string; title: string; truth: string; known: boolean; heat: number }[]
+  nemeses: { name: string; grudge: string; remembers: string; status: string }[]
+  factions: { faction_id: string; value: number }[]
+  dark: { id: string; name: string; word: string; points?: number; top?: number }[]
+  corrections: { before: string; after: string | null; subject: string | null; created_at: string }[]
+}
 /** One way the story went (dungeon/timeline.py); `playing` is the one on screen. */
 /** A chapter of a branch (dungeon/chapters.py): `open` while it is still being played. */
 export interface StoryChapter { id: string; number: number; title: string; summary: string; open: boolean; turns: number; ended_by: 'place' | 'time' | 'fight' | 'quest' | 'player' | null; branch_id: string; seq: number }
