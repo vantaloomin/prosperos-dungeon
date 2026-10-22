@@ -327,7 +327,7 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
 - **Starting.** A fight starts when the player attacks someone in the scene, by name or by what they do ("I punch
   the barkeep"), or when a dangerous place's threat brings a foe (Kingswood's Heartwood: a ley-mad boar, or two
   wardens who want the character taken). An attack on someone the scene does not hold, an extra the narrator brought
-  in ("I punch him", "I hit the big logger"), fights a stand-in named as the line names them. Mid-fight every line
+  in ("I punch him", "I hit the big logger"), fights a stand-in named as the line names them (not on the line straight after a fight ended: the one beaten is gone). Mid-fight every line
   goes to the Referee, told who the character is fighting, so "I go for the nearest one" or "I keep at him" is an
   attack, not a walk or a question.
 - **A round.** The player's rolled actions land first. An attack that succeeds wounds its target by the band (a
