@@ -49,6 +49,27 @@ fingerprint of the contents tells.
   data folder, reads the shipped file in `dungeon/world/data`. When two packages hold the same key, the built-in
   world's wins. Town city files (`cities`) are still read from `dungeon/world`.
 
+## The importer
+
+An existing world comes in from its own files, one reviewed section at a time (`dungeon/package_import.py`; Worlds
+screen > World packages > Import a world):
+
+- **Files.** Markdown or text documents are kept as written (`canon/<name>.md`). A lorebook JSON in any format the
+  Lore screen reads becomes the `lore` section straight away, with no model.
+- **Drafting.** Every other section (regions, settlements, factions, powers, cast, personas, hidden truths, planned
+  beats) is drafted by the World importer's model (Settings > Models; the Default without one) when the author asks
+  for it. The model reads the documents (up to 60,000 characters) and the ids already in the other sections, and
+  answers with JSON entries. Each entry gets a kebab-case id from its id, name or title, and repeated ids get -2, -3.
+- **Review.** A drafted section waits for the author: they read it, edit its entries as JSON or write a section
+  themselves, then approve or clear it. Sections with hidden truths say how many entries hold one, and the entry
+  list marks them. Nothing reaches the package until it is approved, and sections left empty stay out.
+- **Finishing.** The package is written once nothing drafted is still unread and the approved sections pass the
+  validator. An entry that names an entry of a section left out (a settlement's region with no regions approved) is
+  a problem too. An existing package with the same id is replaced only when the author says so. A built-in world's
+  name is refused.
+
+A draft is a JSON file in the data folder (`package-drafts/<id>.json`) until it is finished or discarded.
+
 ## API
 
 - `GET /api/packages`: the built-in and imported worlds, each with its sections' entry counts (and how many hide a
@@ -59,4 +80,14 @@ fingerprint of the contents tells.
 - `POST /api/packages/import` `{folder}`: a world folder on this computer, checked and made into a package. A
   built-in world's id is refused.
 
-Not yet: the importer that drafts sections with a model for review, and the built-in editor.
+- `GET /api/packages/drafts`: the imports still being reviewed.
+- `POST /api/packages/drafts` `{name, files: [{name, text}]}`: a new import.
+- `GET /api/packages/drafts/{id}`: the import with its sections, entries, hidden counts, what is still unread
+  (`waiting`), the validator's `problems` and whether it is `ready`.
+- `POST /api/packages/drafts/{id}/sections/{section}/draft`: the section drafted by the model.
+- `PUT /api/packages/drafts/{id}/sections/{section}` `{status, entries?}`: the author's edits, and `drafted`,
+  `approved` or `empty` (cleared).
+- `POST /api/packages/drafts/{id}/finish` `{replace?}`: the package written; the draft is removed.
+- `DELETE /api/packages/drafts/{id}`: the import discarded.
+
+Not yet: the built-in editor.

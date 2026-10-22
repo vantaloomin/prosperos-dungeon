@@ -49,6 +49,9 @@ JOBS = [
     {'key': 'director', 'name': 'Director', 'detail': 'Drafts the next beats of each story arc as it moves a stage, and '
      'gives a meaning to a detail you took an interest in. Off unless you choose a profile here: without one, beats '
      'come from the world\'s own arcs and code ties the detail to a thread.'},
+    {'key': 'importer', 'name': 'World importer', 'detail': 'Drafts the sections of a world package (its places, '
+     'factions, people, hidden truths and planned arcs) from the documents you import, for you to review. Uses the '
+     'Default without a profile here. A large, careful model is worth it.'},
     {'key': 'recall', 'name': 'Semantic recall', 'detail': 'Embeddings that find related parts of the story, from a '
      'recall profile (Settings > Models > Recall) or built-in recall when it is on. Without either, recall matches '
      'keywords only.'},
