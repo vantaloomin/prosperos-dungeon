@@ -667,7 +667,9 @@ CREATE TABLE IF NOT EXISTS story_people (
   respect INTEGER NOT NULL DEFAULT 0,
   fear INTEGER NOT NULL DEFAULT 0,
   desire INTEGER NOT NULL DEFAULT 0,
-  impressions TEXT NOT NULL DEFAULT '[]'
+  impressions TEXT NOT NULL DEFAULT '[]',
+  -- Lines they said in the story, newest last (dungeon/story_people.py): [{text, day}].
+  voice TEXT NOT NULL DEFAULT '[]'
 );
 
 -- Author's note (dungeon/authors_note.py): the user's note for the story, sent with every turn while it is on.

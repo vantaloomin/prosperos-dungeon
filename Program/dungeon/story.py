@@ -240,7 +240,7 @@ def person_line(person: dict, place: dict, data: dict, known: dict | None = None
     return (f"- {seen[0].upper()}{seen[1:]}: {sheet['full']}{pronouns}, {sheet['age']}, {person['doing']}{job}. "
             f"{townsfolk.first_impression(sheet).capitalize()}; "
             f"{sheet['quirk']}.{life_text(data, sheet)}{initiative(sheet, data, moment)} Mood: {person['mood']}."
-            f"{story_people.remembered(known)}"
+            f"{story_people.remembered(known, moment.date().isoformat() if moment else None)}"
             f"{person.get('note', '')}")
 
 
