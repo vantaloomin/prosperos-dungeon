@@ -1,5 +1,5 @@
 """Vallarith's factions in play (dungeon/factions.py, docs/story.md "Factions"): the powers with a hand on the travel
-map, from the world package (worlds/vallarith/factions.json), with the clocks they run in the Post-Reform era and what
+map, from the world package (dungeon/world/packages/vallarith/factions.json), with the clocks they run in the Post-Reform era and what
 happens when each fills. Run `python scripts/world/vallarith_factions.py` to rewrite
 dungeon/world/data/factions/vallarith.json.
 """
@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT.parent / 'worlds' / 'vallarith' / 'factions.json'
+SOURCE = ROOT / 'dungeon' / 'world' / 'packages' / 'vallarith' / 'factions.json'
 TRAVEL = ROOT / 'dungeon' / 'world' / 'data' / 'travel' / 'vallarith.json'
 OUT = ROOT / 'dungeon' / 'world' / 'data' / 'factions' / 'vallarith.json'
 # Chance in 100 that a clock moves on a given story day.
@@ -157,7 +157,7 @@ def build() -> dict:
             'clocks': [{'id': slug(name), 'name': name, 'segments': segments, 'done': done}
                        for name, segments, done in clocks],
             'jobs': JOBS.get(faction_id, [])})
-    return {'about': 'Built by scripts/world/vallarith_factions.py from worlds/vallarith/factions.json.',
+    return {'about': 'Built by scripts/world/vallarith_factions.py from dungeon/world/packages/vallarith/factions.json.',
             'world': 'vallarith', 'pace': PACE, 'factions': result}
 
 

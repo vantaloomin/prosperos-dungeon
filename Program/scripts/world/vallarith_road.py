@@ -1,6 +1,6 @@
 """The Road: every Vallarith travel node that is not yet a whole town, as places of one city, so a journey can end
 anywhere on the travel map (docs/story.md "Journeys"). Kingswood is the only town built out; the rest are a gate
-or an edge to arrive at, described from the world package (worlds/vallarith/settlements.json). When a town is
+or an edge to arrive at, described from the world package (dungeon/world/packages/vallarith/settlements.json). When a town is
 built out it gets its own city file and leaves the Road. Run `python scripts/world/vallarith_road.py` to rewrite it.
 """
 import json
@@ -12,7 +12,7 @@ sys.path.insert(0, str(ROOT / 'scripts' / 'world'))
 import kingswood  # noqa: E402 - the Road shares Kingswood's money, names, climate and calendar
 
 OUT = ROOT / 'dungeon' / 'world' / 'data' / 'cities' / 'vallarith-road.json'
-SETTLEMENTS = ROOT.parent / 'worlds' / 'vallarith' / 'settlements.json'
+SETTLEMENTS = ROOT / 'dungeon' / 'world' / 'packages' / 'vallarith' / 'settlements.json'
 SRC = 'curated-2026-10'
 ALL_DAY = ('morning', 'afternoon', 'evening', 'late')
 # A region whose id is also a node's (Brynwyr the realm and Brynwyr the city) gets its own.

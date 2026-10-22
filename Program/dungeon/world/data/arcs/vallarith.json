@@ -1,5 +1,5 @@
 {
- "about": "Vallarith's Post-Reform arcs for the director (dungeon/director.py), from worlds/vallarith/beats.json and hidden-truths.json. Each stage has its tier, what the world knows of it (truth), a seed the narrator may plant, and how it reaches a character who is not there (word). Drafts for Vanta to keep, change or cut.",
+ "about": "Vallarith's Post-Reform arcs for the director (dungeon/director.py), from dungeon/world/packages/vallarith/beats.json and hidden-truths.json. Each stage has its tier, what the world knows of it (truth), a seed the narrator may plant, and how it reaches a character who is not there (word). Drafts for Vanta to keep, change or cut.",
  "world": "vallarith",
  "era": "post-reform",
  "default_spine": "the-eight-pieces",

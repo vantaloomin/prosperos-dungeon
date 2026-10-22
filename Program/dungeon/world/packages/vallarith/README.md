@@ -4,10 +4,10 @@ Vallarith is a grimdark high-fantasy world. Magic is a physical current called t
 Gods are missing, the New Gods are a few lifetimes old, the Eternal Dragons cannot breed, and the
 world itself was rebuilt as a prison for the King of the Nine Hells. Survival costs morality.
 
-This folder is the content draft for Milestone 5 (see `docs/roadmap.md`). It is shaped like the
-Markdown and JSON folder export described under "World packages" in `docs/requirements.md`, so the
-Milestone 5 importer can read it into the world's SQLite file section by section, with review. No
-app code reads it yet.
+This folder is Vallarith's world package in its Markdown and JSON form (see "World packages" in
+`docs/requirements.md`). The app builds it, with Vallarith's engine data, into the world's SQLite
+file on first use and rebuilds it when anything here changes (`dungeon/packages.py`,
+`docs/packages.md`).
 
 Built from Vanta's Vallarith source material (see [sources.md](sources.md)). Every entry is
 rewritten in fresh prose; nothing is copied from the source files or from outside wikis.

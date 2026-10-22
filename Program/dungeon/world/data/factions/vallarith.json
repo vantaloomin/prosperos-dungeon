@@ -1,5 +1,5 @@
 {
- "about": "Built by scripts/world/vallarith_factions.py from worlds/vallarith/factions.json.",
+ "about": "Built by scripts/world/vallarith_factions.py from dungeon/world/packages/vallarith/factions.json.",
  "world": "vallarith",
  "pace": 25,
  "factions": [
