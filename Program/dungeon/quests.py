@@ -20,7 +20,7 @@ import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from dungeon import factions, feelings, inventory, record
+from dungeon import factions, feelings, inventory, record, tiers
 from dungeon.database import decode, encode, identifier, many, optional
 
 ADVENTURES = Path(__file__).parent / 'world' / 'data' / 'adventures'
@@ -72,19 +72,24 @@ def left_text(due_at: str | None, now: datetime) -> str:
 
 def create(connection, kind: str, city_id: str, title: str, hook: str, truth: str, missed: str, due_at: str | None,
            **extra) -> str:
-    """A new quest of a job's or an oath's own: `extra` is faction_id, giver, reward, standing, arc_id, ties."""
+    """A new quest of a job's or an oath's own: `extra` is faction_id, giver, reward, standing, arc_id, ties, tier."""
     quest_id = f'{kind}-{identifier()[:12]}'
     connection.execute('INSERT INTO story_quests (id, city_id, status, known, due_at, kind, title, hook, truth, missed, '
-                       'faction_id, giver, reward, standing, arc_id, ties) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, '
-                       '?, ?, ?, ?)', (quest_id, city_id, 'open', due_at, kind, title, hook, truth, missed,
-                                       extra.get('faction_id'), extra.get('giver'), extra.get('reward', 0),
-                                       extra.get('standing', 0), extra.get('arc_id'), encode(extra.get('ties', []))))
+                       'faction_id, giver, reward, standing, arc_id, ties, tier) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, '
+                       '?, ?, ?, ?, ?, ?)', (quest_id, city_id, 'open', due_at, kind, title, hook, truth, missed,
+                                             extra.get('faction_id'), extra.get('giver'), extra.get('reward', 0),
+                                             extra.get('standing', 0), extra.get('arc_id'),
+                                             encode(extra.get('ties', [])), extra.get('tier', 1)))
     return quest_id
 
 
-def settle(connection, quest: dict, status: str):
-    """What a job or an oath leaves when it ends: pay and standing, or the trust an oath cost."""
+def settle(connection, quest: dict, status: str) -> str:
+    """What a job or an oath leaves when it ends: pay and standing, or the trust an oath cost; work done earns the
+    character's tier track (dungeon/tiers.py), and the line when it lifts them a tier."""
     faction = quest.get('faction_id') and factions.anywhere(quest['faction_id'])
+    world = tiers.world_of(quest['city_id'])
+    risen = tiers.earn(connection, world, tiers.for_work(quest.get('tier') or 1, tiers.tier(connection, world))) \
+        if world and status == 'done' and quest.get('kind') != 'oath' else ''
     if quest.get('kind') == 'job' and status == 'done':
         inventory.set_purse(connection, inventory.purse(connection) + (quest.get('reward') or 0))
         if faction:
@@ -95,6 +100,7 @@ def settle(connection, quest: dict, status: str):
         person = optional(connection, 'SELECT key FROM story_people WHERE lower(name)=lower(?)', (quest['giver'],))
         if person:
             feelings.change(connection, person['key'], {'trust': -2, 'respect': -1}, f"broke an oath: {quest['title']}")
+    return risen
 
 
 def check(connection, now: datetime, stamp: str):

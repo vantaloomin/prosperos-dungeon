@@ -1,6 +1,7 @@
 """The story API (dungeon/story.py, docs/story.md)."""
 import asyncio
 import json
+from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse
@@ -136,6 +137,9 @@ class StoryStart(Input):
     premade_id: str | None = Field(None, min_length=1, max_length=80)
     persona: PersonaInput | None = None
     stats: dict[str, int] | None = None
+    # The arc (how far the character can rise) and its pace (dungeon/tiers.py); the world's own when left out.
+    arc: Literal['grounded', 'classic', 'epic'] | None = None
+    pace: Literal['slow', 'steady', 'fast'] | None = None
 
 
 @router.get('/start')
@@ -145,7 +149,8 @@ def start_choices(request: Request):
 
 @router.post('/start')
 def start(request: Request, body: StoryStart):
-    return campaign.begin(request.app.state.database, body.premade_id, body.persona, body.stats)
+    return campaign.begin(request.app.state.database, body.premade_id, body.persona, body.stats, body.arc,
+                          body.pace)
 
 
 class StoryBack(Input):

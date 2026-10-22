@@ -53,7 +53,7 @@
   ]
  },
  "world": "vallarith",
- "regions": {"kingdom-of-cyrel": {"danger": "low", "cards": "cyrel"}, "kingdoms-of-man": {"danger": "low", "cards": "asania"}, "badlands": {"danger": "high", "cards": "badlands"}, "brynwyr": {"danger": "high", "cards": "brynwyr"}},
+ "regions": {"kingdom-of-cyrel": {"danger": "low", "cards": "cyrel", "tier": 1}, "kingdoms-of-man": {"danger": "low", "cards": "asania", "tier": 2}, "badlands": {"danger": "high", "cards": "badlands", "tier": 2}, "brynwyr": {"danger": "high", "cards": "brynwyr", "tier": 3}},
  "camp": {
   "kingdom-of-cyrel": [
    {"weight": 3, "text": "A farm dog barks half the night at something past the firelight, and nothing comes of it."},

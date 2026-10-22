@@ -22,7 +22,7 @@ again draws nothing new.
 import re
 from datetime import date, timedelta
 
-from dungeon import combat, factions, feelings, injuries, inventory, record, stress, travel
+from dungeon import combat, factions, feelings, injuries, inventory, record, stress, tiers, travel
 from dungeon.database import encode, many, settings
 from dungeon.life import cards
 
@@ -36,7 +36,7 @@ BOND = re.compile(r'\{bond\}')
 FACTION = re.compile(r'\{faction\}')
 WAGE_ID = 'day-wage'
 DEFAULT_WAGE = 100
-# Who a card's fight brings (a level-one tier until "Scaling and tiers"): the name of one, of them all, how many,
+# Who a card's fight brings, at the first tier (dungeon/tiers.py scales them to the region's): the name of one, of them all, how many,
 # Vitality, Resolve, weapon and what they want; the dreadful ones are horror (dungeon/stress.py).
 FOE_FIELDS = ('name', 'group', 'count', 'vitality', 'resolve', 'weapon', 'wants')
 HORRORS = ('undead', 'fiend', 'fey')
@@ -64,8 +64,9 @@ def where(city_id: str, place_id: str) -> dict | None:
     if found is None or not found[0].get('world'):
         return None
     travel_map, node = found
-    return {'world': travel_map['world'], 'region': travel_map['regions'][node['region']].get('cards'),
-            'town': node['safe'] and node['city'] != 'vallarith-road', 'map': travel_map, 'node': node['id']}
+    region = travel_map['regions'][node['region']]
+    return {'world': travel_map['world'], 'region': region.get('cards'), 'tier': region.get('tier', 1),
+            'area': node['region'], 'town': node['safe'] and node['city'] != 'vallarith-road', 'map': travel_map, 'node': node['id']}
 
 
 def drama(connection, data: dict) -> str:
@@ -106,7 +107,7 @@ def draw(connection, scene: str, seed: str, city_id: str, place_id: str, data: d
     if not drawn['card']:
         return None
     faction = powers[sum(map(ord, seed)) % len(powers)] if powers else None
-    return drawn | {'map': found['map'], 'world': world, 'faction': faction}
+    return drawn | {'map': found['map'], 'world': world, 'faction': faction, 'found': found}
 
 
 def keep(connection, message_id: str, scene: str, day: date, card_id: str | None, lines: list[str]):
@@ -180,9 +181,11 @@ def feeling(connection, effect: dict, context: dict) -> list[str]:
 def fight(connection, effect: dict, context: dict) -> list[str]:
     if combat.fight(connection) is not None:
         return []
-    spec = FOES[effect['foes']]
+    # At the region's tier, or sent by an enemy above it (dungeon/tiers.py).
+    spec, sent = tiers.foe(connection, context['found'], FOES[effect['foes']], 1) if context.get('found') else \
+        (FOES[effect['foes']], '')
     combat.save_fight(connection, {'round': 0, 'wants': spec['wants'], 'foes': combat.foes_from(spec)})
-    return [f"It comes to a fight: {spec['group']} {'close' if spec['count'] > 1 else 'closes'} in."]
+    return [f"It comes to a fight: {spec['group']} {'close' if spec['count'] > 1 else 'closes'} in.", *filter(None, [sent])]
 
 
 def clocked(connection, effect: dict, context: dict) -> list[str]:
@@ -216,7 +219,7 @@ def play(connection, drawn: dict, context: dict) -> tuple[list[str], int]:
              'npc': (person.get('full') or f"the {person.get('occupation') or person['role']}") if person
              else 'a stranger'}
     context = context | {'npc': person, 'title': fill(card['title'], names).lower(), 'faction': drawn.get('faction'),
-                         'world': drawn.get('world')}
+                         'world': drawn.get('world'), 'found': drawn.get('found')}
     truth, seen = fill(card['truth'], names), fill(card['seen'], names)
     record.add(connection, 'fact', fill(card['title'], names), truth, context['logged'], truth='world')
     if card['accuracy'] != 'true':

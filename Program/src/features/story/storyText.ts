@@ -1,4 +1,4 @@
-import type { Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace } from '../../types'
+import type { Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace, StoryArc, StoryPace, StoryTier } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -186,4 +186,16 @@ export function paceText(pace: TurnPace): string {
   const skipped = pace.skipped.map((step) => STEP_NAMES[step] ?? step)
   return [`Took ${pace.total.toFixed(1)} s of ${pace.budget}`, slowest ? `${slowest[0]} ${slowest[1].toFixed(1)} s` : '',
     skipped.length ? `skipped ${skipped.join(' and ')} for time` : ''].filter(Boolean).join(' · ')
+}
+
+/** The arcs a campaign can start with (dungeon/tiers.py ARCS) and how fast it climbs. */
+export const ARC_NAMES: Record<StoryArc, string> = {
+  grounded: 'Grounded: stays close to home', classic: 'Classic: from the street to the gods', epic: 'Epic: starts high',
+}
+export const PACE_NAMES: Record<StoryPace, string> = { slow: 'Slow burn', steady: 'Steady', fast: 'Fast rise' }
+
+/** "Renown: Local, known on their own street (3 of 12)"; the numbers only with the dice shown. */
+export function tierText(tier: StoryTier): string {
+  const numbers = tier.points === undefined ? '' : tier.next ? ` (${tier.points} of ${tier.next})` : ` (${tier.points})`
+  return `${tier.track}: ${tier.tier}, ${tier.words}${numbers}`
 }

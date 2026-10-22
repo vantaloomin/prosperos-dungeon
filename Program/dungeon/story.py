@@ -35,6 +35,7 @@ from dungeon import (
     story_clock,
     story_people,
     stress,
+    tiers,
     timeline,
     travel,
     turn,
@@ -378,7 +379,13 @@ def story(database) -> dict:
                 'injury_persistence': injuries.persistence(connection),
                 'intensity': intensity(connection, view['data']),
                 'map': travel.view(connection, view['city']['id'], view['place']['id']),
-                'factions': powers(connection, view)}
+                'factions': powers(connection, view), 'tier': standing(connection, view)}
+
+
+def standing(connection, view: dict) -> dict | None:
+    """The character's tier and its track (dungeon/tiers.py), for the screen."""
+    world = tiers.world_of(view['city']['id'])
+    return tiers.view(connection, world, dice_shown(connection)) if world else None
 
 
 def powers(connection, view: dict) -> list[dict]:
@@ -492,7 +499,7 @@ def clear(database) -> dict:
                       'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
                       'story_rounds', 'story_map', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
                       'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_beats', 'story_word',
-                      'story_offpage'):
+                      'story_offpage', 'story_tier'):
             connection.execute(f'DELETE FROM {table}')
         timeline.clear(connection)
     return story(database)
@@ -542,7 +549,8 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
     found = happenings.where(view['city']['id'], view['place']['id'])
     memory = '\n\n'.join(part for part in (record.summary_text(connection), record.prompt_text(connection),
                                              quests.prompt_text(connection, now), beats.prompt_text(connection),
-                                             found and factions.prompt_text(connection, found['world'], found['node']))
+                                             found and factions.prompt_text(connection, found['world'], found['node']),
+                                             found and tiers.prompt_text(connection, found))
                          if part)
     place_text = scene_text(view) + (f"\n\n{inventory.shop_prompt(shop, view['data']['currency'])}" if shop else '')
     system = narration_prompt.system(prompt_library.text(connection, 'story-narrator'), craft, scene=place_text,
@@ -718,6 +726,9 @@ def walk(database, connection, planned: dict, rolls: list[dict], message_id: str
     end = travel.nodes(travel_map)[legs[-1]['to']]
     place_scene(connection, end['city'], end['place'], database.now())
     add(connection, database.now(), 'scene', f"You arrive at {end['name']}.", scene_row(connection))
+    # Signs warn when the road ends somewhere above the character (dungeon/tiers.py).
+    found = happenings.where(end['city'], end['place'])
+    happened += [warned] if found and (warned := tiers.warning(connection, found)) else []
     if not any(travel.STOPPED in line for line in happened):
         drawn, minutes = life_card(database, connection, 'road', message_id)
         happened += drawn
@@ -765,11 +776,20 @@ def town_turn(state, user: dict) -> list[str]:
             # A faction holding the town may need something done (dungeon/jobs.py).
             work = jobs.offer(connection, found['world'], found['node'], view['city']['id'],
                               happenings.wage(view['data']), view['data']['currency'],
-                              story_clock.now(connection, database.clock), getattr(state, 'dice', None))
+                              story_clock.now(connection, database.clock), getattr(state, 'dice', None),
+                              looking=jobs.seeking(user['text']))
             if work:
                 happenings.keep(connection, user['id'], 'news', day, None, lines + work)
             lines += drawn + work
             pass_time(database, connection, minutes)
+        elif jobs.seeking(user['text']):
+            # Going looking for work finds it at the character's tier or below, any line (dungeon/jobs.py).
+            work = jobs.offer(connection, found['world'], found['node'], view['city']['id'],
+                              happenings.wage(view['data']), view['data']['currency'],
+                              story_clock.now(connection, database.clock), getattr(state, 'dice', None), looking=True)
+            if work:
+                happenings.keep(connection, user['id'], 'news', day, None, lines + work)
+            lines += work
         return lines
 
 
@@ -798,13 +818,18 @@ def fight_round(state, user: dict, rolls: list[dict]) -> list[str]:
     with database.connect(write=True) as connection:
         view = scene(connection, story_clock.now(connection, database.clock))
         bitten = next((roll for roll in rolls if roll.get('threat') and roll['band'] in quests.BITES), None)
-        foe = (quests.foe_for(user['city_id'], user['place_id'], bitten['threat'])
-               or travel.foe_for(bitten['threat'])) if bitten else None
+        foe = quests.foe_for(user['city_id'], user['place_id'], bitten['threat']) if bitten else None
+        sent = ''
+        if bitten and foe is None and (foe := travel.foe_for(bitten['threat'])):
+            # A road's foes are at its region's tier, or sent by an enemy above it (dungeon/tiers.py).
+            found = happenings.where(view['city']['id'], view['place']['id'])
+            foe, sent = tiers.foe(connection, found, foe, found['tier']) if found else (foe, '')
         moment = story_clock.now(connection, database.clock)
-        return combat.turn(connection, user['id'], view['people'], rolls, foe,
-                           inventory.carried(connection, view['city']['id']), getattr(state, 'dice', None),
-                           database.now(), lambda events: stress.aftermath(connection, moment, events,
-                                                                           getattr(state, 'dice', None), database.now()))
+        fought = combat.turn(connection, user['id'], view['people'], rolls, foe,
+                             inventory.carried(connection, view['city']['id']), getattr(state, 'dice', None),
+                             database.now(), lambda events: stress.aftermath(connection, moment, events,
+                                                                             getattr(state, 'dice', None), database.now()))
+        return ([sent] if sent else []) + fought
 
 
 class After:
