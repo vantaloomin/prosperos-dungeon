@@ -1,7 +1,7 @@
 """Workspace settings."""
 import json
 
-from dungeon import local_zone
+from dungeon import local_zone, table
 from dungeon.clock import zone
 from dungeon.database import settings
 
@@ -66,4 +66,6 @@ def update(database, body) -> dict:
                        'updated_at': database.now()}
         columns = ', '.join(f'{key}=?' for key in assignments)
         connection.execute(f'UPDATE workspace_settings SET {columns} WHERE id=1', tuple(assignments.values()))
+        # A campaign rule set here is also the playing campaign's (dungeon/table.py).
+        table.change(connection, changes)
         return view(settings(connection))

@@ -22,8 +22,8 @@ All of it is game state, branched with the story (dungeon/timeline.py SAVED); ea
 import random
 from datetime import date, datetime, timedelta
 
-from dungeon import factions, feelings, happenings, record
-from dungeon.database import decode, encode, many, optional, settings
+from dungeon import factions, feelings, happenings, record, table
+from dungeon.database import decode, encode, many, optional
 
 QUIET_TURNS = 3
 MOST_DAYS = 3
@@ -148,7 +148,7 @@ def fire(connection, message_id: str, view: dict, preset: str, now: datetime, lo
             happened.append(play(connection, person, drawn, view['city']['name'], now, logged, message_id))
             pressure = None
     keep_clock(connection, now.isoformat(), 0 if happened else clock['quiet'] + 1)
-    if not settings(connection)['cutaways']:
+    if not table.rule(connection, 'cutaways'):
         return []
     return happened
 

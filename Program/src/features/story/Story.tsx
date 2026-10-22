@@ -28,8 +28,8 @@ import { StoryInjuries } from './StoryInjuries'
 import { StoryPowers } from './StoryPowers'
 import { StoryNarration } from './StoryNarration'
 import { StoryMap } from './StoryMap'
+import { STORY_KEY } from './table'
 
-const STORY_KEY = ['story']
 /** Matches the stylesheet's breakpoint for the side panel. */
 const WIDE = '(min-width: 1100px)'
 const OUT_OF_STORY = 'To step out of the story, start a message with OOC: or wrap it in ((double parentheses)).'
@@ -134,6 +134,7 @@ function StoryPanel({ story, change, onTravel, onBack }: PanelProps) {
           campaign's rules, so they live here rather than in Settings (src/features/settings/sections.ts ELSEWHERE). */}
       <details className="story-people story-dials">
         <summary id="story-dials-heading"><Settings2 aria-hidden="true" />Tone and rules</summary>
+        <p className="subtle">This campaign's rules. Another world keeps its own, and a new story starts in the world's tone with what you last chose to see.</p>
         <StoryIntensity intensity={story.intensity} onSaved={() => void refresh()} />
         <StoryInjuries persistence={story.injury_persistence ?? 'permanent'} onSaved={() => void refresh()} />
         <HiddenValues />

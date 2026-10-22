@@ -12,7 +12,7 @@ each with its own part of the schema), which the backend enforces where it can (
 readable is asked one field at a time.
 
 The player sees and corrects what their character knows (truth 'belief' or 'both'); every correction is logged.
-Hidden truth ('world') stays out of their view, except in the GM view (workspace setting `gm_view`), which shows
+Hidden truth ('world') stays out of their view, except in the GM view (the Table's `gm_view`, dungeon/table.py), which shows
 and edits everything and can ask again for, or clear, a single fact the model extracted.
 
 The story so far: the narrator reads the most recent messages word for word and, before them, one rolling summary.
@@ -24,8 +24,8 @@ import asyncio
 import json
 import re
 
-from dungeon import remembering
-from dungeon.database import identifier, many, one, optional, settings
+from dungeon import remembering, table
+from dungeon.database import identifier, many, one, optional
 from dungeon.errors import DomainError, require
 from dungeon.providers.scheduling import CONVERSATION
 from dungeon.text_models import config_for, key_for, routes
@@ -145,7 +145,7 @@ def entries(connection, known_only: bool = True) -> list[dict]:
 
 
 def gm_view(connection) -> bool:
-    return bool(settings(connection)['gm_view'])
+    return bool(table.rule(connection, 'gm_view'))
 
 
 def entry(connection, entry_id: str) -> dict:

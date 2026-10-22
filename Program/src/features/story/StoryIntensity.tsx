@@ -1,17 +1,19 @@
 import { useState } from 'react'
-import { api } from '../../api'
 import type { DramaLevel, IntensityPreset, StoryIntensity as Intensity } from '../../types'
 import { Field, Toggle } from '../../components/Fields'
 import { Notice } from '../../components/Feedback'
 import { dramaChoices, intensityChoices } from './storyText'
+import { useTable } from './table'
 
 /** How far the story goes on the page (dungeon/story.py intensity) and how eventful it is (dungeon/happenings.py):
- * the world's own, or the player's, at any time; and whether off-page beats are shown (dungeon/beats.py). */
+ * the world's own, or the player's, at any time; and whether off-page beats are shown (dungeon/beats.py). This
+ * campaign's rules, kept at the Table (./table.ts). */
 export function StoryIntensity({ intensity, onSaved }: { intensity: Intensity; onSaved: () => void }) {
+  const { save: keep } = useTable()
   const [error, setError] = useState('')
   const save = async (change: { intensity: IntensityPreset } | { drama: DramaLevel } | { cutaways: boolean }) => {
     setError('')
-    try { await api('/settings', change, 'PUT'); onSaved() }
+    try { await keep(change); onSaved() }
     catch (failure) { setError(failure instanceof Error ? failure.message : 'That setting was not saved.') }
   }
   return (<>

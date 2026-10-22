@@ -766,7 +766,16 @@ CREATE TABLE IF NOT EXISTS story_notebook (
 CREATE TABLE IF NOT EXISTS story_campaign (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   ironman INTEGER NOT NULL DEFAULT 0,
-  ruleset TEXT NOT NULL DEFAULT 'marvel'
+  ruleset TEXT NOT NULL DEFAULT 'marvel',
+  -- The Table (dungeon/table.py): this campaign's rules. NULL until set, then the campaign's own.
+  intensity TEXT CHECK (intensity IN ('world', 'restrained', 'mature', 'unflinching')),
+  drama TEXT CHECK (drama IN ('world', 'quiet', 'uneasy', 'eventful', 'merciless')),
+  injury_persistence TEXT CHECK (injury_persistence IN ('permanent', 'temporary', 'none')),
+  show_odds INTEGER,
+  roll_dice INTEGER,
+  show_adult_side INTEGER,
+  gm_view INTEGER,
+  cutaways INTEGER
 );
 
 -- The persona's sheet under a ruleset other than MARVEL (dungeon/sheet.py), as that ruleset keeps it.

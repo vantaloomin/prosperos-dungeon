@@ -8,7 +8,20 @@ with the player arriving where the scene is.
 import json
 from pathlib import Path
 
-from dungeon import chapters, director, inventory, legacy, quests, sheet, story, story_clock, tiers, timeline, worlds
+from dungeon import (
+    chapters,
+    director,
+    inventory,
+    legacy,
+    quests,
+    sheet,
+    story,
+    story_clock,
+    table,
+    tiers,
+    timeline,
+    worlds,
+)
 from dungeon.database import one
 from dungeon.errors import require
 from dungeon.models import PersonaInput
@@ -120,6 +133,8 @@ def begin(database, premade_id: str | None = None, persona: PersonaInput | None 
             sheet.set_native(connection, native, database.now())
         # Ironman (dungeon/chapters.py): chosen now, for the whole campaign.
         chapters.set_ironman(connection, ironman)
+        # The Table (dungeon/table.py): this campaign's rules, from the world's tone and the player's last taste.
+        table.begin(connection)
         story_clock.start(connection, database.clock.now())
         quests.start(connection, city_id, database.clock.now())
         inventory.give_kit(connection, city_id, premade_id)

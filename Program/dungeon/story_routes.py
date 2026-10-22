@@ -21,6 +21,7 @@ from dungeon import (
     sheet,
     story,
     story_clock,
+    table,
     tiers,
 )
 from dungeon.errors import DomainError, require
@@ -260,6 +261,32 @@ def remove_bookmark(request: Request, bookmark_id: str):
 @router.post('/bookmarks/{bookmark_id}/go')
 def go_to_bookmark(request: Request, bookmark_id: str):
     return story.bookmark_go(request.app.state.database, bookmark_id)
+
+
+class TableUpdate(Input):
+    """The Table (dungeon/table.py): this campaign's rules."""
+    intensity: Literal['world', 'restrained', 'mature', 'unflinching'] | None = None
+    drama: Literal['world', 'quiet', 'uneasy', 'eventful', 'merciless'] | None = None
+    injury_persistence: Literal['permanent', 'temporary', 'none'] | None = None
+    show_odds: bool | None = None
+    roll_dice: bool | None = None
+    show_adult_side: bool | None = None
+    gm_view: bool | None = None
+    cutaways: bool | None = None
+
+
+@router.get('/table')
+def read_table(request: Request):
+    with request.app.state.database.connect() as connection:
+        return table.rules(connection)
+
+
+@router.put('/table')
+def change_table(request: Request, body: TableUpdate):
+    database = request.app.state.database
+    with database.connect(write=True) as connection:
+        table.choose(connection, body.model_dump(exclude_none=True), database.now())
+        return table.rules(connection)
 
 
 class NotebookNote(Input):

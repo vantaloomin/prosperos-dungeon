@@ -24,7 +24,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from dungeon import combat, inventory, record
-from dungeon.database import many, optional, settings
+from dungeon import table as campaign_table
+from dungeon.database import many, optional
 from dungeon.rules import marvel
 
 TABLE = Path(__file__).parent / 'rules' / 'injuries.json'
@@ -57,7 +58,7 @@ def table() -> tuple[dict, ...]:
 
 
 def persistence(connection) -> str:
-    return settings(connection)['injury_persistence']
+    return campaign_table.rule(connection, 'injury_persistence')
 
 
 # Lasting injuries --------------------------------------------------------------------------------
