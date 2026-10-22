@@ -68,7 +68,7 @@ Milestone 5.
     record before the narrator mentions it. The narrator describes only what is stored.
 
 **Not in the slice:** other rulesets, travel map, factions and clocks, off-page beats, Life Cards
-events, art, tiers, chapters and the branch tree, world packages, DB editor, themes.
+events, the director, art, tiers, chapters and the branch tree, world packages, DB editor, themes.
 
 **Done when:** Vanta can start a character in the town, talk, haggle, take the quest, fight, get
 hurt or die, and go back to an earlier turn and try again with new dice.
@@ -86,6 +86,11 @@ hurt or die, and go back to an earlier turn and try again with new dice.
 - Scaling and tiers: per-world track on the shared tier ladder, banded offers, start, ceiling and
   pace sliders.
 - Progression: use-based MARVEL growth plus milestones; dark tracks.
+- **Director v0** (added 2026-10-22 from a friend's feedback; see "The director" in the
+  requirements). It comes after factions, quests and off-page beats, since it reads them all. It
+  covers the spine arc and the thread list, the Soft/Guiding/Firm hand slider, the hidden GM note on
+  every turn, side-quest ties, the tension curve with escalating arc stages, and nemesis promotion.
+  It starts with Kingswood: the Heartwood contract seeds the Eight Pieces.
 
 ## Milestone 3: Memory and campaigns
 
@@ -98,6 +103,10 @@ hurt or die, and go back to an earlier turn and try again with new dice.
 - Chapters at scene breaks, the chapter list, the branch tree, bookmarks, Ironman mode, the
   player-only notebook.
 - Memory view of what the character knows, plus the GM view toggle.
+- **Director, full** (added 2026-10-22): seeds and payoffs (the Chekhov list), adopting
+  improvised details (checked by the fact extractor against the record and hidden truths), the
+  director model slot that drafts each arc stage's beats, the GM-view co-planning setting, and
+  "previously" chapter openers.
 - Export as a backup file and as a book (Markdown, EPUB, PDF); legacy import.
 
 ## Milestone 4: Rulesets
