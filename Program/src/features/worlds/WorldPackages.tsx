@@ -7,6 +7,7 @@ import { ErrorNotice } from '../../components/ErrorNotice'
 import { TextInput, Toggle } from '../../components/Fields'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { shownPath } from '../../paths'
+import { WorldEditor } from './WorldEditor'
 import { hiddenLine, hiddenTotal, IMPORT_TYPES, nameFromFiles, packageLine, parseEntries, sectionName, statusLine, type Draft, type DraftListing, type DraftSection, type PackageSummary } from './packagesText'
 
 const PACKAGES_KEY = ['packages']
@@ -65,13 +66,16 @@ export function WorldPackages() {
 function PackageCard({ item }: { item: PackageSummary }) {
   const [busy, error, run] = useRun()
   const [folder, setFolder] = useState('')
+  const [editing, setEditing] = useState(false)
   const hidden = hiddenTotal(item)
   return (
     <li className="city-card">
-      <h4>{item.name}{item.builtin && <span className="subtle">Built in</span>}</h4>
+      <h4>{item.name}{item.builtin && <span className="subtle">{item.edited ? 'Built in, edited' : 'Built in'}</span>}</h4>
       <p className="subtle">{packageLine(item)}</p>
       {hidden > 0 && <p className="subtle"><EyeOff aria-hidden="true" className="inline-icon" /> {hidden} hidden {hidden === 1 ? 'truth' : 'truths'}, kept from the player</p>}
+      {editing && <WorldEditor item={item} onClose={() => setEditing(false)} />}
       <div className="form-actions">
+        {!editing && <button type="button" className="button" onClick={() => setEditing(true)}><Pencil aria-hidden="true" />Edit the world</button>}
         <button type="button" className="button" disabled={!!busy} onClick={() => void run('export', async () => {
           setFolder((await api<{ folder: string }>(`/packages/${item.id}/export`, {})).folder)
         })}><FolderOutput aria-hidden="true" />{busy ? 'Exporting…' : 'Export as a folder'}</button>

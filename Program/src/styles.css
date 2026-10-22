@@ -467,6 +467,12 @@ textarea { resize: vertical; line-height: 1.6; }
 .hidden-warning { color: var(--danger); font-size: 0.875rem; }
 .package-entries { margin: 6px 0 0; padding-left: 18px; max-height: 14rem; overflow-y: auto; }
 .hidden-tag { margin-left: 8px; color: var(--danger); font-size: 0.8125rem; display: inline-flex; align-items: center; gap: 3px; }
+.world-editor { display: grid; gap: 8px; min-width: 0; }
+.editor-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 8px; }
+.editor-rows { max-height: 22rem; }
+.editor-rows .text-button { padding: 2px 0; font-size: 0.875rem; color: var(--text); }
+.entry-editor h4 .subtle { margin-left: 8px; font-weight: 400; font-size: 0.8125rem; }
+.entry-editor p { margin: 0; }
 .vibe-picks { display: flex; flex-wrap: wrap; gap: 6px; }
 .vibe-pick { padding: 5px 11px; border: 1px solid var(--border); border-radius: 999px; font-size: 0.8125rem; background: transparent; }
 .vibe-pick[aria-pressed='true'] { background: var(--accent-tint); border-color: var(--accent); color: var(--accent); }

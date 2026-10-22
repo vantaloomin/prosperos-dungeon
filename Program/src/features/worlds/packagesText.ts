@@ -1,7 +1,7 @@
 // World packages and the world importer (docs/packages.md): words and checks for the Worlds screen.
 
 export interface SectionCount { entries: number; hidden: number }
-export interface PackageSummary { id: string; name: string; builtin: boolean; sections: Record<string, SectionCount>; documents: number; engine: number; assets: number }
+export interface PackageSummary { id: string; name: string; builtin: boolean; sections: Record<string, SectionCount>; documents: number; engine: number; assets: number; edited?: boolean }
 export type SectionStatus = 'empty' | 'drafted' | 'approved'
 export interface DraftSection { id: string; status: SectionStatus; from: '' | 'lorebook' | 'model'; entries: Record<string, unknown>[]; hidden: number }
 export interface Draft { id: string; name: string; created_at: string; documents: string[]; notes: string[]; sections: DraftSection[]; waiting: string[]; problems: string[]; ready: boolean }
