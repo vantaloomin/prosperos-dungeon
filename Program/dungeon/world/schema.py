@@ -383,9 +383,12 @@ class Water(Record):
 
 
 class Intensity(Record):
-    """How far a world's stories go by default, and the narrator's voice there (requirements "Intensity and tone")."""
+    """How far a world's stories go by default, the narrator's voice there and how eventful they are (requirements
+    "Intensity and tone")."""
     preset: Literal['restrained', 'mature', 'unflinching'] = 'unflinching'
     voice: str = Field(default='', max_length=300)
+    # How eventful its stories are by default: how often Life Cards turn up, and which (dungeon/happenings.py).
+    drama: Literal['quiet', 'uneasy', 'eventful', 'merciless'] = 'uneasy'
 
 
 class City(Record):

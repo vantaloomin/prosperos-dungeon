@@ -31,6 +31,7 @@ MAPS = Path(__file__).parent / 'world' / 'data' / 'travel'
 STAT = 'Luck'
 BITES = ('critical_failure', 'failure', 'failure_upside')
 NIGHT_HOURS = 14
+STOPPED = 'The journey stops here'
 GOING = re.compile(r'\b(travel\w*|set(s|ting)? (out|off)|head\w*|ride|rides|riding|walk\w*|journey\w*|march\w*|'
                    r'make (my|our|their) way|go|goes|going|leave|leaves|leaving|return\w*)\b', re.I)
 
@@ -194,7 +195,7 @@ def travelled(plan_: dict, rolls: list[dict]) -> tuple[list[dict], list[str]]:
         return legs, [f"On {where['terrain']} the character manages to {entry['action']}, and goes on."]
     lines = [f"On {where['terrain']}: {threat_text(entry['threat'])}"]
     if isinstance(entry['threat'], dict) and entry['threat'].get('foe'):
-        return legs[:encounter['leg'] + 1], lines + ['The journey stops here, on the road, with a fight on its hands.']
+        return legs[:encounter['leg'] + 1], lines + [f'{STOPPED}, on the road, with a fight on its hands.']
     return legs, lines
 
 

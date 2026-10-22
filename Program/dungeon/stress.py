@@ -51,14 +51,16 @@ def word(value: int) -> str:
     return next(name for ceiling, name in WORDS if value <= ceiling)
 
 
-def add(connection, event: str, who: str, now, rng=None, logged: str = '') -> list[str]:
-    """The stress an event costs, after the character's Resolve; and the conditions it leaves past a threshold."""
+def add(connection, event: str, who: str, now, rng=None, logged: str = '', amount: int | None = None,
+        cause: str = '') -> list[str]:
+    """The stress an event costs (or `amount`, for `cause`), after the character's Resolve; and the conditions it
+    leaves past a threshold."""
     rng = rng or random.SystemRandom()
     resolve = sheet.stats(connection)['Resolve']
     band = marvel.roll(resolve, 'normal', rng)['band']
     share, extra = RESISTED[band]
-    taken = int(COST[event] * share) + extra
-    cause = CAUSE[event].format(who=who)
+    taken = int((COST[event] if amount is None else amount) * share) + extra
+    cause = cause or CAUSE[event].format(who=who)
     before = points(connection)
     after = min(TOP, before + taken)
     save(connection, after)

@@ -1,4 +1,4 @@
-import type { Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, TurnPace } from '../../types'
+import type { Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -159,6 +159,17 @@ const PRESET_NAMES: Record<Exclude<IntensityPreset, 'world'>, string> = {
 export function intensityChoices(world: Exclude<IntensityPreset, 'world'>): [IntensityPreset, string][] {
   return [['world', `The world's own (${PRESET_NAMES[world].split(':')[0]})`],
     ...(Object.entries(PRESET_NAMES) as [IntensityPreset, string][])]
+}
+
+const DRAMA_NAMES: Record<Exclude<DramaLevel, 'world'>, string> = {
+  quiet: 'Quiet: little happens unbidden', uneasy: 'Uneasy: now and then', eventful: 'Eventful: often',
+  merciless: 'Merciless: often, and the worst of it',
+}
+
+/** The choices for how eventful the story is, the world's own first: "The world's own (Eventful)". */
+export function dramaChoices(world: Exclude<DramaLevel, 'world'>): [DramaLevel, string][] {
+  return [['world', `The world's own (${DRAMA_NAMES[world].split(':')[0]})`],
+    ...(Object.entries(DRAMA_NAMES) as [DramaLevel, string][])]
 }
 
 /** "15% off today" or "20% dearer today" after a haggle; '' without one. */

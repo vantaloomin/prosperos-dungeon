@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **The world happens to you.** Life Cards now turn up in play: a day in Kingswood, a road, a night in the open can
+  bring news, trouble, a choice or a fight, and the game keeps what really happened apart from what you were told.
+  "How eventful" beside the story sets how often, from Quiet to Merciless; it never touches the dice.
 - **Stress.** Your first kill, a horror in the dark, a beating that nearly ends you: each tests your Resolve and
   can fray your nerve. Push it too far and it leaves a mark on the mind (nightmares, a temper, the shakes, a thirst
   for drink) that makes some things harder. Rest eases it.
