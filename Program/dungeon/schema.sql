@@ -336,7 +336,8 @@ CREATE TABLE IF NOT EXISTS story_trades (
 CREATE TABLE IF NOT EXISTS story_wounds (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   level INTEGER NOT NULL CHECK (level BETWEEN 0 AND 5),
-  dead INTEGER NOT NULL DEFAULT 0 CHECK (dead IN (0, 1))
+  dead INTEGER NOT NULL DEFAULT 0 CHECK (dead IN (0, 1)),
+  rested INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS story_fight (
@@ -508,6 +509,13 @@ CREATE TABLE IF NOT EXISTS story_map (
 
 -- Each line's journey, planned once with its encounter, and what happened on it once walked (dungeon/travel.py).
 CREATE TABLE IF NOT EXISTS story_journeys (
+  message_id TEXT PRIMARY KEY,
+  plan TEXT NOT NULL,
+  lines TEXT
+);
+
+-- Each line's rest (dungeon/rest.py): the nights and what one of them turned up, decided once; and what came of it.
+CREATE TABLE IF NOT EXISTS story_rests (
   message_id TEXT PRIMARY KEY,
   plan TEXT NOT NULL,
   lines TEXT

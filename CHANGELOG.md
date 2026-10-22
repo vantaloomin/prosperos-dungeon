@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Rest.** "I make camp", "I sleep" or "I rest for three days" is decided by the game. Inns and towns are safe;
+  out in the open each night can go wrong (rain, cold, raiders in the Badlands, Brynwyr's wardens), less so if you
+  keep watch, hide the camp or set an alarm. Wounds now mend gritty: a night for a graze, four for a real wound,
+  a week for a maiming, and a hungry night mends nothing.
 - **Journeys.** "I set out for Eriane" walks the roads of Vallarith: hours on foot, nights camped, a day's food
   from your pack for each day, and the region's dangers on the way (bandits on the Cyrel road, raiders in the
   Badlands, wardens in Brynwyr's forest). The Map beside the story shows where you have been and what you have

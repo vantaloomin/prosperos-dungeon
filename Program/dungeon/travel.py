@@ -168,9 +168,9 @@ def journey(connection, message_id: str) -> dict | None:
 
 
 def foe_for(text: str) -> dict | None:
-    """The foe a road threat brings into a fight (dungeon/combat.py), if it brings one."""
+    """The foe a road or camp threat brings into a fight (dungeon/combat.py), if it brings one."""
     for travel_map in maps():
-        for entries in travel_map['encounters'].values():
+        for entries in (*travel_map['encounters'].values(), *travel_map.get('camp', {}).values()):
             for entry in entries:
                 threat = entry.get('threat')
                 if isinstance(threat, dict) and threat['text'] == text and threat.get('foe'):

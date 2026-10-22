@@ -25,6 +25,7 @@ from dungeon import (
     quests,
     record,
     referee,
+    rest,
     safety,
     story_clock,
     story_people,
@@ -441,7 +442,6 @@ def place_scene(connection, city_id: str, place_id: str, now: str):
 def pass_time(database, connection, minutes: int):
     """The story clock moves on, and any deadline it passes lands (dungeon/quests.py)."""
     story_clock.advance(connection, minutes)
-    combat.heal(connection, minutes)
     quests.check(connection, story_clock.now(connection, database.clock), database.now())
 
 
@@ -462,7 +462,7 @@ def clear(database) -> dict:
         for table in ('record_entries', 'record_corrections', 'story_summary', 'story_clock', 'story_quests',
                       'story_inventory', 'story_purse', 'story_stock', 'story_trades', 'story_wounds', 'story_fight',
                       'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
-                      'story_rounds', 'story_map', 'story_journeys'):
+                      'story_rounds', 'story_map', 'story_journeys', 'story_rests'):
             connection.execute(f'DELETE FROM {table}')
         timeline.clear(connection)
     return story(database)
@@ -497,7 +497,8 @@ def steered(chat: list[dict], steer: str) -> list[dict]:
 
 def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list[dict] | None = None,
            fought: list[str] | None = None, traded: list[str] | None = None,
-           looked: list[str] | None = None, travelled: list[str] | None = None) -> dict:
+           looked: list[str] | None = None, travelled: list[str] | None = None,
+           rested: list[str] | None = None) -> dict:
     view = scene(connection, now)
     craft = narration_prompt.craft_for(config.get('context_tokens'), prompt_library.text(connection, 'narrator-craft'))
     who_text, name = persona_text(connection)
@@ -513,7 +514,7 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
                                      persona=who_text, persona_name=name, memory=memory, narration=NARRATION,
                                      intensity=narration_prompt.Intensity.preset(level['preset'], level['voice']),
                                      outcomes=outcomes, rolls_shown=dice_shown(connection))
-    for extra in (travel.prompt_text(travelled or []), combat.prompt_text(fought or [], connection),
+    for extra in (travel.prompt_text(travelled or []), rest.prompt_text(rested or []), combat.prompt_text(fought or [], connection),
                   counter_text(traded or []), finds.prompt_text(looked or [])):
         if extra:
             system += '\n\n' + extra
@@ -616,6 +617,34 @@ def travel_turn(state, user: dict, rolls: list[dict]) -> list[str]:
         return planned['lines']
 
 
+def rest_turn(state, user: dict, rolls: list[dict]) -> list[str]:
+    """The rest a line takes (dungeon/rest.py), slept once: the nights, what one turned up, the food, the mending."""
+    database = state.database
+    with database.connect(write=True) as connection:
+        resting = rest.kept(connection, user['id'])
+        if resting is None:
+            return []
+        if resting['lines'] is None:
+            resting['lines'] = slept(database, connection, resting, rolls)
+            connection.execute('UPDATE story_rests SET lines=? WHERE message_id=?',
+                               (encode(resting['lines']), user['id']))
+        return resting['lines']
+
+
+def slept(database, connection, resting: dict, rolls: list[dict]) -> list[str]:
+    if resting.get('fighting'):
+        return ["The player's character cannot rest with a fight on their hands."]
+    nights, lost, cut_short, happened = rest.night(resting, rolls)
+    hungry = 0
+    if resting.get('outside') and nights > 1:
+        _, hungry = travel.eat(connection, resting['food'], nights - 1)
+    pass_time(database, connection, rest.minutes(nights, cut_short))
+    lines = [rest.opening(resting), *happened]
+    if hungry:
+        lines.append(f"The pack runs out of food: {hungry} hungry day{'s' if hungry > 1 else ''}, and no mending on them.")
+    return lines + combat.mend(connection, nights - lost - hungry)
+
+
 def walk(database, connection, planned: dict, rolls: list[dict]) -> list[str]:
     travel_map, start = travel.find(planned['from'])
     if planned.get('unknown'):
@@ -692,6 +721,9 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
         if road := travel.decide(connection, user['id'], user['city_id'], user['place_id'], user['text'],
                                  getattr(state, 'dice', None)):
             actions = [*actions, road]
+        if camp := rest.decide(connection, user['id'], user['city_id'], user['place_id'], user['text'],
+                               getattr(state, 'dice', None)):
+            actions = [*actions, camp]
         actions = combat.adjust(connection, feelings.adjust(connection, actions))
         return turn.saved(connection, user['id']) or turn.store(connection, user['id'], actions, database.now(),
                                                                 getattr(state, 'dice', None))
@@ -770,12 +802,13 @@ async def answer(state, user: dict, on_text=None) -> dict:
         steps = pace.Steps(pace.budget_for(connection, config), getattr(state, 'pace_clock', None) or time.monotonic)
     rolls = await rolled(state, user, steps) if in_story else []
     travelled = travel_turn(state, user, rolls) if in_story else []
+    rested = rest_turn(state, user, rolls) if in_story else []
     fought = fight_round(state, user, rolls) if in_story else []
     traded = counter_turn(state, user, rolls) if in_story else []
     looked = look_turn(state, user, rolls) if in_story else []
     with database.connect() as connection:
         packet = prompt(connection, story_clock.now(connection, database.clock), config, user,
-                        turn.outcomes(rolls) if in_story else None, fought, traded, looked, travelled)
+                        turn.outcomes(rolls) if in_story else None, fought, traded, looked, travelled, rested)
     text, error, flagged = await told(state, packet, config, in_story, steps, on_text)
     status = 'complete' if text and not error else 'failed'
     error = None if status == 'complete' else error or 'The model returned no story text.'
@@ -805,7 +838,9 @@ def received(database, text: str, client_id: str) -> tuple[dict, dict | None]:
             timeline.save(connection, user['id'])
             # The time the line takes passes as it is sent: the narrator writes the scene after it.
             if not in_character.out_of_character(text):
-                pass_time(database, connection, story_clock.minutes_for(text, bool(referee.by_keywords(text))))
+                # A rest passes its own nights (dungeon/rest.py).
+                pass_time(database, connection, 0 if rest.resting(text) else
+                          story_clock.minutes_for(text, bool(referee.by_keywords(text))))
         reply = optional(connection, "SELECT * FROM story_messages WHERE reply_to=? AND status='complete'",
                          (user['id'],))
         return user, reply
