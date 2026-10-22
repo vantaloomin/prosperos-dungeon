@@ -110,6 +110,21 @@ Invoke-TestGit @('remote', 'set-url', 'origin', $remote)
 Check ((Invoke-Bat 'update.bat') -eq 0) 'update.bat pulls main and reinstalls'
 Check (Test-Path -LiteralPath (Join-Path $CheckoutRoot 'update-marker.txt')) 'the new commit was pulled'
 Check (Test-Path -LiteralPath 'dist\index.html') 'the interface was rebuilt'
+# A main that diverged from origin (as after a squash merge) is backed up to a branch, then reset.
+Set-Content -LiteralPath (Join-Path $CheckoutRoot 'local-only.txt') -Value 'local'
+Invoke-TestGit @('-C', $CheckoutRoot, 'add', 'local-only.txt')
+Invoke-TestGit @('-C', $CheckoutRoot, 'commit', '--quiet', '-m', 'Local commit GitHub never got')
+Set-Content -LiteralPath (Join-Path $clone 'squashed.txt') -Value 'squashed'
+Invoke-TestGit @('-C', $clone, 'add', 'squashed.txt')
+Invoke-TestGit @('-C', $clone, 'commit', '--quiet', '-m', 'Squash merge on GitHub')
+Invoke-TestGit @('-C', $clone, 'push', '--quiet', 'origin', 'main')
+Check ((Invoke-Bat 'update.bat') -eq 0) 'update.bat updates a main that diverged from origin'
+Check (Test-Path -LiteralPath (Join-Path $CheckoutRoot 'squashed.txt')) 'main now matches origin'
+Check (-not (Test-Path -LiteralPath (Join-Path $CheckoutRoot 'local-only.txt'))) 'the local-only commit left main'
+$backups = @(& git branch --list 'backup/main-*' --format '%(refname:short)')
+Check ($backups.Count -eq 1) 'the local-only commit was kept on a backup branch'
+& git cat-file -e "$($backups[0]):local-only.txt" 2>$null
+Check ($LASTEXITCODE -eq 0) 'the backup branch has the local-only file'
 # A host that captures stderr (a terminal tool, a scheduled task) must not turn npm's notices into
 # failures: Windows PowerShell 5.1 wraps captured native stderr as errors. npm logs to stderr.
 $env:npm_config_loglevel = 'http'

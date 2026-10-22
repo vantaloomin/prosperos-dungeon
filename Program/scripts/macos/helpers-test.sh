@@ -110,6 +110,20 @@ git -C "$clone" push --quiet origin main
 git remote set-url origin "$remote"
 check 'update.command pulls main and reinstalls' exits 0 update.command
 check 'the new commit was pulled' test -f "$CHECKOUT_ROOT/update-marker.txt"
+# A main that diverged from origin (as after a squash merge) is backed up to a branch, then reset.
+echo local > "$CHECKOUT_ROOT/local-only.txt"
+git -C "$CHECKOUT_ROOT" add local-only.txt
+git -C "$CHECKOUT_ROOT" commit --quiet -m "Local commit GitHub never got"
+echo squashed > "$clone/squashed.txt"
+git -C "$clone" add squashed.txt
+git -C "$clone" commit --quiet -m 'Squash merge on GitHub'
+git -C "$clone" push --quiet origin main
+check 'update.command updates a main that diverged from origin' exits 0 update.command
+check 'main now matches origin' test -f "$CHECKOUT_ROOT/squashed.txt"
+check 'the local-only commit left main' test ! -e "$CHECKOUT_ROOT/local-only.txt"
+backup="$(git branch --list 'backup/main-*' --format '%(refname:short)')"
+check 'the local-only commit was kept on a backup branch' test -n "$backup"
+check 'the backup branch has the local-only file' git cat-file -e "$backup:local-only.txt"
 check 'the interface was rebuilt' test -f dist/index.html
 "$python" -m dungeon.launch --no-browser >/dev/null 2>&1 &
 background=$!
