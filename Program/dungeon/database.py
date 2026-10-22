@@ -138,6 +138,8 @@ ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"
                  *(('story_people', axis, 'INTEGER NOT NULL DEFAULT 0')
                    for axis in ('trust', 'affection', 'respect', 'fear', 'desire')),
                  ('story_people', 'impressions', "TEXT NOT NULL DEFAULT '[]'"),
+                 # Lines they said in the story, for their voice (dungeon/story_people.py): [{text, day}].
+                 ('story_people', 'voice', "TEXT NOT NULL DEFAULT '[]'"),
                  ('workspace_settings', 'intensity', "TEXT NOT NULL DEFAULT 'world' CHECK (intensity IN "
                                                      "('world', 'restrained', 'mature', 'unflinching'))"),
                  ('workspace_settings', 'turn_budget', 'INTEGER NOT NULL DEFAULT 0 CHECK (turn_budget IN '
