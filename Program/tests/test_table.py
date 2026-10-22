@@ -82,3 +82,11 @@ def test_session_zero_offers_presets_and_starts_the_campaign_by_its_rules(client
     ok(client.delete('/api/story'))
     rules = ok(client.get('/api/story/start'))['table']
     assert (rules['intensity'], rules['show_odds']) == ('world', True)
+
+
+def test_session_zero_sets_how_a_5e_defeat_goes(client):
+    ok(client.post('/api/story/start', json={'persona': ASH, 'stats': STATS, 'table': {'defeat': 'by_aim'}}))
+    assert ok(client.get('/api/story/table'))['defeat'] == 'by_aim'
+    # A defeat is tone: the next campaign starts as written again.
+    ok(client.delete('/api/story'))
+    assert ok(client.get('/api/story/start'))['table']['defeat'] == 'as_written'

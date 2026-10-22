@@ -50,7 +50,7 @@ Session zero follows (`src/features/story/SessionZero.tsx`): one screen, "How th
 cards (`dungeon/table.py` PRESETS: "As the world is written", "Gentler", "Harsher"), the world's own pre-picked so
 Start is one click away. A preset sets the tone and the director's hand; "Fine-tune" shows every rule it set, whether
 the dice show, and what is chosen once for the campaign (how far and fast the character rises, Ironman, an earlier
-story). The ruleset stays on "Who are you?", as it decides how a character is made. `POST /api/story/start` takes
+story). Under 5E it also has "Foes decide a defeat" (the Table's `defeat`). The ruleset stays on "Who are you?", as it decides how a character is made. `POST /api/story/start` takes
 the rules as `table`; `GET /api/story/start` gives `presets` and `table`, the rules a new campaign would start with.
 
 ## The Table
