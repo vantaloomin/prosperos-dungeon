@@ -21,7 +21,8 @@ if arguments == ["--help"]:
     sys.exit(0)
 if arguments[:2] == ["auth", "status"]:
     state = os.environ.get("STAND_IN_LOGIN", "in")
-    print(json.dumps({"loggedIn": state != "out", "authMethod": "api_key" if state == "key" else "claude.ai"}))
+    print(json.dumps({"loggedIn": state != "out", "authMethod": "api_key" if state == "key" else "claude.ai",
+                      "email": os.environ.get("CLAUDE_CONFIG_DIR", "").endswith("second") and "two@example.com" or ""}))
     sys.exit(1 if state == "out" else 0)
 system = Path(arguments[arguments.index("--system-prompt-file") + 1]).read_text(encoding="utf-8")
 seen = {"arguments": arguments, "system": system, "stdin": sys.stdin.read(), "cwd": os.getcwd(),
@@ -161,3 +162,31 @@ def test_a_cli_location_that_does_not_exist_is_reported(tmp_path):
     with pytest.raises(DomainError) as raised:
         claude_code.executable_path({'cli_path': str(tmp_path / 'missing' / 'claude')})
     assert 'location set in this profile' in raised.value.message
+
+
+def test_a_profile_can_use_its_own_claude_account(stand_in, monkeypatch, tmp_path):
+    """Two Claude accounts, two profiles: each profile's folder keeps its own sign-in, and a token from the
+    environment never stands in for it."""
+    monkeypatch.setenv('CLAUDE_CODE_OAUTH_TOKEN', 'the-usual-accounts-token')
+    folder = str(tmp_path / 'second')
+    reply(cli_account_dir=folder)
+    environment = json.loads((stand_in / 'seen.json').read_text())['environment']
+    assert environment['CLAUDE_CONFIG_DIR'] == folder and 'CLAUDE_CODE_OAUTH_TOKEN' not in environment
+    reply()
+    assert 'CLAUDE_CONFIG_DIR' not in json.loads((stand_in / 'seen.json').read_text())['environment']
+    provider = claude_code.ClaudeCodeProvider()
+    assert 'signed in as two@example.com' in asyncio.run(provider.check(config(cli_account_dir=folder), None))['note']
+    monkeypatch.setenv('STAND_IN_LOGIN', 'out')
+    with pytest.raises(DomainError) as raised:
+        asyncio.run(provider.check(config(cli_account_dir=folder), None))
+    assert folder in raised.value.message and 'CLAUDE_CONFIG_DIR' in raised.value.message
+
+
+def test_each_account_has_its_own_places_and_the_folder_must_be_a_full_path():
+    from dungeon.providers.scheduling import resource_for
+    assert resource_for(config()) == ('claude-cli', 2)
+    assert resource_for(config(cli_account_dir='/home/me/.claude-second')) == ('claude-cli:/home/me/.claude-second', 2)
+    assert ProfileConfig(provider='claude_code', model='sonnet', cli_account_dir=sys.prefix).cli_account_dir == sys.prefix
+    for provider, folder in (('claude_code', 'claude-second'), ('codex', sys.prefix)):
+        with pytest.raises(ValueError):
+            ProfileConfig(provider=provider, model='sonnet', cli_account_dir=folder)

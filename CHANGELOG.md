@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Two Claude accounts.** A Claude Code profile can name its own account folder (Settings > Models), so a
+  second Claude plan gets its own profile. Test connection says how to sign in to it and which account it is.
 - **Rewrite.** When the game spots a problem it had no time to fix (a dead man waving, a stock phrase), that
   paragraph is softly marked; the "?" says why, and Rewrite asks the narrator for new words. Select any passage
   of the story to rewrite it too, with a note if you like. The dice and what happened stay the same, and Switch

@@ -30,6 +30,8 @@ export interface ProfileConfig {
   embedding_model?: string
   /** Where the Claude Code CLI is installed, when it is not on PATH. */
   cli_path?: string
+  /** The folder that keeps this profile's own Claude account (CLAUDE_CONFIG_DIR); empty uses the usual one. */
+  cli_account_dir?: string
 }
 export interface ModelProfile { id: string; name: string; revision: number; config: ProfileConfig; provider_name: string; has_saved_key: boolean; ready: boolean; recall_ready?: boolean }
 export interface ModelJob { key: string; name: string; detail: string }

@@ -111,6 +111,8 @@ function ConnectionFields({ config, patch, savedKey, apiKey, onKey, found }: { c
   if (config.provider === 'claude_code') return <>
     <Notice>Claude follows Anthropic’s usage policy, so it won’t write the adult side of life. Use it for everyday chat and the other non-explicit jobs, and give adult scenes a different profile.</Notice>
     <TextInput label="Claude Code location (optional)" value={config.cli_path ?? ''} onChange={value => patch({ cli_path: value })} maxLength={500} placeholder={found ? shownPath(found) : undefined} hint="Leave empty to use the Claude Code found on this computer." />
+    <TextInput label="Claude account folder (optional)" value={config.cli_account_dir ?? ''} onChange={value => patch({ cli_account_dir: value })} maxLength={500} placeholder="C:\Users\you\.claude-second"
+      hint="For a second Claude account: a folder of its own that keeps that account's sign-in. Test connection says how to sign in to it. Leave empty for the account Claude Code usually uses." />
   </>
   return <>
     {(local || config.provider === 'compatible') && <TextInput label="Server address" value={config.base_url} onChange={value => patch({ base_url: value })} maxLength={500} hint={local ? 'An address on this computer. LM Studio and Ollama usually end in /v1.' : 'The API base URL, without /models or /chat/completions.'} />}
