@@ -18,14 +18,35 @@ program_version() {
     sed -n 's/^  "version": "\([^"]*\)".*/\1/p' "$1/package.json" | head -n 1
 }
 
+reset_diverged_main() {
+    # main has commits GitHub's main lacks, usually because a pull request was squash-merged: the squash
+    # makes one new commit, so the local ones it replaced never fast-forward. They are kept on a dated
+    # backup branch, then main is moved to match GitHub.
+    local before="$1" latest="$2" backup count
+    [ -z "$(git status --porcelain --untracked-files=no)" ] ||
+        fail "main has changes GitHub's main does not have, and edited files that are not committed. Commit or stash them ('git stash'), then update again. Nothing was changed."
+    backup="backup/main-$(date +%Y%m%d-%H%M%S)"
+    count="$(git rev-list --count "$latest..$before")"
+    git branch "$backup" "$before" || fail "Could not make the backup branch $backup. Nothing was changed."
+    git reset --quiet --hard "$latest" || fail "git reset failed; your commits are on $backup."
+    echo "Your main had $count commit(s) that GitHub's main does not (usually left over from a squash merge)."
+    echo "They are saved on the branch $backup; main now matches GitHub. Delete that branch once you no longer need it."
+}
+
 update_with_git() {
     # On a Mac without the command line tools, /usr/bin/git is a stub that offers to install them.
     git --version >/dev/null 2>&1 || fail 'Git is not installed. Run "xcode-select --install" in Terminal, then update again.'
-    local branch before after
+    local branch before after latest
     branch="$(git -C "$CHECKOUT_ROOT" rev-parse --abbrev-ref HEAD 2>&1)" || fail "Git could not read this folder: $branch"
     [ "$branch" = main ] || fail "This checkout is on '$branch'. update.command only updates main; switch with 'git switch main' first."
     before="$(git rev-parse HEAD)"
-    git pull --ff-only origin main || fail 'git pull failed; see above.'
+    git fetch origin main || fail 'git fetch failed; see above.'
+    latest="$(git rev-parse FETCH_HEAD)"
+    if git merge-base --is-ancestor "$before" "$latest"; then
+        git merge --ff-only "$latest" || fail 'git merge failed; see above.'
+    else
+        reset_diverged_main "$before" "$latest"
+    fi
     after="$(git rev-parse HEAD)"
     if [ "$before" = "$after" ]; then
         echo 'Already up to date. Reinstalling to make sure everything matches.'

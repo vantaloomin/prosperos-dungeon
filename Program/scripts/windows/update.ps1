@@ -23,6 +23,22 @@ function Get-ProgramVersion([string]$Program) {
     return (Get-Content -Raw -LiteralPath (Join-Path $Program 'package.json') | ConvertFrom-Json).version
 }
 
+function Reset-DivergedMain([string]$Before, [string]$Latest) {
+    # main has commits GitHub's main lacks, usually because a pull request was squash-merged: the
+    # squash makes one new commit, so the local ones it replaced never fast-forward. They are kept on
+    # a dated backup branch, then main is moved to match GitHub.
+    $changed = Invoke-Git @('status', '--porcelain', '--untracked-files=no')
+    if ($changed) {
+        throw "main has changes GitHub's main does not have, and edited files that are not committed. Commit or stash them ('git stash'), then update again. Nothing was changed."
+    }
+    $backup = 'backup/main-' + (Get-Date -Format 'yyyyMMdd-HHmmss')
+    $count = [string](Invoke-Git @('rev-list', '--count', "$Latest..$Before"))
+    Invoke-Git @('branch', $backup, $Before) | Out-Null
+    Invoke-Git @('reset', '--hard', $Latest) | Out-Null
+    Write-Host "Your main had $count commit(s) that GitHub's main does not (usually left over from a squash merge)." -ForegroundColor Yellow
+    Write-Host "They are saved on the branch $backup; main now matches GitHub. Delete that branch once you no longer need it." -ForegroundColor Yellow
+}
+
 function Update-WithGit {
     if (-not (Get-Command git.exe -CommandType Application -ErrorAction SilentlyContinue)) {
         throw 'Git was not found. Install Git for Windows, then update again.'
@@ -30,7 +46,18 @@ function Update-WithGit {
     $branch = [string](Invoke-Git @('-C', $CheckoutRoot, 'rev-parse', '--abbrev-ref', 'HEAD'))
     if ($branch -ne 'main') { throw "This checkout is on '$branch'. update.bat only updates main; switch with 'git switch main' first." }
     $before = [string](Invoke-Git @('rev-parse', 'HEAD'))
-    Invoke-Git @('pull', '--ff-only', 'origin', 'main') | Out-Host
+    Invoke-Git @('fetch', 'origin', 'main') | Out-Host
+    $latest = [string](Invoke-Git @('rev-parse', 'FETCH_HEAD'))
+    # merge-base exits 1 for "not an ancestor", so it is run by hand rather than through Invoke-Git.
+    $ErrorActionPreference = 'Continue'
+    & git merge-base --is-ancestor $before $latest 2>&1 | Out-Null
+    $fastForward = $LASTEXITCODE -eq 0
+    $ErrorActionPreference = 'Stop'
+    if ($fastForward) {
+        Invoke-Git @('merge', '--ff-only', $latest) | Out-Host
+    } else {
+        Reset-DivergedMain $before $latest
+    }
     $after = [string](Invoke-Git @('rev-parse', 'HEAD'))
     if ($before -eq $after) {
         Write-Host 'Already up to date. Reinstalling to make sure everything matches.'

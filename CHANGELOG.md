@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Updating after a squash merge.** update.bat and update.command no longer stop with "Not possible to
+  fast-forward" when your main has commits GitHub's main doesn't (as after a squash merge). They save those commits
+  on a dated `backup/main-...` branch, then move main to match GitHub. Uncommitted edits still stop the update.
 - **Claude and ChatGPT sign-in on Windows.** Testing a Claude Code or Codex profile no longer fails with a server
   error when Dungeon runs in development mode (dev.bat); if the CLI can't be started, the test says so plainly.
 - **Work and oaths.** Cyrel's reeve, the Timber Guild and the wardens past the stones put work your way: find a
