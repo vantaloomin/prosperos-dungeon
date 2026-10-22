@@ -192,6 +192,15 @@ class Career(Record):
     # Who did this work in its era where custom kept it to one side ('men' for a cabman in 1895, 'women' for a
     # governess); left out, anyone. Read only in a city whose era keeps work by gender (City.work_by_gender).
     worked_by: Literal['men', 'women'] | None = None
+    # The ages (in human terms) someone works it at, [youngest, oldest]: a squire is young, a student 18 to 22.
+    # Left out, any working age.
+    ages: tuple[Annotated[int, Field(ge=16, le=99)], Annotated[int, Field(ge=16, le=99)]] | None = None
+
+    @model_validator(mode='after')
+    def check_ages(self):
+        if self.ages and self.ages[0] > self.ages[1]:
+            raise ValueError('A career\'s ages run from the youngest to the oldest.')
+        return self
 
 
 class Currency(Record):
