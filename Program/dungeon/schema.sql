@@ -38,6 +38,8 @@ CREATE TABLE IF NOT EXISTS workspace_settings (
   cutaways INTEGER NOT NULL DEFAULT 0,
   -- Dice that tumble on screen and land on each roll the code made; only while the dice are shown.
   roll_dice INTEGER NOT NULL DEFAULT 0,
+  -- The GM view (dungeon/record.py): the whole record, hidden truth included, to see and edit.
+  gm_view INTEGER NOT NULL DEFAULT 0,
   -- Injury persistence (dungeon/injuries.py): lasting injuries stay, fade, or never happen.
   injury_persistence TEXT NOT NULL DEFAULT 'permanent' CHECK (injury_persistence IN ('permanent', 'temporary', 'none')),
   -- The first-run notice: the story is AI written, and the user is 18 or older.

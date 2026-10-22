@@ -959,7 +959,9 @@ async def afterwards(state, user: dict, reply: dict, packet: dict, steps: pace.S
                      if row['key'] in {person['sheet']['key'] for person in packet['people']}]
             ask = (quests.ending_ask(connection) + quests.oath_ask() + feelings.feelings_ask(there)
                    + growth.dark_ask())
-        answered = await record.extract(state, user['text'], reply, ask)
+            extra = (quests.ending_schema(connection) | quests.OATH_SCHEMA | feelings.feelings_schema(there)
+                     | growth.dark_schema())
+        answered = await record.extract(state, user['text'], reply, ask, extra)
         with database.connect(write=True) as connection:
             for item in quests.endings(answered):
                 quests.end(connection, item['id'], item['status'], item['outcome'], database.now())

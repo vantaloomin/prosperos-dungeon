@@ -2,6 +2,7 @@
 from conftest import Chunk, tell
 
 from dungeon import record
+from dungeon.errors import DomainError
 
 
 def ok(response):
@@ -116,3 +117,77 @@ def test_an_older_workspace_keeps_its_facts_under_the_new_name(tmp_path):
     connection.execute('DELETE FROM record_entries')
     timeline.restore(connection, json.dumps({'ledger_entries': [{'id': 'b', 'subject': 'Gus'}]}), ('record_entries',))
     assert connection.execute('SELECT subject FROM record_entries').fetchall() == [('Gus',)]
+
+
+def test_extraction_is_schema_first_and_says_what_each_system_asks(client, connected, app, provider):
+    route_continuity(client)
+    provider.replies = [reply('Pell hands you the key.'),
+                        reply('{"facts": [{"kind": "item", "subject": "the key", "text": "Pell gave you a key.", '
+                              '"truth": "both"}], "oaths": [], "dark": []}')]
+    tell(client, 'I take the key.', 'story-0001')
+    shape = provider.requests[-1]['config']['json_schema']
+    assert shape['required'][:1] == ['facts'] and {'oaths', 'dark'} <= set(shape['properties'])
+    assert shape['properties']['facts']['items'] == record.FACT and shape['additionalProperties'] is False
+    assert 'json_schema' not in provider.requests[-2]['config']
+    assert [entry['text'] for entry in ok(client.get('/api/story/journal'))['entries']] == ['Pell gave you a key.']
+
+
+def test_a_backend_that_refuses_the_schema_is_asked_without_it_and_a_weak_model_field_by_field(client, connected,
+                                                                                                app, provider):
+    route_continuity(client)
+
+    def respond(system, messages):
+        if system.startswith(record.EXTRACT) and provider.requests[-1]['config'].get('json_schema'):
+            raise DomainError('This model does not take response_format.', 400, 'provider')
+        if system.startswith(record.EXTRACT):
+            return reply('{"facts": [{"kind": "promise", "subject": "Pell", "text": "You owe Pell.", '
+                         '"truth": "both"}]}')
+        return reply('Pell lends you a coin.')
+    provider.respond = respond
+    tell(client, 'I borrow a coin.', 'story-0001')
+    provider.respond = None
+    # Sent again without the schema after the refusal.
+    assert 'json_schema' in provider.requests[-2]['config'] and 'json_schema' not in provider.requests[-1]['config']
+    assert ok(client.get('/api/story/journal'))['entries'][0]['text'] == 'You owe Pell.'
+
+    # A weak model answers prose: then the facts as lines, and each field for all of them.
+    provider.replies = [reply('Pell bleeds from the lip. A stranger watches.'),
+                        reply('I think the lip bled, honestly.'), reply('I think the lip bled, honestly.'),
+                        reply('1. Pell has a split lip.\n2. A stranger in grey watches the shop.'),
+                        reply('1. wound\n2. fact'), reply('1. Pell\n2. the stranger in grey'), reply('1. both\n2. world')]
+    tell(client, 'I punch Pell.', 'story-0002')
+    assert provider.requests[-4]['system'] == record.LINES
+    assert '1. Pell has a split lip.' in provider.requests[-1]['messages'][0]['content']
+    with app.state.database.connect() as connection:
+        pulled = [(row['kind'], row['subject'], row['truth']) for row in record.entries(connection, known_only=False)
+                  if row['source'] == 'narrator']
+    assert pulled[:2] == [('fact', 'the stranger in grey', 'world'), ('wound', 'Pell', 'both')]
+
+
+def test_the_gm_view_shows_everything_and_asks_again_for_or_clears_one_fact(client, connected, app, provider):
+    route_continuity(client)
+    provider.replies = [reply('The bouncer is on the co-op payroll.'),
+                        reply('{"facts": [{"kind": "secret", "subject": "the bouncer", "text": "He works for the '
+                              'co-op.", "truth": "world"}]}')]
+    tell(client, 'I watch the bouncer.', 'story-0001')
+    assert ok(client.get('/api/story/journal')) | {'quests': [], 'threads': []} == {
+        'entries': [], 'gm': False, 'quests': [], 'threads': []}
+    with app.state.database.connect() as connection:
+        [hidden] = record.entries(connection, known_only=False)
+    assert client.post(f"/api/story/journal/{hidden['id']}/regenerate").status_code == 409
+
+    ok(client.put('/api/settings', json={'gm_view': True}))
+    view = ok(client.get('/api/story/journal'))
+    assert view['gm'] is True and view['entries'][0]['truth'] == 'world' and view['entries'][0]['pulled'] is True
+    provider.replies = [reply('{"kind": "secret", "subject": "the bouncer", "text": "He takes the co-op\'s pay.", '
+                              '"truth": "world"}')]
+    view = ok(client.post(f"/api/story/journal/{hidden['id']}/regenerate"))
+    assert view['entries'][0]['text'] == "He takes the co-op's pay."
+    assert provider.requests[-1]['system'] == record.REGENERATE
+    assert provider.requests[-1]['config']['json_schema'] == record.FACT
+    assert 'The fact as it was pulled: secret, the bouncer: He works for the co-op.' in \
+        provider.requests[-1]['messages'][0]['content']
+    assert ok(client.delete(f"/api/story/journal/{hidden['id']}"))['entries'] == []
+    with app.state.database.connect() as connection:
+        log = [row['after'] for row in connection.execute('SELECT after FROM record_corrections ORDER BY rowid')]
+    assert log == ["He takes the co-op's pay.", None]

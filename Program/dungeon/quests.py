@@ -172,6 +172,20 @@ def ending_ask(connection) -> str:
             '[{"id": "...", "status": "done" or "failed", "outcome": "one sentence"}] to your answer.')
 
 
+def ending_schema(connection) -> dict:
+    """The part of the extraction schema (dungeon/record.py) that answers ending_ask."""
+    ids = [quest['id'] for quest in rows(connection, 'open')]
+    if not ids:
+        return {}
+    return {'quests': {'type': 'array', 'items': record.strict({
+        'id': {'type': 'string', 'enum': ids}, 'status': {'type': 'string', 'enum': ['done', 'failed']},
+        'outcome': {'type': 'string'}})}}
+
+
+OATH_SCHEMA = {'oaths': {'type': 'array', 'items': record.strict({
+    'to': {'type': 'string'}, 'text': {'type': 'string'}, 'days': {'type': ['integer', 'null']}})}}
+
+
 def oath_ask() -> str:
     """Added to the Continuity model's question every turn: oaths the player's character swore."""
     return ('\n\nOnly if the player\'s character this turn made a promise, oath, threat or bargain they are bound to '

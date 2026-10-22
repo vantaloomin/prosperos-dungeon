@@ -6,8 +6,14 @@ the facts it decides; after each narration the Continuity model, when one is cho
 facts the narrator brought in, and code keeps those that do not contradict the record. The narrator is given the
 record every turn and never contradicts it.
 
+Extraction is schema-first: the model fills a JSON Schema of record entries (plus the other systems' questions,
+each with its own part of the schema), which the backend enforces where it can (dungeon/providers/requests.py
+`structured`). A model that cannot fill it is asked again without it, and a weak one that still gives nothing
+readable is asked one field at a time.
+
 The player sees and corrects what their character knows (truth 'belief' or 'both'); every correction is logged.
-Hidden truth ('world') stays out of their view.
+Hidden truth ('world') stays out of their view, except in the GM view (workspace setting `gm_view`), which shows
+and edits everything and can ask again for, or clear, a single fact the model extracted.
 
 The story so far: the narrator reads the most recent messages word for word and, before them, one rolling summary.
 When enough older messages pile up, they are folded into the summary by the Continuity model (or the Default one).
@@ -17,8 +23,8 @@ Both are game state, kept per branch (dungeon/timeline.py SAVED).
 import json
 import re
 
-from dungeon.database import identifier, many, one, optional
-from dungeon.errors import require
+from dungeon.database import identifier, many, one, optional, settings
+from dungeon.errors import DomainError, require
 from dungeon.providers.scheduling import CONVERSATION
 from dungeon.text_models import config_for, key_for, routes
 
@@ -46,10 +52,45 @@ Answer with JSON only, in this shape:
 {{"facts": [{{"kind": "wound", "subject": "the bouncer", "text": "The bouncer's nose is broken.", "truth": "both"}}]}}
 Answer {{"facts": []}} when nothing lasting happened."""
 
+# One fact at a time, for weak models that answer no JSON at all: the facts as lines, then each field for all of them.
+LINES = f"""You keep the continuity of a tabletop roleplaying game. You never write story. Read the latest turn and \
+list the new, lasting facts it established (a death, a wound, an item gained or lost, a promise, a place, a secret, a \
+relationship, a name or rumour worth remembering), one short sentence per line, at most {MOST_FACTS}. Leave out moods \
+and weather. Answer "none" when nothing lasting happened."""
+FIELDS = {
+    'kind': f'For each numbered fact, give its kind, one word of: {", ".join(KINDS)}.',
+    'subject': 'For each numbered fact, give who or what it is about, in a few words.',
+    'truth': 'For each numbered fact, answer "both" if the player\'s character saw or knows it, "world" if it is true '
+             'but hidden from them, or "belief" if they believe it but it may be wrong.',
+}
+FIELD_SHAPE = ' Answer one line per fact, as "1. answer", and nothing else.'
+
+REGENERATE = f"""You keep the continuity of a tabletop roleplaying game. You never write story. A fact was pulled \
+from the turn below, and the game master wants it again: read the turn and restate that one fact as the turn \
+established it. Give its kind ({', '.join(KINDS)}), its subject in a few words, the fact in one short sentence, and \
+its truth ("both", "world" or "belief"). Answer with JSON only, in this shape:
+{{"kind": "wound", "subject": "the bouncer", "text": "The bouncer's nose is broken.", "truth": "both"}}"""
+
 SUMMARIZE = f"""You keep the story so far of a tabletop roleplaying game. Rewrite the summary to take in the new \
 turns: what happened, in order, who the player's character met and what they did, what is unresolved. Past tense, \
 plain prose, at most {SUMMARY_WORDS} words. Keep everything that still matters; drop what no longer does. Answer \
 with the summary only."""
+
+
+# The schema the extraction fills ------------------------------------------------------------------
+
+def strict(properties: dict) -> dict:
+    """An object with exactly these properties, all required: the shape strict structured output accepts."""
+    return {'type': 'object', 'additionalProperties': False, 'required': list(properties), 'properties': properties}
+
+
+FACT = strict({'kind': {'type': 'string', 'enum': list(KINDS)}, 'subject': {'type': 'string'},
+               'text': {'type': 'string'}, 'truth': {'type': 'string', 'enum': list(TRUTHS)}})
+
+
+def schema(extra: dict | None = None) -> dict:
+    """The turn's facts, plus what the other systems ask (each a list, empty when nothing applies)."""
+    return strict({'facts': {'type': 'array', 'items': FACT}, **(extra or {})})
 
 
 # The record --------------------------------------------------------------------------------------
@@ -77,15 +118,26 @@ def add(connection, kind: str, subject: str, text: str, now: str, source: str = 
 def entries(connection, known_only: bool = True) -> list[dict]:
     """The record, newest first; only what the character knows unless asked for everything."""
     hidden = "AND truth != 'world'" if known_only else ''
-    return many(connection, f'SELECT id, kind, subject, text, truth, source, created_at FROM record_entries '
-                            f'WHERE removed=0 {hidden} ORDER BY created_at DESC, rowid DESC')
+    rows = many(connection, f'SELECT id, kind, subject, text, truth, source, message_id IS NOT NULL AS pulled, '
+                            f'created_at FROM record_entries WHERE removed=0 {hidden} ORDER BY created_at DESC, rowid DESC')
+    return [row | {'pulled': row['source'] == 'narrator' and bool(row['pulled'])} for row in rows]
+
+
+def gm_view(connection) -> bool:
+    return bool(settings(connection)['gm_view'])
+
+
+def entry(connection, entry_id: str) -> dict:
+    """An entry the player may change: what their character knows, or anything in the GM view."""
+    hidden = '' if gm_view(connection) else "AND truth != 'world'"
+    row = optional(connection, f'SELECT * FROM record_entries WHERE id=? AND removed=0 {hidden}', (entry_id,))
+    require(row is not None, 'That fact is not in your journal.', 404)
+    return row
 
 
 def correct(connection, entry_id: str, now: str, text: str | None = None) -> None:
     """The player changes (text) or removes (None) what their character knows; the change is logged."""
-    row = optional(connection, "SELECT * FROM record_entries WHERE id=? AND removed=0 AND truth != 'world'",
-                   (entry_id,))
-    require(row is not None, 'That fact is not in your journal.', 404)
+    row = entry(connection, entry_id)
     if text is None:
         connection.execute('UPDATE record_entries SET removed=1 WHERE id=?', (entry_id,))
     else:
@@ -109,47 +161,149 @@ def prompt_text(connection) -> str:
     return '## The record (kept by the game; never contradict it)\n' + '\n'.join(lines)
 
 
-def checked(answer: str) -> list[dict] | None:
-    """The model's facts, keeping only well-formed ones; None when nothing in the answer can be read."""
+def well_formed(item) -> dict | None:
+    if not (isinstance(item, dict) and item.get('kind') in KINDS and str(item.get('subject') or '').strip()
+            and str(item.get('text') or '').strip()):
+        return None
+    return {'kind': item['kind'], 'subject': str(item['subject']), 'text': str(item['text']),
+            'truth': item.get('truth') if item.get('truth') in TRUTHS else 'both'}
+
+
+def read_json(answer: str):
     match = re.search(r'\{.*\}', answer, re.S)
     try:
-        data = json.loads(match.group(0)) if match else None
+        return json.loads(match.group(0)) if match else None
     except json.JSONDecodeError:
         return None
+
+
+def checked(answer: str) -> list[dict] | None:
+    """The model's facts, keeping only well-formed ones; None when nothing in the answer can be read."""
+    data = read_json(answer)
     items = data.get('facts') if isinstance(data, dict) else None
     if not isinstance(items, list):
         return None
-    return [{'kind': item['kind'], 'subject': str(item['subject']), 'text': str(item['text']),
-             'truth': item.get('truth') if item.get('truth') in TRUTHS else 'both'}
-            for item in items[:MOST_FACTS]
-            if isinstance(item, dict) and item.get('kind') in KINDS and str(item.get('subject') or '').strip()
-            and str(item.get('text') or '').strip()]
+    return [fact for fact in map(well_formed, items[:MOST_FACTS]) if fact]
 
 
-async def asked(state, config: dict, system: str, text: str) -> str:
+async def asked(state, config: dict, system: str, text: str, shape: dict | None = None) -> str:
+    """The model's whole answer; with a `shape` (a JSON Schema) the backend is asked to keep to it."""
+    if shape is not None:
+        config = {**config, 'json_schema': shape}
     async with state.scheduler.reserve(config, CONVERSATION):
         return ''.join([chunk.text async for chunk in state.provider.stream(
             config, key_for(state.vault, config), system, [{'role': 'user', 'content': text}])])
 
 
-async def extract(state, user_text: str, reply: dict, ask: str = '') -> str:
+async def schema_first(state, config: dict, system: str, text: str, shape: dict) -> str:
+    """Asked with the schema; asked again without it when the backend refuses it or the answer cannot be read."""
+    try:
+        answer = await asked(state, config, system, text, shape)
+        if checked(answer) is not None:
+            return answer
+    except DomainError:
+        pass
+    return await asked(state, config, system, text)
+
+
+def numbered(answer: str, count: int) -> list[str]:
+    """Answers given one line per numbered fact; '' for a fact not answered."""
+    found = {}
+    for line in answer.splitlines():
+        match = re.match(r'\s*(\d+)[.):]\s*(.+)', line)
+        if match:
+            found.setdefault(int(match.group(1)), match.group(2).strip().strip('"'))
+    return [found.get(number, '') for number in range(1, count + 1)]
+
+
+async def field_by_field(state, config: dict, text: str) -> list[dict]:
+    """A weak model's facts, one question at a time: the facts as lines, then each field for all of them."""
+    lines = [re.sub(r'^\s*(\d+[.):]|[-*])\s*', '', line).strip()
+             for line in (await asked(state, config, LINES, text)).splitlines()]
+    lines = [line for line in lines if line and line.lower().strip('.') != 'none'][:MOST_FACTS]
+    if not lines:
+        return []
+    listed = '\n'.join(f'{number}. {line}' for number, line in enumerate(lines, 1))
+    fields = {}
+    for field, question in FIELDS.items():
+        fields[field] = numbered(await asked(state, config, question + FIELD_SHAPE, f'{text}\n\nThe facts:\n{listed}'),
+                                 len(lines))
+    facts = []
+    for number, line in enumerate(lines):
+        kind = fields['kind'][number].lower().strip('. ')
+        truth = fields['truth'][number].lower().strip('. ')
+        fact = well_formed({'kind': kind if kind in KINDS else 'fact', 'subject': fields['subject'][number][:120],
+                            'text': line, 'truth': truth})
+        if fact:
+            facts.append(fact)
+    return facts
+
+
+def turn_text(user_text: str, reply_text: str) -> str:
+    return f'The player: {user_text}\n\nThe narrator: {reply_text}'
+
+
+async def extract(state, user_text: str, reply: dict, ask: str = '', extra: dict | None = None) -> str:
     """The new facts of a turn, from the Continuity model only when the player chose one for it; `ask` adds a
-    question of another system's (dungeon/quests.py), and the model's whole answer is returned for it."""
+    question of another system's (dungeon/quests.py), `extra` the part of the schema that answers it, and the model's
+    whole answer is returned for it."""
     database = state.database
     with database.connect() as connection:
         config = config_for(connection, JOB) if routes(connection).get(JOB) else None
     if config is None:
         return ''
+    text = turn_text(user_text, reply['text'])
     try:
-        answer = await asked(state, config, EXTRACT + ask, f"The player: {user_text}\n\nThe narrator: {reply['text']}")
+        answer = await schema_first(state, config, EXTRACT + ask, text, schema(extra))
+        facts = checked(answer)
+        if facts is None:
+            facts = await field_by_field(state, config, text)
     except Exception:  # noqa: BLE001 - a fact missed is better than a turn lost.
         return ''
-    facts = checked(answer)
     with database.connect(write=True) as connection:
-        for fact in facts or []:
+        for fact in facts:
             add(connection, fact['kind'], fact['subject'], fact['text'], database.now(), 'narrator', fact['truth'],
                    reply['id'])
     return answer
+
+
+def turn_of(connection, message_id: str) -> tuple[str, str] | None:
+    """The player's line and the narration a fact was pulled from."""
+    reply = optional(connection, 'SELECT seq, text FROM story_messages WHERE id=?', (message_id,))
+    if reply is None:
+        return None
+    user = optional(connection, "SELECT text FROM story_messages WHERE role='user' AND seq < ? ORDER BY seq DESC "
+                                'LIMIT 1', (reply['seq'],))
+    return (user['text'] if user else ''), reply['text']
+
+
+async def regenerate(state, entry_id: str) -> None:
+    """The GM view asks the Continuity model again for one extracted fact; the change is logged like a correction."""
+    database = state.database
+    with database.connect() as connection:
+        require(gm_view(connection), 'Turn on the GM view to ask for a fact again.', 409)
+        row = entry(connection, entry_id)
+        require(row['source'] == 'narrator' and bool(row['message_id']), 'Only a fact the model pulled from the story '
+                'can be asked for again.', 409)
+        turn = turn_of(connection, row['message_id'])
+        require(turn is not None, 'The turn this fact came from is no longer in the story.', 409)
+        config = config_for(connection, JOB)
+    require(config is not None, 'Choose a model for Continuity in Settings > Models first.', 409)
+    asking = f"{turn_text(*turn)}\n\nThe fact as it was pulled: {row['kind']}, {row['subject']}: {row['text']}"
+    try:
+        answer = await asked(state, config, REGENERATE, asking, FACT)
+    except DomainError:
+        answer = await asked(state, config, REGENERATE, asking)
+    fact = well_formed(read_json(answer))
+    require(fact is not None, 'The model did not give the fact back in a form the game can read. Try again.', 502)
+    with database.connect(write=True) as connection:
+        if fact['kind'] != 'death' and fact['subject'].lower() in dead(connection):
+            raise DomainError('The model gave back a fact that contradicts the record. Try again, or correct it '
+                              'yourself.', 409)
+        connection.execute("UPDATE record_entries SET kind=?, subject=?, text=?, truth=? WHERE id=?",
+                           (fact['kind'], fact['subject'][:120], fact['text'][:500], fact['truth'], entry_id))
+        connection.execute('INSERT INTO record_corrections (id, entry_id, before, after, created_at) VALUES (?, ?, ?, '
+                           '?, ?)', (identifier(), entry_id, row['text'], fact['text'][:500], database.now()))
 
 
 # The story so far --------------------------------------------------------------------------------

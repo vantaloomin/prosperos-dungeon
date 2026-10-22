@@ -194,7 +194,8 @@ class JournalChange(Input):
 
 
 def journal_view(connection, database) -> dict:
-    return {'entries': record.entries(connection),
+    gm = record.gm_view(connection)
+    return {'entries': record.entries(connection, known_only=not gm), 'gm': gm,
             'quests': quests.view(connection, story_clock.now(connection, database.clock)),
             'threads': director.journal(connection)}
 
@@ -227,6 +228,14 @@ def remove_note(request: Request, entry_id: str):
     database = request.app.state.database
     with database.connect(write=True) as connection:
         record.correct(connection, entry_id, database.now())
+        return journal_view(connection, request.app.state.database)
+
+
+@router.post('/journal/{entry_id}/regenerate')
+async def regenerate_note(request: Request, entry_id: str):
+    """The GM view asks the Continuity model again for one fact it pulled from the story (dungeon/record.py)."""
+    await record.regenerate(request.app.state, entry_id)
+    with request.app.state.database.connect() as connection:
         return journal_view(connection, request.app.state.database)
 
 

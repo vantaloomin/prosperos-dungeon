@@ -190,3 +190,15 @@ def test_each_account_has_its_own_places_and_the_folder_must_be_a_full_path():
     for provider, folder in (('claude_code', 'claude-second'), ('codex', sys.prefix)):
         with pytest.raises(ValueError):
             ProfileConfig(provider=provider, model='sonnet', cli_account_dir=folder)
+
+
+def test_a_json_schema_goes_to_a_cli_that_lists_the_flag_and_the_structured_answer_comes_back():
+    shape = {'type': 'object'}
+    arguments = claude_code.claude_arguments('claude', {'model': 'sonnet', 'json_schema': shape}, 'system.txt',
+                                             '--json-schema <schema>')
+    assert arguments[arguments.index('--json-schema') + 1] == json.dumps(shape)
+    assert '--json-schema' not in claude_code.claude_arguments('claude', {'model': 'sonnet', 'json_schema': shape},
+                                                               'system.txt', '')
+    chunk = claude_code.claude_event({'type': 'result', 'subtype': 'success', 'result': '',
+                                      'structured_output': {'facts': []}})
+    assert json.loads(chunk.text) == {'facts': []}

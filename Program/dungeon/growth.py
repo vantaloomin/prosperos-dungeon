@@ -147,6 +147,11 @@ def dark_ask() -> str:
             f'["one of: {", ".join(tracks())}"] to your answer ({listed}).')
 
 
+def dark_schema() -> dict:
+    """The part of the extraction schema (dungeon/record.py) that answers dark_ask."""
+    return {'dark': {'type': 'array', 'items': {'type': 'string', 'enum': list(tracks())}}}
+
+
 def darkened(answer: str) -> list[str]:
     match = re.search(r'\{.*\}', answer, re.S)
     try:

@@ -136,6 +136,9 @@ def claude_arguments(executable: str, config: dict, system_file: str, help_listi
             arguments.extend(flag)
     if config.get('reasoning_effort'):
         arguments.extend(['--effort', config['reasoning_effort']])
+    if config.get('json_schema') and '--json-schema' in help_listing:
+        # Structured output (dungeon/record.py): the answer comes back as the result's `structured_output`.
+        arguments.extend(['--json-schema', json.dumps(config['json_schema'])])
     return arguments
 
 
@@ -162,7 +165,9 @@ def claude_event(data: dict, config: dict | None = None) -> Chunk:
     if kind == 'result':
         if data.get('is_error') or data.get('subtype') != 'success':
             raise failure(str(data.get('result') or ''), config)
-        return Chunk(str(data.get('result') or ''), 'stop', done=True, usage=dict(data.get('usage') or {}))
+        shaped = data.get('structured_output')
+        text = json.dumps(shaped) if shaped is not None else str(data.get('result') or '')
+        return Chunk(text, 'stop', done=True, usage=dict(data.get('usage') or {}))
     return Chunk()
 
 
@@ -177,7 +182,9 @@ async def claude_output(process, config: dict | None = None):
         event = claude_event(json.loads(line), config)
         if event.done:
             completed = True
-            yield Chunk('' if streamed else event.text, 'stop', done=True, usage=event.usage)
+            # A structured answer is not streamed as text; it is only in the result.
+            whole = streamed and not (config or {}).get('json_schema')
+            yield Chunk('' if whole else event.text, 'stop', done=True, usage=event.usage)
         elif event.text:
             streamed = True
             yield event

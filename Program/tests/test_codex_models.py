@@ -58,3 +58,9 @@ def test_a_reply_carries_only_dungeons_instructions():
 def test_a_windows_instructions_path_stays_one_toml_string():
     arguments = codex.codex_arguments('codex', {'model': 'gpt-5.5'}, 'C:\\work', 'C:\\Temp\\in.md')
     assert 'model_instructions_file="C:\\\\Temp\\\\in.md"' in arguments
+
+
+def test_a_json_schema_file_is_given_as_the_output_schema():
+    arguments = codex.codex_arguments('codex', {'model': 'gpt-5.5'}, '/tmp/work', '/tmp/in.md', '/tmp/schema.json')
+    assert arguments[arguments.index('--output-schema') + 1] == '/tmp/schema.json' and arguments[-1] == '-'
+    assert '--output-schema' not in codex.codex_arguments('codex', {'model': 'gpt-5.5'}, '/tmp/work', '/tmp/in.md')

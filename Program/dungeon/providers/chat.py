@@ -294,7 +294,7 @@ def low_effort(config: dict, body: dict) -> dict | None:
     if config['provider'] in {'openrouter', 'openai'}:
         return {**body, 'reasoning': {'effort': 'low'}}
     if config['provider'] == 'anthropic':
-        return {**body, 'output_config': {'effort': 'low'}}
+        return {**body, 'output_config': {**body.get('output_config', {}), 'effort': 'low'}}
     return None
 
 
