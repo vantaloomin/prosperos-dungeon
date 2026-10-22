@@ -20,6 +20,7 @@ import { StoryJournal } from './StoryJournal'
 import { StoryGear } from './StoryGear'
 import { StoryIntensity } from './StoryIntensity'
 import { StoryNarration } from './StoryNarration'
+import { StoryMap } from './StoryMap'
 
 const STORY_KEY = ['story']
 /** Matches the stylesheet's breakpoint for the side panel. */
@@ -63,7 +64,7 @@ export function Story({ go }: { go: (view: View) => void }) {
         </>}
         <NewStory empty={!story.data.messages.length} onClear={() => run(null, () => api<StoryData>('/story', undefined, 'DELETE').then(update))} />
       </div>
-      <StoryPanel story={story.data} change={change} />
+      <StoryPanel story={story.data} change={change} onTravel={(name) => setDraft({ text: `I set out for ${name}.`, at: Date.now() })} />
     </section>
   )
 }
@@ -87,8 +88,10 @@ function StoryHeader({ story, change }: { story: StoryData; change: (request: ()
 }
 
 /** The fixed side panel (beside the story on a wide screen, above it on a narrow one): the sheet, the pack and the
- * shop window, the journal, the people met and the other branches. The free grid comes in Milestone 6. */
-function StoryPanel({ story, change }: { story: StoryData; change: (request: () => Promise<StoryData>) => Promise<void> }) {
+ * shop window, the journal, the map, the people met and the other branches. The free grid comes in Milestone 6. */
+interface PanelProps { story: StoryData; change: (request: () => Promise<StoryData>) => Promise<void>; onTravel: (name: string) => void }
+
+function StoryPanel({ story, change, onTravel }: PanelProps) {
   const client = useQueryClient()
   const refresh = () => client.invalidateQueries({ queryKey: STORY_KEY })
   // Beside the story there is room to show the sheet, pack and journal open; above it they start folded.
@@ -97,6 +100,7 @@ function StoryPanel({ story, change }: { story: StoryData; change: (request: () 
     <aside className="story-panel" aria-label="Your character and what you know">
       <StoryIntensity intensity={story.intensity} onSaved={() => void refresh()} />
       {!!story.messages.length && <><StorySheet open={wide} /><StoryGear open={wide} onTrade={() => void refresh()} /><StoryJournal open={wide} /></>}
+      {!!story.messages.length && <StoryMap map={story.map} open={wide} onTravel={onTravel} />}
       <StoryPeople people={story.people} onFind={(key) => void change(() => api<StoryData>('/story/find', { key }))} />
       <StoryBranches branches={story.branches}
         onSwitch={(id) => void change(() => api<StoryData>(`/story/branches/${encodeURIComponent(id)}/switch`, {}))} />

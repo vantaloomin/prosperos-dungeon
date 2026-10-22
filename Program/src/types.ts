@@ -252,7 +252,12 @@ export interface StoryFight {
 export type IntensityPreset = 'world' | 'restrained' | 'mature' | 'unflinching'
 /** How far the story goes: `preset` in play, the player's `chosen` one ('world' follows the world), the world's own. */
 export interface StoryIntensity { preset: Exclude<IntensityPreset, 'world'>; chosen: IntensityPreset; world: Exclude<IntensityPreset, 'world'>; voice: string }
-export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity }
+export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null }
+/** The travel map as far as the character knows it (dungeon/travel.py); positions run 0 to 1 across the world map. */
+export interface StoryMap {
+  places: { id: string; name: string; x: number; y: number; visited: boolean; here: boolean }[]
+  roads: { from: string; to: string; hours: number; danger: 'none' | 'low' | 'medium' | 'high'; terrain: string }[]
+}
 /** The story after going back, with the line that was taken back to send again. */
 export interface StoryBack extends Story { draft: string }
 

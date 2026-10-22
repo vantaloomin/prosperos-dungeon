@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Journeys.** "I set out for Eriane" walks the roads of Vallarith: hours on foot, nights camped, a day's food
+  from your pack for each day, and the region's dangers on the way (bandits on the Cyrel road, raiders in the
+  Badlands, wardens in Brynwyr's forest). The Map beside the story shows where you have been and what you have
+  heard of; the rest stays in the fog.
 - **Two Claude accounts.** A Claude Code profile can name its own account folder (Settings > Models), so a
   second Claude plan gets its own profile. Test connection says how to sign in to it and which account it is.
 - **Rewrite.** When the game spots a problem it had no time to fix (a dead man waving, a stock phrase), that

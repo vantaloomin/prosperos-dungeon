@@ -498,3 +498,17 @@ CREATE TABLE IF NOT EXISTS town_levels (
   families INTEGER NOT NULL,
   created_at TEXT NOT NULL
 );
+
+-- The travel map as far as the character knows it (dungeon/travel.py): each place heard of, and whether they have
+-- been there. Branched with the story (dungeon/timeline.py SAVED).
+CREATE TABLE IF NOT EXISTS story_map (
+  node_id TEXT PRIMARY KEY,
+  visited INTEGER NOT NULL DEFAULT 0 CHECK (visited IN (0, 1))
+);
+
+-- Each line's journey, planned once with its encounter, and what happened on it once walked (dungeon/travel.py).
+CREATE TABLE IF NOT EXISTS story_journeys (
+  message_id TEXT PRIMARY KEY,
+  plan TEXT NOT NULL,
+  lines TEXT
+);

@@ -48,7 +48,8 @@ def test_shipped_json_matches_its_source_script(city_id):
     assert runpy.run_path(str(script))['CITY'] == json.loads(json.dumps(written)), 'Rerun the script.'
 
 
-@pytest.mark.parametrize('city_id', CITIES)
+# The Road (dungeon/travel.py) is the way between towns, not a town: its wild regions have nowhere to eat.
+@pytest.mark.parametrize('city_id', [city for city in CITIES if city != 'vallarith-road'])
 def test_every_neighborhood_has_somewhere_to_eat_or_drink(city_id):
     data = catalog.city(city_id)
     kinds = {hood['id']: set() for hood in data['neighborhoods']}
