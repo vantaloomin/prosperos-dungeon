@@ -33,6 +33,7 @@ from dungeon.images.adapters import default_adapters
 from dungeon.imports import file_routes
 from dungeon.launcher import Launcher
 from dungeon.launcher_routes import router as launcher_router
+from dungeon.packages_routes import router as packages_router
 from dungeon.providers.builtin_chat import BuiltinChat
 from dungeon.providers.builtin_recall import BuiltinRecall
 from dungeon.providers.chat import ChatProvider
@@ -141,7 +142,7 @@ def create_app(database_path: str | Path | None = None, *, clock=None, vault=Non
     app.add_exception_handler(Exception, unexpected_error)
     for item in (router, model_router, launcher_router, recall_router, hardware_router, ready_router, world_routes.router,
                  image_routes.router, story_routes.router, authors_note_routes.router, file_routes.router,
-                 debug_router, worlds_routes.router, calls_router, mix_router):
+                 debug_router, worlds_routes.router, calls_router, mix_router, packages_router):
         app.include_router(item)
     if FRONTEND.exists():
         app.mount('/', StaticFiles(directory=FRONTEND, html=True), name='frontend')
