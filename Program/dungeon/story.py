@@ -30,6 +30,7 @@ from dungeon import (
     safety,
     story_clock,
     story_people,
+    stress,
     timeline,
     travel,
     turn,
@@ -365,7 +366,8 @@ def story(database) -> dict:
                 'people': people(connection, view), 'ready': config_for(connection, JOB) is not None,
                 'dice_shown': dice_shown(connection), 'branches': timeline.branches(connection),
                 'fight': combat.view(connection, dice_shown(connection)) | {
-                    'injuries': injuries.view(connection, view['now'])},
+                    'injuries': injuries.view(connection, view['now']),
+                    'stress': stress.view(connection, dice_shown(connection))},
                 'injury_persistence': injuries.persistence(connection),
                 'intensity': intensity(connection, view['data']),
                 'map': travel.view(connection, view['city']['id'], view['place']['id'])}
@@ -465,7 +467,7 @@ def clear(database) -> dict:
         for table in ('record_entries', 'record_corrections', 'story_summary', 'story_clock', 'story_quests',
                       'story_inventory', 'story_purse', 'story_stock', 'story_trades', 'story_wounds', 'story_fight',
                       'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
-                      'story_rounds', 'story_map', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments'):
+                      'story_rounds', 'story_map', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress'):
             connection.execute(f'DELETE FROM {table}')
         timeline.clear(connection)
     return story(database)
@@ -505,7 +507,8 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
     view = scene(connection, now)
     craft = narration_prompt.craft_for(config.get('context_tokens'), prompt_library.text(connection, 'narrator-craft'))
     who_text, name = persona_text(connection)
-    for extra in (combat.condition_text(connection), injuries.prompt_text(connection, now),
+    for extra in (combat.condition_text(connection), stress.prompt_text(connection),
+                  injuries.prompt_text(connection, now),
                   inventory.prompt_text(connection, view['city']['id'], view['data']['currency'])):
         if extra:
             who_text = f'{who_text}\n{extra}' if who_text else extra
@@ -646,7 +649,7 @@ def slept(database, connection, resting: dict, rolls: list[dict]) -> list[str]:
     lines = [rest.opening(resting), *happened]
     if hungry:
         lines.append(f"The pack runs out of food: {hungry} hungry day{'s' if hungry > 1 else ''}, and no mending on them.")
-    return lines + combat.mend(connection, nights - lost - hungry)
+    return lines + combat.mend(connection, nights - lost - hungry) + stress.ease(connection, nights - lost - hungry)
 
 
 def treat_turn(state, user: dict, rolls: list[dict]) -> list[str]:
@@ -697,8 +700,8 @@ def fight_round(state, user: dict, rolls: list[dict]) -> list[str]:
         moment = story_clock.now(connection, database.clock)
         return combat.turn(connection, user['id'], view['people'], rolls, foe,
                            inventory.carried(connection, view['city']['id']), getattr(state, 'dice', None),
-                           database.now(), lambda cause: injuries.roll(connection, moment, cause,
-                                                                       getattr(state, 'dice', None), database.now()))
+                           database.now(), lambda events: stress.aftermath(connection, moment, events,
+                                                                           getattr(state, 'dice', None), database.now()))
 
 
 class After:

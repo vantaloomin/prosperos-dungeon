@@ -282,6 +282,23 @@ rest, decided before the narrator writes it. A journey line is not; a rest with 
     treated once ("now it needs rest"); a fresh wound can be treated again. Each line's treatment is kept
     (`story_treatments`) and the narrator gets "## The treatment".
 
+## Stress
+
+`dungeon/stress.py`. A stress track, 0 to 12, shown beside the condition as "Nerve: shaken" (with the number
+when the dice are shown): steady, shaken (1 to 3), strained (to 7), frayed (to 11), breaking (12).
+
+- **Trauma adds to it**, from what code knows happened: the first life the character takes (2), facing something
+  dreadful (a foe marked `horror`, such as the Badlands' ward-ghoul: 2), being maimed (1), and the defeat table's
+  outcome: beaten senseless (1), robbed and left for dead or rescued half-dead (2), taken prisoner (3). Fights
+  report these to `stress.aftermath` (`combat.turn`'s `aftermath`).
+- **Resolve resists.** A critical success shrugs it off, a success (or at a cost) takes half, a failure all of it,
+  a critical failure one more.
+- **Past each threshold** (4, 8, 12), and each time more lands at the top, a lasting condition of the mind is rolled
+  from `rules/injuries.json` `conditions` (nightmares, a fear of the dark, a horror of blood, numbness, checking, a
+  temper, the shakes, drink). Conditions work like lasting injuries: some actions a step harder, a look the
+  narrator plays, kept, fading or ruled out by the Lasting injuries setting.
+- **Rest eases it**: one point a good night (see "Rest"). The narrator is told the track every turn.
+
 ## Rewrite
 
 `dungeon/passages.py`. The automatic rewrites still run when there is time; whatever the checks find and do not

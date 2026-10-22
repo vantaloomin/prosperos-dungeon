@@ -44,9 +44,16 @@ MENDED = {'critical_success': 2, 'success': 1, 'success_cost': 1, 'failure_upsid
           'critical_failure': -1}
 
 
+# What each kind of lasting harm is called: the body's injuries and the mind's conditions (dungeon/stress.py).
+KINDS = {'injury': ('injuries', 'It leaves a lasting injury', 'lasting injuries'),
+         'condition': ('conditions', 'It leaves a lasting mark on the mind', 'lasting conditions of the mind')}
+
+
 @functools.cache
 def table() -> tuple[dict, ...]:
-    return tuple(json.loads(TABLE.read_text(encoding='utf-8'))['injuries'])
+    """Every lasting injury and condition, each with its kind."""
+    data = json.loads(TABLE.read_text(encoding='utf-8'))
+    return tuple(entry | {'kind': kind} for kind, (key, _, _) in KINDS.items() for entry in data[key])
 
 
 def persistence(connection) -> str:
@@ -67,12 +74,13 @@ def active(connection, now: datetime) -> list[dict]:
                  + timedelta(days=entries[row['injury_id']]['fade_days']) > now)]
 
 
-def roll(connection, now: datetime, cause: str, rng=None, logged: str = '') -> str | None:
-    """A lasting injury from the table, one the character does not already have; the line that says so."""
+def roll(connection, now: datetime, cause: str, rng=None, logged: str = '', kind: str = 'injury') -> str | None:
+    """A lasting injury (or condition) from the table, one the character does not already have; the line that says
+    so."""
     if persistence(connection) == 'none':
         return None
     have = {row['injury_id'] for row in many(connection, 'SELECT injury_id FROM story_injuries')}
-    left = [entry for entry in table() if entry['id'] not in have]
+    left = [entry for entry in table() if entry['id'] not in have and entry['kind'] == kind]
     if not left:
         return None
     rng = rng or random.SystemRandom()
@@ -84,9 +92,9 @@ def roll(connection, now: datetime, cause: str, rng=None, logged: str = '') -> s
             entry = candidate
             break
     connection.execute('INSERT INTO story_injuries (injury_id, since) VALUES (?, ?)', (entry['id'], now.isoformat()))
-    record.add(connection, 'wound', "the player's character", f"Left with {entry['name']} by {cause}.", logged or
-               now.isoformat())
-    return f"It leaves a lasting injury: {entry['name']}."
+    record.add(connection, 'wound' if kind == 'injury' else 'fact', "the player's character",
+               f"Left with {entry['name']} by {cause}.", logged or now.isoformat())
+    return f"{KINDS[kind][1]}: {entry['name']}."
 
 
 def adjust(connection, actions: list[dict], now: datetime) -> list[dict]:
@@ -104,10 +112,13 @@ def adjust(connection, actions: list[dict], now: datetime) -> list[dict]:
 
 def prompt_text(connection, now: datetime) -> str:
     shown = active(connection, now)
-    if not shown:
-        return ''
-    return ("The player's character's lasting injuries (kept by the game; play them, and let people react): "
-            + ' '.join(f"{entry['name'][0].upper()}{entry['name'][1:]}: {entry['seen']}" for entry in shown))
+    parts = []
+    for kind, (_, _, called) in KINDS.items():
+        if mine := [entry for entry in shown if entry['kind'] == kind]:
+            parts.append(f"The player's character's {called} (kept by the game; play them, and let people react): "
+                         + ' '.join(f"{entry['name'][0].upper()}{entry['name'][1:]}: {entry['seen']}"
+                                    for entry in mine))
+    return '\n'.join(parts)
 
 
 def treatment_text(lines: list[str]) -> str:

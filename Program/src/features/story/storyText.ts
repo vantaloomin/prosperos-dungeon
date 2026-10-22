@@ -141,13 +141,14 @@ export function slotsText(slots: Gear['slots']): string {
   return `${round(slots.used)} of ${round(slots.max)} slots`
 }
 
-/** "You are hurt. Lasting: a limp. Fighting: the bandit (hurt), the lookout (broken)." or '' when unhurt and not fighting. */
+/** "You are hurt. Nerve: shaken. Lasting: a limp. Fighting: the bandit (hurt), the lookout (broken)." or '' when unhurt and not fighting. */
 export function fightText(fight: StoryFight): string {
   if (fight.dead) return 'Your character is dead. Go back to an earlier line to play on.'
   const condition = fight.condition === 'unhurt' ? '' : `You are ${fight.condition}.`
   const foes = fight.fight?.foes.map((foe) => `${foe.name} (${foe.state}${foe.wound === null ? '' : `, wound ${foe.wound} of 5`})`).join(', ')
   const lasting = fight.injuries?.length ? `Lasting: ${fight.injuries.join(', ')}.` : ''
-  return [condition, lasting, foes ? `Fighting: ${foes}.` : ''].filter(Boolean).join(' ')
+  const nerve = fight.stress ? `Nerve: ${fight.stress}.` : ''
+  return [condition, nerve, lasting, foes ? `Fighting: ${foes}.` : ''].filter(Boolean).join(' ')
 }
 
 const PRESET_NAMES: Record<Exclude<IntensityPreset, 'world'>, string> = {

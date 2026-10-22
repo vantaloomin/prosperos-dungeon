@@ -44,7 +44,7 @@
    {"weight": 2, "text": "Old bones and older weapons where the horde came through, picked clean and bleached."},
    {"weight": 2, "action": "find water before the sun finishes its work", "difficulty": "hard", "threat": "The water runs out a day early. Thirst sets in, and with it the shakes."},
    {"weight": 3, "action": "see the raiders before they see the character", "difficulty": "hard", "threat": {"text": "Unguruk raiders ride down off the ridge, whooping, blades out.", "foe": {"name": "Unguruk raider", "count": 3, "vitality": 12, "resolve": 12, "weapon": 1, "wants": "kill"}}},
-   {"weight": 1, "action": "stay off the old ground where the wards have failed", "difficulty": "hard", "threat": {"text": "Something long dead and badly buried pulls itself out of the shale.", "foe": {"name": "ward-ghoul", "count": 1, "vitality": 14, "resolve": 20, "weapon": 1, "wants": "kill"}}}
+   {"weight": 1, "action": "stay off the old ground where the wards have failed", "difficulty": "hard", "threat": {"text": "Something long dead and badly buried pulls itself out of the shale.", "foe": {"name": "ward-ghoul", "count": 1, "vitality": 14, "resolve": 20, "weapon": 1, "wants": "kill", "horror": true}}}
   ],
   "brynwyr": [
    {"weight": 2, "text": "Trees older than the kingdom, and a silence so deep the character's own breathing sounds rude."},
@@ -68,7 +68,7 @@
    {"weight": 2, "text": "Drums, far off, and then nothing until dawn."},
    {"weight": 2, "action": "keep the cold off without a fire that shows for miles", "difficulty": "hard", "threat": "The night cold gets into the bones. Nobody sleeps, and morning finds the character stiff and shaking."},
    {"weight": 3, "action": "hear the raiders before they reach the camp", "difficulty": "hard", "threat": {"text": "Unguruk raiders ride down off the ridge, whooping, blades out.", "foe": {"name": "Unguruk raider", "count": 3, "vitality": 12, "resolve": 12, "weapon": 1, "wants": "kill"}}},
-   {"weight": 1, "action": "keep away from the old ground where the dead walk", "difficulty": "hard", "threat": {"text": "Something long dead and badly buried pulls itself out of the shale.", "foe": {"name": "ward-ghoul", "count": 1, "vitality": 14, "resolve": 20, "weapon": 1, "wants": "kill"}}}
+   {"weight": 1, "action": "keep away from the old ground where the dead walk", "difficulty": "hard", "threat": {"text": "Something long dead and badly buried pulls itself out of the shale.", "foe": {"name": "ward-ghoul", "count": 1, "vitality": 14, "resolve": 20, "weapon": 1, "wants": "kill", "horror": true}}}
   ],
   "brynwyr": [
    {"weight": 2, "text": "Lights move between the trees all night, silent, never coming closer."},

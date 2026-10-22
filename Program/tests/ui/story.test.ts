@@ -91,6 +91,8 @@ test('fightText says how the character is and who they are fighting', () => {
   assert.equal(fightText({ condition: 'hurt', dead: false, fight: null }), 'You are hurt.')
   assert.equal(fightText({ condition: 'unhurt', dead: false, fight: null, injuries: ['a limp', 'a lost eye'] }),
     'Lasting: a limp, a lost eye.')
+  assert.equal(fightText({ condition: 'hurt', dead: false, fight: null, stress: 'strained, 5 of 12', injuries: ['nightmares'] }),
+    'You are hurt. Nerve: strained, 5 of 12. Lasting: nightmares.')
   assert.equal(fightText({ condition: 'grazed', dead: false, fight: { round: 1, foes: [
     { name: 'the bandit', state: 'hurt', wound: null }, { name: 'the lookout', state: 'broken', wound: null }] } }),
   'You are grazed. Fighting: the bandit (hurt), the lookout (broken).')

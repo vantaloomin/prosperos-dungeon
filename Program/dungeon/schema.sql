@@ -343,6 +343,13 @@ CREATE TABLE IF NOT EXISTS story_wounds (
   treated INTEGER NOT NULL DEFAULT 0
 );
 
+-- The character's stress track (dungeon/stress.py), and how many they have killed.
+CREATE TABLE IF NOT EXISTS story_stress (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  points INTEGER NOT NULL DEFAULT 0 CHECK (points BETWEEN 0 AND 12),
+  kills INTEGER NOT NULL DEFAULT 0
+);
+
 -- The character's lasting injuries (dungeon/injuries.py), each from the table, since a story time.
 CREATE TABLE IF NOT EXISTS story_injuries (
   injury_id TEXT PRIMARY KEY,
