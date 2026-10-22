@@ -154,6 +154,7 @@ def ok(response):
 
 
 def narrator(provider) -> dict:
-    """The last request to the narrator, past the chapter summary a scene break asks for after the turn."""
-    from dungeon import chapters
-    return [request for request in provider.requests if request['system'] != chapters.SUMMARIZE][-1]
+    """The last request to the narrator, past the Continuity model's questions after the turn."""
+    from dungeon import chapters, record
+    return [request for request in provider.requests if request['system'] != chapters.SUMMARIZE
+            and not request['system'].startswith(record.EXTRACT)][-1]

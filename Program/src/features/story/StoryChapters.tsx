@@ -63,6 +63,7 @@ function ChapterLine({ chapter, branchId }: { chapter: StoryChapter; branchId?: 
       <p className="subtle">{chapterLine(chapter)}</p>
       <p><strong>{chapter.title}</strong></p>
       {chapter.summary && <p>{chapter.summary}</p>}
+      {chapter.hook && <p className="story-note">Still open: {chapter.hook}</p>}
       {lines === null ? <button type="button" className="text-button" onClick={() => void read()}>Read it</button>
         : <div className="story-chapter-text">
           {lines.map((line) => <p key={line.id} className={line.role === 'user' ? 'story-user' : undefined}>{line.text}</p>)}

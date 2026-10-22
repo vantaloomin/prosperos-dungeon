@@ -224,6 +224,10 @@ textarea { resize: vertical; line-height: 1.6; }
 .story-people .form-actions { gap: 14px; }
 .story-tree ul { padding-left: 16px; border-left: 1px solid var(--border); }
 .story-chapter-text p { font-family: var(--read-font); font-size: 0.875rem; }
+.story-gm h3 { font-size: 0.875rem; margin: 12px 0 4px; }
+.story-gm-axes { display: flex; flex-wrap: wrap; gap: 8px; }
+.story-gm-axes label { display: grid; font-size: 0.75rem; }
+.story-gm-axes input { width: 4rem; }
 .story-bookmark { display: inline-flex; gap: 6px; align-items: center; }
 .story-note { font-family: var(--read-font); font-size: 0.875rem; color: var(--muted); font-style: italic; }
 .story-fight { padding: 8px 12px; border: 1px solid var(--danger-border); border-radius: 10px; background: var(--danger-tint); color: var(--danger); font-weight: 600; }

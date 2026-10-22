@@ -27,6 +27,8 @@ does and never changes roll odds.
   they remember of how the character fights, and a thread. After NEMESIS_DAYS they come back with a plan, through
   the note. One the character kills on the page stays dead.
 
+Seeds and payoffs, adopted details and the arcs' planned beats are dungeon/plotting.py.
+
 All of it is game state, branched with the story (dungeon/timeline.py SAVED).
 """
 import functools
@@ -36,7 +38,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from dungeon import record, tiers
+from dungeon import plotting, record, tiers
 from dungeon.database import decode, encode, identifier, many, optional
 
 ARCS = Path(__file__).parent / 'world' / 'data' / 'arcs'
@@ -329,6 +331,9 @@ def due(connection, world: str, row: dict, rows: dict) -> list[str]:
                          'a clue or a rumor, never its fight.')
         else:
             lines.append(f"Due ({found['name']}): {stage['truth']} {push}")
+            # The arc's plan for the stage (dungeon/plotting.py), drafted or the world's own.
+            if (beat := plotting.next_beat(connection, arc_id, item['stage'])) and beat != stage['word']:
+                lines.append(f"Next beat ({found['name']}): {beat}")
         connection.execute('UPDATE story_arcs SET told=1 WHERE arc_id=?', (arc_id,))
     return lines
 
@@ -340,6 +345,8 @@ def seed(connection, world: str, row: dict, rows: dict) -> list[str]:
     if not stage or stage['seed'] in row['planted']:
         return []
     save(connection, state(connection) | {'planted': [*row['planted'], stage['seed']]})
+    # Logged against its arc and the truth it points to, to pay off later (dungeon/plotting.py).
+    plotting.plant(connection, focus, stage['seed'], stage['truth'])
     return [f"Seed, if it fits the scene: {stage['seed']}"]
 
 
@@ -358,12 +365,13 @@ def around(world: str, node_id: str, row: dict, rows: dict, hot: list[dict], peo
 
 
 def note(connection, world: str, node_id: str, people: list[dict], drama: str, now: datetime) -> str:
-    """The hidden GM note for a line: pressure, what is due, a seed, and who and what is near."""
+    """The hidden GM note for a line: pressure, a payoff due, what is due, a seed, and who and what is near."""
     row = state(connection)
     if row['world'] != world or not ACTIVE:
         return ''
     rows, hot = arcs(connection), threads(connection)
-    lines = (pressure(connection, world, row, rows, hot, drama, now) + due(connection, world, row, rows)
+    lines = (pressure(connection, world, row, rows, hot, drama, now) + plotting.payoff(connection, rows)
+             + due(connection, world, row, rows)
              + seed(connection, world, row, rows) + around(world, node_id, row, rows, hot, people))
     if not lines:
         return ''

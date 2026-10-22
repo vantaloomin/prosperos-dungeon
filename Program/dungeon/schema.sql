@@ -726,6 +726,8 @@ CREATE TABLE IF NOT EXISTS story_chapter_ends (
   title TEXT NOT NULL DEFAULT '',
   summary TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL,
+  -- The question still open at its end (dungeon/chapters.py), for the next chapter's "previously".
+  hook TEXT NOT NULL DEFAULT '',
   PRIMARY KEY (chapter_id, branch_id)
 );
 
@@ -733,7 +735,11 @@ CREATE TABLE IF NOT EXISTS story_chapter_ends (
 CREATE TABLE IF NOT EXISTS story_chapter_break (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   reason TEXT NOT NULL,
-  title TEXT NOT NULL DEFAULT ''
+  title TEXT NOT NULL DEFAULT '',
+  -- The ending chapter summarized as the break is made: its summary, the model's name for it and its hook.
+  summary TEXT NOT NULL DEFAULT '',
+  named TEXT NOT NULL DEFAULT '',
+  hook TEXT NOT NULL DEFAULT ''
 );
 
 -- Named moments to find again; across every branch.
@@ -756,4 +762,32 @@ CREATE TABLE IF NOT EXISTS story_notebook (
 CREATE TABLE IF NOT EXISTS story_campaign (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   ironman INTEGER NOT NULL DEFAULT 0
+);
+
+-- The director's Chekhov list (dungeon/plotting.py): each seed planted, the truth it points to, its payoff window in
+-- lines, and whether it reached the page, was asked to come back, paid off or was retired.
+CREATE TABLE IF NOT EXISTS story_seeds (
+  id TEXT PRIMARY KEY,
+  arc_id TEXT,
+  thread_id TEXT,
+  text TEXT NOT NULL,
+  truth TEXT NOT NULL DEFAULT '',
+  words TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'planted' CHECK (status IN ('planted', 'reached', 'asked', 'paid', 'retired')),
+  planted_line INTEGER NOT NULL DEFAULT 0,
+  until_line INTEGER NOT NULL DEFAULT 0,
+  message_id TEXT NOT NULL DEFAULT ''
+);
+
+-- Each arc stage's planned beats (dungeon/plotting.py): drafted by the director model or the world's own, in order;
+-- the GM view can cut and reorder them.
+CREATE TABLE IF NOT EXISTS story_arc_beats (
+  id TEXT PRIMARY KEY,
+  arc_id TEXT NOT NULL,
+  stage INTEGER NOT NULL,
+  text TEXT NOT NULL,
+  position INTEGER NOT NULL DEFAULT 0,
+  cut INTEGER NOT NULL DEFAULT 0,
+  used INTEGER NOT NULL DEFAULT 0,
+  source TEXT NOT NULL DEFAULT 'world'
 );
