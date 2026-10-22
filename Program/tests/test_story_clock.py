@@ -23,7 +23,7 @@ def test_how_long_a_line_takes():
     assert story_clock.minutes_for('We bed down by the fire and sleep.', rolled=False) == 480
     assert story_clock.minutes_for('I walk to the mill.', rolled=False) == 30
     # A stretch of the day spent at something takes it.
-    assert story_clock.minutes_for('I spend the day felling trees and come back at dusk.', rolled=True) == 540
+    assert story_clock.minutes_for('I spend the day felling trees and come back at dusk.', rolled=True) == 600
     assert story_clock.minutes_for('I work the morning at the saws.', rolled=False) == 240
     assert story_clock.minutes_for('I mend nets for two hours.', rolled=False) == 120
 

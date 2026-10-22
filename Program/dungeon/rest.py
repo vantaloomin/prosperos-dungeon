@@ -134,7 +134,7 @@ def minutes(nights: int, cut_short: bool, local: datetime | None = None) -> int:
 
 
 def first_night(local: datetime | None) -> int:
-    """A night's sleep runs to the next morning when it starts in the evening or the night (the morning 6 to 14 hours
+    """A night's sleep runs to the next morning when it starts in the evening or the night (the morning 6 to 15 hours
     off), so bedding down at six wakes at dawn, not at two in the morning; otherwise eight hours."""
     if local is None:
         return NIGHT_MINUTES
@@ -142,7 +142,7 @@ def first_night(local: datetime | None) -> int:
     if wake <= local:
         wake += timedelta(days=1)
     gap = int((wake - local).total_seconds() // 60)
-    return gap if 6 * 60 <= gap <= 14 * 60 else NIGHT_MINUTES
+    return gap if 6 * 60 <= gap <= 15 * 60 else NIGHT_MINUTES
 
 
 def opening(rest: dict) -> str:

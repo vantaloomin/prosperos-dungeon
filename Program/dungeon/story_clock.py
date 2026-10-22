@@ -24,7 +24,7 @@ SPANS = (
     (r'\b(nap|doze|rest a while|take a rest)\b', 60),
     # A stretch of the day spent at something: "I spend the day felling trees and come back at dusk".
     (r'\b(spend|spends|spending|work|works|working|pass|passes|passing)\b.*\b(the|all|a|the whole|a whole) day\b',
-     9 * 60),
+     10 * 60),
     (r'\b(spend|spends|spending|work|works|working|pass|passes|passing)\b.*\b(the|all) (morning|afternoon)\b',
      4 * 60),
     (r'\b(spend|spends|spending|work|works|working|pass|passes|passing)\b.*\b(the|all) evening\b',

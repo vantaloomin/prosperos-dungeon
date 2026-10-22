@@ -14,7 +14,7 @@ The app decides the scene (`dungeon/story.py`):
   places equally move nobody. Moving adds a line to the story ("You arrive at …") that the narrator sees as a note.
 - **When:** the story clock (`dungeon/story_clock.py`), in the city's own timezone. It starts at campaign start
   and moves with what the player does: 5 minutes for talk, 10 for a rolled action, 30 for a walk somewhere, the
-  hours they say for "I wait two hours" or "for three hours", a day, morning or evening spent at something (9, 4
+  hours they say for "I wait two hours" or "for three hours", a day, morning or evening spent at something (10, 4
   and 3 hours: "I spend the day felling trees"), the nights of a rest (see "Rest"), 20 minutes to cross town and 6 hours to
   reach another city. Out-of-character lines take no time. A story with no campaign start runs on the app clock
   (debug time included), as Companion's did. The clock is branched with the story.
@@ -316,7 +316,7 @@ rest, decided before the narrator writes it. A journey line is not; a rest with 
   that comes true costs that night's rest; one with foes starts a fight in the dark and the rest ends there,
   four hours into that night.
 - **Time, food and mending.** One night runs to seven the next morning when it starts in the evening or the night
-  (6 to 14 hours off), else 8 hours; each more night is a day. Out in the open each day after the first eats
+  (6 to 15 hours off), else 8 hours; each more night is a day. Out in the open each day after the first eats
   one food from the pack, and a hungry night does not mend. Each good night counts toward the wound's mending
   (`combat.mend`, `story_wounds.rested`); the narrator is told how far it has come.
 - The narrator gets "## The rest" with what happened. Each line's rest is kept (`story_rests`), so telling it again
