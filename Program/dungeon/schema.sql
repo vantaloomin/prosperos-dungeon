@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS workspace_settings (
   -- How eventful the story is (dungeon/happenings.py): the world's own level, or one the player chose.
   drama TEXT NOT NULL DEFAULT 'world' CHECK (drama IN ('world', 'quiet', 'uneasy', 'eventful', 'merciless')),
   cutaways INTEGER NOT NULL DEFAULT 0,
+  -- Dice that tumble on screen and land on each roll the code made; only while the dice are shown.
+  roll_dice INTEGER NOT NULL DEFAULT 0,
   -- Injury persistence (dungeon/injuries.py): lasting injuries stay, fade, or never happen.
   injury_persistence TEXT NOT NULL DEFAULT 'permanent' CHECK (injury_persistence IN ('permanent', 'temporary', 'none')),
   -- The first-run notice: the story is AI written, and the user is 18 or older.

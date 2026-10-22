@@ -91,6 +91,8 @@ class SettingsUpdate(Input):
     drama: Literal['world', 'quiet', 'uneasy', 'eventful', 'merciless'] | None = None
     # Short "meanwhile" cutaways of off-page beats for the player (dungeon/beats.py).
     cutaways: bool | None = None
+    # Dice that tumble on screen and land on the code's roll, while the dice are shown.
+    roll_dice: bool | None = None
     # Injury persistence (dungeon/injuries.py): lasting injuries stay, fade, or never happen.
     injury_persistence: Literal['permanent', 'temporary', 'none'] | None = None
     # The first-run notice: the story is AI written, and the user is 18 or older. Only ever confirmed.

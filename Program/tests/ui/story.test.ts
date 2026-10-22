@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { actionLine, aroundText, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats, tierText, darkText, threadKind } from '../../src/features/story/storyText.ts'
+import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats, tierText, darkText, threadKind } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -197,4 +197,26 @@ test('nearMiss says how close the next band was, within 5', () => {
   assert.equal(nearMiss({ ...ROLL, total: 40 }, [...BANDS]), '')
   assert.equal(nearMiss({ ...ROLL, total: 95, band: 'critical_success' }, [...BANDS]), '')
   assert.equal(nearMiss({ ...ROLL, total: 49, band: 'critical_failure', natural: 8 }, [...BANDS]), '')
+})
+
+test('the dice land on the roll the code made', () => {
+  const roll = { action: 'Win her over', stat: 'Allure', difficulty: 'hard', die: 8, natural: 47, bonus: 5, shift: 10, total: 42, band: 'failure_upside' as const, label: 'Fail with an upside' }
+  assert.deepEqual(diceFaces(roll).map((face) => face.value), ['40', '7', '5'])
+  assert.deepEqual(diceFaces({ ...roll, natural: 100 }).slice(0, 2).map((face) => face.value), ['00', '0'])
+  assert.deepEqual(diceFaces({ ...roll, natural: 5, die: null }).map((face) => face.value), ['00', '5'])
+})
+
+test('a tumbling die only shows faces it has', () => {
+  const [tens, ones, stat] = diceFaces({ action: 'a', stat: 'Allure', difficulty: 'normal', die: 6, natural: 50, bonus: 1, shift: 0, total: 51, band: 'success_cost' as const, label: 'x' })
+  assert.equal(tumbleFace(tens, 0.99), '90')
+  assert.equal(tumbleFace(ones, 0), '0')
+  assert.equal(tumbleFace(stat, 0), '1')
+  assert.equal(tumbleFace(stat, 0.99), '6')
+})
+
+test('the 3D dice are told the faces to land on', () => {
+  const roll = { action: 'a', stat: 'Allure', difficulty: 'normal', die: 8, natural: 52, bonus: 7, shift: 0, total: 59, band: 'success_cost' as const, label: 'x' }
+  assert.equal(diceNotation(diceFaces(roll)), '1d100+1d10+1d8@50,2,7')
+  assert.equal(diceNotation(diceFaces({ ...roll, natural: 100, die: null })), '1d100+1d10@100,10')
+  assert.equal(diceNotation(diceFaces({ ...roll, natural: 7, die: null })), '1d100+1d10@100,7')
 })

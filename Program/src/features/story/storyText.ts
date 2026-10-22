@@ -275,3 +275,32 @@ export function nearMiss(roll: StoryRoll, bands: BandStep[]): string {
   const short = ceiling + 1 - roll.total
   return short > 0 && short <= 5 ? `${short} short of ${bands[index + 1].label.toLowerCase()}` : ''
 }
+
+/** One die on screen: the d100 as a tens and a ones d10, then the stat die and what it added. */
+export interface DieFace { key: 'tens' | 'ones' | 'stat'; sides: number; value: string }
+
+/** The faces the dice land on for a roll the code already made: 100 reads 00 and 0, as percentile dice do. */
+export function diceFaces(roll: StoryRoll): DieFace[] {
+  const faces: DieFace[] = [
+    { key: 'tens', sides: 10, value: String(Math.floor((roll.natural % 100) / 10) * 10).padStart(2, '0') },
+    { key: 'ones', sides: 10, value: String(roll.natural % 10) },
+  ]
+  return roll.die ? [...faces, { key: 'stat', sides: roll.die, value: String(roll.bonus) }] : faces
+}
+
+/** A face a die shows while it tumbles; `pick` is a number from 0 up to 1. */
+export function tumbleFace(face: DieFace, pick: number): string {
+  const side = Math.floor(pick * face.sides)
+  if (face.key === 'tens') return String(side * 10).padStart(2, '0')
+  return String(face.key === 'ones' ? side : side + 1)
+}
+
+/** The 3D dice's notation for a roll (src/features/story/dice3d.ts), landing on its faces: its tens die reads 00 as 100 and its d10 reads 0 as 10. */
+export function diceNotation(faces: DieFace[]): string {
+  const forced = faces.map((face) => {
+    const value = Number(face.value)
+    if (face.key === 'tens') return value || 100
+    return face.key === 'ones' ? value || 10 : value
+  })
+  return `${faces.map((face) => (face.key === 'tens' ? '1d100' : `1d${face.sides}`)).join('+')}@${forced.join(',')}`
+}

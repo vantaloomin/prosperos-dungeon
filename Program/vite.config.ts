@@ -9,6 +9,8 @@ const VENDOR = ['react', 'react-dom', 'scheduler', '@tanstack/react-query']
 export default defineConfig({
   plugins: [react()],
   build: {
+    // The 3D dice (src/features/story/dice3d.ts) are one lazy chunk of about 550 kB, loaded only when they roll.
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks(id) {

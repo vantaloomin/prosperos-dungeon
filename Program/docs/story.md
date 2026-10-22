@@ -62,7 +62,10 @@ Each line the user sends is one turn (`dungeon/turn.py`). Code settles what happ
 Rolls are saved with the user's line (table `story_rolls`), so sending it again or "Tell it again" keeps the same
 dice. The character's six stats (table `character_stats`, 1 to 30, 10 to start) are set under "Your character" on
 the Story screen. "Show the dice" in Settings > World shows each roll under the user's line; off, rolls stay
-hidden and the story reads the same.
+hidden and the story reads the same. With the dice shown, "Roll the dice on screen" (off by default) has the dice act
+out each roll before its result shows: 3D dice (`@3d-dice/dice-box-threejs`, MIT, loaded only when they roll) thrown
+over the story with the library's predetermined "@" notation, so they land on the faces the code already rolled. A
+PC without WebGL gets flat tumbling dice instead, reduced motion shows them landed, and a click lands them at once.
 
 ## The record and the story so far
 
