@@ -315,6 +315,10 @@ def fivee_fight(play):
         if not fight.get('fight') or fight.get('dead'):
             break
     play.sheet()
+    if (play.story().get('fight') or {}).get('dead'):
+        # Dead in the Heartwood: back to before the woods so the brawl can still be played.
+        play.back(next(n for n, line in enumerate(reversed(play.lines()), 1) if 'Heartwood' in line['text']))
+        play.say('I turn round and head back to town instead.')
     play.move('the-sawpit')
     play.say('I look for the biggest logger in the place.')
     play.say('I punch him in the jaw.', {'fight': True})
@@ -414,7 +418,68 @@ def ironsworn(play):
     play.journal()
 
 
+def percentile(play):
+    """M4: a Percentile (BRP) character bought on the start screen: skill rolls named by the words, experience checks
+    after a night's rest, a fight with weapon skills and dodge, wounds, First Aid and slow healing."""
+    choices = play.dungeon.call('GET', '/api/story/start').get('brp') or {}
+    if not choices.get('professions'):
+        play.flag('No Percentile professions offered.')
+        return
+    # 24 points over 10s, DEX, INT and POW at 3 a point: STR 16, CON 14, SIZ 13, CHA 12, DEX 12, INT 11, POW 10.
+    play.start(persona={'name': 'Sefa Dunmore', 'gender': 'woman', 'age': 32,
+                        'about': 'A sell-sword who came north with a Cyrel caravan and stayed for the wages.'},
+               ruleset='brp', brp={'characteristics': {'str': 16, 'con': 14, 'siz': 13, 'cha': 12, 'dex': 12,
+                                                       'int': 11, 'pow': 10},
+                                   'profession': 'warrior', 'personality': 'brutal'})
+    before = play.sheet()
+    play.say('I climb onto the Felled Oak roof to see over the town.', {'roll': True})
+    play.say('I look about the square for anyone watching me.', {'roll': True})
+    play.move('pell-provisions')
+    play.say('I haggle over a whetstone, hard.', {'roll': True})
+    play.say('I sleep the night at the Wayhouse.')
+    after = play.sheet()
+    if json.dumps(before.get('skills'), sort_keys=True) == json.dumps(after.get('skills'), sort_keys=True):
+        play.write('- no skill rose from the experience checks this night\n')
+    play.move('the-sawpit')
+    play.say('I pick out the biggest bruiser in the room.')
+    play.say('I draw my sword and go for him.', {'fight': True})
+    for line in ('I dodge his swing and cut at him.', 'I attack again.', 'I keep fighting.', 'I fight on.'):
+        view = play.say(line)
+        if not ((view or {}).get('fight') or {}).get('fight'):
+            break
+    play.sheet()
+    if (play.story().get('fight') or {}).get('dead'):
+        play.back(next(n for n, line in enumerate(reversed(play.lines()), 1) if 'draw my sword' in line['text']))
+        play.say('I let him be and drink instead.')
+    for _ in range(3):
+        if not (play.story().get('fight') or {}).get('fight'):
+            break
+        play.say('I break away and run for the door.')
+    play.say('I climb the Sawpit stairs two at a time and look about for anyone following.')
+    play.say('I bind my wounds with a strip of my shirt.', {'roll': True})
+    play.say('I sleep three nights at the Wayhouse to heal.')
+    play.sheet()
+
+
+def lore(play):
+    """M5: a fresh Vallarith campaign carries the world package's lore book, and naming a place pulls in its entry."""
+    play.start('agna-holt')
+    books = play.dungeon.call('GET', '/api/lore')
+    names = [book.get('name') or book.get('title') for book in (books.get('books') if isinstance(books, dict) else books)
+             or []]
+    play.write(f'- lore books: {names}\n')
+    if not any('world package' in (name or '') for name in names):
+        play.flag(f'No "(world package)" lore book on a fresh Vallarith campaign: {names}')
+    view = play.say('I ask the keeper what news there is from Dun Aldun, and whether the dwarves still sell their '
+                    'steel south.')
+    told = next((m['text'] for m in reversed((view or {}).get('messages') or []) if m['role'] == 'narrator'), '')
+    if 'Stoneheart' not in told and 'dwar' not in told.lower():
+        play.flag('The narration about Dun Aldun shows nothing from its lore entry.')
+    play.say('I ask what the Kingdom of Cyrel and the High Elves of Brynwyr are to each other these days.')
+
+
 SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl, 'road': road,
              'director': director, 'chapters': chapters, 'ironman': ironman, 'gm_view': gm_view, 'memory': memory,
              'legacy': legacy, 'fivee_checks': fivee_checks, 'fivee_fight': fivee_fight,
-             'fivee_caster': fivee_caster, 'ironsworn': ironsworn}
+             'fivee_caster': fivee_caster, 'ironsworn': ironsworn, 'percentile': percentile,
+             'lore': lore}
