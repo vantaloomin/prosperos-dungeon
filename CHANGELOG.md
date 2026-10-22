@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **What's in the chest is decided before anyone describes it.** Search a chest, a drawer, a body or a stranger's
+  pockets in Kingswood and the game rolls what is there first, keeps it, and notes it in your journal; the
+  narrator describes only that, and it is the same the next time you look. A failed search misses it. "I take the
+  coins" moves what you found into your purse and pack.
 - **Faster turns.** The story now streams in a sentence at a time, and the record keeping (facts, the story so
   far) happens after you can read the reply. Plain lines like walking or ordering a drink skip the Referee's
   model, and the check against the record runs only when the narration names someone who is dead. Each turn has
