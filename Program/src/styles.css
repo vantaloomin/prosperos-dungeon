@@ -673,3 +673,19 @@ img.avatar, img.portrait { object-fit: cover; object-position: center top; paddi
 .family-undo .text-button { padding: 0 2px; color: var(--accent); }
 .history { display: grid; gap: 24px; }
 .kind-fields .kind-human-terms { grid-column: 1 / -1; margin-top: -4px; }
+/* Rolling dice (src/features/story/StoryDice.tsx): they act out the code's roll, then the strip and band show. */
+.roll-card.with-dice { grid-template-columns: auto minmax(0, 1fr) minmax(120px, 30%) auto; }
+.dice-tray { display: flex; align-items: flex-start; gap: 4px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.dice-tray:disabled { cursor: default; opacity: 1; }
+.die { display: flex; flex-direction: column; align-items: center; gap: 1px; width: 40px; }
+.die svg { width: 40px; height: 40px; overflow: visible; }
+.die polygon { fill: var(--raised); stroke: var(--accent); stroke-width: 1.5; stroke-linejoin: round; }
+.die[data-die='stat'] polygon { stroke: var(--text); }
+.die text { fill: var(--text); font: 600 13px var(--ui-font); font-variant-numeric: tabular-nums; }
+.die small { min-height: 1em; font-size: 0.6875rem; color: var(--faint); }
+.die.tumbling svg { animation: die-tumble 0.32s linear infinite; }
+.die.tumbling text { fill: var(--muted); }
+.die.landed svg { animation: die-land 0.35s cubic-bezier(0.2, 0.8, 0.2, 1.4); }
+@keyframes die-tumble { 0% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-4px) rotate(180deg); } 100% { transform: translateY(0) rotate(360deg); } }
+@keyframes die-land { from { transform: scale(1.25) rotate(-20deg); } }
+@media (max-width: 720px) { .roll-card.with-dice { grid-template-columns: minmax(0, 1fr) auto; } .dice-tray { grid-column: 1 / -1; } }

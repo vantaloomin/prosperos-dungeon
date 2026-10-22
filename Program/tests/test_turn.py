@@ -112,3 +112,9 @@ def test_hidden_dice_stream_only_what_was_tried_and_the_stat(client, connected, 
 def test_a_line_with_nothing_to_roll_streams_no_actions(client, connected):
     kinds = [next(iter(event)) for event in streamed_events(client, 'I sit down and look around.', 'turn-0007')]
     assert 'actions' not in kinds and 'roll' not in kinds and kinds[:2] == ['stage', 'stage']
+
+
+def test_rolling_dice_is_an_off_by_default_setting(client):
+    assert ok(client.get('/api/settings'))['roll_dice'] is False
+    assert ok(client.put('/api/settings', json={'roll_dice': True}))['roll_dice'] is True
+    assert ok(client.get('/api/settings'))['roll_dice'] is True

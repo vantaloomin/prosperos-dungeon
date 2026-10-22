@@ -5,7 +5,8 @@ from dungeon import local_zone
 from dungeon.clock import zone
 from dungeon.database import settings
 
-FLAGS = ('auto_launch', 'show_odds', 'adult_side', 'show_adult_side', 'record_model_calls', 'cutaways')
+FLAGS = ('auto_launch', 'show_odds', 'adult_side', 'show_adult_side', 'record_model_calls', 'cutaways',
+         'roll_dice')
 
 
 def view(row: dict) -> dict:

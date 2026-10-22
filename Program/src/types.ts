@@ -18,6 +18,8 @@ export interface WorkspaceSettings {
   theme?: 'system' | 'scheme' | 'paper'
   /** Hidden values: the odds behind what happens; off unless turned on. */
   show_odds?: boolean
+  /** Dice that tumble on screen and land on each roll, while the dice are shown. */
+  roll_dice?: boolean
   /** Settings > World > Adult side of life (dungeon/world/intimacy.py): adults only; off unless turned on. */
   adult_side?: boolean
   /** Hidden values: what townsfolk are like that way, for the user's eyes; off unless turned on. */

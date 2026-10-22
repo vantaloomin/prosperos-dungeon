@@ -275,3 +275,22 @@ export function nearMiss(roll: StoryRoll, bands: BandStep[]): string {
   const short = ceiling + 1 - roll.total
   return short > 0 && short <= 5 ? `${short} short of ${bands[index + 1].label.toLowerCase()}` : ''
 }
+
+/** One die on screen: the d100 as a tens and a ones d10, then the stat die and what it added. */
+export interface DieFace { key: 'tens' | 'ones' | 'stat'; sides: number; value: string }
+
+/** The faces the dice land on for a roll the code already made: 100 reads 00 and 0, as percentile dice do. */
+export function diceFaces(roll: StoryRoll): DieFace[] {
+  const faces: DieFace[] = [
+    { key: 'tens', sides: 10, value: String(Math.floor((roll.natural % 100) / 10) * 10).padStart(2, '0') },
+    { key: 'ones', sides: 10, value: String(roll.natural % 10) },
+  ]
+  return roll.die ? [...faces, { key: 'stat', sides: roll.die, value: String(roll.bonus) }] : faces
+}
+
+/** A face a die shows while it tumbles; `pick` is a number from 0 up to 1. */
+export function tumbleFace(face: DieFace, pick: number): string {
+  const side = Math.floor(pick * face.sides)
+  if (face.key === 'tens') return String(side * 10).padStart(2, '0')
+  return String(face.key === 'ones' ? side : side + 1)
+}

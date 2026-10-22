@@ -1,31 +1,49 @@
 import { Check, Dices, PenLine } from 'lucide-react'
 import type { BandStep, HiddenRoll, StoryRoll, TurnSoFar } from '../../types'
+import { useWorkspaceSettings } from '../../workspace'
+import { DiceTray } from './StoryDice'
+import { useTumble } from './dice'
 import { actionLine, bandSpans, isShown, markerAt, nearMiss, rollText } from './storyText'
 
 const SUCCESS = new Set(['success_cost', 'success', 'critical_success'])
 
 /** One roll: with the dice shown, the action, stat and difficulty, where the total landed on the ruleset's band
- *  strip and the band in words; with them hidden, only that a stat was tested. `live` lets the marker land. */
+ *  strip and the band in words; with them hidden, only that a stat was tested. `live` lets the marker land, and
+ *  with rolling dice on (Settings) the roll's dice tumble first and land on the code's faces. */
 export function RollCard({ roll, bands, live }: { roll: StoryRoll | HiddenRoll; bands?: BandStep[] | null; live?: boolean }) {
+  const dice = useWorkspaceSettings().data?.roll_dice === true
   if (!isShown(roll)) return (
     <p className="roll-hidden" title={roll.action}><Dices aria-hidden="true" />Your {roll.stat} is tested</p>
   )
+  return <ShownRoll roll={roll} bands={bands} live={!!live} dice={!!dice} />
+}
+
+function ShownRoll({ roll, bands, live, dice }: { roll: StoryRoll; bands?: BandStep[] | null; live: boolean; dice: boolean }) {
+  const tumble = useTumble(roll, live && dice)
   const close = bands ? nearMiss(roll, bands) : ''
   return (
-    <div className="roll-card" title={rollText(roll)} aria-label={`${roll.action}: ${roll.stat}, ${roll.difficulty.replace('_', ' ')}. ${roll.label}, ${roll.total}.`}>
+    <div className={dice ? 'roll-card with-dice' : 'roll-card'} title={rollText(roll)} aria-label={`${roll.action}: ${roll.stat}, ${roll.difficulty.replace('_', ' ')}. ${roll.label}, ${roll.total}.`}>
+      {dice && <DiceTray tumble={tumble} />}
       <div className="roll-what">
         <span className="subtle">{roll.action}</span>
         <strong>{roll.stat} · {roll.difficulty.replace('_', ' ')}</strong>
       </div>
-      {!!bands?.length && <div className="roll-strip" aria-hidden="true">
-        {bandSpans(bands).map((step) => <span key={step.band} className={`band-${step.band}`} style={{ flexGrow: step.to - step.from + 1 }}
-          title={`${step.label}: ${step.from}${step.ceiling === null ? '+' : `–${step.to}`}`} />)}
-        <i className={live ? 'roll-marker landing' : 'roll-marker'} style={{ left: `${markerAt(roll.total)}%` }} />
-      </div>}
+      {!!bands?.length && <RollStrip bands={bands} total={roll.total} marker={tumble.done} live={live} />}
       <div className="roll-result">
-        <span className={SUCCESS.has(roll.band) ? 'roll-band won' : 'roll-band'}>{roll.label}</span>
-        <span className="subtle">{close || roll.total}</span>
+        {tumble.done ? <><span className={SUCCESS.has(roll.band) ? 'roll-band won' : 'roll-band'}>{roll.label}</span>
+          <span className="subtle">{close || roll.total}</span></> : <span className="subtle">Rolling…</span>}
       </div>
+    </div>
+  )
+}
+
+/** The ruleset's bands from 1 to 100, and the marker where the total landed once the dice have. */
+function RollStrip({ bands, total, marker, live }: { bands: BandStep[]; total: number; marker: boolean; live: boolean }) {
+  return (
+    <div className="roll-strip" aria-hidden="true">
+      {bandSpans(bands).map((step) => <span key={step.band} className={`band-${step.band}`} style={{ flexGrow: step.to - step.from + 1 }}
+        title={`${step.label}: ${step.from}${step.ceiling === null ? '+' : `–${step.to}`}`} />)}
+      {marker && <i className={live ? 'roll-marker landing' : 'roll-marker'} style={{ left: `${markerAt(total)}%` }} />}
     </div>
   )
 }
