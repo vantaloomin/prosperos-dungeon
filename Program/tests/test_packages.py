@@ -150,3 +150,12 @@ def test_with_no_package_in_use_the_shipped_files_are_read():
     assert world_data.read('items', 'kingswood') == json.loads(
         (packages.DATA / 'items' / 'kingswood.json').read_text(encoding='utf-8'))
     assert world_data.read('items', 'nowhere') is None and 'vallarith' in world_data.keys('travel')
+
+
+def test_place_lore_comes_up_on_more_than_its_exact_name(tmp_path):
+    # Playtest m5: "Dwarven steel" did not bring up Dun Aldun.
+    from dungeon import lore
+    contents = packages.read(packages.installed(tmp_path, 'vallarith'))
+    found = {entry['title']: entry['keywords'] for entry in package_lore.entries(contents, 'post-reform')}
+    assert any(lore.mentioned(word, 'a blade of dwarven steel') for word in found['Dun Aldun'])
+    assert any(lore.mentioned(word, 'out past the badlands') for word in found['The Badlands'])

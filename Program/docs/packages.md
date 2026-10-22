@@ -38,7 +38,7 @@ fingerprint of the contents tells.
 
 - **Lore.** A campaign that starts in a world with a package gets the package's `lore` section as one of the
   world's lore books, "<World> (world package)" (`dungeon/package_lore.py`). The narrator reads its entries by
-  keyword like any imported lorebook (docs/story.md "Lore"), and the player can switch entries off on the Lore
+  keyword like any imported lorebook (each keyword also counts without a leading "The" or a note in brackets) (docs/story.md "Lore"), and the player can switch entries off on the Lore
   screen. Only entries that hold in the campaign's era come in (the era is `world.json` `starting_place.era`; an
   entry with no `eras` holds in all). Hidden truths never come in this way. The book is read from the package file,
   so an edited or imported world plays as edited. When the lore changes, the next campaign start replaces the book.

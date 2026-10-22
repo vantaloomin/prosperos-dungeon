@@ -6,7 +6,8 @@ from conftest import Chunk, tell
 from test_inventory import begin
 from test_travel import ok
 
-from dungeon import book, record
+from dungeon import book, chapters, record
+from dungeon.images import storage
 
 
 def reply(text):
@@ -114,3 +115,20 @@ def test_an_earlier_character_can_come_back_as_a_legend_a_villain_or_a_corpse(cl
     bad = client.post('/api/story/start', json={'premade_id': 'tobin-pell', 'legacy': {'world_id': first, 'role': 'ghost'}})
     assert bad.status_code == 422
 
+
+
+def test_the_epub_carries_each_chapters_pictures_after_their_passages(client, connected, provider, app):
+    played(client, provider)
+    database = app.state.database
+    stored = storage.store(database, 'art-1', b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR' + (64).to_bytes(4, 'big') * 2 + b'\x08\x02\x00\x00\x00')
+    with database.connect(write=True) as connection:
+        chapter = chapters.listing(connection)[0]['id']
+        first = connection.execute("SELECT id FROM story_messages WHERE role='narrator' ORDER BY seq LIMIT 1").fetchone()['id']
+        connection.execute("INSERT INTO story_art (id, kind, subject, chapter_id, prompt, state, status, file, created_at) "
+                           "VALUES ('art-1', 'passage', ?, ?, 'p', 's', 'done', ?, 'x')", (first, chapter, stored['file']))
+    epub = zipfile.ZipFile(io.BytesIO(download(client, '/api/story/export/book?format=epub').content))
+    assert 'OEBPS/images/art-1.png' in epub.namelist()
+    page = epub.read('OEBPS/chapter-1.xhtml').decode()
+    # After the passage it shows (its two paragraphs), before the player's next line.
+    assert page.index('The lamp gutters') < page.index('<figure><img src="images/art-1.png"') < page.index('I ask about the road.')
+    assert 'media-type="image/png"' in epub.read('OEBPS/content.opf').decode()

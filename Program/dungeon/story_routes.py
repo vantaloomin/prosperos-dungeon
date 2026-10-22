@@ -528,7 +528,7 @@ def export_book(request: Request, format: Literal['md', 'epub', 'pdf'] = 'md'): 
     """The branch being played as a book."""
     database = request.app.state.database
     with database.connect() as connection:
-        content, media_type = book.export(connection, format, database.now())
+        content, media_type = book.export(connection, format, database.now(), database=database)
     return attachment(content, media_type, f'story-{database.now()[:10]}.{format}')
 
 

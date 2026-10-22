@@ -109,6 +109,12 @@ def validate(contents: dict) -> list[str]:
     return problems
 
 
+def entry_label(entry: dict, number: int) -> str:
+    """An entry as its author knows it: by its id or its title, its place in the list only when it has neither."""
+    named = entry.get('id') or entry.get('title') or entry.get('name')
+    return f'"{named}"' if isinstance(named, str) and named.strip() else f'entry {number}'
+
+
 def section_ids(name: str, entries: list, problems: list[str]) -> set[str]:
     seen = set()
     for number, entry in enumerate(entries, 1):
@@ -116,7 +122,7 @@ def section_ids(name: str, entries: list, problems: list[str]) -> set[str]:
         if not isinstance(entry, dict):
             problems.append(f'{name} entry {number} is not an object')
         elif not isinstance(entry_id, str) or not ID.match(entry_id):
-            problems.append(f'{name} entry {number} needs a lowercase kebab-case id')
+            problems.append(f'{name} {entry_label(entry, number)} needs a lowercase kebab-case id')
         elif entry_id in seen:
             problems.append(f'{name} has two entries with the id {entry_id}')
         if isinstance(entry_id, str):

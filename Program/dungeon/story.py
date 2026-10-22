@@ -1109,6 +1109,8 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
         moment = story_clock.now(connection, database.clock)
         if mend := injuries.decide(connection, user['text'], scene(connection, moment)['people']):
             actions = [*actions, mend]
+        elif aid := injuries.first_aid(connection, user['text'], actions):
+            actions = [*actions, aid]
         if injuries.unhurt(connection, user['text']):
             actions = injuries.untreated(actions)
         if memory := remembering.recall_action(connection, user['text']):
@@ -1200,6 +1202,9 @@ async def afterwards(state, user: dict, reply: dict, packet: dict, steps: pace.S
         await record.fold(state, rows)
         await chapters.summarize(state)
         steps.timed('summary', since)
+        # A picture the turn calls for, with Passive art on (dungeon/art.py); art reads the scene from here.
+        from dungeon import art
+        await art.passive(state, [person['sheet']['key'] for person in packet['people']])
         with database.connect(write=True) as connection:
             if optional(connection, 'SELECT 1 FROM story_messages WHERE id=?', (user['id'],)):
                 pace.save(connection, user['id'], steps)

@@ -28,6 +28,7 @@ export interface WorkspaceSettings {
   turn_budget?: number
   /** Rewrite a narration that clashes with the record before it is shown; on by default (dungeon/story.py told). */
   contradiction_check?: boolean
+  passive_art?: boolean
   /** Tokens a turn may send at most; 0 is the model's whole window (dungeon/remembering.py). */
   context_cap?: number
   /** The GM view of the record: hidden truth shown and editable (dungeon/record.py). */

@@ -23,10 +23,10 @@ import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from dungeon import combat, inventory, record
+from dungeon import combat, combat5e, inventory, record, sheet
 from dungeon import table as campaign_table
 from dungeon.database import many, optional
-from dungeon.rules import marvel
+from dungeon.rules import brp, marvel
 
 TABLE = Path(__file__).parent / 'rules' / 'injuries.json'
 PERSISTENCE = ('permanent', 'temporary', 'none')
@@ -142,15 +142,32 @@ def supply(connection) -> dict | None:
         connection, 'SELECT id, item_id FROM story_inventory WHERE item_id=? AND qty > 0 LIMIT 1', (item_id,)))), None)
 
 
+def level(connection) -> int:
+    """The character's wound level; under a ruleset that keeps hit points, the worse of it and what they read as
+    (a Percentile fight lowers the hit points alone: playtest m5)."""
+    now, points = combat.condition(connection), combat.points_of(connection)
+    return max(now['level'], combat5e.level_for(*points)) if points else now['level']
+
+
 def wanted(connection, text: str) -> bool:
-    now = combat.condition(connection)
-    return bool(TREAT.search(text)) and 0 < now['level'] < combat.DYING and not now['dead']
+    return bool(TREAT.search(text)) and 0 < level(connection) < combat.DYING and not combat.condition(connection)['dead']
 
 
 def unhurt(connection, text: str) -> bool:
     """A line that treats a wound the character does not have: nothing to roll, and the narrator is told so."""
-    now = combat.condition(connection)
-    return bool(TREAT.search(text)) and now['level'] == 0 and not now['dead'] and not combat.fight(connection)
+    return bool(TREAT.search(text)) and level(connection) == 0 and not combat.condition(connection)['dead'] and \
+        not combat.fight(connection)
+
+
+def first_aid(connection, text: str, actions: list[dict]) -> dict | None:
+    """Under Percentile, a hurt character who binds their own wound rolls First Aid, though the Referee saw nothing
+    uncertain in it (dungeon/combat_brp.py heals on a success, once a wound)."""
+    found = sheet.native(connection) if sheet.ruleset(connection) == brp.ID else None
+    if not found or found['hp'] >= found['max_hp'] or found['hp'] <= 0 or found.get('aided') or \
+            brp.skill_for(text) != 'first_aid' or combat.fight(connection) or \
+            any(brp.skill_for(action['action']) == 'first_aid' for action in actions):
+        return None
+    return {'action': 'first aid on the wound', 'stat': STAT, 'difficulty': 'normal'}
 
 
 def untreated(actions: list[dict]) -> list[dict]:
@@ -165,7 +182,7 @@ def decide(connection, text: str, people: list[dict]) -> dict | None:
     found = supply(connection)
     if found is None:
         return None
-    difficulty = DIFFICULTY[combat.condition(connection)['level']]
+    difficulty = DIFFICULTY[level(connection)]
     return {'action': 'treat the wound', 'stat': STAT, 'difficulty': EASIER[difficulty] if found['item_id'] ==
             'poultice' else difficulty}
 

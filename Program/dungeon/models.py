@@ -108,6 +108,8 @@ class SettingsUpdate(Input):
     gm_view: bool | None = None
     # Rewrite a narration that clashes with the record before it is shown (off is faster on slow local models).
     contradiction_check: bool | None = None
+    # Pictures made on their own from what happens in the story (dungeon/art.py passive).
+    passive_art: bool | None = None
     # Tokens a turn may send at most (dungeon/remembering.py); 0 is the model's whole window.
     context_cap: Literal[0, 4000, 8000, 16000, 32000, 64000] | None = None
     # Injury persistence (dungeon/injuries.py): lasting injuries stay, fade, or never happen.

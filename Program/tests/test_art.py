@@ -1,9 +1,10 @@
 """Art on request (dungeon/art.py): portraits, places and passages, routed to the image backends."""
 import pytest
+from conftest import Chunk, tell
 from fastapi.testclient import TestClient
 from test_images import FakeAdapter, local_comfy, ok, png
 
-from dungeon import art, combat
+from dungeon import art, combat, record
 from dungeon.identity import CLIENT_HEADER
 from dungeon.images.adapters.base import AdapterError
 from dungeon.main import create_app
@@ -98,3 +99,23 @@ def test_someone_met_is_pictured_as_the_town_knows_them_with_their_feelings_on_t
     assert portrait['status'] == 'done' and 'Portrait of Fenwick Cutter (he/him, 49 years old, hawker)' in sent
     assert 'wipes honey from his beard' in sent and 'a frightened, wary look' in sent
     assert client.post('/api/story/art', json={'kind': 'portrait', 'subject': 'stranger'}).status_code == 404
+
+
+def test_passive_art_pictures_the_place_after_a_turn_once_and_stops_at_the_cap(client, adapters, provider, monkeypatch):
+    client.put('/api/connection', json={'base_url': 'http://127.0.0.1:1234/v1', 'model': 'local-model', 'api_key': 'k'})
+    provider.respond = lambda system, messages: ([Chunk('{"facts": []}'), Chunk('', 'stop')] if system.startswith(record.EXTRACT)
+                                                 else [Chunk('Pell looks up.'), Chunk('', 'stop')])
+    local_comfy(client)
+    tell(client, 'I look around.', 'art-0001')
+    assert ok(client.get('/api/story/art'))['art'] == []  # off by default
+    ok(client.put('/api/settings', json={'passive_art': True}))
+    tell(client, 'I look around again.', 'art-0002')
+    pictured = ok(client.get('/api/story/art'))['art']
+    assert [(item['kind'], item['status']) for item in pictured] == [('place', 'done')]
+    tell(client, 'I wait.', 'art-0003')
+    assert len(ok(client.get('/api/story/art'))['art']) == 1  # the place has its picture
+    monkeypatch.setattr(art, 'PASSIVE_CAP', 0)
+    with client.app.state.database.connect(write=True) as connection:
+        connection.execute('DELETE FROM story_art')
+    tell(client, 'I wait some more.', 'art-0004')
+    assert ok(client.get('/api/story/art'))['art'] == []

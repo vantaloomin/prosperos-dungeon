@@ -36,7 +36,7 @@ export const SETTINGS_TABS: SettingsTabInfo[] = [
   },
   {
     id: 'images', label: 'Images', sections: [
-      { heading: 'images-heading', title: 'Images', keywords: 'image pictures photos comfyui krea codex nsfw backend' },
+      { heading: 'images-heading', title: 'Images', keywords: 'image pictures photos comfyui krea codex nsfw backend passive art automatic illustrations' },
     ],
   },
   {

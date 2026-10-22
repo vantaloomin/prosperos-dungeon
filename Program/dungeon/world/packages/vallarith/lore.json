@@ -7,7 +7,12 @@
       "title": "Dun Aldun",
       "category": "place",
       "keywords": [
-        "Dun Aldun"
+        "Dun Aldun",
+        "Aldun",
+        "dwarven steel",
+        "dwarven smiths",
+        "dwarven capital",
+        "Ley-forged"
       ],
       "text": "The Dwarven Empire's capital, cut into the northern mountains. Its smiths work Ley into arms and armor nobody else can match.",
       "refs": {
@@ -79,7 +84,9 @@
       "title": "Trein",
       "category": "place",
       "keywords": [
-        "Trein"
+        "Trein",
+        "city of magic",
+        "Ley-lit"
       ],
       "text": "The city of magic: Ley-lit cobbles, enchanted everything, and a total dependence on stored crystal. Home of the Brotherhood of Man. Trades across the gulf with Mordun, friendly with Asania, careful to stay out of Cyrel's wars.",
       "refs": {
@@ -91,7 +98,9 @@
       "title": "Asania",
       "category": "place",
       "keywords": [
-        "Asania"
+        "Asania",
+        "Asanian",
+        "Asanians"
       ],
       "text": "Capital of its kingdom on the Asanian Strait. Marble towers, magic on every corner, splendor, and a war with Cyrel that never quite ends. Allied with Trein's sorcerers, wary of Wrenspire.",
       "refs": {
@@ -103,7 +112,8 @@
       "title": "Wrenspire",
       "category": "place",
       "keywords": [
-        "Wrenspire"
+        "Wrenspire",
+        "Wrenspire engineers"
       ],
       "text": "A cliff-top city-state of engineers between the sea cliffs and the ocean, run by a council, building gears, engines and airships without any magic at all. Every curious tinkerer is welcome.",
       "refs": {
@@ -276,7 +286,8 @@
       "title": "Brynwyr",
       "category": "place",
       "keywords": [
-        "Brynwyr"
+        "Brynwyr",
+        "high elves"
       ],
       "text": "The high elves' forest stronghold on the south-western peninsula, with sylvan cities and warfaring sea-elves on the horizon. Mostly closed and calm; a restless young few wander into human lands.",
       "refs": {
@@ -312,7 +323,8 @@
       "title": "Petrakyra",
       "category": "place",
       "keywords": [
-        "Petrakyra"
+        "Petrakyra",
+        "wood elves"
       ],
       "text": "The hidden home of the wood elves between sea, forest and mountains. They trade a little with Obirykan across the Kyrana Channel. A steady rumor says an Eternal Dragon lives among them.",
       "refs": {
@@ -348,7 +360,10 @@
       "title": "The Dwarven Empire",
       "category": "region",
       "keywords": [
-        "The Dwarven Empire"
+        "The Dwarven Empire",
+        "dwarven lands",
+        "dwarven north",
+        "dwarven gates"
       ],
       "text": "The north of the continent, ruled from the mountain city of Dun Aldun. Brutal winters, closed gates and the best steel in the world.",
       "refs": {
@@ -552,7 +567,9 @@
       "title": "The Kingdom of Asania",
       "category": "faction",
       "keywords": [
-        "The Kingdom of Asania"
+        "The Kingdom of Asania",
+        "Asanian army",
+        "Asanian crown"
       ],
       "text": "Splendid, magical, land-hungry and always ready for war. Allied with Trein's sorcerers, careful around Wrenspire.",
       "refs": {
@@ -564,7 +581,8 @@
       "title": "The Lamplighters' Council of Trein",
       "category": "faction",
       "keywords": [
-        "The Lamplighters' Council of Trein"
+        "The Lamplighters' Council of Trein",
+        "Lamplighters"
       ],
       "text": "Trein is governed by the Lamplighters' Council, named for the old duty of keeping the city's Ley-lamps lit. Seven seats: four great mage houses, two merchant houses, and the Guild of Wardwrights who keep the city's wards running. A Lord-Speaker chosen by the seven chairs it. Every seat depends on crystal, so crystal policy is all the council really argues about.",
       "refs": {
