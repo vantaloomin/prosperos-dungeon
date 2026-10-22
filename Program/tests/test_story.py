@@ -221,3 +221,14 @@ def test_an_ooc_question_gets_the_map_as_the_character_knows_it(client, clock, p
     system = provider.requests[-1]['system']
     assert 'Places in Kingswood, reached by going there: the Green, the Felled Oak' in system
     assert '- Kingswood to Convila: 8 hours by the forest road, low danger' in system
+
+
+def test_a_notable_who_runs_the_place_is_named_while_away():
+    # Playtest M3, finding 6: with Corin Ashby away the narrator made up another keeper of the Felled Oak.
+    corin = {'id': 'corin-ashby', 'name': 'Corin Ashby', 'pronouns': 'he/him', 'place': 'felled-oak',
+             'role': 'tavern keeper', 'staff': True}
+    view = {'data': {'notables': [corin]}, 'place': {'id': 'felled-oak'}, 'people': [], 'dead': set()}
+    assert story.away_lines(view) == ['- Not here now: Corin Ashby (he/him), the tavern keeper here. Whoever minds the '
+                                      'place stands in; Corin Ashby is still the tavern keeper, so invent no other.']
+    assert story.away_lines(view | {'people': [{'sheet': {'full': 'Corin Ashby'}}]}) == []
+    assert story.away_lines(view | {'dead': {'corin ashby'}}) == []
