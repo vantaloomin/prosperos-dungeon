@@ -65,6 +65,10 @@ def grow(connection, now: str, rng=None) -> list[str]:
     """After a night's rest: each marked stat may rise a point."""
     rng = rng or random.SystemRandom()
     lines = []
+    # Growth by use is MARVEL's; another ruleset grows its own way (5E: experience and levels).
+    if sheet.ruleset(connection) != marvel.ID:
+        connection.execute('UPDATE story_marks SET marked=0')
+        return lines
     for stat in marked(connection):
         value = sheet.stats(connection)[stat]
         if rng.randint(1, 100) > GROW * value:
@@ -78,6 +82,10 @@ def grow(connection, now: str, rng=None) -> list[str]:
 
 def milestone(connection, why: str, now: str) -> str:
     """A milestone's bigger boost, to the stat used most since the last one."""
+    if sheet.ruleset(connection) != marvel.ID:
+        # 5E grows by XP: a milestone is worth the level's high encounter budget (dungeon/combat5e.py).
+        from dungeon import combat5e
+        return ' '.join(combat5e.gain(connection, combat5e.milestone_xp(connection), f'a milestone: {why}', now))
     row = optional(connection, 'SELECT stat FROM story_marks WHERE uses > 0 ORDER BY uses DESC, stat LIMIT 1')
     if row is None:
         return ''

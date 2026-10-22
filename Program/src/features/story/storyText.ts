@@ -1,4 +1,4 @@
-import type { BandStep, HiddenRoll, TurnAction, TurnEvent, TurnSoFar, Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace, StoryArc, StoryPace, StoryTier, SheetGrowth, StoryHand, JournalThread, StoryChapter } from '../../types'
+import type { Srd52Spells, BandStep, HiddenRoll, TurnAction, TurnEvent, TurnSoFar, Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace, StoryArc, StoryPace, StoryTier, SheetGrowth, StoryHand, JournalThread, StoryChapter, LegacyRole } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -71,8 +71,17 @@ export function personLine(person: StoryPerson): string {
   return `Met ${times} · now ${person.doing}${where}`
 }
 
-/** "Allure d8: 62 + 5, hard (-10) = 57, Success at a cost". */
+/** What a roll tested, as the card heads it: "Allure · hard", or under 5E "Athletics · DC 15". */
+export function rollWhat(roll: StoryRoll): string {
+  return roll.target ? `${roll.skill} · DC ${roll.target}` : `${roll.stat} · ${roll.difficulty.replace('_', ' ')}`
+}
+
+/** "Allure d8: 62 + 5, hard (-10) = 57, Success at a cost"; under 5E "Athletics d20: 12 + 5 = 17 vs DC 15, Success". */
 export function rollText(roll: StoryRoll): string {
+  if (roll.target) {
+    const bonus = roll.bonus < 0 ? ` - ${-roll.bonus}` : ` + ${roll.bonus}`
+    return `${roll.skill} d20: ${roll.natural}${bonus} = ${roll.total} vs DC ${roll.target}, ${roll.label}`
+  }
   const die = roll.die ? ` d${roll.die}` : ''
   const sum = roll.die ? `${roll.natural} + ${roll.bonus}` : `${roll.natural}`
   const shift = roll.shift ? `, ${roll.difficulty.replace('_', ' ')} (${roll.shift > 0 ? '-' : '+'}${Math.abs(roll.shift)})` : ''
@@ -143,11 +152,17 @@ export function slotsText(slots: Gear['slots']): string {
   return `${round(slots.used)} of ${round(slots.max)} slots`
 }
 
+function foeNumbers(foe: NonNullable<StoryFight['fight']>['foes'][number]): string {
+  if (foe.max_hp !== undefined) return `, ${foe.hp} of ${foe.max_hp} HP`
+  return foe.wound === null ? '' : `, wound ${foe.wound} of 5`
+}
+
 /** "You are hurt. Nerve: shaken. Lasting: a limp. Fighting: the bandit (hurt), the lookout (broken)." or '' when unhurt and not fighting. */
 export function fightText(fight: StoryFight): string {
   if (fight.dead) return 'Your character is dead. Go back to an earlier line to play on.'
-  const condition = fight.condition === 'unhurt' ? '' : `You are ${fight.condition}.`
-  const foes = fight.fight?.foes.map((foe) => `${foe.name} (${foe.state}${foe.wound === null ? '' : `, wound ${foe.wound} of 5`})`).join(', ')
+  const points = fight.max_hp === undefined ? '' : `, ${fight.hp} of ${fight.max_hp} hit points`
+  const condition = fight.condition === 'unhurt' ? '' : `You are ${fight.condition}${points}.`
+  const foes = fight.fight?.foes.map((foe) => `${foe.name} (${foe.state}${foeNumbers(foe)})`).join(', ')
   const lasting = fight.injuries?.length ? `Lasting: ${fight.injuries.join(', ')}.` : ''
   const nerve = fight.stress ? `Nerve: ${fight.stress}.` : ''
   return [condition, nerve, lasting, foes ? `Fighting: ${foes}.` : ''].filter(Boolean).join(' ')
@@ -278,10 +293,11 @@ export function nearMiss(roll: StoryRoll, bands: BandStep[]): string {
 }
 
 /** One die on screen: the d100 as a tens and a ones d10, then the stat die and what it added. */
-export interface DieFace { key: 'tens' | 'ones' | 'stat'; sides: number; value: string }
+export interface DieFace { key: 'tens' | 'ones' | 'stat' | 'd20'; sides: number; value: string }
 
 /** The faces the dice land on for a roll the code already made: 100 reads 00 and 0, as percentile dice do. */
 export function diceFaces(roll: StoryRoll): DieFace[] {
+  if (roll.ruleset === 'srd52') return [{ key: 'd20', sides: 20, value: String(roll.natural) }]
   const faces: DieFace[] = [
     { key: 'tens', sides: 10, value: String(Math.floor((roll.natural % 100) / 10) * 10).padStart(2, '0') },
     { key: 'ones', sides: 10, value: String(roll.natural % 10) },
@@ -318,4 +334,51 @@ export function chapterLine(chapter: Pick<StoryChapter, 'number' | 'turns' | 'op
 /** How a branch in the tree ended, when it was a dead end. */
 export function endingText(ending: string): string {
   return ending === 'death' ? ' · ended in death' : ending === 'lost' ? ' · ended with the character lost' : ''
+}
+
+/** How an earlier campaign's character comes into a new one (dungeon/legacy.py). */
+export const LEGACY_ROLES: Record<LegacyRole, string> = {
+  legend: 'A legend: the world remembers them',
+  villain: 'A villain: they live on, hidden and turned',
+  corpse: 'A corpse: long dead, and only their deeds remain',
+}
+
+/** "+3", "-1", "+0". */
+export function signed(value: number): string {
+  return value < 0 ? String(value) : `+${value}`
+}
+
+const ABILITIES: Record<string, string> = { str: 'Str', dex: 'Dex', con: 'Con', int: 'Int', wis: 'Wis', cha: 'Cha' }
+
+/** "Dex 17 (+3), save" for a 5E ability; "save" when the class is proficient in its saving throw. */
+export function abilityLine(ability: string, score: number, modifier: number, save: boolean): string {
+  return `${ABILITIES[ability] ?? ability} ${score} (${signed(modifier)})${save ? ', save' : ''}`
+}
+
+/** "Level 2 · 325 XP, 900 for level 3" (or "the highest level" at 20). */
+export function xpLine(level: number, xp: number, next: number | null): string {
+  return `Level ${level} · ${xp} XP${next === null ? ', the highest level' : `, ${next} for level ${level + 1}`}`
+}
+
+/** "Spell attack +5 · save DC 13 · slots: 1st 1 of 2, 2nd 3 of 3" for a 5E caster. */
+export function spellLine(spells: Srd52Spells): string {
+  const ordinal = (level: number) => `${level}${level === 1 ? 'st' : level === 2 ? 'nd' : level === 3 ? 'rd' : 'th'}`
+  const slots = spells.slots.map((slot) => `${ordinal(slot.level)} ${slot.left} of ${slot.of}`).join(', ')
+  return `${spells.ability}: spell attack ${signed(spells.attack)} · save DC ${spells.dc}${slots ? ` · slots: ${slots}` : ''}`
+}
+
+/** Whether the standard array is placed on the six abilities, each value once (dungeon/rules/srd52.py build). */
+export function arrayPlaced(scores: Record<string, number>, array: number[]): boolean {
+  const placed = Object.values(scores).sort((a, b) => b - a)
+  return placed.length === array.length && placed.every((value, index) => value === array[index])
+}
+
+/** The class's skills a new 5E character can pick, without the ones the background already gives. */
+export function skillChoices(from: string[], background: string[]): string[] {
+  return from.filter((skill) => !background.includes(skill))
+}
+
+/** A skill's id from its name, as the pack writes them ("Sleight of Hand" is sleight-of-hand). */
+export function skillId(name: string): string {
+  return name.trim().toLowerCase().replaceAll(' ', '-')
 }

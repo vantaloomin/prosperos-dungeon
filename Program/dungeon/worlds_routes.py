@@ -1,7 +1,7 @@
 """Worlds and personas (dungeon/worlds.py): /api/worlds."""
 from fastapi import APIRouter, Request
 
-from dungeon import worlds
+from dungeon import legacy, worlds
 from dungeon.models import HomeChange, NewPersona, NewWorld, PersonaInput, WorldChange
 
 router = APIRouter(prefix='/api/worlds')
@@ -71,3 +71,9 @@ def delete_persona(request: Request, persona_id: str):
 async def switch_persona(request: Request, persona_id: str):
     """Into the world the persona was last in."""
     return worlds.switch_persona(request.app.state, persona_id)
+
+
+@router.post('/import')
+async def import_campaign(request: Request):
+    """A campaign file (dungeon/legacy.py), sent as the request's body, as a new world."""
+    return legacy.import_campaign(db(request), await request.body())

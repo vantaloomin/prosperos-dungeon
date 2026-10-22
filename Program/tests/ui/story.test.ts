@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats, tierText, darkText, threadKind } from '../../src/features/story/storyText.ts'
+import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, threadKind } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -101,6 +101,9 @@ test('fightText says how the character is and who they are fighting', () => {
   assert.equal(fightText({ condition: 'unhurt', dead: false, fight: { round: 1, foes: [{ name: 'the boar', state: 'hurt', wound: 2 }] } }),
     'Fighting: the boar (hurt, wound 2 of 5).')
   assert.match(fightText({ condition: 'dying', dead: true, fight: null }), /dead/)
+  // Under 5E: hit points, the character's and (with the dice shown) the foes'.
+  assert.equal(fightText({ condition: 'hurt', dead: false, hp: 6, max_hp: 12, fight: { round: 1, foes: [{ name: 'the bandit', state: 'grazed', wound: 1, hp: 9, max_hp: 11 }] } }),
+    'You are hurt, 6 of 12 hit points. Fighting: the bandit (grazed, 9 of 11 HP).')
 })
 
 test('intensityChoices offers the world\'s own preset first, by name', () => {
@@ -219,4 +222,34 @@ test('the 3D dice are told the faces to land on', () => {
   assert.equal(diceNotation(diceFaces(roll)), '1d100+1d10+1d8@50,2,7')
   assert.equal(diceNotation(diceFaces({ ...roll, natural: 100, die: null })), '1d100+1d10@100,10')
   assert.equal(diceNotation(diceFaces({ ...roll, natural: 7, die: null })), '1d100+1d10@100,7')
+})
+
+test('a 5E roll reads as a d20 and a bonus against the DC, and lands one d20', () => {
+  const roll = { action: 'climb', stat: 'Vitality', difficulty: 'normal', die: 20, natural: 12, bonus: 5, shift: 0, total: 17, band: 'success' as const, label: 'Success', ruleset: 'srd52' as const, target: 15, skill: 'Athletics' }
+  assert.equal(rollText(roll), 'Athletics d20: 12 + 5 = 17 vs DC 15, Success')
+  assert.equal(rollText({ ...roll, bonus: -1, total: 11, band: 'failure', label: 'Fail' }), 'Athletics d20: 12 - 1 = 11 vs DC 15, Fail')
+  assert.equal(rollWhat(roll), 'Athletics · DC 15')
+  assert.deepEqual(diceFaces(roll), [{ key: 'd20', sides: 20, value: '12' }])
+  assert.equal(diceNotation(diceFaces(roll)), '1d20@12')
+})
+
+test('a 5E ability reads as its score, modifier and save', () => {
+  assert.equal(abilityLine('dex', 17, 3, true), 'Dex 17 (+3), save')
+  assert.equal(abilityLine('cha', 8, -1, false), 'Cha 8 (-1)')
+  assert.equal(signed(0), '+0')
+})
+
+test('a 5E build places the standard array once and picks only the skills left', () => {
+  const array = [15, 14, 13, 12, 10, 8]
+  assert.ok(arrayPlaced({ str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 }, array))
+  assert.ok(!arrayPlaced({ str: 15, dex: 15, con: 13, int: 12, wis: 10, cha: 8 }, array))
+  assert.deepEqual(skillChoices(['Athletics', 'Perception', 'Survival'], ['Athletics', 'Intimidation']), ['Perception', 'Survival'])
+  assert.equal(skillId('Sleight of Hand'), 'sleight-of-hand')
+})
+
+test('xpLine and spellLine read a 5E character\'s level and spells', () => {
+  assert.equal(xpLine(2, 325, 900), 'Level 2 · 325 XP, 900 for level 3')
+  assert.equal(xpLine(20, 400000, null), 'Level 20 · 400000 XP, the highest level')
+  assert.equal(spellLine({ ability: 'Intelligence', attack: 5, dc: 13, cantrips: [], prepared: [], slots: [{ level: 1, left: 1, of: 2 }, { level: 2, left: 3, of: 3 }] }),
+    'Intelligence: spell attack +5 · save DC 13 · slots: 1st 1 of 2, 2nd 3 of 3')
 })

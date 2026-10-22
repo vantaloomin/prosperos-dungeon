@@ -17,6 +17,8 @@ Code runs the fight; the narrator writes it. One line of the player's is one rou
   kill, wardens capture, robbers rob, a brawl ends with the character thrown out. Death is real; the player can
   always go back to an earlier line.
 
+Under 5E the same fight runs on hit points, Armor Class and SRD stat blocks (dungeon/combat5e.py).
+
 Each round is decided once, kept with the player's line (story_rounds), and retold the same way. The fight and the
 character's wounds are game state, branched with the story (dungeon/timeline.py SAVED).
 """
@@ -24,7 +26,7 @@ import json
 import random
 import re
 
-from dungeon import record, sheet
+from dungeon import combat5e, record, sheet
 from dungeon.database import encode, optional
 from dungeon.rules import marvel
 
@@ -79,11 +81,24 @@ def set_condition(connection, level: int, dead: bool = False, rested: int = 0):
                        'UPDATE SET rested=CASE WHEN level=excluded.level THEN rested ELSE excluded.rested END, '
                        'treated=CASE WHEN excluded.level > level THEN 0 ELSE treated END, '
                        'level=excluded.level, dead=excluded.dead', (max(0, min(DYING, level)), int(dead), rested))
+    # Under 5E the hit points follow a wound dealt outside a fight (a Life Card, a fall).
+    combat5e.follow_level(connection, max(0, min(DYING, level)))
+
+
+def fifth(connection) -> bool:
+    """Whether the fight runs on 5E's hit points (dungeon/combat5e.py)."""
+    return combat5e.hit_points(connection) is not None
 
 
 def mend(connection, nights: int) -> list[str]:
     """Nights of good rest count toward the wound's mending: each level takes its own (MEND_NIGHTS)."""
     now = condition(connection)
+    if fifth(connection) and not now['dead'] and now['level'] < DYING:
+        # 5E heals as written: a long rest restores every hit point and spell slot.
+        lines = combat5e.long_rest(connection, nights)
+        if lines and now['level']:
+            connection.execute('UPDATE story_wounds SET level=0, rested=0 WHERE id=1')
+        return lines
     if nights <= 0 or now['dead'] or not 0 < now['level'] < DYING:
         return []
     level, rested = now['level'], now['rested'] + nights
@@ -101,6 +116,9 @@ def mend(connection, nights: int) -> list[str]:
 def adjust(connection, actions: list[dict]) -> list[dict]:
     """Wounds make actions harder: Wounded slows physical ones, Maimed everything and physical ones twice."""
     level = condition(connection)['level']
+    if fifth(connection):
+        # 5E has no wound penalties: hit points are whole until they run out.
+        return actions
     adjusted = []
     for action in actions:
         steps = (1 if level >= 3 and action['stat'] in PHYSICAL else 0) + (1 if level >= DOWN else 0)
@@ -117,7 +135,9 @@ def condition_text(connection) -> str:
         return "The player's character is dead."
     if not now['level']:
         return ''
-    return f"The player's character is {LEVELS[now['level']]} (kept by the game; write the wounds as they are)."
+    points = combat5e.hit_points(connection)
+    hp = f", {points[0]} of {points[1]} hit points" if points else ''
+    return f"The player's character is {LEVELS[now['level']]}{hp} (kept by the game; write the wounds as they are)."
 
 
 # The fight ---------------------------------------------------------------------------------------
@@ -181,37 +201,53 @@ def weapon_bonus(items: list[dict]) -> int:
     return max(held) if held else BARE_HANDS
 
 
+def down(foe: dict) -> bool:
+    """A MARVEL foe is down at Maimed; a 5E foe at 0 hit points."""
+    return foe['hp'] <= 0 if 'hp' in foe else foe['wound'] >= DOWN
+
+
 def standing(state: dict) -> list[dict]:
-    return [foe for foe in state['foes'] if foe['wound'] < DOWN and not foe['broken']]
+    return [foe for foe in state['foes'] if not down(foe) and not foe['broken']]
 
 
 def foe_word(foe: dict) -> str:
-    if foe['wound'] >= DOWN:
+    if down(foe):
         return 'down'
     if foe['broken']:
         return 'broken, fleeing or giving up'
     return LEVELS[foe['wound']] if foe['wound'] else 'unhurt'
 
 
-def player_moves(state: dict, rolls: list[dict], items: list[dict], lines: list[str]) -> tuple[bool, bool]:
-    """The player's rolled actions against the foes: (got away, guarded this round)."""
-    guarded = False
+def player_moves(connection, state: dict, rolls: list[dict], items: list[dict], rng,
+                 lines: list[str]) -> tuple[bool, bool]:
+    """The player's rolled actions against the foes: (got away, guarded this round). Under 5E a dodge needs no roll
+    and an attack is made against the target's AC."""
+    guarded, five = False, fifth(connection)
     for roll in rolls:
         landed = roll['band'] in SUCCESS
-        if FLEE.search(roll['action']):
+        if five and (spell := combat5e.spell_in(connection, roll)):
+            combat5e.cast(connection, roll, spell, standing(state), rng, lines)
+        elif FLEE.search(roll['action']):
             if landed:
                 lines.append("The player's character gets away.")
                 return True, guarded
             lines.append("The player's character tries to get away and cannot.")
         elif GUARD.search(roll['action']):
-            guarded = guarded or landed
+            guarded = guarded or landed or five
         elif roll['stat'] == 'Vitality' and ATTACK.search(roll['action']) and (targets := standing(state)):
-            strike(roll, targets, items, lines)
+            if five:
+                combat5e.strike(connection, roll, aimed_at(roll, targets), items, rng, lines)
+            else:
+                strike(roll, targets, items, lines)
     return False, guarded
 
 
+def aimed_at(roll: dict, targets: list[dict]) -> dict:
+    return next((foe for foe in targets if foe['name'].lower() in roll['action'].lower()), targets[0])
+
+
 def strike(roll: dict, targets: list[dict], items: list[dict], lines: list[str]):
-    target = next((foe for foe in targets if foe['name'].lower() in roll['action'].lower()), targets[0])
+    target = aimed_at(roll, targets)
     target['zone'] = 'engaged'
     if roll['band'] in SUCCESS:
         target['wound'] = min(DYING, target['wound'] + max(1, DAMAGE[roll['band']] + weapon_bonus(items)))
@@ -256,30 +292,44 @@ def play_round(connection, state: dict, rolls: list[dict], items: list[dict], rn
     it ended: '' while it goes on, else 'escaped', 'won' or 'dying'."""
     rng = rng or random.SystemRandom()
     lines, state = [], state | {'round': state['round'] + 1}
-    escaped, guarded = player_moves(state, rolls, items, lines)
+    escaped, guarded = player_moves(connection, state, rolls, items, rng, lines)
     if escaped:
         return state, lines, 'escaped'
-    morale(state, rng, lines)
+    five = fifth(connection)
+    if five:
+        combat5e.morale(state, standing, rng, lines)
+    else:
+        morale(state, rng, lines)
     if not standing(state):
         lines.append('No foe is left standing: the fight is won.')
         return state, lines, 'won'
-    level = foes_move(connection, state, guarded, rng, lines)
+    if five:
+        level = combat5e.foes_attack(connection, state, standing, guarded, rng, lines)
+        set_condition(connection, level)
+    else:
+        level = foes_move(connection, state, guarded, rng, lines)
     return state, lines, 'dying' if level >= DYING else ''
 
 
-def defeat(connection, state: dict, rng, now: str) -> tuple[str, str]:
-    """The character went down: cling on with Vitality, then what the winners do with them."""
+def defeat(connection, state: dict, rng, now: str, saved: bool | None = None) -> tuple[str, str]:
+    """The character went down: cling on with Vitality, then what the winners do with them. Under 5E the death saves
+    already decided (`saved`): three failures is death, stable is the table without it."""
     rng = rng or random.SystemRandom()
-    clung = marvel.roll(sheet.stats(connection).get('Vitality', 10), 'hard', rng)['band'] in SUCCESS
-    table = [(outcome, weight) for outcome, weight in DEFEAT[state['wants']] if not (clung and outcome == 'death')]
-    pick = rng.randint(1, sum(weight for _, weight in table))
-    outcome = next(name for name, weight in _running(table) if pick <= weight)
+    if saved is False:
+        outcome = 'death'
+    else:
+        clung = saved or sheet.check(connection, 'Vitality', 'hard', rng=rng, save=True)['band'] in SUCCESS
+        table = [(outcome, weight) for outcome, weight in DEFEAT[state['wants']] if not (clung and outcome == 'death')]
+        pick = rng.randint(1, sum(weight for _, weight in table))
+        outcome = next(name for name, weight in _running(table) if pick <= weight)
     winners = state['foes'][0]['name']
     if outcome == 'death':
         set_condition(connection, DYING, dead=True)
         record.add(connection, 'death', "the player's character", f'Killed by {winners}.', now)
     else:
         set_condition(connection, DOWN)
+        if fifth(connection):
+            combat5e.set_hp(connection, 1, now)
         if outcome == 'robbed':
             connection.execute('UPDATE story_purse SET coins=0')
         record.add(connection, 'fact', "the player's character", f'Beaten by {winners}. {DEFEAT_TEXT[outcome]}', now)
@@ -309,25 +359,20 @@ def turn(connection, message_id: str, people: list[dict], rolls: list[dict], sta
     the defeat table's outcome; it says what that left (dungeon/stress.py)."""
     if (kept := saved_round(connection, message_id)) is not None:
         return kept
-    state = fight(connection)
+    rng = rng or random.SystemRandom()
+    state = fight(connection) or begin(connection, people, rolls, start, rng)
     if state is None:
-        target = attack_on(people, rolls)
-        spec = person_foe(target) if target else start or stand_in(rolls)
-        if spec is None:
-            return []
-        state = {'round': 0, 'wants': spec.get('wants', 'kill'),
-                 'foes': foes_from(spec, 'near' if spec is start else 'engaged')}
+        return []
     before = {foe['id']: foe['wound'] for foe in state['foes']}
     events = [('horror', foe['name']) for foe in state['foes'][:1] if foe.get('horror') and not state['round']]
     state, lines, ending = play_round(connection, state, rolls, items, rng)
     events += [('kill', foe['name']) for foe in state['foes'] if foe['wound'] >= DYING > before[foe['id']]]
     # A foe who broke and got away alive (the story director may make a nemesis of them).
-    events += [('fled', foe['name']) for foe in state['foes'] if ending == 'won' and foe['broken']
-               and foe['wound'] < DOWN]
+    events += [('fled', foe['name']) for foe in state['foes'] if ending == 'won' and foe['broken'] and not down(foe)]
     if ending == 'dying':
-        outcome, said = defeat(connection, state, rng, now)
-        lines.append(f"The player's character falls, dying. {said}")
-        events.append((outcome, state['foes'][0]['name']))
+        ending = fall(connection, state, rng, now, lines, events)
+    if ending == 'won' and fifth(connection):
+        lines += combat5e.gain(connection, combat5e.fight_xp(state), 'the fight won', now)
     if cause := state.pop('hurt_by', None):
         events.append(('maimed', cause))
     if aftermath and events and not condition(connection)['dead']:
@@ -335,6 +380,37 @@ def turn(connection, message_id: str, people: list[dict], rolls: list[dict], sta
     save_fight(connection, None if ending else state)
     connection.execute('INSERT INTO story_rounds (message_id, lines) VALUES (?, ?)', (message_id, encode(lines)))
     return lines
+
+
+def begin(connection, people: list[dict], rolls: list[dict], start: dict | None, rng) -> dict | None:
+    """A fight that starts this turn: on someone in the scene the player attacks, a danger's foe, or a stand-in."""
+    target = attack_on(people, rolls)
+    spec = person_foe(target) if target else start or stand_in(rolls)
+    if spec is None:
+        return None
+    zone = 'near' if spec is start else 'engaged'
+    foes = combat5e.foes_from(spec, zone, rng) if fifth(connection) else foes_from(spec, zone)
+    return {'round': 0, 'wants': spec.get('wants', 'kill'), 'foes': foes}
+
+
+def fall(connection, state: dict, rng, now: str, lines: list[str], events: list) -> str:
+    """The character dropped: under 5E the death saves first (a natural 20 is back up and fighting), then the defeat
+    table. Returns how the fight stands: '' when it goes on, else 'dying'."""
+    saved = None
+    if fifth(connection):
+        saved, up, saves = combat5e.death_saves(rng)
+        rolled = ', '.join(str(natural) for natural in saves)
+        if up:
+            set_condition(connection, combat5e.set_hp(connection, 1, now))
+            lines.append(f"The player's character drops to 0 hit points, then rolls a natural 20 on a death save "
+                         f"({rolled}) and is back on their feet with 1 hit point.")
+            return ''
+        lines.append(f"The player's character drops to 0 hit points. Death saves: {rolled}: "
+                     f"{'stable' if saved else 'three failures'}.")
+    outcome, said = defeat(connection, state, rng, now, saved)
+    lines.append(f"The player's character falls, dying. {said}")
+    events.append((outcome, state['foes'][0]['name']))
+    return 'dying'
 
 
 def prompt_text(lines: list[str], connection) -> str:
@@ -350,7 +426,11 @@ def prompt_text(lines: list[str], connection) -> str:
 def view(connection, shown: bool) -> dict:
     """The fight and the character's wounds for the screen: levels with the dice shown, words otherwise."""
     state, now = fight(connection), condition(connection)
+    points = combat5e.hit_points(connection)
     return {'condition': LEVELS[now['level']], 'dead': now['dead'],
             'fight': state and {'round': state['round'],
                                 'foes': [{'name': foe['name'], 'state': foe_word(foe),
-                                          'wound': foe['wound'] if shown else None} for foe in state['foes']]}}
+                                          'wound': foe['wound'] if shown else None}
+                                         | ({'hp': foe['hp'], 'max_hp': foe['max_hp']} if shown and 'hp' in foe else {})
+                                         for foe in state['foes']]}} \
+        | ({'hp': points[0], 'max_hp': points[1]} if points else {})

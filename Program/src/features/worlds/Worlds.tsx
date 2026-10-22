@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Globe, Plus, Trash2, UserRound, UserRoundPlus } from 'lucide-react'
-import { api } from '../../api'
+import { Globe, Plus, Trash2, Upload, UserRound, UserRoundPlus } from 'lucide-react'
+import { api, upload } from '../../api'
 import type { Persona, World, Worlds as WorldsData } from '../../types'
 import { Loading, Notice } from '../../components/Feedback'
 import { ErrorNotice } from '../../components/ErrorNotice'
@@ -53,6 +53,7 @@ export function Worlds() {
           ? <PersonaForm cityId={data.world.city_id} kinds={data.persona.kind_shown} onCancel={() => setMaking(false)} onSaved={() => { setMaking(false); void client.invalidateQueries({ queryKey: WORLDS_KEY }) }} />
           : <div className="form-actions">
               <button type="button" className="button" onClick={() => setMaking(true)}><UserRoundPlus aria-hidden="true" />New persona</button>
+              <ImportCampaign run={run} store={store} />
             </div>}
         <div id="persona-edit"><PersonaForm key={`${data.persona.id}:${data.world.id}`} persona={data.persona} world={data.world} cityId={data.world.city_id} onSaved={(saved) => { if (saved) store(saved) }} /></div>
       </div>
@@ -174,4 +175,15 @@ function WorldRow({ world, run, store, onSwitch }: { world: World; run: Run; sto
       </ConfirmDialog>}
     </li>
   )
+}
+
+/** A campaign file (Story > Export) from here or another machine, as a new world (dungeon/legacy.py). */
+function ImportCampaign({ run, store }: { run: Run; store: (data: WorldsData) => void }) {
+  const input = useRef<HTMLInputElement>(null)
+  const chosen = (file: File | undefined) => { if (file) void run(async () => { store(await upload<WorldsData>('/worlds/import', file)) }) }
+  return <>
+    <button type="button" className="button" onClick={() => input.current?.click()}><Upload aria-hidden="true" />Import a campaign file</button>
+    <input ref={input} type="file" accept=".zip,application/zip" hidden aria-label="A campaign file"
+      onChange={(event) => { chosen(event.target.files?.[0]); event.target.value = '' }} />
+  </>
 }

@@ -9,6 +9,7 @@ user's choice in the place picker, not the model's.
 """
 import asyncio
 import logging
+import re
 import time
 from datetime import datetime
 
@@ -54,7 +55,9 @@ from dungeon.narration import prompt as narration_prompt
 from dungeon.narration import prose
 from dungeon.providers.chat import INCOMPLETE
 from dungeon.providers.scheduling import CONVERSATION
-from dungeon.rules import marvel
+from dungeon.rules import marvel, srd52
+from dungeon.sheet import native as native_sheet
+from dungeon.sheet import ruleset as ruleset_of
 from dungeon.sheet import stats as sheet_stats
 from dungeon.text_models import config_for, default_name, key_for
 from dungeon.world import catalog, changes, custom, generators, inside, life_details, townsfolk
@@ -295,7 +298,10 @@ def persona_text(connection) -> tuple[str, str | None]:
     lines = [f"{row['name']}" + (f' ({details})' if details else '') + '.']
     if row['about']:
         lines.append(row['about'].strip())
-    stats = sheet_stats(connection)
+    native = native_sheet(connection) if ruleset_of(connection) == srd52.ID else None
+    if native:
+        lines.append(srd52.described(native))
+    stats = {} if native else sheet_stats(connection)
     if strong := [marvel.MEANINGS[stat] for stat, value in stats.items() if value >= STRONG]:
         lines.append(f"Good at: {'; '.join(strong)}.")
     if weak := [marvel.MEANINGS[stat] for stat, value in stats.items() if value <= WEAK]:
@@ -402,7 +408,7 @@ def story(database) -> dict:
         view = scene(connection, story_clock.now(connection, database.clock))
         return {'scene': scene_view(view), 'messages': with_rolls(connection, messages(connection)),
                 'people': people(connection, view), 'ready': config_for(connection, JOB) is not None,
-                'dice_shown': dice_shown(connection), 'bands': turn.bands() if dice_shown(connection) else None,
+                'dice_shown': dice_shown(connection), 'bands': turn.bands(ruleset_of(connection)) if dice_shown(connection) else None,
                 'branches': timeline.branches(connection),
                 'campaign': chapters.view(connection),
                 'fight': combat.view(connection, dice_shown(connection)) | {
@@ -527,6 +533,41 @@ def move(database, city_id: str, place_id: str | None) -> dict:
     return story(database)
 
 
+# A line that goes somewhere by name: the words after "go to", "head over to" and the like.
+GOING = re.compile(r'\b(?:go|goes|going|head|heads|heading|walk|walks|walking|make (?:my|our) way|wander|wanders|'
+                   r'stroll|strolls|hurry|hurries|return|returns|cross|crosses)\b(?:\s+(?:back|over|down|up|across|'
+                   r'out|on|off|straight))*\s+(?:to|towards?|into|in at)\s+(?P<where>[^.!?;,]+)', re.I)
+# Where a rest is taken: "I sleep at the bunkhouses".
+SLEEPING_AT = re.compile(r'\b(?:at|in)\s+(?P<where>[^.!?;,]+)', re.I)
+PLACE_FILLER = {'the', 'of', 'a', 'an', 's', 'old', 'and'}
+
+
+def place_words(text: str) -> set[str]:
+    return set(re.findall(r'[a-z]+', text.lower())) - PLACE_FILLER
+
+
+def walked_to(connection, text: str) -> dict | None:
+    """A place in this town the player's line goes to by name or kind ("I go to the shrine", "I sleep at the
+    bunkhouses"), with its city id; none when the words fit no place, or two equally, or there is a fight on."""
+    if combat.fight(connection) is not None:
+        return None
+    row = scene_row(connection)
+    data = city_data(connection, row['city_id'])
+    spans = [found.group('where') for found in GOING.finditer(text)]
+    if rest.resting(text):
+        spans += [found.group('where') for found in SLEEPING_AT.finditer(text)]
+    for where in spans:
+        # Only the place itself: "the shrine", not "the shrine and ask Mother Rook".
+        where = re.split(r'\b(?:and|then|to|so|where|while|with|for|until|because)\b', where, maxsplit=1)[0]
+        words = place_words(where)
+        scored = [(len(words & (place_words(place['name']) | {place['kind']})), place) for place in data['places']]
+        best = max((hits for hits, _ in scored), default=0)
+        top = [place for hits, place in scored if hits == best]
+        if best and len(top) == 1:
+            return None if top[0]['id'] == row['place_id'] else top[0] | {'city_id': data['id']}
+    return None
+
+
 def place_scene(connection, city_id: str, place_id: str, now: str):
     connection.execute('INSERT INTO story_scene (id, city_id, place_id, updated_at) VALUES (1, ?, ?, ?) ON CONFLICT(id) '
                        'DO UPDATE SET city_id=excluded.city_id, place_id=excluded.place_id, '
@@ -568,7 +609,7 @@ def clear(database) -> dict:
                       'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_beats', 'story_word',
                       'story_offpage', 'story_tier', 'story_marks', 'story_dark',
                       'story_director', 'story_arcs', 'story_threads', 'story_nemeses', 'story_seeds',
-                      'story_arc_beats'):
+                      'story_arc_beats', 'story_sheet'):
             connection.execute(f'DELETE FROM {table}')
         timeline.clear(connection)
         chapters.clear(connection)
@@ -796,7 +837,9 @@ def slept(database, connection, resting: dict, rolls: list[dict], message_id: st
     hungry = 0
     if resting.get('outside') and nights > 1:
         _, hungry = travel.eat(connection, resting['food'], nights - 1)
-    pass_time(database, connection, rest.minutes(nights, cut_short))
+    row = scene_row(connection)
+    local = local_moment(city_data(connection, row['city_id']), story_clock.now(connection, database.clock))
+    pass_time(database, connection, rest.minutes(nights, cut_short, local))
     lines = [rest.opening(resting), *happened]
     if hungry:
         lines.append(f"The pack runs out of food: {hungry} hungry day{'s' if hungry > 1 else ''}, and no mending on them.")
@@ -994,13 +1037,14 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
     database = state.database
     with database.connect() as connection:
         rolls, judge = turn.saved(connection, user['id']), referee.own_model(connection)
+        decisions = referee.decision_model(connection)
         # Mid-fight nothing is obvious: "I go for the nearest one" is an attack, not a walk.
         fighting = combat.fight(connection) is not None
     if rolls:
         return rolls
     since = steps.clock()
-    actions = await referee.decide(state, user['text'],
-                                   None if pace.obvious(user['text']) and not fighting else judge)
+    obvious = pace.obvious(user['text']) and not fighting
+    actions = await referee.decide(state, user['text'], None if obvious else judge, None if obvious else decisions)
     steps.timed('referee', since)
     if hazard := quests.danger_action(user['city_id'], user['place_id'], getattr(state, 'dice', None)):
         actions = [*actions, hazard]
@@ -1129,7 +1173,8 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
     if rolls:
         with database.connect() as connection:
             shown = dice_shown(connection)
-        await emit({'actions': turn.announced(rolls, shown)} | ({'bands': turn.bands()} if shown else {}))
+            ruleset = ruleset_of(connection)
+        await emit({'actions': turn.announced(rolls, shown)} | ({'bands': turn.bands(ruleset)} if shown else {}))
         for roll in rolls:
             await emit({'roll': turn.shown(roll) if shown else turn.hidden(roll)})
     travelled = travel_turn(state, user, rolls) if in_story else []
@@ -1162,7 +1207,8 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
             # What the line touched in the GM's notebook, and the scene's kind (dungeon/director.py).
             if found := happenings.where(packet['city_id'], scene_row(connection)['place_id']):
                 director.touch(connection, found['world'], f"{user['text']}\n{text}",
-                               director.scene_kind(rolls, fought, packet['people']), user['id'], database.now())
+                               director.scene_kind(rolls, fought, packet['people'], noted), user['id'],
+                               database.now())
                 plotting.after_line(connection, text, user['id'])
         reply = add(connection, database.now(), 'narrator', text, scene_row(connection), reply_to=user['id'],
                     status=status, error=error,
@@ -1188,9 +1234,15 @@ def received(database, text: str, client_id: str) -> tuple[dict, dict | None]:
             chapters.arrive(connection, user, database.now())
             # The time the line takes passes as it is sent: the narrator writes the scene after it.
             if not in_character.out_of_character(text):
+                if walked := walked_to(connection, text):
+                    # "I go to the shrine": the story moves there before the narrator writes, as "Go somewhere
+                    # else" would.
+                    place_scene(connection, walked['city_id'], walked['id'], database.now())
+                    pass_time(database, connection, story_clock.ACROSS_TOWN_MINUTES)
+                    arrive(connection, database.now())
                 # A rest passes its own nights (dungeon/rest.py).
-                pass_time(database, connection, 0 if rest.resting(text) else
-                          story_clock.minutes_for(text, bool(referee.by_keywords(text))))
+                elif not rest.resting(text):
+                    pass_time(database, connection, story_clock.minutes_for(text, bool(referee.by_keywords(text))))
         reply = optional(connection, "SELECT * FROM story_messages WHERE reply_to=? AND status='complete'",
                          (user['id'],))
         return user, reply

@@ -37,6 +37,19 @@ export async function api<T>(path: string, body?: unknown, method?: string): Pro
   return data as T
 }
 
+/** A file sent as the request's whole body, such as a campaign file (dungeon/legacy.py). */
+export async function upload<T>(path: string, file: Blob): Promise<T> {
+  let response: Response
+  try {
+    response = await fetch(`/api${path}`, { method: 'POST', headers: headers(file.type || 'application/octet-stream'), body: file })
+  } catch {
+    throw new ApiError('Cannot reach the Dungeon. Check that it is still running.', 0, 'offline')
+  }
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw failure(response.status, data)
+  return data as T
+}
+
 /** A workspace switched in another tab reloads this one on the story. */
 function failure(status: number, data: { detail?: unknown; code?: string }): ApiError {
   if (data.code === 'world_changed') { window.location.hash = '#story'; window.location.reload() }

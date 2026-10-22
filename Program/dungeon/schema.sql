@@ -610,6 +610,9 @@ CREATE TABLE IF NOT EXISTS story_rolls (
   shift INTEGER NOT NULL,
   total INTEGER NOT NULL,
   threat TEXT,
+  ruleset TEXT NOT NULL DEFAULT 'marvel',
+  target INTEGER,
+  skill TEXT,
   band TEXT NOT NULL CHECK (band IN ('critical_failure', 'failure', 'failure_upside', 'success_cost', 'success',
                                      'critical_success')),
   created_at TEXT NOT NULL,
@@ -761,7 +764,16 @@ CREATE TABLE IF NOT EXISTS story_notebook (
 -- The campaign's choices made at its start that hold across every branch: Ironman turns off going back.
 CREATE TABLE IF NOT EXISTS story_campaign (
   id INTEGER PRIMARY KEY CHECK (id = 1),
-  ironman INTEGER NOT NULL DEFAULT 0
+  ironman INTEGER NOT NULL DEFAULT 0,
+  ruleset TEXT NOT NULL DEFAULT 'marvel'
+);
+
+-- The persona's sheet under a ruleset other than MARVEL (dungeon/sheet.py), as that ruleset keeps it.
+CREATE TABLE IF NOT EXISTS story_sheet (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  ruleset TEXT NOT NULL,
+  data TEXT NOT NULL,
+  updated_at TEXT NOT NULL
 );
 
 -- The director's Chekhov list (dungeon/plotting.py): each seed planted, the truth it points to, its payoff window in

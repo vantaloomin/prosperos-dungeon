@@ -219,11 +219,13 @@ export interface StoryMessage {
 export interface StoryFlag { passage: string; why: string[] }
 export interface TurnPace { steps: Record<string, number>; skipped: string[]; budget: number; total: number }
 export type Band = 'critical_failure' | 'failure' | 'failure_upside' | 'success_cost' | 'success' | 'critical_success'
-/** One MARVEL roll (dungeon/rules/marvel.py): d100 plus the stat die, less the difficulty shift. */
+/** One roll: MARVEL's d100 plus the stat die, less the difficulty shift (dungeon/rules/marvel.py); or, under 5E, a d20
+ *  plus the skill's bonus against a DC (`target`, dungeon/rules/srd52.py), `skill` naming what it tested. */
 export interface StoryRoll {
   action: string; stat: string; difficulty: string; die: number | null; natural: number; bonus: number; shift: number
-  total: number; band: Band; label: string
+  total: number; band: Band; label: string; ruleset?: Ruleset; target?: number | null; skill?: string | null
 }
+export type Ruleset = 'marvel' | 'srd52'
 /** A roll while the dice are hidden: what was tried and with which stat, never the odds (dungeon/turn.py hidden). */
 export type HiddenRoll = Pick<StoryRoll, 'action' | 'stat'>
 /** One of the ruleset's bands by total, worst first; the top band has no ceiling (dungeon/turn.py bands). */
@@ -234,8 +236,31 @@ export interface TurnAction { action: string; stat: string; difficulty?: string 
 export type TurnEvent = { stage: 'reading' | 'writing' } | { actions: TurnAction[]; bands?: BandStep[] } | { roll: StoryRoll | HiddenRoll }
 /** What a turn under way has shown so far. */
 export interface TurnSoFar { stage: 'reading' | 'writing' | null; actions: TurnAction[]; bands: BandStep[] | null; rolls: (StoryRoll | HiddenRoll)[] }
-/** The persona's MARVEL stats (dungeon/sheet.py) and the die each one rolls. */
-export interface Sheet { stats: Record<string, number>; stat_names: string[]; range: [number, number]; dice: Record<string, number | null>; growth?: SheetGrowth }
+/** The persona's MARVEL stats (dungeon/sheet.py) and the die each one rolls; or their 5E sheet (Srd52Sheet). */
+export type Sheet = MarvelSheet | Srd52Sheet
+export interface MarvelSheet { ruleset: 'marvel'; ruleset_name: string; stats: Record<string, number>; stat_names: string[]; range: [number, number]; dice: Record<string, number | null>; growth?: SheetGrowth }
+/** A 5E character (dungeon/rules/srd52.py view): abilities, proficiency, hit points, Armor Class and every skill. */
+export interface Srd52Sheet {
+  ruleset: 'srd52'; ruleset_name: string; level: number; xp: number; abilities: Record<string, number>; modifiers: Record<string, number>
+  proficiency: number; max_hp: number; hp: number; ac: number; speed: number; saves: string[]; skills: string[]
+  names: { class: string; species: string; background: string }
+  skill_bonuses: Record<string, { name: string; ability: string; bonus: number; proficient: boolean }>
+  attribution: string; growth?: SheetGrowth
+  /** XP that reaches the next level (null at 20), the class's features so far, and the caster's spells. */
+  next_xp: number | null; features?: string[]; spell_list: Srd52Spells | null
+}
+export interface Srd52Spells {
+  ability: string; attack: number; dc: number; cantrips: string[]; prepared: { name: string; level: number }[]
+  slots: { level: number; left: number; of: number }[]
+}
+/** What a 5E character is built from at campaign start (dungeon/campaign.py srd52_choices). */
+export interface Srd52Choices {
+  classes: { id: string; name: string; hit_die: number; primary: string; skills: { count: number; from: string[] } }[]
+  species: { id: string; name: string }[]
+  backgrounds: { id: string; name: string; skills: string[]; abilities: string[] }[]
+  abilities: { id: string; name: string }[]; skills: { id: string; name: string; ability: string }[]
+  array: number[]; attribution: string
+}
 /** Someone the user has met in their story (dungeon/story_people.py), with where their rules put them now. */
 export interface StoryPerson {
   key: string; name: string; role: string; city: string; meetings: number; last_met_at: string; notes: string[]
@@ -258,7 +283,10 @@ export interface Premade { id: string; name: string; gender: PersonaGender; age:
 export type StoryArc = 'grounded' | 'classic' | 'epic'
 export type StoryPace = 'slow' | 'steady' | 'fast'
 export type StoryHand = 'soft' | 'guiding' | 'firm'
-export interface StoryStart { premades: Premade[]; points: number; range: [number, number]; stat_names: string[]; meanings: Record<string, string>; arc?: { arc: StoryArc; pace: StoryPace; hand?: StoryHand } | null }
+/** Another world's story that can come into a new campaign as history (dungeon/legacy.py). */
+export interface LegacyCandidate { world_id: string; world: string; name: string; dead: boolean; chapters: number }
+export type LegacyRole = 'legend' | 'villain' | 'corpse'
+export interface StoryStart { rulesets?: { id: Ruleset; name: string }[]; ruleset?: Ruleset; srd52?: Srd52Choices; legacy?: LegacyCandidate[]; premades: Premade[]; points: number; range: [number, number]; stat_names: string[]; meanings: Record<string, string>; arc?: { arc: StoryArc; pace: StoryPace; hand?: StoryHand } | null }
 /** The character's tier on the shared ladder and its track (dungeon/tiers.py); the numbers only with the dice shown. */
 /** Growth by use and the dark tracks (dungeon/growth.py); points only with the dice shown. */
 export interface SheetGrowth { marked: string[]; dark: { id: string; name: string; word: string; changes: string[]; points?: number; top?: number }[] }
@@ -294,10 +322,12 @@ export interface StoryBookmark { id: string; name: string; message_id: string; b
 export interface StoryCampaign { chapters: StoryChapter[]; tree: StoryTreeBranch[]; bookmarks: StoryBookmark[]; ironman: boolean; pending: { reason: string; title: string } | null }
 export interface NotebookNote { id: string; text: string; created_at: string; updated_at: string }
 export interface StoryBranch { id: string; playing: boolean; turns: number; last_line: string; last_at: string; started_at: string }
-/** The fight and the character's wounds (dungeon/combat.py); a foe's `wound` level only with the dice shown. */
+/** The fight and the character's wounds (dungeon/combat.py); a foe's `wound` level (and 5E hit points) only with the dice shown. */
 export interface StoryFight {
   condition: string; dead: boolean; injuries?: string[]; stress?: string
-  fight: { round: number; foes: { name: string; state: string; wound: number | null }[] } | null
+  /** Hit points, under 5E. */
+  hp?: number; max_hp?: number
+  fight: { round: number; foes: { name: string; state: string; wound: number | null; hp?: number; max_hp?: number }[] } | null
 }
 export type IntensityPreset = 'world' | 'restrained' | 'mature' | 'unflinching'
 /** How far the story goes: `preset` in play, the player's `chosen` one ('world' follows the world), the world's own. */

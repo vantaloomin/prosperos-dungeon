@@ -42,6 +42,12 @@ ENV_KEYS = {'openai': 'OPENAI_API_KEY', 'anthropic': 'ANTHROPIC_API_KEY', 'openr
 # Providers whose official API needs a key; local servers and compatible services may not.
 NEEDS_KEY = {'openai', 'anthropic', 'openrouter', 'google', 'nanogpt'}
 EMBEDDING_PROVIDERS = {'openai', 'nanogpt', 'compatible', 'local'}
+# Decision models answer typed questions with probabilities and write no text: Jev through OpenRouter's decisions
+# API, OpenAI's decisions API, or any model on a local or compatible server, scored by the odds of each answer's
+# letter (dungeon/providers/decisions.py).
+DECISION_PROVIDERS = {'openrouter', 'openai', 'local', 'compatible'}
+# Text profiles on these servers can answer decisions the same way, so the narrator's own local model can.
+SCORED_PROVIDERS = {'local', 'compatible'}
 
 
 def validate_local_url(url: str):
@@ -69,10 +75,22 @@ def is_recall(config) -> bool:
     return config.get('purpose') == 'recall'
 
 
+def is_decisions(config) -> bool:
+    return config.get('purpose') == 'decisions'
+
+
 def profile_ready(config) -> bool:
-    """A text profile with a model can do every job but recall."""
-    return not is_recall(config) and bool(config.get('model', '').strip()) and \
+    """A text profile with a model can do every job but recall (and decisions, when its server can score them)."""
+    return config.get('purpose', 'text') == 'text' and bool(config.get('model', '').strip()) and \
         (config['provider'] in CLI_PROVIDERS or bool(config.get('base_url')))
+
+
+def decisions_ready(config) -> bool:
+    """A decisions profile with a model, or a finished text profile on a local or compatible server."""
+    if profile_ready(config):
+        return config['provider'] in SCORED_PROVIDERS
+    return is_decisions(config) and bool(config.get('model', '').strip()) and \
+        config['provider'] in DECISION_PROVIDERS and bool(config.get('base_url'))
 
 
 def recall_ready(config) -> bool:
@@ -82,6 +100,8 @@ def recall_ready(config) -> bool:
 
 
 def ready_for(config, job: str) -> bool:
+    if job == 'decisions':
+        return decisions_ready(config)
     return recall_ready(config) if job == 'recall' else profile_ready(config)
 
 
@@ -120,7 +140,8 @@ class ProfileConfig(Input):
     resource_group: str = Field(default='', max_length=80, pattern=r'^[a-zA-Z0-9 _.-]*$')
     # Text profiles write; recall profiles only turn text into embeddings for semantic recall, through
     # the service's /embeddings with embedding_model, so recall can use a different service from replies.
-    purpose: Literal['text', 'recall'] = 'text'
+    # Decisions profiles only answer the Referee's questions with probabilities.
+    purpose: Literal['text', 'recall', 'decisions'] = 'text'
     embedding_model: str = Field(default='', max_length=200)
     # Where the Claude Code CLI is installed, when it is not on PATH. Models are set up on the PC only.
     cli_path: str = Field(default='', max_length=500)
@@ -150,6 +171,8 @@ class ProfileConfig(Input):
             self.model = ''
         elif self.embedding_model.strip():
             raise ValueError('Embedding models go in a recall profile, apart from text profiles.')
+        if self.purpose == 'decisions' and self.provider not in DECISION_PROVIDERS:
+            raise ValueError('Decisions profiles need OpenRouter (Jev), OpenAI, or a local or OpenAI-compatible server.')
         validate_options(self)
         return self
 

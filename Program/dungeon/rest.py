@@ -17,11 +17,13 @@ Each line's rest is kept with it (story_rests), so telling the turn again change
 """
 import random
 import re
+from datetime import datetime, timedelta
 
 from dungeon import combat, quests, story_clock, travel
 from dungeon.database import decode, encode, optional
 
 NIGHT_MINUTES = 8 * 60
+WAKE_HOUR = 7
 DAY_MINUTES = 24 * 60
 CUT_SHORT_MINUTES = 4 * 60
 MOST_NIGHTS = 30
@@ -29,7 +31,7 @@ RESTING = re.compile(
     r'\b(sleep(s|ing)?(?!\s+with)|go(es|ing)? to bed|turn(s|ing)? in for the night|bed(s|ding)? down|'
     r'(make|makes|making|pitch|pitches|pitching|set up|sets up|setting up) camp|camp(s|ing)? (here|there|out|'
     r'for the night)|rest(s|ing)? (for the night|up|until (morning|dawn)|for (a|an|one|two|three|four|five|six|'
-    r'seven|ten|few|couple of|\d+) (day|night|week)s?)|lie up|lay up|recuperate)\b', re.I)
+    r'seven|ten|few|couple of|\d+) (day|night|week)s?)|spend(s|ing)? the night|lie up|lay up|recuperate)\b', re.I)
 SPAN = re.compile(rf"\bfor ({'|'.join(sorted(story_clock.WORDS, key=len, reverse=True))}|\d+) (day|night|week)s?\b",
                   re.I)
 # Precautions, each cutting the odds of a bad night: (name, words, what is left of the odds).
@@ -125,10 +127,22 @@ def night(rest: dict, rolls: list[dict]) -> tuple[int, int, bool, list[str]]:
     return nights, 1, False, lines
 
 
-def minutes(nights: int, cut_short: bool) -> int:
+def minutes(nights: int, cut_short: bool, local: datetime | None = None) -> int:
     if cut_short:
         return nights * DAY_MINUTES + CUT_SHORT_MINUTES
-    return (nights - 1) * DAY_MINUTES + NIGHT_MINUTES
+    return (nights - 1) * DAY_MINUTES + first_night(local)
+
+
+def first_night(local: datetime | None) -> int:
+    """A night's sleep runs to the next morning when it starts in the evening or the night (the morning 6 to 15 hours
+    off), so bedding down at six wakes at dawn, not at two in the morning; otherwise eight hours."""
+    if local is None:
+        return NIGHT_MINUTES
+    wake = local.replace(hour=WAKE_HOUR, minute=0, second=0, microsecond=0)
+    if wake <= local:
+        wake += timedelta(days=1)
+    gap = int((wake - local).total_seconds() // 60)
+    return gap if 6 * 60 <= gap <= 15 * 60 else NIGHT_MINUTES
 
 
 def opening(rest: dict) -> str:

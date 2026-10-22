@@ -9,11 +9,13 @@ and the rest of the game are built on it from Milestone 1 ([the roadmap](../../d
 The app decides the scene (`dungeon/story.py`):
 
 - **Where:** the city and place the user picked under "Go somewhere else…". A new story starts in Kingswood,
-  the slice town, at its tavern or another opening place. Moving adds a line to the story
-  ("You arrive at …") that the narrator sees as a note.
+  the slice town, at its tavern or another opening place. A line that goes to a place in town by name or kind ("I
+  go to the shrine", "I sleep at the bunkhouses") moves there too, before the narrator writes; words that fit two
+  places equally move nobody. Moving adds a line to the story ("You arrive at …") that the narrator sees as a note.
 - **When:** the story clock (`dungeon/story_clock.py`), in the city's own timezone. It starts at campaign start
   and moves with what the player does: 5 minutes for talk, 10 for a rolled action, 30 for a walk somewhere, the
-  hours they say for "I wait two hours", the nights of a rest (see "Rest"), 20 minutes to cross town and 6 hours to
+  hours they say for "I wait two hours" or "for three hours", a day, morning or evening spent at something (10, 4
+  and 3 hours: "I spend the day felling trees"), the nights of a rest (see "Rest"), 20 minutes to cross town and 6 hours to
   reach another city. Out-of-character lines take no time. A story with no campaign start runs on the app clock
   (debug time included), as Companion's did. The clock is branched with the story.
 - **Weather:** the city's typical weather for the date (`generators.conditions`).
@@ -43,6 +45,46 @@ on that name and those lines, the stats go on the sheet, and the story opens wit
 The narrator gets the persona in its own layer, "The player's character": their name, what the player wrote, and
 what their stats make them good and poor at (14 and up, 7 and down), in words, never numbers. It is told to voice
 them from what is there and invent nothing about their past.
+
+## Rulesets
+
+The campaign's ruleset is picked on the start screen ("Rules") and locked for the whole campaign
+(`story_campaign.ruleset`, `dungeon/sheet.py`). A world names its default; every built-in world plays MARVEL for
+now. Whatever the ruleset, the Referee still names an approach (one of MARVEL's six stats) and a difficulty, and
+`sheet.check` rolls the persona's checks the ruleset's way, on the shared outcome ladder. Everyone else (foes,
+healers, townsfolk) keeps MARVEL stats for now.
+
+- **MARVEL** (`dungeon/rules/marvel.py`): see "Who decides what".
+- **5E via the SRD 5.2.1** (`dungeon/rules/srd52.py`, content in `dungeon/rules/packs/srd52`, CC-BY-4.0; the
+  attribution shows on the start screen and the sheet). A character is a class, species and background from the pack,
+  the standard array placed on the six abilities with the background's +2 and +1, the background's skills and the
+  class's picks, and level 1 hit points and Armor Class. A premade has its own 5E build (`srd52` in its premade
+  data), or one from its strongest stat. A check is a d20 plus the ability modifier, plus proficiency in the skill,
+  against a DC (10 easy, 15 normal, 20 hard, 25 very hard, 30 extreme): pass or fail as written. The skill comes from
+  the action's words ("climb" is Athletics), else the approach's ability. Resisting stress and clinging on in a
+  fight are saving throws (Wisdom, Constitution). The roll card reads "Athletics · DC 15" and lands a single d20. Growth by use is MARVEL's
+  and does not run under 5E.
+
+### 5E levels and spells
+
+- **XP and levels** (`dungeon/combat5e.py gain`, `srd52.advance`). A won fight gives each beaten foe's XP (down or
+  broken, from its stat block); a milestone (a town quest done, a rise in standing) gives the level's high encounter
+  budget. XP reaching the advancement table's next row is a level, at once: the hit die's fixed average plus
+  Constitution in hit points, the class's features for the level, and at an Ability Score Improvement +2 to the
+  class's primary ability (up to 20, the rest to the next best). Proficiency follows the level.
+- **Spells** (`srd52.with_spells`, `sheet.cast`). A caster has the class's cantrips and prepared spells for its
+  level, picked by code (damaging and healing spells first, the highest level it can cast) and kept as it levels,
+  with the class's slots (Pact Magic's few slots of one level for a Warlock). A line that names a known spell casts
+  it: out of a fight it is a check with the spellcasting ability and proficiency against the DC; a levelled spell
+  spends the lowest slot it fits, and with none left it fails. A healing spell (Cure Wounds, Healing Word) always
+  works and heals the character. In a fight a damaging spell is a spell attack on AC, or the foe's save against the
+  spell save DC (8 + ability + proficiency), as in "Fights under 5E". A long rest gives every slot back.
+- The sheet shows the level, XP to the next, the features, the spells and the slots left.
+
+Not yet: choosing spells and the ability increase yourself, subclasses, class features in fights (Rage, Sneak
+Attack, Second Wind), upcasting and spells' other effects (conditions, areas, concentration).
+
+Not yet (Milestone 4, next steps): Ironsworn and Starforged; Basic Roleplaying.
 
 ## The turn loop
 
@@ -156,6 +198,22 @@ story.
   so death is final; telling a line again keeps its dice, so it is still allowed.
 - **The notebook** (`story_notebook`) is the player's own. It spans every branch and no model ever reads it.
 
+## Export and legacy
+
+- **The story as a book** (`dungeon/book.py`, `GET /api/story/export/book?format=md|epub|pdf`, Story > Export): the
+  branch being played, chapter by chapter with their titles, the player's lines set apart (quoted in Markdown,
+  in italics in EPUB and PDF). Nothing hidden goes in: no GM notes, record or rolls. The EPUB 3 and the PDF (6 by 9
+  inches, in the built-in Helvetica faces) are written with the standard library alone.
+- **The campaign file** (`dungeon/legacy.py`, `GET /api/story/export/campaign`) is a verified Dungeon archive of the
+  world being played: every branch, save, the record and the settings. "Import a campaign file" on the Worlds page
+  (`POST /api/worlds/import`, the file as the body) makes it a new world under the persona that played it (made
+  again if this install has none); saved credentials stay behind, as with any restore.
+- **Legacy.** At campaign start, another world's story can come in as history ("An earlier story"): its character,
+  whether they died, and what its chapters say they did. As a **legend**, the world remembers them and their deeds.
+  As a **villain**, they are believed gone but live on, turned, as hidden truth and a nemesis the director brings
+  back. As a **corpse**, the record holds their death, so the narrator never has them act. These facts are weight 3
+  and never fade.
+
 ## What is happening
 
 A town's adventure file (`dungeon/world/data/adventures/<city>.json`, `dungeon/quests.py`) lists its quests and its
@@ -226,6 +284,29 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
   the dice are shown. Moving elsewhere is refused mid-fight.
 - Each round is decided once and kept with the player's line (`story_rounds`): "Tell it again" retells the same
   round. Wounds and the fight branch with the story.
+
+### Fights under 5E
+
+The same fight, on 5E's numbers from the SRD 5.2.1 pack (`dungeon/combat5e.py`):
+
+- **Foes are SRD stat blocks.** A foe's spec can name its monster (`"srd52": "giant-boar"` on the ley-mad boar), else
+  one is read from its name (a bandit or thief is a Bandit, a press-gang thug a Tough, a warden a Scout, a ghoul a
+  Ghoul), else picked by how tough the MARVEL spec is. Each has its AC, hit points rolled from the block's formula,
+  and the block's first attack.
+- **The player's attack** keeps the d20 the turn already rolled: the natural plus the attack bonus (Strength, or
+  Dexterity with a finesse or ranged weapon, plus proficiency when the class has the weapon) against the target's
+  AC. A natural 20 is a critical hit (the damage dice twice), a natural 1 always misses. Damage is the carried
+  weapon's die plus the same ability (unarmed, 1 + Strength). The roll's card is rewritten as the attack and the AC.
+- **A dodge** needs no roll: the foes attack with disadvantage that round. Getting away keeps its roll.
+- **Foes attack** the character's AC and roll their damage against the sheet's hit points. The wound words the rest
+  of the game reads (Grazed to Dying) follow the hit points, and a wound dealt outside a fight (a Life Card) moves
+  the hit points to match. There are no wound penalties.
+- **Morale** is a Wisdom save, DC 10, when a foe is badly hurt or down.
+- **At 0 hit points, death saves** (d20, 10 or more a success, three of either decides; a natural 1 is two
+  failures). A natural 20 is back up with 1 hit point and still fighting. Three failures is death. Stable, the
+  defeat table decides the rest without death, and the character comes to with 1 hit point.
+- **A long rest** (a night's sleep) restores every hit point, as written. Lasting injuries still need their own care.
+- The Story screen shows the character's hit points, and the foes' while the dice are shown.
 
 Not in v0: zones beyond near and engaged, armour, ranged weapons and ammunition, allies, injuries with lasting
 effects, healers and medicine, a fight started by an NPC without a danger roll.
@@ -329,7 +410,8 @@ rest, decided before the narrator writes it. A journey line is not; a rest with 
   sight the narrator weaves in, or a danger to get past, a Luck roll a step harder asleep with no watch. A danger
   that comes true costs that night's rest; one with foes starts a fight in the dark and the rest ends there,
   four hours into that night.
-- **Time, food and mending.** One night is 8 hours, each more a day. Out in the open each day after the first eats
+- **Time, food and mending.** One night runs to seven the next morning when it starts in the evening or the night
+  (6 to 15 hours off), else 8 hours; each more night is a day. Out in the open each day after the first eats
   one food from the pack, and a hungry night does not mend. Each good night counts toward the wound's mending
   (`combat.mend`, `story_wounds.rested`); the narrator is told how far it has come.
 - The narrator gets "## The rest" with what happened. Each line's rest is kept (`story_rests`), so telling it again
@@ -525,6 +607,7 @@ who is not there; the words that tell code play touched it; and its antagonist, 
 - **The tension curve.** Each line is a crisis (a fight), pressure (a roll with a danger on it), social (people
   about) or quiet. After a crisis the note lets the next scene breathe; after a slack run (5, 4, 3 or 2 quiet or
   social lines, by the drama setting) it asks for pressure: a nemesis who is due, the hottest thread, or the spine.
+  The line it asks on counts as pressure, so the next run starts over rather than every line after asking again.
 - **Side quests.** A job offered links into the arc in focus one time in three, carrying the arc's current seed as a
   clue tie.
 - **Nemeses.** A foe who broke and got away from a fight the character won, or who robbed, took or threw out the

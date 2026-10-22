@@ -20,6 +20,7 @@ import { StoryBranches } from './StoryBranches'
 import { StoryJournal } from './StoryJournal'
 import { StoryChapters } from './StoryChapters'
 import { StoryNotebook } from './StoryNotebook'
+import { StoryExport } from './StoryExport'
 import { StoryGear } from './StoryGear'
 import { StoryIntensity } from './StoryIntensity'
 import { HiddenValues } from '../settings/HiddenValues'
@@ -128,7 +129,7 @@ function StoryPanel({ story, change, onTravel, onBack }: PanelProps) {
       {story.campaign && <StoryChapters campaign={story.campaign} change={change} onBack={onBack} />}
       {!story.campaign?.ironman && <StoryBranches branches={story.branches}
         onSwitch={(id) => void change(() => api<StoryData>(`/story/branches/${encodeURIComponent(id)}/switch`, {}))} />}
-      {!!story.messages.length && <StoryNotebook />}
+      {!!story.messages.length && <><StoryNotebook /><StoryExport /></>}
       {/* Tone and rules are set once and changed now and then, so they fold away below what play needs. They are this
           campaign's rules, so they live here rather than in Settings (src/features/settings/sections.ts ELSEWHERE). */}
       <details className="story-people story-dials">

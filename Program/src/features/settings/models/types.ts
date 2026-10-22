@@ -25,15 +25,15 @@ export interface ProfileConfig {
   output_token_parameter?: 'max_tokens' | 'max_completion_tokens'
   reported_capabilities?: ReportedCapabilities | null
   resource_group?: string
-  /** Text profiles write; recall profiles only make embeddings for semantic recall. */
-  purpose?: 'text' | 'recall'
+  /** Text profiles write; recall profiles only make embeddings for semantic recall; decisions profiles only answer the Referee's questions with probabilities. */
+  purpose?: 'text' | 'recall' | 'decisions'
   embedding_model?: string
   /** Where the Claude Code CLI is installed, when it is not on PATH. */
   cli_path?: string
   /** The folder that keeps this profile's own Claude account (CLAUDE_CONFIG_DIR); empty uses the usual one. */
   cli_account_dir?: string
 }
-export interface ModelProfile { id: string; name: string; revision: number; config: ProfileConfig; provider_name: string; has_saved_key: boolean; ready: boolean; recall_ready?: boolean }
+export interface ModelProfile { id: string; name: string; revision: number; config: ProfileConfig; provider_name: string; has_saved_key: boolean; ready: boolean; recall_ready?: boolean; decisions_ready?: boolean }
 export interface ModelJob { key: string; name: string; detail: string }
 export interface ModelsOverview { profiles: ModelProfile[]; routes: Record<string, string>; jobs: ModelJob[] }
 
@@ -54,6 +54,13 @@ export const initialConfig: ProfileConfig = { provider: 'local', model: '', base
 export const configFor = (provider: Provider): ProfileConfig => ({ ...initialConfig, provider, base_url: providers[provider].url })
 export const recallConfigFor = (provider: Provider): ProfileConfig => ({ ...configFor(provider), purpose: 'recall', embedding_model: '' })
 export const isRecall = (config: ProfileConfig) => config.purpose === 'recall'
+export const isDecisions = (config: ProfileConfig) => config.purpose === 'decisions'
+export const isText = (config: ProfileConfig) => !isRecall(config) && !isDecisions(config)
+/** Jev through OpenRouter, OpenAI Decisions, or a model on a local or compatible server scored by its answer odds. */
+export const decisionProviders: Provider[] = ['openrouter', 'openai', 'local', 'compatible']
+/** The decision model each hosted service offers, filled in when it is chosen. */
+export const decisionModels: Partial<Record<Provider, string>> = { openrouter: 'typesafe/jev-1.14', openai: 'gpt-6-luna' }
+export const decisionsConfigFor = (provider: Provider): ProfileConfig => ({ ...configFor(provider), purpose: 'decisions', model: decisionModels[provider] ?? '' })
 /** Providers that run a program on this computer under its own login: no address and no key. */
 export const cliProviders: Provider[] = ['codex', 'claude_code']
 export const embeddingProviders: Provider[] = ['openai', 'nanogpt', 'compatible', 'local']

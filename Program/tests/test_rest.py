@@ -1,4 +1,6 @@
 """Rest (dungeon/rest.py): safe and risky nights, precautions, a fight in the dark, time, food and mending."""
+from datetime import datetime
+
 from conftest import narrator as last_narration
 from conftest import tell
 from test_inventory import begin
@@ -12,6 +14,19 @@ def out_in_the_badlands(client):
     ok(client.put('/api/story/scene', json={'city_id': 'vallarith-road', 'place_id': 'abandoned-keep'}))
 
 
+def local_time(client) -> datetime:
+    return datetime.fromisoformat(ok(client.get('/api/story'))['scene']['local_time'])
+
+
+def test_a_night_runs_to_the_morning_when_it_starts_in_the_evening():
+    assert rest.first_night(datetime(2026, 10, 22, 18, 0)) == 13 * 60
+    assert rest.first_night(datetime(2026, 10, 22, 23, 30)) == 7 * 60 + 30
+    # Bedding down in the small hours or by day is eight hours.
+    assert rest.first_night(datetime(2026, 10, 22, 3, 0)) == rest.NIGHT_MINUTES
+    assert rest.first_night(datetime(2026, 10, 22, 13, 0)) == rest.NIGHT_MINUTES
+    assert rest.resting('I spend the night at the bunkhouses.')
+
+
 def test_what_counts_as_a_rest_and_how_long():
     assert rest.resting('I go to bed.') and rest.resting('We make camp under the wall.')
     assert rest.resting('I rest for a week at the inn.') and not rest.resting('I sleep with her.')
@@ -23,10 +38,10 @@ def test_what_counts_as_a_rest_and_how_long():
 def test_a_night_in_town_is_safe_and_passes_the_night(client, connected, provider, app):
     begin(client)
     app.state.dice = Road(1)
-    before = clock_at(app)
+    before, local = clock_at(app), local_time(client)
     reply(provider, 'Morning.')
     tell(client, 'I go to bed.', 'story-0001')
-    assert (clock_at(app) - before).total_seconds() == rest.NIGHT_MINUTES * 60
+    assert (clock_at(app) - before).total_seconds() == rest.first_night(local) * 60
     narrator = provider.requests[-1]['system']
     assert '## The rest' in narrator and 'rests for the night, somewhere safe' in narrator
     assert ok(client.get('/api/story'))['fight']['fight'] is None
@@ -70,10 +85,10 @@ def test_days_out_in_the_open_eat_from_the_pack_and_hunger_slows_mending(client,
         combat.set_condition(connection, 3)
         connection.execute("INSERT INTO story_inventory (id, city_id, item_id, qty) VALUES ('b', 'kingswood', 'bread', 1)")
     app.state.dice = Road(99, 99, 99)
-    before = clock_at(app)
+    before, local = clock_at(app), local_time(client)
     reply(provider, 'Three cold days.')
     tell(client, 'I lie up in the keep and rest for three days, keeping watch.', 'story-0001')
-    assert (clock_at(app) - before).total_seconds() == (2 * rest.DAY_MINUTES + rest.NIGHT_MINUTES) * 60
+    assert (clock_at(app) - before).total_seconds() == (2 * rest.DAY_MINUTES + rest.first_night(local)) * 60
     narrator = provider.requests[-1]['system'].split('## The rest')[1]
     assert 'for 3 nights out in the open, keeping watch' in narrator and '1 hungry day' in narrator
     # Three nights, one of them hungry: two count toward Wounded's four.

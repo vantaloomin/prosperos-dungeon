@@ -36,6 +36,7 @@ from dungeon.launcher_routes import router as launcher_router
 from dungeon.providers.builtin_chat import BuiltinChat
 from dungeon.providers.builtin_recall import BuiltinRecall
 from dungeon.providers.chat import ChatProvider
+from dungeon.providers.decisions import DecisionProvider
 from dungeon.providers.embeddings import EmbeddingProvider
 from dungeon.providers.scheduling import RequestScheduler
 from dungeon.providers.vault import SystemVault
@@ -110,7 +111,7 @@ async def lifespan(app):
 
 def create_app(database_path: str | Path | None = None, *, clock=None, vault=None, provider=None,
                background=True, embedder=None, image_adapters=None, builtin_spawn=None, builtin_transport=None,
-               hardware=None, launcher=None) -> FastAPI:
+               hardware=None, launcher=None, decider=None) -> FastAPI:
     app = FastAPI(title=APP_NAME, version=VERSION, lifespan=lifespan)
     app.state.database = Database(database_path, clock)
     worlds.start(app.state.database)  # The world the user was last in; the first run makes the first world.
@@ -126,6 +127,9 @@ def create_app(database_path: str | Path | None = None, *, clock=None, vault=Non
     app.state.hardware = hardware or Hardware()
     app.state.builtin_chat = BuiltinChat(app.state.database, builtin_spawn, builtin_transport)
     app.state.provider.inner.builtin_chat = app.state.builtin_chat
+    # Decision models for the Referee (dungeon/providers/decisions.py), on the same built-in server when chosen.
+    app.state.decider = decider or DecisionProvider()
+    app.state.decider.builtin_chat = app.state.builtin_chat
     app.state.ready = Ready(app.state.database, app.state.builtin_chat,
                             lambda: app.state.hardware.report(app.state.database), builtin_transport)
     app.state.image_adapters = image_adapters or default_adapters()
