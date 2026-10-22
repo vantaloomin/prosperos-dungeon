@@ -48,7 +48,7 @@ the first world.
 ## Automatic backups
 
 `dungeon/auto_backup.py` backs up every world on its own while the app runs: daily by default
-(`workspace_settings.auto_backups`: `daily`, `weekly` or `off`, Settings > Backups), first a couple of minutes after
+(`workspace_settings.auto_backups`: `daily`, `weekly` or `off`, Settings > Data), first a couple of minutes after
 a start, then checked every 15 minutes. A world unchanged since its last automatic backup is skipped. Archives go
 to the world's own `backups/` as `auto-YYYYMMDDTHHMMSS.zip`; the newest of each of the last 7 days with one and of
 each of the 4 weeks before are kept. It never calls a model.

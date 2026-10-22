@@ -17,7 +17,7 @@ story.
 - **Stays until changed:** cleared, edited or switched off by the user. Switching it off keeps the text. Starting a
   new story keeps the note (it is the user's own steering, not history); a world has its own note.
 
-The wording in front of the note is an editable prompt (Settings > Advanced > Prompts, "Author's note"):
+The wording in front of the note is an editable prompt (Settings > Developer > Prompts, "Author's note"):
 
     [Author's note from the user, for this reply. Follow it, but never mention or quote it:]
 

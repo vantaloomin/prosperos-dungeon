@@ -5,7 +5,7 @@ with the message being answered, right before the user's own words, so it is the
 the volatile tail and leaves the cached part of the prompt alone. It is never a message: not in the transcript,
 not read for memories, not exported, and an out-of-character message (OOC:) is answered without it.
 
-The wording around the note is an editable prompt (Settings > Advanced > Prompts, "Author's note").
+The wording around the note is an editable prompt (Settings > Developer > Prompts, "Author's note").
 """
 import re
 

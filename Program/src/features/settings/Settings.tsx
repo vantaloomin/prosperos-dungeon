@@ -1,38 +1,36 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Search } from 'lucide-react'
-import { useAdvancedSettings } from './advanced'
-import { AdultSideSettings, HiddenValues } from './HiddenValues'
 import { TurnSpeed } from './TurnSpeed'
 import { AppearanceSettings } from './AppearanceSettings'
 import { ModelCalls } from './ModelCalls'
 import { Backups } from './Backups'
 import { DataFolder } from './DataFolder'
 import { DebugSettings } from './DebugSettings'
-import { TownsfolkMix } from './TownsfolkMix'
 import { ImageSettings } from './ImageSettings'
 import { PromptSettings } from './PromptSettings'
-import { Toggle } from '../../components/Fields'
 import { TimezoneSettings } from './WorkspaceSettings'
-import { Cities } from '../world/Cities'
 import { BuiltinRecall } from './models/BuiltinRecall'
 import { HardwareCheck } from './models/HardwareCheck'
 import { LocalPrograms } from './models/LocalPrograms'
 import { ModelSettings } from './models/ModelSettings'
+import type { View } from '../../workspace'
 import { availableTabs, pickTab, searchSettings, type SettingsMatch, type SettingsTab } from './sections'
 
 interface Props {
-  /** The tab named in the address (#settings/models); an unknown or unavailable one opens the first tab. */
+  /** The tab named in the address (#settings/models); an unknown one opens the first tab. */
   tab?: string
   onTab: (tab: SettingsTab) => void
+  /** Opens another view, for a search result that lives outside Settings. */
+  go: (view: View) => void
 }
 
-export function Settings({ tab, onTab }: Props) {
-  const [advanced, setAdvanced] = useAdvancedSettings()
-  const current = pickTab(tab, advanced)
+export function Settings({ tab, onTab, go }: Props) {
+  const current = pickTab(tab)
   const landing = useLanding()
   const land = (match: SettingsMatch) => {
-    if (match.tab.advanced) setAdvanced(true)
-    onTab(match.tab.id); landing(match.section.heading)
+    if (match.elsewhere) { go(match.section.view); landOn(match.section.heading, away); return }
+    onTab(match.tab.id)
+    landing(match.section.heading)
   }
   return (
     <section className="page settings">
@@ -40,11 +38,7 @@ export function Settings({ tab, onTab }: Props) {
       <SettingsSearch onPick={land} />
       <div className="settings-layout">
         <div className="settings-nav">
-          <SettingsTabs current={current} advanced={advanced} onTab={onTab} />
-          <div className="advanced-switch">
-            <Toggle label="Show advanced settings" checked={advanced} onChange={setAdvanced}
-              hint={advanced ? 'The Advanced tab is now in the list of tabs.' : 'Adds an Advanced tab for power users, where you can reword the prompts sent to your models.'} />
-          </div>
+          <SettingsTabs current={current} onTab={onTab} />
         </div>
         <div className="settings-panel" role="tabpanel" id={`settings-panel-${current}`} aria-labelledby={`settings-tab-${current}`}>
           <TabContent tab={current} />
@@ -55,34 +49,49 @@ export function Settings({ tab, onTab }: Props) {
 }
 
 /**
- * Moves focus to a section heading, for a search result or a finished review. The heading only
- * exists once its tab and that section's data have rendered, so it keeps looking for a moment.
+ * Moves focus to a section heading, for a search result or a finished review. The heading only exists once its tab
+ * (or another view) and that section's data have rendered, and a view that loads in steps can draw it again, so it
+ * keeps the heading in focus until it has stayed put for a moment. Within Settings, leaving the page stops it.
  */
 function useLanding() {
-  const frame = useRef(0)
-  useEffect(() => () => cancelAnimationFrame(frame.current), [])
-  return (id: string) => {
-    cancelAnimationFrame(frame.current)
-    const until = performance.now() + 3000
-    const attempt = () => {
-      const heading = document.getElementById(id)
-      if (!heading) { if (performance.now() < until) frame.current = requestAnimationFrame(attempt); return }
-      if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1')
-      heading.focus()
-    }
-    frame.current = requestAnimationFrame(attempt)
+  const frame = useRef({ id: 0 })
+  useEffect(() => () => cancelAnimationFrame(frame.current.id), [])
+  return (id: string) => landOn(id, frame.current)
+}
+
+/** The landing for a section on another view, which outlives the Settings page that started it. */
+const away = { id: 0 }
+
+function landOn(id: string, frame: { id: number }) {
+  cancelAnimationFrame(frame.id)
+  const until = performance.now() + 3000
+  let settled = 0
+  const attempt = () => {
+    const heading = document.getElementById(id)
+    if (heading && document.activeElement === heading) settled += 1
+    else if (heading) { settled = 0; focusOn(heading) }
+    if (settled < STEADY_FRAMES && performance.now() < until) frame.id = requestAnimationFrame(attempt)
   }
+  frame.id = requestAnimationFrame(attempt)
+}
+
+const STEADY_FRAMES = 20
+
+function focusOn(heading: HTMLElement) {
+  // A section folded away on the Story screen opens to show it.
+  const fold = heading.closest('details')
+  if (fold && !fold.open) fold.open = true
+  if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1')
+  heading.focus()
 }
 
 function TabContent({ tab }: { tab: SettingsTab }) {
   const content: Record<SettingsTab, ReactNode> = {
     general: <><TimezoneSettings /><AppearanceSettings /></>,
     models: <><HardwareCheck /><ModelSettings /><TurnSpeed /><LocalPrograms /><BuiltinRecall /></>,
-    world: <><Cities /><AdultSideSettings /><HiddenValues /></>,
     images: <ImageSettings />,
     data: <><DataFolder /><Backups /></>,
-    debug: <><DebugSettings /><ModelCalls /><TownsfolkMix /></>,
-    advanced: <PromptSettings />,
+    developer: <><ModelCalls /><DebugSettings /><PromptSettings /></>,
   }
   return content[tab]
 }
@@ -90,8 +99,8 @@ function TabContent({ tab }: { tab: SettingsTab }) {
 const NEXT_KEYS: Record<string, number> = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }
 
 /** Vertical tabs beside the panel on wide windows, a scrolling row above it on narrow ones. */
-function SettingsTabs({ current, advanced, onTab }: { current: SettingsTab; advanced: boolean; onTab: (tab: SettingsTab) => void }) {
-  const tabs = availableTabs(advanced)
+function SettingsTabs({ current, onTab }: { current: SettingsTab; onTab: (tab: SettingsTab) => void }) {
+  const tabs = availableTabs()
   const narrow = useNarrow()
   const list = useRef<HTMLDivElement>(null)
   // On a narrow window the row scrolls; keep the open tab in sight, as after a deep link.
@@ -149,7 +158,8 @@ function SettingsSearch({ onPick }: { onPick: (match: SettingsMatch) => void }) 
           {matches.map((match) => (
             <li key={match.section.heading}>
               <button type="button" className="text-button" onClick={() => { setQuery(''); onPick(match) }}>
-                {match.section.title}{match.section.title !== match.tab.label && <span className="subtle"> in {match.tab.label}</span>}
+                {match.section.title}{match.elsewhere ? <span className="subtle"> on {match.section.where}</span>
+                  : match.section.title !== match.tab.label && <span className="subtle"> in {match.tab.label}</span>}
               </button>
             </li>
           ))}

@@ -24,7 +24,7 @@ The app decides the scene (`dungeon/story.py`):
   same streets hold different people in different worlds.
 
 The narrator model only voices the scene. Its prompt is built in layers (`dungeon/narration/prompt.py`):
-"The Story narrator" and "The narrator's writing rules" in Settings > Advanced ([prompts.md](prompts.md)),
+"The Story narrator" and "The narrator's writing rules" in Settings > Developer ([prompts.md](prompts.md)),
 the narration format (second person, present tense, short turns), the intensity, then a `## Scene` section
 with the facts above. After each reply, `dungeon/narration/prose.py` removes em dashes and asks the model for
 one rewrite when the reply has the strongest AI tells (see "Narrator prompting" in the top-level
@@ -104,7 +104,7 @@ Each line the user sends is one turn (`dungeon/turn.py`). Code settles what happ
 
 Rolls are saved with the user's line (table `story_rolls`), so sending it again or "Tell it again" keeps the same
 dice. The character's six stats (table `character_stats`, 1 to 30, 10 to start) are set under "Your character" on
-the Story screen. "Show the dice" in Settings > World shows each roll under the user's line; off, rolls stay
+the Story screen. "Show the dice" (Story > Tone and rules) shows each roll under the user's line; off, rolls stay
 hidden and the story reads the same. With the dice shown, "Roll the dice on screen" (off by default) has the dice act
 out each roll before its result shows: 3D dice (`@3d-dice/dice-box-threejs`, MIT, loaded only when they roll) thrown
 over the story with the library's predetermined "@" notation, so they land on the faces the code already rolled. A

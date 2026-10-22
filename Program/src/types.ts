@@ -20,7 +20,7 @@ export interface WorkspaceSettings {
   show_odds?: boolean
   /** Dice that tumble on screen and land on each roll, while the dice are shown. */
   roll_dice?: boolean
-  /** Settings > World > Adult side of life (dungeon/world/intimacy.py): adults only; off unless turned on. */
+  /** Worlds > Adult side of life (dungeon/world/intimacy.py): adults only; off unless turned on. */
   adult_side?: boolean
   /** Hidden values: what townsfolk are like that way, for the user's eyes; off unless turned on. */
   show_adult_side?: boolean
@@ -34,7 +34,7 @@ export interface WorkspaceSettings {
   gm_view?: boolean
   /** How far the story goes on the page; 'world' follows the world's own preset. */
   intensity?: IntensityPreset
-  /** Settings > Debug: every model request and response is written in full to logs/model-calls; off by default. */
+  /** Settings > Developer: every model request and response is written in full to logs/model-calls; off by default. */
   record_model_calls?: boolean
   /** The one-time notice that the characters are AI, with the 18+ confirmation, has been read. */
   ai_notice_confirmed?: boolean
@@ -173,7 +173,7 @@ export interface ImageJob {
   finished_at: string | null
 }
 
-/** Debug time (Settings > Debug, dungeon/debug_time.py): the app clock moved ahead or running faster. */
+/** Debug time (Settings > Developer, dungeon/debug_time.py): the app clock moved ahead or running faster. */
 export interface DebugTime {
   active: boolean
   /** The app's time, and the PC's real time. */
@@ -351,7 +351,7 @@ export interface StoryMap {
 /** The story after going back, with the line that was taken back to send again. */
 export interface StoryBack extends Story { draft: string }
 
-/** Record model calls (dungeon/model_calls.py), Settings > Debug. */
+/** Record model calls (dungeon/model_calls.py), Settings > Developer. */
 export interface ModelCallLog { recording: boolean; folder: string; keep_days: number; files: number; bytes: number }
 
 /** Worlds and personas (dungeon/worlds.py): the user as someone in particular, and the worlds they live in. */
@@ -380,7 +380,7 @@ export interface Worlds {
   active_world_id: string; active_persona_id: string; world: World; persona: Persona; personas: Persona[]
 }
 
-/** Settings > Debug > Townsfolk mix (dungeon/world/mix.py): the shares the townsfolk rolls use. */
+/** Worlds > Townsfolk mix (dungeon/world/mix.py): the shares the townsfolk rolls use. */
 export interface MixValues {
   nonbinary: number; women: number; height_woman: number; height_man: number
   slender: number; middle: number; heavier: number; beard: number

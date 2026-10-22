@@ -1,7 +1,7 @@
 import type { DebugTime } from './types'
 
 /**
- * The app's time, which is the PC's real time unless debug time (Settings > Debug) moved it ahead or
+ * The app's time, which is the PC's real time unless debug time (Settings > Developer) moved it ahead or
  * made it run faster (dungeon/debug_time.py). Anything comparing against times the server wrote,
  * such as what day it is in the story, reads it here.
  */

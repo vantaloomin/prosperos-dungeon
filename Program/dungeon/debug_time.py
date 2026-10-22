@@ -1,10 +1,10 @@
-"""Debug time (Settings > Debug): see the world days from now in minutes.
+"""Debug time (Settings > Developer): see the world days from now in minutes.
 
 Everything that reads the time reads the app clock (clock.AppClock on Database.clock): the story's local time and
 weather and where the townsfolk are. Debug time moves that clock ahead and can run it faster, so all of them follow
 without special cases.
 
-Starting takes a verified backup (Settings > Backups, "Before debug time") and a plain copy of the database. Returning
+Starting takes a verified backup (Settings > Data, "Before debug time") and a plain copy of the database. Returning
 to real time restores the copy, so real-time history stays as it was; the user can keep what happened instead.
 """
 from datetime import datetime, timedelta
@@ -117,7 +117,7 @@ def jump(database: Database, hours: float | None = None, local: str | None = Non
 
 def finish(database: Database, keep: bool) -> dict:
     """Back to real time. Unless kept, the database copy from the start replaces everything since; the verified
-    backup stays in Settings > Backups."""
+    backup stays in Settings > Data."""
     require_active(database)
     copy = snapshot_path(database)
     if keep:
@@ -125,7 +125,7 @@ def finish(database: Database, keep: bool) -> dict:
             connection.execute('DELETE FROM debug_time')
     else:
         require(copy.is_file(), 'The copy from before debug time is missing; restore the "Before debug time" '
-                                'backup from Settings > Backups instead.', 409)
+                                'backup from Settings > Data instead.', 409)
         backup.snapshot(copy, database.path)
     database.clock.reset()
     copy.unlink(missing_ok=True)
