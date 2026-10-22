@@ -258,11 +258,12 @@ export interface StoryStart { premades: Premade[]; points: number; range: [numbe
 export interface SheetGrowth { marked: string[]; dark: { id: string; name: string; word: string; changes: string[]; points?: number; top?: number }[] }
 export interface StoryTier { tier: string; words: string; track: string; arc: StoryArc; pace: StoryPace; points?: number; next?: number | null }
 /** A fact the game keeps that the player's character knows (dungeon/record.py). */
-export interface JournalEntry { id: string; kind: string; subject: string; text: string; truth: 'belief' | 'both'; source: 'code' | 'narrator' | 'player'; created_at: string }
+/** `world` (hidden truth) and `pulled` (a fact the model took from the story) show only in the GM view. */
+export interface JournalEntry { id: string; kind: string; subject: string; text: string; truth: 'world' | 'belief' | 'both'; source: 'code' | 'narrator' | 'player'; pulled?: boolean; created_at: string }
 export interface JournalQuest { id: string; title: string; hook: string; status: 'open' | 'done' | 'failed' | 'missed'; outcome: string; left: string; kind?: 'authored' | 'job' | 'oath' }
 /** A thread in the director's notebook the character has come across, as they understand it (dungeon/director.py). */
 export interface JournalThread { id: string; kind: 'mystery' | 'grudge' | 'lead' | 'promise'; title: string; seen: string }
-export interface Journal { entries: JournalEntry[]; quests: JournalQuest[]; threads?: JournalThread[] }
+export interface Journal { entries: JournalEntry[]; quests: JournalQuest[]; threads?: JournalThread[]; gm?: boolean }
 /** One way the story went (dungeon/timeline.py); `playing` is the one on screen. */
 export interface StoryBranch { id: string; playing: boolean; turns: number; last_line: string; last_at: string; started_at: string }
 /** The fight and the character's wounds (dungeon/combat.py); a foe's `wound` level only with the dice shown. */

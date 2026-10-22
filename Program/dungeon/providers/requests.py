@@ -167,9 +167,44 @@ def google_request(config: dict, system: str, messages: list[dict]) -> tuple[str
         'systemInstruction': {'parts': [{'text': system}]}, 'contents': contents, 'generationConfig': options}
 
 
-REQUESTS = {'openai': openai_request, 'anthropic': anthropic_request, 'openrouter': chat_request,
+def structured(config: dict, body: dict) -> dict:
+    """A request asked to keep to a JSON Schema (`config['json_schema']`, set by dungeon/record.py) in each API's own
+    way: structured output on the hosted APIs, and `response_format` on OpenAI-compatible servers, which llama.cpp
+    and LM Studio enforce by grammar. Kobold gets the prompt only."""
+    schema = config.get('json_schema')
+    if not schema:
+        return body
+    provider = config['provider']
+    if provider == 'openai':
+        return {**body, 'text': {**body.get('text', {}), 'format': {'type': 'json_schema', 'name': 'answer',
+                                                                    'schema': schema, 'strict': True}}}
+    if provider == 'anthropic':
+        return {**body, 'output_config': {**body.get('output_config', {}),
+                                          'format': {'type': 'json_schema', 'schema': schema}}}
+    if provider == 'google':
+        return {**body, 'generationConfig': {**body['generationConfig'], 'responseMimeType': 'application/json',
+                                             'responseJsonSchema': schema}}
+    if provider == 'kobold':
+        return body
+    return {**body, 'response_format': {'type': 'json_schema',
+                                        'json_schema': {'name': 'answer', 'strict': True, 'schema': schema}}}
+
+
+BUILDERS = {'openai': openai_request, 'anthropic': anthropic_request, 'openrouter': chat_request,
             'nanogpt': chat_request, 'local': chat_request, 'compatible': chat_request,
             'kobold': kobold_request, 'google': google_request}
+
+
+def shaped(builder):
+    def request(config: dict, system: str, messages: list[dict]) -> tuple[str, dict]:
+        path, body = builder(config, system, messages)
+        return path, structured(config, body)
+    return request
+
+
+REQUESTS = {provider: shaped(builder) for provider, builder in BUILDERS.items()}
+
+
 
 
 def validate_key(provider: str, key: str | None):

@@ -196,3 +196,22 @@ def test_duplicating_a_profile_copies_its_settings_and_key_but_not_its_jobs(clie
     client.delete(f"/api/models/profiles/{copy['id']}")
     with app.state.database.connect() as connection:
         assert text_models.key_for(app.state.vault, text_models.config_for(connection, 'story')) == 'sk-ant'
+
+
+def test_a_json_schema_is_enforced_in_each_apis_own_way():
+    shape = {'type': 'object', 'properties': {'facts': {'type': 'array'}}}
+    _path, body = REQUESTS['openai'](config('openai', json_schema=shape), 'sys', CONVERSATION)
+    assert body['text']['format'] == {'type': 'json_schema', 'name': 'answer', 'schema': shape, 'strict': True}
+    _path, body = REQUESTS['anthropic'](config('anthropic', json_schema=shape, reasoning_effort='low'), 'sys',
+                                        CONVERSATION)
+    assert body['output_config'] == {'effort': 'low', 'format': {'type': 'json_schema', 'schema': shape}}
+    _path, body = REQUESTS['google'](config('google', model='gemini-3', json_schema=shape), 'sys', CONVERSATION)
+    assert body['generationConfig']['responseJsonSchema'] == shape
+    for provider in ('openrouter', 'local', 'compatible', 'nanogpt'):
+        _path, body = REQUESTS[provider](config(provider, json_schema=shape), 'sys', CONVERSATION)
+        assert body['response_format']['json_schema']['schema'] == shape
+    _path, body = REQUESTS['kobold'](config('kobold', json_schema=shape), 'sys', CONVERSATION)
+    assert 'response_format' not in body
+    # Without a schema nothing changes.
+    _path, body = REQUESTS['local'](config('local'), 'sys', CONVERSATION)
+    assert 'response_format' not in body

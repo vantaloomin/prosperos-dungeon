@@ -53,7 +53,8 @@ def toml_string(text: str) -> str:
     return json.dumps(text)
 
 
-def codex_arguments(executable: str, config: dict, directory: str, instructions_file: str) -> list[str]:
+def codex_arguments(executable: str, config: dict, directory: str, instructions_file: str,
+                    schema_file: str | None = None) -> list[str]:
     arguments = [executable, 'exec', '--ignore-user-config', '--ignore-rules', '--ephemeral', '--skip-git-repo-check',
                  '--sandbox', 'read-only', '--json', '--color', 'never', '--cd', directory,
                  '--model', config['model'],
@@ -65,6 +66,9 @@ def codex_arguments(executable: str, config: dict, directory: str, instructions_
     arguments.extend(['-c', 'features.skip_host_skill_discovery=true'])
     if config.get('reasoning_effort'):
         arguments.extend(['-c', f'model_reasoning_effort="{config["reasoning_effort"]}"'])
+    if schema_file:
+        # Structured output (dungeon/record.py): the last message keeps to this JSON Schema.
+        arguments.extend(['--output-schema', schema_file])
     return [*arguments, '-']
 
 
@@ -189,8 +193,13 @@ class CodexProvider:
             instructions.write_text(system + AGENTS_NOTE, encoding='utf-8')
             work = Path(directory) / 'work'
             work.mkdir()
+            schema_file = None
+            if config.get('json_schema'):
+                schema_file = Path(directory) / 'schema.json'
+                schema_file.write_text(json.dumps(config['json_schema']), encoding='utf-8')
             process = await subprocesses.start(
-                *codex_arguments(executable, config, str(work), str(instructions)), stdin=asyncio.subprocess.PIPE,
+                *codex_arguments(executable, config, str(work), str(instructions),
+                                 str(schema_file) if schema_file else None), stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL, cwd=str(work),
                 limit=2_000_000)
             try:

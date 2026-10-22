@@ -93,6 +93,8 @@ class SettingsUpdate(Input):
     cutaways: bool | None = None
     # Dice that tumble on screen and land on the code's roll, while the dice are shown.
     roll_dice: bool | None = None
+    # The GM view of the record (dungeon/record.py): hidden truth shown and editable.
+    gm_view: bool | None = None
     # Injury persistence (dungeon/injuries.py): lasting injuries stay, fade, or never happen.
     injury_persistence: Literal['permanent', 'temporary', 'none'] | None = None
     # The first-run notice: the story is AI written, and the user is 18 or older. Only ever confirmed.

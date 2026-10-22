@@ -3,11 +3,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
 import type { Journal, JournalEntry, JournalQuest, JournalThread } from '../../types'
 import { Notice } from '../../components/Feedback'
+import { Toggle } from '../../components/Fields'
 import { journalKind, questState, threadKind } from './storyText'
 
 const JOURNAL_KEY = ['story-journal']
 
-/** What your character knows (dungeon/record.py): facts the game keeps, which you can correct or add to. */
+/** What your character knows (dungeon/record.py): facts the game keeps, which you can correct or add to. The GM view
+ * shows the whole record, hidden truth included, and can ask the model again for one fact it pulled from the story. */
 export function StoryJournal({ open }: { open?: boolean }) {
   const client = useQueryClient()
   const journal = useQuery({ queryKey: JOURNAL_KEY, queryFn: () => api<Journal>('/story/journal') })
@@ -18,15 +20,23 @@ export function StoryJournal({ open }: { open?: boolean }) {
     catch (failure) { setError(failure instanceof Error ? failure.message : 'That was not saved.') }
   }
   if (!journal.data) return null
-  const { entries, quests, threads = [] } = journal.data
+  const { entries, quests, threads = [], gm = false } = journal.data
+  const setGm = async (checked: boolean) => {
+    setError('')
+    try { await api('/settings', { gm_view: checked }, 'PUT'); await client.invalidateQueries({ queryKey: JOURNAL_KEY }) }
+    catch (failure) { setError(failure instanceof Error ? failure.message : 'That setting was not saved.') }
+  }
   return (
     <details className="story-people" open={open}>
-      <summary>What you know ({entries.length})</summary>
+      <summary>{gm ? 'The whole record' : 'What you know'} ({entries.length})</summary>
+      <Toggle label="GM view" hint="Shows everything the game keeps, secrets your character does not know included, so you can fix the model's mistakes. It spoils the story."
+        checked={gm} onChange={(checked) => void setGm(checked)} />
       {!!quests.length && <Underway quests={quests} />}
       {!!threads.length && <Threads threads={threads} />}
       <ul>
         {entries.map((entry) => <JournalLine key={entry.id} entry={entry}
           onSave={(text) => change(() => api<Journal>(`/story/journal/${entry.id}`, { text }, 'PATCH'))}
+          onAskAgain={gm && entry.pulled ? () => void change(() => api<Journal>(`/story/journal/${entry.id}/regenerate`, undefined, 'POST')) : undefined}
           onRemove={() => void change(() => api<Journal>(`/story/journal/${entry.id}`, undefined, 'DELETE'))} />)}
       </ul>
       <AddNote onAdd={(subject, text) => change(() => api<Journal>('/story/journal', { subject, text }))} />
@@ -61,9 +71,9 @@ function Threads({ threads }: { threads: JournalThread[] }) {
   )
 }
 
-interface LineProps { entry: JournalEntry; onSave: (text: string) => Promise<void>; onRemove: () => void }
+interface LineProps { entry: JournalEntry; onSave: (text: string) => Promise<void>; onRemove: () => void; onAskAgain?: () => void }
 
-function JournalLine({ entry, onSave, onRemove }: LineProps) {
+function JournalLine({ entry, onSave, onRemove, onAskAgain }: LineProps) {
   const [editing, setEditing] = useState<string | null>(null)
   return (
     <li>
@@ -75,6 +85,7 @@ function JournalLine({ entry, onSave, onRemove }: LineProps) {
         {editing === null ? <>
           <button type="button" className="text-button" onClick={() => setEditing(entry.text)}>Correct</button>
           <button type="button" className="text-button" onClick={onRemove}>Remove</button>
+          {onAskAgain && <button type="button" className="text-button" onClick={onAskAgain}>Ask again</button>}
         </> : <>
           <button type="button" className="text-button" disabled={!editing.trim()} onClick={() => void onSave(editing.trim()).then(() => setEditing(null))}>Save</button>
           <button type="button" className="text-button" onClick={() => setEditing(null)}>Cancel</button>

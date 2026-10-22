@@ -14,6 +14,7 @@ Feelings are game state, branched with the story (story_people is in dungeon/tim
 import json
 import re
 
+from dungeon import record
 from dungeon.database import decode, encode, optional
 
 AXES = ('trust', 'affection', 'respect', 'fear', 'desire')
@@ -136,6 +137,15 @@ def feelings_ask(people: list[dict]) -> str:
             f'"a few words, as they would put it"}}]. Axes: {", ".join(AXES)}; each change is -2 to 2.')
 
 
+def feelings_schema(people: list[dict]) -> dict:
+    """The part of the extraction schema (dungeon/record.py) that answers feelings_ask; an axis left alone is 0."""
+    if not people:
+        return {}
+    return {'feelings': {'type': 'array', 'items': record.strict({
+        'key': {'type': 'string', 'enum': [person['key'] for person in people]},
+        'changes': record.strict({axis: {'type': 'integer'} for axis in AXES}), 'why': {'type': 'string'}})}}
+
+
 def from_answer(connection, answer: str, keys: set[str]):
     match = re.search(r'\{.*\}', answer or '', re.S)
     try:
@@ -144,6 +154,8 @@ def from_answer(connection, answer: str, keys: set[str]):
         return
     for item in (data.get('feelings') if isinstance(data, dict) else None) or []:
         if isinstance(item, dict) and item.get('key') in keys and isinstance(item.get('changes'), dict):
-            change(connection, item['key'], {axis: amount for axis, amount in item['changes'].items()
-                                             if axis in AXES and isinstance(amount, int)}, str(item.get('why') or ''))
+            moved = {axis: amount for axis, amount in item['changes'].items()
+                     if axis in AXES and isinstance(amount, int) and amount}
+            if moved:
+                change(connection, item['key'], moved, str(item.get('why') or ''))
 

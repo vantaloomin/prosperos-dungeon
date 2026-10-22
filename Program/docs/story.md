@@ -77,8 +77,22 @@ code keeps the well-formed ones and refuses any about someone the record says is
 old reply's facts with it. The narrator gets the record every turn (every death and promise, then the newest of the
 rest, 40 in all), with hidden truth marked as hidden, and is told never to contradict it.
 
+**Schema-first.** The Continuity model fills a JSON Schema (`record.schema`): the facts (kind, subject, text and
+truth, each kind and truth from a fixed list), plus a part for each other system's question that turn (quest
+endings, oaths, feelings, dark tracks), every list empty when nothing applies. The backend enforces it where it can
+(`dungeon/providers/requests.py` `structured`): structured output on OpenAI, Anthropic and Gemini,
+`response_format` on OpenRouter and OpenAI-compatible servers (llama.cpp and LM Studio enforce it by grammar),
+`--json-schema` on Claude Code and `--output-schema` on Codex. Kobold gets the prompt alone. A backend that refuses
+the schema, or an answer that still cannot be read, is asked again without it. A weak model that gives no readable
+JSON even then is asked one field at a time: the facts as lines, then their kinds, subjects and truths, each for all
+of them in one question. Code checks every fact against the record either way.
+
 "What you know" on the Story screen is the player's journal: every fact their character knows. They can correct or
-remove one, or add their own note; each correction is logged in `record_corrections`. Hidden truth never shows here.
+remove one, or add their own note; each correction is logged in `record_corrections`. Hidden truth never shows here,
+unless the player turns on the **GM view** there (workspace setting `gm_view`): it shows the whole record, hidden
+truth included, to correct or remove, and "Ask again" on a fact the model pulled from the story asks the Continuity
+model for that one fact again from its turn, without redoing the turn. The new fact is checked against the record and
+logged like a correction.
 
 The narrator reads the latest messages word for word. Once 30 recent ones plus 20 more are waiting, the oldest 20 are
 folded into one rolling summary (`story_summary`) by the Continuity model, or the Default one without it, and the

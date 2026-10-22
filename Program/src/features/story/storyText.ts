@@ -114,7 +114,8 @@ const KINDS: Record<string, string> = { death: 'Death', item: 'Item', wound: 'Wo
 
 /** "Wound · you", and whether the character only believes it. */
 export function journalKind(entry: Pick<JournalEntry, 'kind' | 'subject' | 'truth'>): string {
-  return `${KINDS[entry.kind] ?? 'Fact'} · ${entry.subject}${entry.truth === 'belief' ? ' (you believe)' : ''}`
+  const truth = entry.truth === 'belief' ? ' (you believe)' : entry.truth === 'world' ? ' (hidden from you)' : ''
+  return `${KINDS[entry.kind] ?? 'Fact'} · ${entry.subject}${truth}`
 }
 
 const QUEST_ENDS: Record<string, string> = { done: 'Done', failed: 'Failed', missed: 'Too late' }
