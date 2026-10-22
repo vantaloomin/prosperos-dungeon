@@ -187,3 +187,22 @@ def test_the_narration_is_checked_and_rewritten_before_it_is_saved(client, clock
     assert reply['status'] == 'complete' and reply['text'].startswith('The door chimes softly. Two dockhands')
     assert provider.requests[-1]['system'] == prose.REWRITE
     assert 'shiver' in provider.requests[-1]['messages'][0]['content']
+
+
+def test_a_line_that_goes_somewhere_in_town_moves_the_story_there(client, clock, provider):
+    connect(client)
+    ok(client.put('/api/story/scene', json={'city_id': 'kingswood', 'place_id': 'felled-oak'}))
+    ok(client.delete('/api/story'))
+    ok(client.post('/api/story/start', json={'premade_id': 'agna-holt'}))
+    provider.replies = [[Chunk('Candles.'), Chunk('', 'stop')]] * 4
+    say(client, 'I go to the shrine and ask Mother Rook what lies under the Heartwood.', 'story-0001')
+    view = ok(client.get('/api/story'))
+    assert view['scene']['place']['id'] == 'shrine-of-tidum'
+    assert any(row['text'].startswith('You arrive at the Shrine of Tidum') for row in view['messages'])
+    # Words that fit two places equally, or none, move nobody.
+    say(client, 'I walk over to the bar.', 'story-0002')
+    say(client, 'I go for the door.', 'story-0003')
+    assert ok(client.get('/api/story'))['scene']['place']['id'] == 'shrine-of-tidum'
+    # A rest taken somewhere by name is taken there.
+    say(client, 'I spend the night at the bunkhouses.', 'story-0004')
+    assert ok(client.get('/api/story'))['scene']['place']['id'] == 'bunkhouses'

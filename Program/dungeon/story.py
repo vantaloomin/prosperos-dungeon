@@ -9,6 +9,7 @@ user's choice in the place picker, not the model's.
 """
 import asyncio
 import logging
+import re
 import time
 from datetime import datetime
 
@@ -501,6 +502,41 @@ def move(database, city_id: str, place_id: str | None) -> dict:
     return story(database)
 
 
+# A line that goes somewhere by name: the words after "go to", "head over to" and the like.
+GOING = re.compile(r'\b(?:go|goes|going|head|heads|heading|walk|walks|walking|make (?:my|our) way|wander|wanders|'
+                   r'stroll|strolls|hurry|hurries|return|returns|cross|crosses)\b(?:\s+(?:back|over|down|up|across|'
+                   r'out|on|off|straight))*\s+(?:to|towards?|into|in at)\s+(?P<where>[^.!?;,]+)', re.I)
+# Where a rest is taken: "I sleep at the bunkhouses".
+SLEEPING_AT = re.compile(r'\b(?:at|in)\s+(?P<where>[^.!?;,]+)', re.I)
+PLACE_FILLER = {'the', 'of', 'a', 'an', 's', 'old', 'and'}
+
+
+def place_words(text: str) -> set[str]:
+    return set(re.findall(r'[a-z]+', text.lower())) - PLACE_FILLER
+
+
+def walked_to(connection, text: str) -> dict | None:
+    """A place in this town the player's line goes to by name or kind ("I go to the shrine", "I sleep at the
+    bunkhouses"), with its city id; none when the words fit no place, or two equally, or there is a fight on."""
+    if combat.fight(connection) is not None:
+        return None
+    row = scene_row(connection)
+    data = city_data(connection, row['city_id'])
+    spans = [found.group('where') for found in GOING.finditer(text)]
+    if rest.resting(text):
+        spans += [found.group('where') for found in SLEEPING_AT.finditer(text)]
+    for where in spans:
+        # Only the place itself: "the shrine", not "the shrine and ask Mother Rook".
+        where = re.split(r'\b(?:and|then|to|so|where|while|with|for|until|because)\b', where, maxsplit=1)[0]
+        words = place_words(where)
+        scored = [(len(words & (place_words(place['name']) | {place['kind']})), place) for place in data['places']]
+        best = max((hits for hits, _ in scored), default=0)
+        top = [place for hits, place in scored if hits == best]
+        if best and len(top) == 1:
+            return None if top[0]['id'] == row['place_id'] else top[0] | {'city_id': data['id']}
+    return None
+
+
 def place_scene(connection, city_id: str, place_id: str, now: str):
     connection.execute('INSERT INTO story_scene (id, city_id, place_id, updated_at) VALUES (1, ?, ?, ?) ON CONFLICT(id) '
                        'DO UPDATE SET city_id=excluded.city_id, place_id=excluded.place_id, '
@@ -762,7 +798,9 @@ def slept(database, connection, resting: dict, rolls: list[dict], message_id: st
     hungry = 0
     if resting.get('outside') and nights > 1:
         _, hungry = travel.eat(connection, resting['food'], nights - 1)
-    pass_time(database, connection, rest.minutes(nights, cut_short))
+    row = scene_row(connection)
+    local = local_moment(city_data(connection, row['city_id']), story_clock.now(connection, database.clock))
+    pass_time(database, connection, rest.minutes(nights, cut_short, local))
     lines = [rest.opening(resting), *happened]
     if hungry:
         lines.append(f"The pack runs out of food: {hungry} hungry day{'s' if hungry > 1 else ''}, and no mending on them.")
@@ -1146,9 +1184,15 @@ def received(database, text: str, client_id: str) -> tuple[dict, dict | None]:
             chapters.arrive(connection, user, database.now())
             # The time the line takes passes as it is sent: the narrator writes the scene after it.
             if not in_character.out_of_character(text):
+                if walked := walked_to(connection, text):
+                    # "I go to the shrine": the story moves there before the narrator writes, as "Go somewhere
+                    # else" would.
+                    place_scene(connection, walked['city_id'], walked['id'], database.now())
+                    pass_time(database, connection, story_clock.ACROSS_TOWN_MINUTES)
+                    arrive(connection, database.now())
                 # A rest passes its own nights (dungeon/rest.py).
-                pass_time(database, connection, 0 if rest.resting(text) else
-                          story_clock.minutes_for(text, bool(referee.by_keywords(text))))
+                elif not rest.resting(text):
+                    pass_time(database, connection, story_clock.minutes_for(text, bool(referee.by_keywords(text))))
         reply = optional(connection, "SELECT * FROM story_messages WHERE reply_to=? AND status='complete'",
                          (user['id'],))
         return user, reply
