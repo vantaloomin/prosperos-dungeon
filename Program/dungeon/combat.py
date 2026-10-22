@@ -305,21 +305,32 @@ def player_moves(connection, state: dict, rolls: list[dict], items: list[dict], 
                 lines.append("The player's character gets away.")
                 return True, guarded
             lines.append("The player's character tries to get away and cannot.")
-        elif GUARD.search(roll['action']):
-            # Under 5E a dodge needs no roll; under BRP a line that defends dodges every attack this round.
-            guarded = guarded or landed or five or percent
-        elif roll['stat'] == 'Vitality' and (ATTACK.search(roll['action']) or referee.PRESSING.search(roll['action'])) \
-                and (targets := standing(state)):
-            items = hands(state, roll['action'], items)
-            if five:
-                combat5e.strike(connection, roll, aimed_at(roll, targets), items, rng, lines)
-            elif percent:
-                combat_brp.strike(connection, roll, aimed_at(roll, targets), items, rng, lines)
-            elif 'npc' in targets[0]:
-                combat_iron.strike(connection, state, roll, aimed_at(roll, targets), items, rng, lines)
-            else:
-                strike(roll, targets, items, lines)
+        else:
+            if GUARD.search(roll['action']):
+                # Under 5E a dodge needs no roll; under BRP a line that defends dodges every attack this round.
+                guarded = guarded or landed or five or percent
+            # "I dodge his swing and cut at him" defends and attacks.
+            if roll['stat'] == 'Vitality' and attacks(roll['action']) and (targets := standing(state)):
+                attack(connection, state, roll, targets, hands(state, roll['action'], items), rng, lines)
     return False, guarded
+
+
+def attacks(action: str) -> bool:
+    """Whether a line attacks: a blow in a part of it that is not a defence ("I dodge his swing" only defends)."""
+    return any(not GUARD.search(part) and (ATTACK.search(part) or referee.PRESSING.search(part))
+               for part in re.split(r',|;|\band\b|\bthen\b', action))
+
+
+def attack(connection, state: dict, roll: dict, targets: list[dict], items: list[dict], rng, lines: list[str]):
+    """The character's attack in the campaign's ruleset."""
+    if fifth(connection):
+        combat5e.strike(connection, roll, aimed_at(roll, targets), items, rng, lines)
+    elif basic(connection):
+        combat_brp.strike(connection, roll, aimed_at(roll, targets), items, rng, lines)
+    elif 'npc' in targets[0]:
+        combat_iron.strike(connection, state, roll, aimed_at(roll, targets), items, rng, lines)
+    else:
+        strike(roll, targets, items, lines)
 
 
 def hands(state: dict, action: str, items: list[dict]) -> list[dict]:

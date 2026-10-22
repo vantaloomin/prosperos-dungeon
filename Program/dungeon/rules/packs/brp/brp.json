@@ -1261,7 +1261,7 @@
    "dodge": 35,
    "attacks": [
     {
-     "name": "Baseball Bat (as a club)",
+     "name": "Cudgel",
      "skill": 50,
      "damage": "1D6",
      "damage_modifier": "full",

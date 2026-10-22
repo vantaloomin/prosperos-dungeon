@@ -40,7 +40,9 @@ KEYWORDS = (
                   'bash', 'headbutt', 'throttle', 'strangle')),
     ('Mind', ('search', 'examine', 'study', 'recall', 'remember', 'notice', 'spot', 'investigate', 'deduce',
               'figure out', 'pick the lock', 'pick a lock', 'track', 'listen', 'read the', 'decipher', 'steal',
-              'pickpocket', 'forge', 'repair', 'treat the', 'patch')),
+              'pickpocket', 'forge', 'repair', 'treat the', 'patch', 'for anyone', 'for anybody', 'for someone',
+              'watching me', 'following me', 'tailing me', 'being watched', 'being followed', 'keep an eye',
+              'look out for', 'on the lookout', 'scan the')),
     ('Luck', ('sneak', 'hide', 'gamble', 'bet', 'guess', 'hope', 'slip past', 'luck')),
 )
 

@@ -1165,9 +1165,10 @@ async def afterwards(state, user: dict, reply: dict, packet: dict, steps: pace.S
                 view = scene(connection, story_clock.now(connection, database.clock))
                 growth.darken(connection, track, 1, intensity(connection, view['data'])['preset'], database.now(),
                               getattr(state, 'dice', None))
-            # An oath the character swore is an obligation, with its deadline (dungeon/quests.py).
+            # An oath the character swore is an obligation, with its deadline, or a vow on a quest they already have
+            # (dungeon/quests.py).
             for oath in quests.oaths(answered):
-                quests.swear(connection, user['city_id'], oath, story_clock.now(connection, database.clock))
+                quests.vow(connection, user['city_id'], user['text'], oath, story_clock.now(connection, database.clock))
             feelings.from_answer(connection, answered, {person['key'] for person in there})
         # A detail the player took an interest in may be given a meaning; arc stages get their beats planned
         # (dungeon/plotting.py).

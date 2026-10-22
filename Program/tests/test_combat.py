@@ -152,6 +152,12 @@ def test_a_fight_begun_bare_handed_stays_bare_handed_until_a_weapon_is_named():
     assert combat.hands({}, 'I hit him', items) == items
 
 
+def test_a_line_that_dodges_and_cuts_does_both():
+    # Playtest M4b, finding 3.
+    assert combat.attacks('I dodge his swing and cut at him') and combat.attacks('I parry, then thrust')
+    assert not combat.attacks('I dodge his swing') and not combat.attacks('I block')
+
+
 def test_wounds_mend_with_nights_of_rest(client, connected, provider, app):
     kingswood(client, 'felled-oak')
     with app.state.database.connect(write=True) as connection:

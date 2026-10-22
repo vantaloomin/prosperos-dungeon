@@ -26,6 +26,9 @@ def test_plain_lines_are_obvious_and_anything_uncertain_or_commanding_is_not():
     assert not pace.obvious('I tell the guard to stand aside.')
     assert not pace.obvious('I look around and pick the lock.')
     assert not pace.obvious('I punch him.')
+    # Playtest M4b: picking someone out is looking; watching for watchers is a roll.
+    assert pace.obvious('I pick out the loudest thug in the room.')
+    assert not pace.obvious('I look about the square for anyone watching me.')
 
 
 def test_the_budget_is_automatic_by_where_the_model_runs(app):

@@ -16,7 +16,8 @@
  },
  "changes": [
   "brp.json is transcribed by hand from the document, for a world before firearms: the skills (each \"various\" skill given the specialties such a world uses; modern skills left out), ancient and medieval weapons and armour, the damage modifier table, the professions such a world has (each \"choose from\" list resolved to fixed picks; Doctor becomes Healer), the four personality types, sample characters and natural animals, and the major wound table summarised.",
-  "Powers (magic, sorcery, psychic abilities, mutations, superpowers), hit locations, fatigue and sanity are not included."
+  "Powers (magic, sorcery, psychic abilities, mutations, superpowers), hit locations, fatigue and sanity are not included.",
+  "The sample thug's baseball bat (as a club) is a cudgel, with the same numbers."
  ],
  "resolution": {
   "die": "d100 roll-under against a skill or a characteristic roll",

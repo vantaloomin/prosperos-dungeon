@@ -26,7 +26,8 @@ BUDGETS = (0, 15, 30, 60, 90, 120, 180)
 LOCAL_PROVIDERS = {'local', 'kobold'}
 OBVIOUS = re.compile(r"^(?:i\s+)?(?:go|walk|head|wander|stroll|return|come|enter|leave|step|sit|stand|wait|rest|"
                      r'look|glance|watch|listen|say|says|ask|tell|reply|answer|greet|nod|smile|shrug|wave|talk|chat|'
-                     r'order|eat|drink|sleep|thank)\b', re.I)
+                     r'order|eat|drink|sleep|thank|pick out|picks out|single out|singles out|point out|point at|'
+                     r'points (?:out|at))\b', re.I)
 # Telling, asking or ordering someone to do something is persuasion, not plain talk: "I tell the guard to stand aside".
 COMMAND = re.compile(r'\b(tell|tells|ask|asks|order|orders|beg|get)\b.*\bto\s+'
                      r'(?!(the|a|an|my|his|her|their|him|them|me|us|you)\b)\w', re.I)

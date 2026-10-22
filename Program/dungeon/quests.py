@@ -15,6 +15,7 @@ one of its threats comes with the turn's outcomes.
 Quests are game state, branched with the story (dungeon/timeline.py SAVED).
 """
 import json
+import math
 import random
 import re
 from datetime import datetime, timedelta
@@ -216,6 +217,29 @@ def swear(connection, city_id: str, oath: dict, now: datetime) -> str:
                   f'The oath to {to} was broken. {to} remembers.',
                   (now + timedelta(days=oath['days'])).isoformat(), giver=to,
                   ties=[{'kind': 'npc', 'ref': to}])
+
+
+def named(connection, text: str) -> dict | None:
+    """The open quest the character knows of that a line names: at least half of its title's longer words ("the
+    Heartwood contract")."""
+    said = text.lower()
+    for quest in (row for row in rows(connection, 'open') if row['known']):
+        words = set(re.findall(r"[a-z][a-z'-]{4,}", quest['title'].lower())) - {'their', 'about', 'other'}
+        if words and sum(re.search(rf'\b{re.escape(word)}', said) is not None for word in words) >= \
+                max(1, math.ceil(len(words) / 2)):
+            return quest
+    return None
+
+
+def vow(connection, city_id: str, text: str, oath: dict, now: datetime) -> str:
+    """An oath the character swore. Sworn on an open quest the line names, it is that quest, now a vow: kept in the
+    record, with no second oath to whatever the narration answered with. Else it is an oath of its own."""
+    quest = named(connection, f"{text} {oath['text']}")
+    if quest is None:
+        return swear(connection, city_id, oath, now)
+    record.add(connection, 'fact', "the player's character", f"Swore to see {quest['title']} through: {oath['text']}",
+               now.isoformat())
+    return quest['id']
 
 
 def endings(answer: str) -> list[dict]:

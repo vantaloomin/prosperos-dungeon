@@ -41,6 +41,15 @@ def test_a_character_buys_characteristics_and_takes_a_profession_and_a_personali
     # Brutal's 20s and the warrior's points, none past 75.
     assert view['skills']['brawl'] == 75 and view['skills']['sword'] > 15 and max(view['skills'].values()) <= 75
     assert view['skills']['dodge'] >= 28
+    # A made warrior carries the broadsword their Sword skill covers (playtest M4b, finding 2).
+    from dungeon import inventory
+    with app.state.database.connect() as connection:
+        assert 'sword' in {row['item_id'] for row in inventory.carried(connection, 'kingswood')}
+
+
+def test_the_pack_has_no_modern_weapons():
+    named = [attack['name'] for foe in brp.pack()['foes'] for attack in foe['attacks']]
+    assert not [name for name in named if 'baseball' in name.lower()] and 'Cudgel' in named
 
 
 @pytest.mark.parametrize(('build', 'detail'), [
