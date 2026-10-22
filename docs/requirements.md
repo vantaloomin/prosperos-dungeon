@@ -350,7 +350,8 @@ Round 2, decided 2026-10-21:
 
 - **Contradictions are rewritten before the player sees them.** If a narration clashes with the
   ledger (a dead NPC waves, spent coin reappears), code has the narrator redo that passage first.
-  A setting skips the check for speed on slow local models.
+  A setting skips the check for speed on slow local models; a skipped contradiction is then
+  flagged for the player to rewrite (see "Flagged passages and Rewrite").
 - **Chapters close at scene breaks.** Code starts a new chapter on a location change, time skip,
   rest, or the end of a fight or quest step, and summarizes the one that ended. The player can
   also close a chapter themselves and name it. Chapters give the story view and branch view
@@ -669,7 +670,26 @@ Referee, the narrator, fact extraction and a contradiction rewrite, so speed is 
 - **Obvious actions skip the model.** The keyword Referee handles clear cases (walking, looking,
   plain talk) with no model call.
 - **Over budget, the optional steps give way first:** the prose rewrite pass, then the
-  contradiction rewrite (logged for the GM view instead). Dice and the ledger are never skipped.
+  contradiction rewrite. Dice and the ledger are never skipped. A skipped rewrite becomes a
+  flagged passage (below), so it is offered to the player rather than lost.
+
+### Flagged passages and Rewrite
+
+Decided 2026-10-22 (Vanta's idea). Automatic rewrites still run when there is time; the player
+picks up whatever they didn't fix.
+
+- **Problems left in the text are highlighted.** When a check finds a ledger contradiction or a
+  strong prose tell it did not rewrite (over budget, or the skip setting is on), that passage gets
+  a soft highlight and a **Rewrite** button. Hovering or tapping shows why it was flagged.
+- **The reason never leaks hidden truth.** If the clash is with something the character knows
+  ("Brother Aldous is dead"), the reason says so. If it is with hidden truth, it says only that the
+  passage conflicts with the story so far; the full reason is in the GM view.
+- **Any passage can be rewritten on request,** flagged or not: the player selects text and picks
+  Rewrite, with an optional note ("less purple", "she wouldn't say that").
+- **A rewrite changes wording only.** It keeps the same dice, bands and ledger facts, so it never
+  rerolls; going back to an earlier turn is still the way to get new dice. The rewritten passage
+  goes through the same checks, and the fact extractor reruns on it. The original is kept, so
+  the player can switch back.
 
 ## Referee model (proposed)
 

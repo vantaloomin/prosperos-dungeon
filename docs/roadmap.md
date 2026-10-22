@@ -59,7 +59,10 @@ Milestone 5.
     budget, and how long each step took is logged. The narration streams, fact
     extraction runs after the text is on screen, and the contradiction check runs only when the
     narration names a ledger entity that is dead, spent or elsewhere. Obvious actions go through
-    the keyword Referee with no model call. See "Turn speed" in the requirements.
+    the keyword Referee with no model call. Anything a check flags but doesn't fix in time is
+    highlighted with a Rewrite button, and the player can rewrite any passage on request (same
+    dice and facts, new wording; added 2026-10-22). See "Turn speed" and "Flagged passages and
+    Rewrite" in the requirements.
 12. **Decide before describing** (added 2026-10-21): when the player looks into something unseen
     (a chest, a room, a pocket, a stranger's purse), code rolls and stores what is there in the
     ledger before the narrator mentions it. The narrator describes only what is stored.
