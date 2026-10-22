@@ -13,6 +13,40 @@ function Section({ label, title, shown, children }: { label: string; title: stri
   return <section aria-label={label}><h3>{title}</h3><ul>{children}</ul></section>
 }
 
+const SEED_STATES: Record<string, string> = { planted: 'planted, not yet on the page', reached: 'on the page', asked: 'asked to come back', paid: 'paid off', retired: 'retired' }
+
+interface PlanningProps { seeds: GmView['seeds']; plans: GmView['plans']; arcs: GmView['arcs']; change: (request: () => Promise<GmView>) => Promise<void> }
+
+/** Planning with the director (dungeon/plotting.py): the seeds planted and where each stands, to cash in or retire,
+ * and each arc's planned beats for its stage, to cut or move up. */
+function Planning({ seeds, plans, arcs, change }: PlanningProps) {
+  const title = (arcId: string | null) => arcs.find((arc) => arc.id === arcId)?.title ?? 'No arc'
+  return <>
+    <Section label="Seeds" title="Seeds and payoffs" shown={!!seeds.length}>
+      {seeds.map((seed) => <li key={seed.id}>
+        <p><strong>{seed.text}</strong> <span className="subtle">{title(seed.arc_id)} · {SEED_STATES[seed.status]}</span></p>
+        <p className="story-note">{seed.truth}</p>
+        {seed.status !== 'paid' && <div className="form-actions">
+          <button type="button" className="text-button" onClick={() => void change(() => api<GmView>(`/story/gm/seeds/${seed.id}/cash-in`, {}))}>Bring it back next</button>
+          {seed.status !== 'retired' && <button type="button" className="text-button" onClick={() => void change(() => api<GmView>(`/story/gm/seeds/${seed.id}/retire`, {}))}>Retire</button>}
+        </div>}
+      </li>)}
+    </Section>
+    <Section label="Planned beats" title="Planned beats" shown={plans.some((plan) => plan.beats.length)}>
+      {plans.filter((plan) => plan.beats.length).map((plan) => <li key={plan.arc_id}>
+        <p><strong>{title(plan.arc_id)}</strong> <span className="subtle">stage {plan.stage + 1}</span></p>
+        <ol>{plan.beats.map((beat, index) => <li key={beat.id}>
+          <span className={beat.cut ? 'subtle' : undefined}>{beat.cut ? <s>{beat.text}</s> : beat.text}</span>{beat.used && <span className="subtle"> · used</span>}
+          <div className="form-actions">
+            <button type="button" className="text-button" onClick={() => void change(() => api<GmView>(`/story/gm/beats/${beat.id}`, { cut: !beat.cut }, 'PATCH'))}>{beat.cut ? 'Bring back' : 'Cut'}</button>
+            {index > 0 && <button type="button" className="text-button" onClick={() => void change(() => api<GmView>(`/story/gm/beats/${beat.id}`, { position: index - 1 }, 'PATCH'))}>Move up</button>}
+          </div>
+        </li>)}</ol>
+      </li>)}
+    </Section>
+  </>
+}
+
 /** Behind the story (dungeon/gm.py), while the GM view is on: quests and their truths, how people feel, the
  * director's arcs, threads and nemeses, the factions, the dark tracks, and every correction made to the record. */
 export function StoryGm() {
@@ -26,7 +60,7 @@ export function StoryGm() {
   }
   if (gm.isError) return <Notice tone="error">{gm.error instanceof Error ? gm.error.message : 'The GM view did not load.'}</Notice>
   if (!gm.data) return null
-  const { quests, people, arcs, threads, nemeses, factions, dark, corrections } = gm.data
+  const { quests, people, arcs, threads, nemeses, factions, dark, corrections, seeds = [], plans = [] } = gm.data
   return (
     <details className="story-gm">
       <summary>Behind the story</summary>
@@ -70,6 +104,7 @@ export function StoryGm() {
         {corrections.map((item, index) => <li key={index}><p className="subtle">{item.subject ?? 'A fact'}</p>
           <p><s>{item.before}</s> {item.after ?? '(removed)'}</p></li>)}
       </Section>
+      <Planning seeds={seeds} plans={plans} arcs={arcs} change={change} />
       {error && <Notice tone="error">{error}</Notice>}
     </details>
   )

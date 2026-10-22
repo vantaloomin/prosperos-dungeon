@@ -29,6 +29,7 @@ from dungeon import (
     jobs,
     pace,
     passages,
+    plotting,
     prompt_library,
     quests,
     record,
@@ -541,7 +542,8 @@ def clear(database) -> dict:
                       'story_rounds', 'story_map', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
                       'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_beats', 'story_word',
                       'story_offpage', 'story_tier', 'story_marks', 'story_dark',
-                      'story_director', 'story_arcs', 'story_threads', 'story_nemeses'):
+                      'story_director', 'story_arcs', 'story_threads', 'story_nemeses', 'story_seeds',
+                      'story_arc_beats'):
             connection.execute(f'DELETE FROM {table}')
         timeline.clear(connection)
         chapters.clear(connection)
@@ -697,6 +699,13 @@ def scene_break(connection, user: dict, travelled: list[str], rested: list[str],
     if fought and not combat.fight(connection):
         return 'fight'
     return None
+
+
+def opening_turn(state, user: dict) -> list[str]:
+    """A line that opens a new chapter begins with a short "previously" (dungeon/chapters.py)."""
+    with state.database.connect() as connection:
+        text = chapters.opening(connection, user)
+    return [text] if text else []
 
 
 def recall_turn(state, rolls: list[dict]) -> list[str]:
@@ -1029,9 +1038,9 @@ async def afterwards(state, user: dict, reply: dict, packet: dict, steps: pace.S
             there = [{'key': row['key'], 'name': row['name']} for row in feelings.met(connection)
                      if row['key'] in {person['sheet']['key'] for person in packet['people']}]
             ask = (quests.ending_ask(connection) + quests.oath_ask() + feelings.feelings_ask(there)
-                   + growth.dark_ask())
+                   + growth.dark_ask() + plotting.ENGAGED_ASK)
             extra = (quests.ending_schema(connection) | quests.OATH_SCHEMA | feelings.feelings_schema(there)
-                     | growth.dark_schema())
+                     | growth.dark_schema() | plotting.ENGAGED_SCHEMA)
         answered = await record.extract(state, user['text'], reply, ask, extra)
         with database.connect(write=True) as connection:
             for item in quests.endings(answered):
@@ -1046,6 +1055,10 @@ async def afterwards(state, user: dict, reply: dict, packet: dict, steps: pace.S
             for oath in quests.oaths(answered):
                 quests.swear(connection, user['city_id'], oath, story_clock.now(connection, database.clock))
             feelings.from_answer(connection, answered, {person['key'] for person in there})
+        # A detail the player took an interest in may be given a meaning; arc stages get their beats planned
+        # (dungeon/plotting.py).
+        await plotting.adopt(state, plotting.engaged(answered), reply['id'], getattr(state, 'dice', None))
+        await plotting.plan(state)
         steps.timed('extraction', since)
         since = steps.clock()
         with database.connect() as connection:
@@ -1095,7 +1108,7 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
     rested = rest_turn(state, user, rolls) if in_story else []
     carded = town_turn(state, user) if in_story else []
     meanwhile = beats_turn(state, user) if in_story else []
-    noted = director_turn(state, user) + recall_turn(state, rolls) if in_story else []
+    noted = director_turn(state, user) + recall_turn(state, rolls) + opening_turn(state, user) if in_story else []
     fought = fight_round(state, user, rolls) if in_story else []
     traded = counter_turn(state, user, rolls) if in_story else []
     tended = treat_turn(state, user, rolls) if in_story else []
@@ -1122,6 +1135,7 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
             if found := happenings.where(packet['city_id'], scene_row(connection)['place_id']):
                 director.touch(connection, found['world'], f"{user['text']}\n{text}",
                                director.scene_kind(rolls, fought, packet['people']), user['id'], database.now())
+                plotting.after_line(connection, text, user['id'])
         reply = add(connection, database.now(), 'narrator', text, scene_row(connection), reply_to=user['id'],
                     status=status, error=error,
                     flags=flagged)

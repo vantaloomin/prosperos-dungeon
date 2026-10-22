@@ -7,7 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse
 from pydantic import Field
 
-from dungeon import campaign, chapters, director, gm, growth, quests, record, sheet, story, story_clock, tiers
+from dungeon import campaign, chapters, director, gm, growth, plotting, quests, record, sheet, story, story_clock, tiers
 from dungeon.errors import DomainError
 from dungeon.models import Input, PersonaInput
 
@@ -363,6 +363,34 @@ def set_feelings(request: Request, key: str, body: Feelings):
 def set_standing(request: Request, faction_id: str, body: Standing):
     with request.app.state.database.connect(write=True) as connection:
         gm.set_standing(connection, faction_id, body.value)
+        return gm_view(connection)
+
+
+class BeatChange(Input):
+    cut: bool | None = None
+    position: int | None = Field(None, ge=0, le=20)
+
+
+@router.post('/gm/seeds/{seed_id}/cash-in')
+def cash_in_seed(request: Request, seed_id: str):
+    """Ask for a seed to come back with the next GM note (dungeon/plotting.py)."""
+    with request.app.state.database.connect(write=True) as connection:
+        plotting.cash_in(connection, seed_id)
+        return gm_view(connection)
+
+
+@router.post('/gm/seeds/{seed_id}/retire')
+def retire_seed(request: Request, seed_id: str):
+    with request.app.state.database.connect(write=True) as connection:
+        plotting.retire(connection, seed_id)
+        return gm_view(connection)
+
+
+@router.patch('/gm/beats/{beat_id}')
+def change_beat(request: Request, beat_id: str, body: BeatChange):
+    """Cut a planned beat, bring it back, or move it in its arc's order."""
+    with request.app.state.database.connect(write=True) as connection:
+        plotting.change_beat(connection, beat_id, body.cut, body.position)
         return gm_view(connection)
 
 

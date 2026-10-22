@@ -281,10 +281,13 @@ export interface GmView {
   factions: { faction_id: string; value: number }[]
   dark: { id: string; name: string; word: string; points?: number; top?: number }[]
   corrections: { before: string; after: string | null; subject: string | null; created_at: string }[]
+  /** The director's Chekhov list and each arc's planned beats (dungeon/plotting.py). */
+  seeds: { id: string; text: string; truth: string; status: 'planted' | 'reached' | 'asked' | 'paid' | 'retired'; arc_id: string | null }[]
+  plans: { arc_id: string; stage: number; beats: { id: string; text: string; cut: boolean; used: boolean; source: 'model' | 'world' }[] }[]
 }
 /** One way the story went (dungeon/timeline.py); `playing` is the one on screen. */
 /** A chapter of a branch (dungeon/chapters.py): `open` while it is still being played. */
-export interface StoryChapter { id: string; number: number; title: string; summary: string; open: boolean; turns: number; ended_by: 'place' | 'time' | 'fight' | 'quest' | 'player' | null; branch_id: string; seq: number }
+export interface StoryChapter { id: string; number: number; title: string; summary: string; hook?: string; open: boolean; turns: number; ended_by: 'place' | 'time' | 'fight' | 'quest' | 'player' | null; branch_id: string; seq: number }
 /** A branch in the tree: where it forked, how it ended if the character died or was lost, and its own chapters. */
 export interface StoryTreeBranch { id: string; parent_id: string | null; fork_seq: number | null; playing: boolean; ending: '' | 'death' | 'lost'; chapters: StoryChapter[] }
 export interface StoryBookmark { id: string; name: string; message_id: string; branch_id: string; text: string; created_at: string }

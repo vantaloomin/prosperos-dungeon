@@ -87,6 +87,13 @@ the schema, or an answer that still cannot be read, is asked again without it. A
 JSON even then is asked one field at a time: the facts as lines, then their kinds, subjects and truths, each for all
 of them in one question. Code checks every fact against the record either way.
 
+**What Continuity is told and what code refuses.** The prompt defines each kind (a secret is something someone
+hides, a relationship is a tie between two people, a death is a named person dying), and the last 20 facts are sent
+as "Already in the record" so the model does not repeat them. Code also drops a fact that says the same as one already
+kept (most of its words shared with one on the same subject), and an item the character "took" or "picked up" that
+their pack does not hold: the narrator cannot hand out gear the game never gave. A threat or ultimatum someone made
+of the character is not their oath.
+
 "What you know" on the Story screen is the player's journal: every fact their character knows. They can correct or
 remove one, or add their own note; each correction is logged in `record_corrections`. Hidden truth never shows here,
 unless the player turns on the **GM view** there (workspace setting `gm_view`): it shows the whole record, hidden
@@ -521,8 +528,29 @@ who is not there; the words that tell code play touched it; and its antagonist, 
   character, becomes a nemesis half the time: a grudge, the stat the character relies on most, a thread. Three days
   on they come back through the note, with a plan. Killed on the page, they stay dead.
 
-Not in v0 (M3, "Director, full"): checking which seeds reached the page and paying them off, adopting improvised
-details, the director model drafting each stage's beats, GM-view co-planning and "previously" chapter openers.
+### The director: seeds, adopted details and planned beats
+
+`dungeon/plotting.py` is the director, full (M3):
+
+- **Seeds pay off (the Chekhov list, `story_seeds`).** Every seed the note plants is logged with its arc and the
+  truth it points to, and a payoff window of 30 lines. After each narration code checks which seeds reached the page
+  (two of their words or more). When a seed's arc is due or its window is closing (5 lines left), the note asks for
+  it to come back; once it does, it is paid. A seed whose window ends unpaid is retired.
+- **Adopted details.** The Continuity model's question after each turn also asks which details the narrator made up
+  the player's line took an interest in (a stranger at the bar, a symbol on a door). Half the time the director gives
+  one a meaning tied to the hottest arc thread: drafted by the **director** model when one is chosen for that job in
+  Settings > Models, else from the thread's own truth. It is refused if it has the dead acting, then kept as hidden
+  truth in the record and as a seed already on the page.
+- **Beats planned a stage at a time (`story_arc_beats`).** When an arc reaches a stage with no plan, the director
+  model drafts three beats from the stage's truth and the hottest threads; code keeps those that name none of the
+  dead, and without the model the plan is the stage's own seed and word. When the arc is due, the note gives its next
+  beat.
+- **Co-planning in the GM view.** "Behind the story" lists the seeds (planted, paid, retired) and each arc's planned
+  beats. The player can bring a seed back next or retire it, and cut, restore or move up a beat.
+- **"Previously" openers.** When a chapter ends, the Continuity model (or the Default one) gives its title, a summary
+  and the hook it leaves open, before the next line. The line that opens the next chapter carries a hidden
+  "## Previously" from them and the hottest threads the character knows of, and the narrator begins with two or
+  three sentences of it. The chapter list shows each chapter's hook as "Still open".
 
 ## Rewrite
 

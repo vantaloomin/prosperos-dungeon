@@ -41,17 +41,33 @@ FOLD = 20
 SUMMARY_WORDS = 400
 
 EXTRACT = f"""You keep the continuity of a tabletop roleplaying game. You never write story. Read the latest turn \
-and list the new, lasting facts it established: someone died or was hurt, an item was gained, lost or given, a \
-promise or debt was made, a place was learned of, a secret came out, a relationship changed, or a name, scar or \
-rumour worth remembering. Leave out moods, weather and anything that will not matter later. At most {MOST_FACTS}.
+and list the new, lasting facts it established. Leave out moods, weather and anything that will not matter later, \
+and anything already in the record (listed below, when there is one). Only what the turn says plainly: never guess a \
+name, a place or what something is called. At most {MOST_FACTS}.
 
-For each fact give its kind ({', '.join(KINDS)}), its subject (the person, item or place it is about, in a few \
-words), the fact in one short sentence, and its truth: "both" when the player's character saw or knows it, \
-"world" when it is true but hidden from them, "belief" when the character believes it but it may not be true.
+For each fact give its kind, its subject (the person, item or place it is about, in a few words), the fact in one \
+short sentence, and its truth. The kinds:
+- death: someone died in this turn, or their death was confirmed. Not graves, old bones, the long dead or threats.
+- wound: someone was hurt.
+- item: an item was gained, lost or given, by anyone. The game keeps the character's own pack: list what the \
+character got only when the turn shows them being given it or buying it.
+- promise: a promise or debt was made.
+- location: a place was learned of.
+- secret: something hidden came out. Not ordinary facts the character heard.
+- relationship: how two people stand toward each other changed. Not what the character noticed about someone.
+- fact: anything else worth remembering, such as a name, a scar, a rumour or something the character heard.
+
+Truth is "both" when the player's character saw or knows it, "world" when it is true but hidden from them, \
+"belief" when the character believes it but it may not be true (what someone told them is often a belief).
 
 Answer with JSON only, in this shape:
 {{"facts": [{{"kind": "wound", "subject": "the bouncer", "text": "The bouncer's nose is broken.", "truth": "both"}}]}}
 Answer {{"facts": []}} when nothing lasting happened."""
+# A new fact this close in words to one the record has about the same subject is a repeat.
+SAME = 0.6
+GAINED = re.compile(r'\b(you|the character|they)\b.*\b(take|takes|took|pick|picks|picked|pocket|pockets|pocketed|'
+                    r'gain|gains|gained|find|finds|found|grab|grabs|grabbed|keep|keeps|kept)\b', re.I)
+SELF = re.compile(r'^(you|yourself|the character|the player\'s character|me|i)$', re.I)
 
 # One fact at a time, for weak models that answer no JSON at all: the facts as lines, then each field for all of them.
 LINES = f"""You keep the continuity of a tabletop roleplaying game. You never write story. Read the latest turn and \
@@ -157,6 +173,33 @@ def prompt_text(connection, focus: str = '', limit: int = IN_PROMPT) -> str:
     return remembering.prompt_text(connection, focus, limit)
 
 
+def words_of(text: str) -> set[str]:
+    return {word for word in re.findall(r"[a-z][a-z'-]{2,}", text.lower())}
+
+
+def repeat(connection, fact: dict) -> bool:
+    """A fact the record already has: the same subject, and nearly the same words."""
+    subject, said = fact['subject'].strip().lower(), words_of(fact['text'])
+    for row in many(connection, 'SELECT subject, text FROM record_entries WHERE removed=0 AND lower(subject)=?',
+                    (subject,)):
+        held = words_of(row['text'])
+        if said and held and len(said & held) / len(said | held) >= SAME:
+            return True
+    return False
+
+
+def unearned(connection, fact: dict) -> bool:
+    """An item the narration says the character took that the game never put in their pack (dungeon/inventory.py
+    decides what they carry)."""
+    if fact['kind'] != 'item' or not (SELF.match(fact['subject'].strip()) or GAINED.search(fact['text'])):
+        return False
+    from dungeon import inventory  # the pack's items, read only for this check.
+    names = set()
+    for row in inventory.carried(connection, ''):
+        names |= words_of(row['name'])
+    return not (words_of(fact['text']) - {'you', 'the', 'and', 'character', 'took', 'take', 'takes', 'found'}) & names
+
+
 def well_formed(item) -> dict | None:
     if not (isinstance(item, dict) and item.get('kind') in KINDS and str(item.get('subject') or '').strip()
             and str(item.get('text') or '').strip()):
@@ -251,6 +294,12 @@ async def extract(state, user_text: str, reply: dict, ask: str = '', extra: dict
     if config is None:
         return ''
     text = turn_text(user_text, reply['text'])
+    with database.connect() as connection:
+        held = many(connection, 'SELECT kind, subject, text FROM record_entries WHERE removed=0 ORDER BY created_at '
+                                'DESC, rowid DESC LIMIT 20')
+    if held:
+        text += '\n\nAlready in the record:\n' + '\n'.join(f"- {row['kind']}, {row['subject']}: {row['text']}"
+                                                         for row in held)
     try:
         answer = await schema_first(state, config, EXTRACT + ask, text, schema(extra))
         facts = checked(answer)
@@ -260,8 +309,9 @@ async def extract(state, user_text: str, reply: dict, ask: str = '', extra: dict
         return ''
     with database.connect(write=True) as connection:
         for fact in facts:
-            add(connection, fact['kind'], fact['subject'], fact['text'], database.now(), 'narrator', fact['truth'],
-                   reply['id'])
+            if not repeat(connection, fact) and not unearned(connection, fact):
+                add(connection, fact['kind'], fact['subject'], fact['text'], database.now(), 'narrator',
+                    fact['truth'], reply['id'])
     return answer
 
 

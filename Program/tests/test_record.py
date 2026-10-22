@@ -191,3 +191,22 @@ def test_the_gm_view_shows_everything_and_asks_again_for_or_clears_one_fact(clie
     with app.state.database.connect() as connection:
         log = [row['after'] for row in connection.execute('SELECT after FROM record_corrections ORDER BY rowid')]
     assert log == ["He takes the co-op's pay.", None]
+
+
+def test_repeats_and_items_the_pack_never_got_are_not_recorded(client, connected, app, provider):
+    route_continuity(client)
+    ok(client.put('/api/story/scene', json={'city_id': 'kingswood', 'place_id': 'pell-provisions'}))
+    with app.state.database.connect(write=True) as connection:
+        record.add(connection, 'fact', 'the crew boss', 'The crew boss runs the felling gang.', 'x')
+    provider.replies = [reply('You take everything you find.'),
+                        reply('{"facts": [{"kind": "item", "subject": "you", "text": "You took a sack of teeth.", '
+                              '"truth": "both"}, {"kind": "fact", "subject": "The crew boss", "text": "The crew boss '
+                              'runs the felling gang here.", "truth": "both"}, {"kind": "item", "subject": "Pell", '
+                              '"text": "Pell keeps a brass bell.", "truth": "both"}]}')]
+    tell(client, 'I take everything I found.', 'story-0001')
+    assert 'Already in the record:\n- fact, the crew boss: The crew boss runs the felling gang.' in \
+        provider.requests[-1]['messages'][0]['content']
+    assert 'A demand, threat or ultimatum someone else made of the character is not their oath.' in \
+        provider.requests[-1]['system']
+    texts = {entry['text'] for entry in ok(client.get('/api/story/journal'))['entries']}
+    assert texts == {'Pell keeps a brass bell.', 'The crew boss runs the felling gang.'}
