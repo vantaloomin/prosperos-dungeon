@@ -49,6 +49,12 @@ class LoreFile(Input):
     data: str = Field(min_length=1, max_length=14_000_000)
 
 
+class LibraryFile(Input):
+    """A long text for the reference library (dungeon/library.py), base64 encoded."""
+    filename: str = Field(min_length=1, max_length=260)
+    data: str = Field(min_length=1, max_length=14_000_000)
+
+
 class LoreSwitch(Input):
     """Turn an imported lorebook, or one of its entries, on or off (dungeon/lore.py)."""
     enabled: bool

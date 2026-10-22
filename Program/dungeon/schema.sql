@@ -224,6 +224,33 @@ CREATE TABLE IF NOT EXISTS lore_entries (
 
 CREATE INDEX IF NOT EXISTS lore_entries_book ON lore_entries(book_id, position);
 
+-- A reference library (dungeon/library.py): long texts the player adds to the world (a world bible, a novel, a
+-- script, a wiki export), split into passages; the few that fit the story join the narrator's prompt.
+CREATE TABLE IF NOT EXISTS library_books (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  source_format TEXT NOT NULL DEFAULT '',
+  source_file TEXT NOT NULL DEFAULT '',
+  enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS library_passages (
+  id TEXT PRIMARY KEY,
+  book_id TEXT NOT NULL REFERENCES library_books(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL,
+  title TEXT NOT NULL DEFAULT '',
+  text TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS library_passages_book ON library_passages(book_id, position);
+
+-- The story message (seq of the player's line) each passage was last given with, so the next few turns skip it.
+CREATE TABLE IF NOT EXISTS library_given (
+  passage_id TEXT PRIMARY KEY REFERENCES library_passages(id) ON DELETE CASCADE,
+  seq INTEGER NOT NULL
+);
+
 -- The story (dungeon/story.py): one scene (where the user is) and its history.
 CREATE TABLE IF NOT EXISTS story_scene (
   id INTEGER PRIMARY KEY CHECK (id = 1),
