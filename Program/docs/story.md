@@ -768,8 +768,10 @@ Not in v0: per-category sliders, veils, tone and drama settings, and lower setti
 
 A fixed layout for Milestone 1 (`src/features/story/Story.tsx`); the free grid of widgets comes in Milestone 6.
 
-- **The story column:** where and when the story is (place, city, story time, weather, who is around), the fight
-  and the character's condition when there is something to say, then the story text and the composer.
+- **The story column:** where the story is (place and city), then the status strip (`StoryStatus.tsx`): story time
+  and weather, the character's condition (hit points under 5E), nerve, lasting injuries, captivity and coin, as the
+  dice toggle allows. Then who is around, the fight line while there is a fight, the story text with each turn's
+  receipt, and the composer.
 - **The side panel:** how far the story goes, the character sheet, the pack, the shop window when the story is in a shop, "What you know",
   "People you've met" and "Other branches". On a screen 1100 pixels wide or more it sits beside the story with the
   sheet, pack and journal open and scrolls on its own; on a narrower screen it sits above the story, folded, and

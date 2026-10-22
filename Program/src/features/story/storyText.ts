@@ -159,16 +159,34 @@ function foeNumbers(foe: NonNullable<StoryFight['fight']>['foes'][number]): stri
   return foe.wound === null ? '' : `, wound ${foe.wound} of 5`
 }
 
-/** "You are hurt. Nerve: shaken. Lasting: a limp. Fighting: the bandit (hurt), the lookout (broken)." or '' when unhurt and not fighting. */
-export function fightText(fight: StoryFight): string {
+/** The header's fight line: who the character is fighting, or that they are dead; '' otherwise. How the character is
+ *  sits in the status strip (statusItems). */
+export function foesText(fight: StoryFight): string {
   if (fight.dead) return 'Your character is dead. Go back to an earlier line to play on.'
-  const points = fight.max_hp === undefined ? '' : `, ${fight.hp} of ${fight.max_hp} hit points`
-  const condition = fight.condition === 'unhurt' ? '' : `You are ${fight.condition}${points}.`
   const foes = fight.fight?.foes.map((foe) => `${foe.name} (${foe.state}${foeNumbers(foe)})`).join(', ')
-  const lasting = fight.injuries?.length ? `Lasting: ${fight.injuries.join(', ')}.` : ''
-  const held = fight.captors ? `Held prisoner by ${fight.captors}.` : ''
-  const nerve = fight.stress ? `Nerve: ${fight.stress}.` : ''
-  return [condition, held, nerve, lasting, foes ? `Fighting: ${foes}.` : ''].filter(Boolean).join(' ')
+  return foes ? `Fighting: ${foes}.` : ''
+}
+
+export interface StatusItem { kind: 'time' | 'condition' | 'nerve' | 'lasting' | 'held' | 'coin'; text: string; tone: 'neutral' | 'loss' }
+
+const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1)
+
+function conditionItem(fight: StoryFight): StatusItem {
+  const points = fight.max_hp === undefined ? '' : `, ${fight.hp} of ${fight.max_hp} HP`
+  return { kind: 'condition', tone: fight.condition === 'unhurt' ? 'neutral' : 'loss', text: `${capital(fight.condition)}${points}` }
+}
+
+/** The status strip (requirements "Play screen and widgets"): the time, how the character is, their nerve, lasting
+ *  injuries, captivity and coin, at a glance. Numbers come only as the story gives them, which is with the dice shown. */
+export function statusItems(scene: Pick<StoryScene, 'local_time' | 'weather'>, fight: StoryFight, coin: string | null): StatusItem[] {
+  const time: StatusItem = { kind: 'time', tone: 'neutral', text: sceneTime(scene.local_time) + (scene.weather ? ` · ${scene.weather}` : '') }
+  if (fight.dead) return [time, { kind: 'condition', tone: 'loss', text: 'Dead' }]
+  const items: (StatusItem | false)[] = [time, conditionItem(fight),
+    { kind: 'nerve', tone: fight.stress ? 'loss' : 'neutral', text: `Nerve: ${fight.stress || 'steady'}` },
+    !!fight.injuries?.length && { kind: 'lasting', tone: 'loss', text: `Lasting: ${fight.injuries.join(', ')}` },
+    !!fight.captors && { kind: 'held', tone: 'loss', text: `Held by ${fight.captors}` },
+    coin !== null && { kind: 'coin', tone: 'neutral', text: coin }]
+  return items.filter((item): item is StatusItem => !!item)
 }
 
 const PRESET_NAMES: Record<Exclude<IntensityPreset, 'world'>, string> = {
