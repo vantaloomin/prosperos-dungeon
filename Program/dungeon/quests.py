@@ -2,7 +2,10 @@
 
 A town's adventure file (world/data/adventures/<city>.json) lists its quests and its dangerous places. When a
 story begins there, its quests start: each has a hook the player may know, a truth only the narrator is told, and a
-deadline on the story clock. Code keeps the deadline: once the clock passes it with the quest still open, the stakes
+deadline on the story clock. Quests also come from factions' needs (jobs, dungeon/jobs.py) and from oaths: a
+promise, threat or bargain the player's character makes, which the Continuity model notices and code keeps as an
+obligation with a deadline. A job pays and earns standing when done, and costs standing when failed (one left to
+lapse costs nothing but what happens); a broken oath costs the trust of the one it was sworn to. Code keeps the deadline: once the clock passes it with the quest still open, the stakes
 land and go in the record. The narrator is told what is happening every turn and lets it press on the scene; it
 never ends a quest itself. When a Continuity model is chosen, it says when a turn ended one.
 
@@ -17,11 +20,13 @@ import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from dungeon import record
-from dungeon.database import many
+from dungeon import factions, feelings, inventory, record
+from dungeon.database import decode, encode, identifier, many, optional
 
 ADVENTURES = Path(__file__).parent / 'world' / 'data' / 'adventures'
 STATUSES = ('open', 'done', 'failed', 'missed')
+OATH_DAYS = 7
+MOST_OATH = 300
 DANGER_STAT = 'Luck'
 # The bands where a danger's threat comes true.
 BITES = ('critical_failure', 'failure', 'failure_upside')
@@ -42,6 +47,8 @@ def start(connection, city_id: str, at: datetime):
 
 
 def with_text(row: dict) -> dict:
+    if row.get('title'):
+        return row | {'ties': decode(row['ties'] or '[]')}
     quest = next((item for item in adventure(row['city_id'])['quests'] if item['id'] == row['id']), None)
     return row | {key: quest[key] for key in ('title', 'hook', 'truth', 'missed')} if quest else row
 
@@ -63,6 +70,33 @@ def left_text(due_at: str | None, now: datetime) -> str:
     return f'about {round(hours / 24)} days left'
 
 
+def create(connection, kind: str, city_id: str, title: str, hook: str, truth: str, missed: str, due_at: str | None,
+           **extra) -> str:
+    """A new quest of a job's or an oath's own: `extra` is faction_id, giver, reward, standing, arc_id, ties."""
+    quest_id = f'{kind}-{identifier()[:12]}'
+    connection.execute('INSERT INTO story_quests (id, city_id, status, known, due_at, kind, title, hook, truth, missed, '
+                       'faction_id, giver, reward, standing, arc_id, ties) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, '
+                       '?, ?, ?, ?)', (quest_id, city_id, 'open', due_at, kind, title, hook, truth, missed,
+                                       extra.get('faction_id'), extra.get('giver'), extra.get('reward', 0),
+                                       extra.get('standing', 0), extra.get('arc_id'), encode(extra.get('ties', []))))
+    return quest_id
+
+
+def settle(connection, quest: dict, status: str):
+    """What a job or an oath leaves when it ends: pay and standing, or the trust an oath cost."""
+    faction = quest.get('faction_id') and factions.anywhere(quest['faction_id'])
+    if quest.get('kind') == 'job' and status == 'done':
+        inventory.set_purse(connection, inventory.purse(connection) + (quest.get('reward') or 0))
+        if faction:
+            factions.shift(connection, faction, quest.get('standing') or 1)
+    elif quest.get('kind') == 'job' and status == 'failed' and faction:
+        factions.shift(connection, faction, -1)
+    elif quest.get('kind') == 'oath' and status != 'done' and quest.get('giver'):
+        person = optional(connection, 'SELECT key FROM story_people WHERE lower(name)=lower(?)', (quest['giver'],))
+        if person:
+            feelings.change(connection, person['key'], {'trust': -2, 'respect': -1}, f"broke an oath: {quest['title']}")
+
+
 def check(connection, now: datetime, stamp: str):
     """Deadlines the story clock has passed: the quest is missed and its stakes go in the record."""
     for quest in rows(connection, 'open'):
@@ -71,12 +105,17 @@ def check(connection, now: datetime, stamp: str):
                                (quest['missed'], quest['id']))
             if quest['missed']:
                 record.add(connection, 'fact', quest['title'], quest['missed'], stamp)
+            settle(connection, quest, 'missed')
 
 
 def end(connection, quest_id: str, status: str, outcome: str):
-    if status in ('done', 'failed'):
-        connection.execute("UPDATE story_quests SET status=?, known=1, outcome=? WHERE id=? AND status='open'",
-                           (status, outcome.strip()[:500], quest_id))
+    if status not in ('done', 'failed'):
+        return
+    quest = next((item for item in rows(connection, 'open') if item['id'] == quest_id), None)
+    connection.execute("UPDATE story_quests SET status=?, known=1, outcome=? WHERE id=? AND status='open'",
+                       (status, outcome.strip()[:500], quest_id))
+    if quest:
+        settle(connection, quest, status)
 
 
 def prompt_text(connection, now: datetime) -> str:
@@ -100,6 +139,7 @@ def prompt_text(connection, now: datetime) -> str:
 def view(connection, now: datetime) -> list[dict]:
     """The quests the player's character knows of, with the time left; hidden truth stays out."""
     return [{'id': quest['id'], 'title': quest['title'], 'hook': quest['hook'], 'status': quest['status'],
+             'kind': quest.get('kind') or 'authored',
              'outcome': quest['outcome'], 'left': left_text(quest['due_at'], now) if quest['status'] == 'open' else ''}
             for quest in rows(connection) if quest['known']]
 
@@ -114,6 +154,35 @@ def ending_ask(connection) -> str:
     listed = '\n'.join(f"- {quest['id']}: {quest['title']}. {quest['hook']}" for quest in quests)
     return ('\n\nThese quests are open:\n' + listed + '\nOnly if this turn settled one for good, add "quests": '
             '[{"id": "...", "status": "done" or "failed", "outcome": "one sentence"}] to your answer.')
+
+
+def oath_ask() -> str:
+    """Added to the Continuity model's question every turn: oaths the player's character swore."""
+    return ('\n\nOnly if the player\'s character this turn made a promise, oath, threat or bargain they are bound to '
+            'keep, add "oaths": [{"to": "who it was made to, by name", "text": "what they swore, in one sentence", '
+            '"days": the days it gives them, or null}] to your answer.')
+
+
+def oaths(answer: str) -> list[dict]:
+    match = re.search(r'\{.*\}', answer, re.S)
+    try:
+        data = json.loads(match.group(0)) if match else {}
+    except json.JSONDecodeError:
+        return []
+    items = data.get('oaths') if isinstance(data, dict) else None
+    return [{'to': str(item.get('to') or '').strip()[:80], 'text': str(item['text']).strip()[:MOST_OATH],
+             'days': item['days'] if isinstance(item.get('days'), int) and 0 < item['days'] <= 365 else OATH_DAYS}
+            for item in items or [] if isinstance(item, dict) and str(item.get('text') or '').strip()]
+
+
+def swear(connection, city_id: str, oath: dict, now: datetime) -> str:
+    """An oath kept as a quest, with its deadline on the story clock."""
+    to = oath['to'] or 'someone'
+    return create(connection, 'oath', city_id, f'An oath to {to}', oath['text'],
+                  f"The player's character swore it to {to}. Keeping it, or not, will be remembered.",
+                  f'The oath to {to} was broken. {to} remembers.',
+                  (now + timedelta(days=oath['days'])).isoformat(), giver=to,
+                  ties=[{'kind': 'npc', 'ref': to}])
 
 
 def endings(answer: str) -> list[dict]:

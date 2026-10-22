@@ -46,6 +46,56 @@ CLOCKS = {
 }
 
 
+# The jobs each faction offers in the towns it holds, when it needs something done (dungeon/jobs.py): what the
+# character is asked, what is really going on, what happens if nobody does it, the days given, the pay in day wages,
+# the standing it earns, and what it leaves behind (ties, for the story director).
+JOBS = {
+    'kingdom-of-cyrel': [
+        {'id': 'deserter-in-the-woods', 'title': 'A deserter in the woods', 'days': 5, 'wages': 4, 'standing': 1,
+         'giver': "the reeve's men",
+         'hook': "The reeve's men want a deserter from Bastion found before the levy officer arrives: a local boy, "
+                 'hiding somewhere in the woods with a stolen cloak.',
+         'truth': "He ran because his sergeant sold the company's winter boots, and he can prove it. The sergeant "
+                  'has friends in Cyrel who would rather the boy hanged quietly.',
+         'missed': "The levy officer came and found no deserter, so he hanged the boy's father in his place.",
+         'ties': [{'kind': 'npc', 'ref': 'the deserter'}, {'kind': 'clue', 'ref': 'the sold boots'}]},
+        {'id': 'levy-rolls-to-eriane', 'title': 'The levy rolls to Eriane', 'days': 4, 'wages': 3, 'standing': 1,
+         'giver': 'the reeve',
+         'hook': 'The reeve needs the levy rolls carried to the magistrate in Eriane within four days, and trusts no '
+                 'carter with them.',
+         'truth': 'Half the names on the rolls were bought off. Someone in Eriane will pay well for the true list, '
+                  "and the reeve's own nephew is not on it.",
+         'missed': "The rolls never reached Eriane. Cyrel's magistrate has written to ask why, and the reeve's name "
+                   'is mud.',
+         'ties': [{'kind': 'item', 'ref': 'the levy rolls'}, {'kind': 'faction', 'ref': 'kingdom-of-cyrel'}]},
+    ],
+    'cyrel-timber-guild': [
+        {'id': 'debt-at-cutters-camp', 'title': "A debt at Cutters' Camp", 'days': 3, 'wages': 3, 'standing': 1,
+         'giver': 'the Guild factor',
+         'hook': "The Guild factor wants a feller's debt collected, nine crowns, by any means short of murder.",
+         'truth': "The feller borrowed to bury his wife. The factor took a cut of the undertaker's fee as well, and "
+                  'keeps a second ledger nobody is meant to see.',
+         'missed': 'The Guild sent its own men. The feller lost two fingers and his place on the crews.',
+         'ties': [{'kind': 'npc', 'ref': 'the indebted feller'}, {'kind': 'item', 'ref': "the factor's second ledger"}]},
+        {'id': 'who-breaks-the-saws', 'title': 'Who breaks the saws', 'days': 6, 'wages': 5, 'standing': 2,
+         'giver': 'the Guild factor',
+         'hook': 'Someone has been breaking the big saws at the mill by night. The Guild pays well for a name.',
+         'truth': "It is the factor's own nephew, paid by friends of the elves in town to slow the felling.",
+         'missed': 'The Guild blamed the night watchman and turned him out. The saws keep breaking.',
+         'ties': [{'kind': 'npc', 'ref': "the factor's nephew"}, {'kind': 'faction', 'ref': 'brynwyr-high-elves'}]},
+    ],
+    'brynwyr-high-elves': [
+        {'id': 'a-message-past-the-stones', 'title': 'A message past the stones', 'days': 3, 'wages': 2,
+         'standing': 1, 'giver': 'a warden of Brynwyr',
+         'hook': 'A grey-fletched arrow came with a strip of bark: whoever carries a message to the reeve and keeps '
+                 'quiet about it will be remembered past the stones.',
+         'truth': 'The message names the night the wardens mean to burn the camp if the felling goes ahead. The reeve '
+                  'already knows, and has told no one.',
+         'missed': 'No one carried the message. The wardens take the silence for an answer.',
+         'ties': [{'kind': 'faction', 'ref': 'brynwyr-high-elves'}, {'kind': 'item', 'ref': 'the bark message'}]},
+    ],
+}
+
 def slug(name: str) -> str:
     return ''.join(ch if ch.isalnum() else '-' for ch in name.lower()).strip('-').replace('--', '-')
 
@@ -63,7 +113,8 @@ def build() -> dict:
             'rivals': [other for other in item.get('rivals', []) if other in CLOCKS],
             'allies': [other for other in item.get('allies', []) if other in CLOCKS],
             'clocks': [{'id': slug(name), 'name': name, 'segments': segments, 'done': done}
-                       for name, segments, done in clocks]})
+                       for name, segments, done in clocks],
+            'jobs': JOBS.get(faction_id, [])})
     return {'about': 'Built by scripts/world/vallarith_factions.py from worlds/vallarith/factions.json.',
             'world': 'vallarith', 'pace': PACE, 'factions': result}
 

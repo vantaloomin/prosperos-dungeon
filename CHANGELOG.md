@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Work and oaths.** Cyrel's reeve, the Timber Guild and the wardens past the stones put work your way: find a
+  deserter, collect a debt, carry a message nobody should know about. It pays and wins standing, and failing it
+  costs you. Promises you make in the story are kept as oaths with deadlines, and the people you swore to remember
+  if you break them.
 - **Factions.** Cyrel's crown, the Timber Guild, the elves past the border stones and the powers beyond pursue
   their own ends on the story clock: a war levy, a sawmill bought out, border stones moved in the night. The news
   reaches you in town whether or not you had a hand in it. Powers beside the story shows who you know of and how

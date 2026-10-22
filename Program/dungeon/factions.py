@@ -46,6 +46,11 @@ def find(world: str, faction_id: str) -> dict | None:
     return next((item for item in factions(world) if item['id'] == faction_id), None)
 
 
+def anywhere(faction_id: str) -> dict | None:
+    """A faction by its id, in whichever world has it."""
+    return next((found for path in sorted(FACTIONS.glob('*.json')) if (found := find(path.stem, faction_id))), None)
+
+
 def local(world: str, node_id: str) -> list[dict]:
     """The factions with a hand in a place on the travel map."""
     return [item for item in factions(world) if node_id in item['holds']]
