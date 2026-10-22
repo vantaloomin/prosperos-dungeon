@@ -113,9 +113,9 @@ export function branchLine(branch: Pick<StoryBranch, 'turns' | 'last_at'>): stri
 const KINDS: Record<string, string> = { death: 'Death', item: 'Item', wound: 'Wound', promise: 'Promise', location: 'Place', secret: 'Secret', relationship: 'Relationship', fact: 'Fact' }
 
 /** "Wound · you", and whether the character only believes it. */
-export function journalKind(entry: Pick<JournalEntry, 'kind' | 'subject' | 'truth'>): string {
+export function journalKind(entry: Pick<JournalEntry, 'kind' | 'subject' | 'truth' | 'faded'>): string {
   const truth = entry.truth === 'belief' ? ' (you believe)' : entry.truth === 'world' ? ' (hidden from you)' : ''
-  return `${KINDS[entry.kind] ?? 'Fact'} · ${entry.subject}${truth}`
+  return `${KINDS[entry.kind] ?? 'Fact'} · ${entry.subject}${truth}${entry.faded ? ' · fading' : ''}`
 }
 
 const QUEST_ENDS: Record<string, string> = { done: 'Done', failed: 'Failed', missed: 'Too late' }

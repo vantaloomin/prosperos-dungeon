@@ -26,6 +26,12 @@ export interface WorkspaceSettings {
   show_adult_side?: boolean
   /** Seconds a story turn may take before its optional steps give way; 0 is automatic (dungeon/pace.py). */
   turn_budget?: number
+  /** Rewrite a narration that clashes with the record before it is shown; on by default (dungeon/story.py told). */
+  contradiction_check?: boolean
+  /** Tokens a turn may send at most; 0 is the model's whole window (dungeon/remembering.py). */
+  context_cap?: number
+  /** The GM view of the record: hidden truth shown and editable (dungeon/record.py). */
+  gm_view?: boolean
   /** How far the story goes on the page; 'world' follows the world's own preset. */
   intensity?: IntensityPreset
   /** Settings > Debug: every model request and response is written in full to logs/model-calls; off by default. */
@@ -259,7 +265,7 @@ export interface SheetGrowth { marked: string[]; dark: { id: string; name: strin
 export interface StoryTier { tier: string; words: string; track: string; arc: StoryArc; pace: StoryPace; points?: number; next?: number | null }
 /** A fact the game keeps that the player's character knows (dungeon/record.py). */
 /** `world` (hidden truth) and `pulled` (a fact the model took from the story) show only in the GM view. */
-export interface JournalEntry { id: string; kind: string; subject: string; text: string; truth: 'world' | 'belief' | 'both'; source: 'code' | 'narrator' | 'player'; pulled?: boolean; created_at: string }
+export interface JournalEntry { id: string; kind: string; subject: string; text: string; truth: 'world' | 'belief' | 'both'; source: 'code' | 'narrator' | 'player'; pulled?: boolean; faded?: boolean; created_at: string }
 export interface JournalQuest { id: string; title: string; hook: string; status: 'open' | 'done' | 'failed' | 'missed'; outcome: string; left: string; kind?: 'authored' | 'job' | 'oath' }
 /** A thread in the director's notebook the character has come across, as they understand it (dungeon/director.py). */
 export interface JournalThread { id: string; kind: 'mystery' | 'grudge' | 'lead' | 'promise'; title: string; seen: string }

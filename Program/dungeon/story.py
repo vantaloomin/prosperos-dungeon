@@ -32,6 +32,7 @@ from dungeon import (
     quests,
     record,
     referee,
+    remembering,
     rest,
     safety,
     story_clock,
@@ -554,16 +555,28 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
             who_text = f'{who_text}\n{extra}' if who_text else extra
     shop, level = shop_view(connection, view), intensity(connection, view['data'])
     found = happenings.where(view['city']['id'], view['place']['id'])
-    memory = '\n\n'.join(part for part in (record.summary_text(connection), record.prompt_text(connection),
-                                             quests.prompt_text(connection, now), beats.prompt_text(connection),
-                                             found and factions.prompt_text(connection, found['world'], found['node']),
-                                             found and tiers.prompt_text(connection, found))
-                         if part)
+    after = record.summary(connection)['through_seq']
+    rows = [row for row in messages(connection) if after < row['seq'] <= latest['seq']]
+    # What the scene is about, for the facts recalled by relevance (dungeon/remembering.py).
+    focus = ' '.join([latest['text'], view['place']['name'], *(person['sheet']['name'] for person in view['people']),
+                      *(row['text'] for row in rows[-2:])])
     place_text = scene_text(view) + (f"\n\n{inventory.shop_prompt(shop, view['data']['currency'])}" if shop else '')
-    system = narration_prompt.system(prompt_library.text(connection, 'story-narrator'), craft, scene=place_text,
-                                     persona=who_text, persona_name=name, memory=memory, narration=NARRATION,
-                                     intensity=narration_prompt.Intensity.preset(level['preset'], level['voice']),
-                                     outcomes=outcomes, rolls_shown=dice_shown(connection))
+    window = remembering.room(connection, config)
+    # The summary gives way first, then the record's facts, so the recent turns keep at least half the window.
+    for summary_kept, facts in ((True, record.IN_PROMPT), (False, record.IN_PROMPT), (False, record.IN_PROMPT // 4)):
+        memory = '\n\n'.join(part for part in (summary_kept and record.summary_text(connection),
+                                                 record.prompt_text(connection, focus, facts),
+                                                 quests.prompt_text(connection, now), beats.prompt_text(connection),
+                                                 found and factions.prompt_text(connection, found['world'],
+                                                                                found['node']),
+                                                 found and tiers.prompt_text(connection, found))
+                             if part)
+        system = narration_prompt.system(prompt_library.text(connection, 'story-narrator'), craft, scene=place_text,
+                                         persona=who_text, persona_name=name, memory=memory, narration=NARRATION,
+                                         intensity=narration_prompt.Intensity.preset(level['preset'], level['voice']),
+                                         outcomes=outcomes, rolls_shown=dice_shown(connection))
+        if len(system) <= (window - config['max_output_tokens']) * CHARS_PER_TOKEN // 2:
+            break
     for extra in (travel.prompt_text(travelled or []), rest.prompt_text(rested or []),
                   injuries.treatment_text(tended or []), happenings.prompt_text(carded or []),
                   beats.cutaway_text(meanwhile or []), *(noted or []), combat.prompt_text(fought or [], connection),
@@ -572,10 +585,8 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
             system += '\n\n' + extra
     if in_character.out_of_character(latest['text']):
         system += '\n\n' + in_character.OUT_OF_CHARACTER_NOTE.format(name='the narrator', model=default_name(config))
-    budget = (config['context_tokens'] - config['max_output_tokens']) * CHARS_PER_TOKEN - len(system)
+    budget = (window - config['max_output_tokens']) * CHARS_PER_TOKEN - len(system)
     # Older messages are in the summary; the narrator reads the rest word for word.
-    after = record.summary(connection)['through_seq']
-    rows = [row for row in messages(connection) if after < row['seq'] <= latest['seq']]
     chat = model_messages(rows, max(budget, 2000))
     if not in_character.out_of_character(latest['text']):
         chat = steered(chat, authors_note.prompt_text(connection, 'story'))
@@ -638,6 +649,13 @@ def haggle_lines(connection, city: str, shop: dict, day: str, rolls: list[dict],
     if roll['band'] == 'success_cost' and keeper_key:
         feelings.change(connection, keeper_key, {'affection': -1}, 'Beat me down on price.')
     return [f"The haggle settles today's prices: {inventory.haggle_text(percent) or 'no change'}."]
+
+
+def recall_turn(state, rolls: list[dict]) -> list[str]:
+    """A faded detail the line tried to recall (dungeon/remembering.py), brought back to mind on a success."""
+    with state.database.connect(write=True) as connection:
+        lines = remembering.recalled(connection, rolls)
+    return ['## What the character remembers\n' + '\n'.join(lines)] if lines else []
 
 
 def look_turn(state, user: dict, rolls: list[dict]) -> list[str]:
@@ -911,6 +929,9 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
         moment = story_clock.now(connection, database.clock)
         if mend := injuries.decide(connection, user['text'], scene(connection, moment)['people']):
             actions = [*actions, mend]
+        if memory := remembering.recall_action(connection, user['text']):
+            # The recall roll is the line's Mind roll; the Referee's own is dropped for it.
+            actions = [*(action for action in actions if action['stat'] != 'Mind'), memory]
         actions = injuries.adjust(connection, combat.adjust(connection, feelings.adjust(connection, actions)), moment)
         return turn.saved(connection, user['id']) or turn.store(connection, user['id'], actions, database.now(),
                                                                 getattr(state, 'dice', None))
@@ -937,12 +958,14 @@ async def told(state, packet: dict, config: dict, in_story: bool, steps: pace.St
         steps.skip('rewrite')
     with state.database.connect() as connection:
         names = pace.named_dead(record.dead(connection), text)
+        checking = bool(settings(connection)['contradiction_check'])
     unchecked = []
-    if names and steps.has_time():
+    if names and checking and steps.has_time():
         since = steps.clock()
         text = await pace.contradiction(text, names, rewrite)
         steps.timed('contradiction', since)
     elif names:
+        # Skipped for time, or by the player's setting: the passage is flagged for them to rewrite instead.
         steps.skip('contradiction')
         unchecked = names
     with state.database.connect() as connection:
@@ -1022,7 +1045,7 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
     rested = rest_turn(state, user, rolls) if in_story else []
     carded = town_turn(state, user) if in_story else []
     meanwhile = beats_turn(state, user) if in_story else []
-    noted = director_turn(state, user) if in_story else []
+    noted = director_turn(state, user) + recall_turn(state, rolls) if in_story else []
     fought = fight_round(state, user, rolls) if in_story else []
     traded = counter_turn(state, user, rolls) if in_story else []
     tended = treat_turn(state, user, rolls) if in_story else []
@@ -1042,6 +1065,7 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
                                        database.now(), packet['day'])
             feelings.from_rolls(connection, rolls)
             growth.mark(connection, rolls, user['id'])
+            remembering.refresh(connection, f"{user['text']}\n{text}")
             # What the line touched in the GM's notebook, and the scene's kind (dungeon/director.py).
             if found := happenings.where(packet['city_id'], scene_row(connection)['place_id']):
                 director.touch(connection, found['world'], f"{user['text']}\n{text}",
