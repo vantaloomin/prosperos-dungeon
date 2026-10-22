@@ -7,6 +7,9 @@ The app decides the scene from the city data and the townsfolk rules: the place,
 weather, and who is there at that hour. The narrator model only voices it. Moving somewhere else is the
 user's choice in the place picker, not the model's.
 """
+import asyncio
+import logging
+import time
 from datetime import datetime
 
 from dungeon import (
@@ -16,6 +19,7 @@ from dungeon import (
     in_character,
     inventory,
     ledger,
+    pace,
     prompt_library,
     quests,
     referee,
@@ -40,6 +44,7 @@ from dungeon.text_models import config_for, default_name, key_for
 from dungeon.world import catalog, changes, custom, generators, inside, life_details, townsfolk
 
 JOB = 'story'
+log = logging.getLogger(__name__)
 DEFAULT_CITY = 'kingswood'
 HISTORY_LIMIT = 200
 CHARS_PER_TOKEN = 4
@@ -336,10 +341,12 @@ def dice_shown(connection) -> bool:
 
 
 def with_rolls(connection, rows: list[dict]) -> list[dict]:
-    """The rolls under each of the player's lines, only while the dice are shown; hidden dice never leave the app."""
+    """The rolls under each of the player's lines, and how long its turn took (dungeon/pace.py), only while the dice
+    are shown; hidden dice never leave the app."""
     if not dice_shown(connection):
         return rows
-    return [{**row, 'rolls': [turn.shown(roll) for roll in turn.saved(connection, row['id'])]}
+    return [{**row, 'rolls': [turn.shown(roll) for roll in turn.saved(connection, row['id'])],
+             'pace': decode(pace.saved(connection, row['id']) or 'null')}
             if row['role'] == 'user' else row for row in rows]
 
 
@@ -444,7 +451,7 @@ def clear(database) -> dict:
         connection.execute('DELETE FROM story_people')
         for table in ('ledger_entries', 'ledger_corrections', 'story_summary', 'story_clock', 'story_quests',
                       'story_inventory', 'story_purse', 'story_stock', 'story_trades', 'story_wounds', 'story_fight',
-                      'story_haggles', 'story_counter',
+                      'story_haggles', 'story_counter', 'story_turn_steps',
                       'story_rounds'):
             connection.execute(f'DELETE FROM {table}')
         timeline.clear(connection)
@@ -511,15 +518,21 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
             'city_id': view['city']['id'], 'day': datetime.fromisoformat(view['local_time']).date()}
 
 
-async def narrate(state, packet: dict, config: dict, active: bool) -> tuple[str, str | None]:
+async def narrate(state, packet: dict, config: dict, active: bool, on_text=None) -> tuple[str, str | None]:
+    """The narrator's reply as it is written; `on_text(piece)` gets each piece as it comes, for the stream."""
     guard, text, error = in_character.Guard(active), [], None
     async with state.scheduler.reserve(config, CONVERSATION):
         async for chunk in state.provider.stream(config, key_for(state.vault, config), packet['system'],
                                                         packet['messages']):
-            text.append(guard.feed(chunk.text))
+            piece = guard.feed(chunk.text)
+            text.append(piece)
+            if piece and on_text is not None:
+                await on_text(piece)
             if chunk.finish_reason == 'content_filter':
                 error = INCOMPLETE[chunk.finish_reason]
-    text.append(guard.flush())
+    text.append(tail := guard.flush())
+    if tail and on_text is not None:
+        await on_text(tail)
     return ''.join(text).strip(), error
 
 
@@ -578,44 +591,82 @@ def fight_round(state, user: dict, rolls: list[dict]) -> list[str]:
                            database.now())
 
 
-async def answer(state, user: dict) -> dict:
-    """The narrator's reply to the user's message, saved complete or failed with the reason."""
+class After:
+    """What a turn still does once its reply is on screen (dungeon/pace.py): fact extraction and the summary. It runs
+    once, after the response or, if the next turn comes first, at the start of that turn."""
+
+    def __init__(self, work):
+        self.work, self.started, self.done = work, False, None
+
+    async def run(self):
+        if self.started:
+            if self.done is not None:
+                await self.done.wait()
+            return
+        self.started, self.done = True, asyncio.Event()
+        try:
+            await self.work()
+        finally:
+            self.done.set()
+
+
+async def settled(state):
+    """The last turn's after-work, finished before a new turn starts."""
+    if (after := getattr(state, 'after_turn', None)) is not None:
+        await after.run()
+
+
+async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
+    """The turn's rolls: kept from an earlier telling, or decided now (obvious lines skip the Referee's model)."""
     database = state.database
-    in_story = not in_character.out_of_character(user['text'])
     with database.connect() as connection:
-        config = config_for(connection, JOB)
-        if config is None:
-            raise no_model()
         rolls, judge = turn.saved(connection, user['id']), referee.own_model(connection)
-    if in_story and not rolls:
-        actions = await referee.decide(state, user['text'], judge)
-        if hazard := quests.danger_action(user['city_id'], user['place_id'], getattr(state, 'dice', None)):
-            actions = [*actions, hazard]
-        with database.connect(write=True) as connection:
-            actions = combat.adjust(connection, feelings.adjust(connection, actions))
-            rolls = turn.saved(connection, user['id']) or turn.store(connection, user['id'], actions, database.now(),
-                                                                       getattr(state, 'dice', None))
-    fought = fight_round(state, user, rolls) if in_story else []
-    traded = counter_turn(state, user, rolls) if in_story else []
-    with database.connect() as connection:
-        packet = prompt(connection, story_clock.now(connection, database.clock), config, user,
-                        turn.outcomes(rolls) if in_story else None, fought, traded)
+    if rolls:
+        return rolls
+    since = steps.clock()
+    actions = await referee.decide(state, user['text'], None if pace.obvious(user['text']) else judge)
+    steps.timed('referee', since)
+    if hazard := quests.danger_action(user['city_id'], user['place_id'], getattr(state, 'dice', None)):
+        actions = [*actions, hazard]
+    with database.connect(write=True) as connection:
+        actions = combat.adjust(connection, feelings.adjust(connection, actions))
+        return turn.saved(connection, user['id']) or turn.store(connection, user['id'], actions, database.now(),
+                                                                getattr(state, 'dice', None))
+
+
+async def told(state, packet: dict, config: dict, in_story: bool, steps: pace.Steps, on_text) -> tuple[str, str | None]:
+    """The narration, then (time allowing) the prose rewrite and, only when it names the dead, the contradiction check."""
+    since = steps.clock()
     try:
-        text, error = await narrate(state, packet, config, in_story)
+        text, error = await narrate(state, packet, config, in_story, on_text)
     except DomainError as failure:
         text, error = '', failure.message
-    if text and not error and in_story:
-        text, _ = await prose.polish(text, lambda system, messages: complete(state, config, system, messages))
-    status = 'complete' if text and not error else 'failed'
-    error = None if status == 'complete' else error or 'The model returned no story text.'
-    with database.connect(write=True) as connection:
-        connection.execute("DELETE FROM story_messages WHERE reply_to=? AND status='failed'", (user['id'],))
-        if status == 'complete' and not in_character.out_of_character(user['text']):
-            story_people.note_exchange(connection, packet['people'], packet['city_id'], user['text'], text,
-                                       database.now(), packet['day'])
-            feelings.from_rolls(connection, rolls)
-        reply = add(connection, database.now(), 'narrator', text, user, reply_to=user['id'], status=status, error=error)
-    if status == 'complete' and in_story:
+    steps.timed('narrator', since)
+    if not text or error or not in_story:
+        return text, error
+    rewrite = lambda system, messages: complete(state, config, system, messages)  # noqa: E731
+    since, timely = steps.clock(), steps.has_time()
+    text, _ = await prose.polish(text, rewrite if timely else None)
+    if timely:
+        steps.timed('rewrite', since)
+    else:
+        steps.skip('rewrite')
+    with state.database.connect() as connection:
+        names = pace.named_dead(ledger.dead(connection), text)
+    if names and steps.has_time():
+        since = steps.clock()
+        text = await pace.contradiction(text, names, rewrite)
+        steps.timed('contradiction', since)
+    elif names:
+        steps.skip('contradiction')
+    return text, None
+
+
+async def afterwards(state, user: dict, reply: dict, packet: dict, steps: pace.Steps):
+    """Fact extraction and the summary, once the reply is on screen; a failure here never loses the turn."""
+    database = state.database
+    try:
+        since = steps.clock()
         with database.connect() as connection:
             there = [{'key': row['key'], 'name': row['name']} for row in feelings.met(connection)
                      if row['key'] in {person['sheet']['key'] for person in packet['people']}]
@@ -625,9 +676,49 @@ async def answer(state, user: dict) -> dict:
             for item in quests.endings(answered):
                 quests.end(connection, item['id'], item['status'], item['outcome'])
             feelings.from_answer(connection, answered, {person['key'] for person in there})
+        steps.timed('extraction', since)
+        since = steps.clock()
         with database.connect() as connection:
             rows = messages(connection)
         await ledger.fold(state, rows)
+        steps.timed('summary', since)
+        with database.connect(write=True) as connection:
+            if optional(connection, 'SELECT 1 FROM story_messages WHERE id=?', (user['id'],)):
+                pace.save(connection, user['id'], steps)
+    except Exception:  # noqa: BLE001 - facts missed are better than a story that stops
+        log.exception('After the turn')
+
+
+async def answer(state, user: dict, on_text=None) -> dict:
+    """The narrator's reply to the user's message, saved complete or failed with the reason. Fact extraction and the
+    summary are left for `state.after_turn`, run once the reply is on screen (dungeon/pace.py)."""
+    await settled(state)
+    database = state.database
+    in_story = not in_character.out_of_character(user['text'])
+    with database.connect() as connection:
+        config = config_for(connection, JOB)
+        if config is None:
+            raise no_model()
+        steps = pace.Steps(pace.budget_for(connection, config), getattr(state, 'pace_clock', None) or time.monotonic)
+    rolls = await rolled(state, user, steps) if in_story else []
+    fought = fight_round(state, user, rolls) if in_story else []
+    traded = counter_turn(state, user, rolls) if in_story else []
+    with database.connect() as connection:
+        packet = prompt(connection, story_clock.now(connection, database.clock), config, user,
+                        turn.outcomes(rolls) if in_story else None, fought, traded)
+    text, error = await told(state, packet, config, in_story, steps, on_text)
+    status = 'complete' if text and not error else 'failed'
+    error = None if status == 'complete' else error or 'The model returned no story text.'
+    with database.connect(write=True) as connection:
+        connection.execute("DELETE FROM story_messages WHERE reply_to=? AND status='failed'", (user['id'],))
+        if status == 'complete' and in_story:
+            story_people.note_exchange(connection, packet['people'], packet['city_id'], user['text'], text,
+                                       database.now(), packet['day'])
+            feelings.from_rolls(connection, rolls)
+        reply = add(connection, database.now(), 'narrator', text, user, reply_to=user['id'], status=status, error=error)
+        pace.save(connection, user['id'], steps)
+    if status == 'complete' and in_story:
+        state.after_turn = After(lambda: afterwards(state, user, reply, packet, steps))
     return reply
 
 
@@ -648,13 +739,14 @@ def record(database, text: str, client_id: str) -> tuple[dict, dict | None]:
         return user, reply
 
 
-async def send(state, text: str, client_id: str) -> dict:
+async def send(state, text: str, client_id: str, on_text=None) -> dict:
     user, reply = record(state.database, text, client_id)
-    return {'message': user, 'reply': reply or await answer(state, user)}
+    return {'message': user, 'reply': reply or await answer(state, user, on_text)}
 
 
-async def retry(state) -> dict:
+async def retry(state, on_text=None) -> dict:
     """Tell the last part again: a new reply to the user's latest message, replacing the one there."""
+    await settled(state)
     with state.database.connect(write=True) as connection:
         where, values = timeline.visible(connection)
         user = optional(connection, f"SELECT * FROM story_messages WHERE role='user' AND {where} ORDER BY seq DESC "
@@ -668,4 +760,4 @@ async def retry(state) -> dict:
         connection.execute('DELETE FROM story_messages WHERE reply_to=?', (user['id'],))
         # So are the meetings and feelings it moved; the kept rolls move them again.
         timeline.restore_at(connection, user['id'], ('story_people',))
-    return {'message': user, 'reply': await answer(state, user)}
+    return {'message': user, 'reply': await answer(state, user, on_text)}

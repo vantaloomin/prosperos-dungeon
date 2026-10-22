@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { aroundText, branchLine, fightText, haggleText, intensityChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats } from '../../src/features/story/storyText.ts'
+import { aroundText, branchLine, fightText, haggleText, paceText, intensityChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -107,4 +107,11 @@ test('haggleText says how a haggle moved today\'s prices', () => {
   assert.equal(haggleText(-15), '15% off today')
   assert.equal(haggleText(20), '20% dearer today')
   assert.equal(haggleText(0), '')
+})
+
+test('paceText says how long a turn took, its slowest step and what gave way', () => {
+  assert.equal(paceText({ steps: { referee: 0.4, narrator: 9.84 }, skipped: [], budget: 30, total: 10.3 }),
+    'Took 10.3 s of 30 · narrator 9.8 s')
+  assert.equal(paceText({ steps: { narrator: 41 }, skipped: ['rewrite', 'contradiction'], budget: 30, total: 41.2 }),
+    'Took 41.2 s of 30 · narrator 41.0 s · skipped the prose rewrite and the contradiction check for time')
 })

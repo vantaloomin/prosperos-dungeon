@@ -27,15 +27,18 @@ def test_facts_the_narrator_brings_in_are_kept_unless_they_contradict_the_ledger
     route_continuity(client)
     with app.state.database.connect(write=True) as connection:
         ledger.record(connection, 'death', 'Old Tom', 'Old Tom drowned off the pier.', app.state.database.now())
+    # The narration names the dead, so the contradiction check runs and its rewrite is used.
     provider.replies = [
         reply('Old Tom waves from the door. The bouncer swings and breaks your nose.'),
+        reply("Old Tom's stool by the door sits empty. The bouncer swings and breaks your nose."),
         reply('{"facts": [{"kind": "wound", "subject": "you", "text": "Your nose is broken.", "truth": "both"},'
               ' {"kind": "fact", "subject": "Old Tom", "text": "Old Tom is at the bar.", "truth": "both"},'
               ' {"kind": "secret", "subject": "the bouncer", "text": "The bouncer works for the co-op.",'
               ' "truth": "world"}, {"kind": "mood", "subject": "you", "text": "You feel sad."}]}')]
     tell(client, 'I shove past the bouncer.', 'story-0002')
+    assert 'The record says these people are dead: old tom.' in provider.requests[-2]['system']
     assert provider.requests[-1]['system'] == ledger.EXTRACT
-    assert 'The narrator: Old Tom waves' in provider.requests[-1]['messages'][0]['content']
+    assert "The narrator: Old Tom's stool" in provider.requests[-1]['messages'][0]['content']
     known = ok(client.get('/api/story/journal'))['entries']
     # The dead stay dead, hidden truth stays out of the journal, and a made-up kind is dropped.
     assert [(entry['kind'], entry['subject']) for entry in known] == [('wound', 'you'), ('death', 'Old Tom')]

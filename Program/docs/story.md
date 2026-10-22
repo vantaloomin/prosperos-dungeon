@@ -167,6 +167,31 @@ branch shows its parent's messages before the line it went back to, then its own
 "Tell it again" works on lines of the branch being played; a shared line keeps the reply it was told. A system that
 keeps game state adds its tables to `timeline.SAVED`.
 
+## Turn speed
+
+Milestone 1 item 11 (`dungeon/pace.py`, requirements "Turn speed"). A turn can chain the Referee, the narrator,
+the prose rewrite, a contradiction check, fact extraction and the summary, so each turn has a time budget and
+every step is timed.
+
+- **The budget** is Settings > Models > Turn speed: automatic (90 seconds when the narrator runs on this PC, 30 for
+  an online model) or a fixed time. Each step's time, and what gave way, is kept with the player's line
+  (`story_turn_steps`) and shown under it while the dice are shown.
+- **The narration streams** a sentence at a time (`POST /api/story/messages/stream`), as the in-character guard
+  passes it on.
+- **Fact extraction and the summary run after the reply is on screen.** They finish before the next turn starts:
+  a new line, or "Tell it again", waits for them.
+- **The contradiction check runs only when it is needed:** when the narration names someone the record says is
+  dead. The narrator's model is asked once to rewrite only what has them alive, and the rewrite is used only if it
+  stays about the same length. A clean turn costs no extra call.
+- **Obvious lines skip the Referee's model:** a line that is only speech and plain acts (walking, looking, sitting,
+  ordering, asking about something) has nothing to roll, so no model is asked. Telling or asking someone *to* do
+  something is persuasion and still goes to the Referee.
+- **Over budget, the optional steps give way:** the prose rewrite first, then the contradiction check. Dice, the
+  ledger and the em dash fix are never skipped.
+
+Not in v0: dead and spent items or people elsewhere in the contradiction check (only the dead), a GM view of
+skipped checks, and the dice log.
+
 ## How far the story goes
 
 Intensity v0 (`dungeon/story.py` `intensity`, requirements "Intensity and tone"). The narrator is told how far
@@ -196,11 +221,12 @@ A fixed layout for Milestone 1 (`src/features/story/Story.tsx`); the free grid o
 
 | Request | Does |
 | --- | --- |
-| `GET /api/story` | `{scene, messages, people, ready, dice_shown, branches, fight, intensity}`. `intensity` is `{preset, chosen, world, voice}`: the preset in play, the player's choice (`world` follows the world) and the world's own preset and voice. `fight` is `{condition, dead, fight}`: the character's wound level, whether they are dead, and the fight under way (null when none) with its `round` and `foes` (`name`, `state`, and `wound` while the dice are shown). `branches` lists every branch with `playing`, `turns`, `last_line` and `last_at`, the one being played first. User messages carry their `rolls` while the dice are shown. `people` are those met, newest first, with `meetings`, `notes`, `doing` and `place` now. `scene` has the city, place, `local_time` (city clock, no offset), `weather`, the city's `places` and `around` (who is there, named only once met). `ready` is false without a model. |
+| `GET /api/story` | `{scene, messages, people, ready, dice_shown, branches, fight, intensity}`. `intensity` is `{preset, chosen, world, voice}`: the preset in play, the player's choice (`world` follows the world) and the world's own preset and voice. `fight` is `{condition, dead, fight}`: the character's wound level, whether they are dead, and the fight under way (null when none) with its `round` and `foes` (`name`, `state`, and `wound` while the dice are shown). `branches` lists every branch with `playing`, `turns`, `last_line` and `last_at`, the one being played first. User messages carry their `rolls` and `pace` (`{steps, skipped, budget, total}`, seconds) while the dice are shown. `people` are those met, newest first, with `meetings`, `notes`, `doing` and `place` now. `scene` has the city, place, `local_time` (city clock, no offset), `weather`, the city's `places` and `around` (who is there, named only once met). `ready` is false without a model. |
 | `PUT /api/story/scene` `{city_id, place_id?}` | Moves there; a city alone means its opening place. 404 for an unknown city or place, 409 in the middle of a fight. |
 | `POST /api/story/messages` `{text, client_id}` | Saves the user's line once per `client_id` and returns `{message, reply}`. A failed reply is saved with `status: failed` and its `error`. Sending the same `client_id` again returns the saved reply, or tries again if it failed. 409 `no_connection` without a model; the line stays saved. 409 when the character is dead. |
 | `POST /api/story/find` `{key}` | Moves the story to where someone the user has met is now. 404 if not met, 409 if they are nowhere the story can go. |
 | `POST /api/story/retry` | Tells the reply to the latest user line again, replacing the one there. |
+| `POST /api/story/messages/stream` / `POST /api/story/retry/stream` | The same, streamed as newline-delimited JSON: `{"text": piece}` as the narration is written, then `{"done": {message, reply}}` once the reply is saved, or `{"error", "code", "status"}`. Fact extraction runs after `done`. |
 | `GET /api/story/start` | `{premades, points, range, stat_names, meanings}` for "Who are you?" in the scene's city. |
 | `POST /api/story/start` `{premade_id}` or `{persona, stats}` | Starts the story as a premade or a made character; 409 once the story has begun, 404 for a premade not in this town, 422 for a missing name or stats outside the point-buy. |
 | `GET /api/story/sheet` | `{stats, stat_names, range, dice}`: the character's MARVEL stats and the die each one adds. |

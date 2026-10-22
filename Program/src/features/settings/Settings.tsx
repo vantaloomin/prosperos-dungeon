@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 
 import { Search } from 'lucide-react'
 import { useAdvancedSettings } from './advanced'
 import { AdultSideSettings, HiddenValues } from './HiddenValues'
+import { TurnSpeed } from './TurnSpeed'
 import { AppearanceSettings } from './AppearanceSettings'
 import { ModelCalls } from './ModelCalls'
 import { Backups } from './Backups'
@@ -76,7 +77,7 @@ function useLanding() {
 function TabContent({ tab }: { tab: SettingsTab }) {
   const content: Record<SettingsTab, ReactNode> = {
     general: <><TimezoneSettings /><AppearanceSettings /></>,
-    models: <><HardwareCheck /><ModelSettings /><LocalPrograms /><BuiltinRecall /></>,
+    models: <><HardwareCheck /><ModelSettings /><TurnSpeed /><LocalPrograms /><BuiltinRecall /></>,
     world: <><Cities /><AdultSideSettings /><HiddenValues /></>,
     images: <ImageSettings />,
     data: <><DataFolder /><Backups /></>,

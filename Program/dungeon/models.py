@@ -85,6 +85,8 @@ class SettingsUpdate(Input):
     auto_backups: Literal['off', 'daily', 'weekly'] | None = None
     # How far the story goes on the page: the world's preset, or one the player chose (dungeon/story.py intensity).
     intensity: Literal['world', 'restrained', 'mature', 'unflinching'] | None = None
+    # Seconds a story turn may take before its optional steps give way (dungeon/pace.py); 0 is automatic.
+    turn_budget: Literal[0, 15, 30, 60, 90, 120, 180] | None = None
     # The first-run notice: the story is AI written, and the user is 18 or older. Only ever confirmed.
     ai_notice_confirmed: Literal[True] | None = None
 

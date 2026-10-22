@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Faster turns.** The story now streams in a sentence at a time, and the record keeping (facts, the story so
+  far) happens after you can read the reply. Plain lines like walking or ordering a drink skip the Referee's
+  model, and the check against the record runs only when the narration names someone who is dead. Each turn has
+  a time budget (Settings > Models > Turn speed); past it, the polishing steps give way, never the dice or the
+  record. With the dice shown, each line says how long its turn took.
 - **Haggle and buy in the story.** In an open shop, "I haggle over the rope" rolls Allure and moves the shop's
   prices for the rest of the day: up to a quarter off, or dearer if it goes badly. "I buy two loaves of bread"
   buys them at that price before the narrator writes the scene. The counter shows today's haggled prices.

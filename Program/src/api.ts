@@ -1,4 +1,6 @@
 // Request helper adapted from prosperos-study src/api.ts at bbcbde4: the Dungeon's client header and error codes.
+import { ndjsonLines } from './ndjson.ts'
+
 export class ApiError extends Error {
   constructor(message: string, public status: number, public code?: string) { super(message) }
 }
@@ -39,6 +41,42 @@ export async function api<T>(path: string, body?: unknown, method?: string): Pro
 function failure(status: number, data: { detail?: unknown; code?: string }): ApiError {
   if (data.code === 'world_changed') { window.location.hash = '#story'; window.location.reload() }
   return new ApiError(errorMessage(status, data), status, data.code)
+}
+
+type StreamEvent<T> = { text?: string; done?: T; error?: string; code?: string; status?: number }
+
+/** A POST whose answer streams as newline-delimited JSON (dungeon/story_routes.py streamed): `onText` gets each
+ * piece as it comes, and the promise resolves with the "done" result. */
+export async function streamApi<T>(path: string, body: unknown, onText: (piece: string) => void): Promise<T> {
+  let response: Response
+  try {
+    response = await fetch(`/api${path}`, { method: 'POST', headers: headers('application/json'), body: JSON.stringify(body) })
+  } catch {
+    throw new ApiError('Cannot reach the Dungeon. Check that it is still running.', 0, 'offline')
+  }
+  if (!response.ok || !response.body) throw failure(response.status, await response.json().catch(() => ({})))
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+  let buffer = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    const [events, rest] = ndjsonLines(buffer + value)
+    buffer = rest
+    const result = handled(events as StreamEvent<T>[], onText)
+    // The turn's after-work (fact extraction) carries on server-side; the reply is ready now.
+    if (result !== undefined) { void reader.cancel().catch(() => undefined); return result }
+  }
+  throw new ApiError('The story stopped before the reply was saved. Try again.', 0, 'stream')
+}
+
+/** Passes on streamed text, throws a streamed error, and gives back the result once it comes. */
+function handled<T>(events: StreamEvent<T>[], onText: (piece: string) => void): T | undefined {
+  for (const event of events) {
+    if (event.text) onText(event.text)
+    if (event.error) throw failure(event.status ?? 500, { detail: event.error, code: event.code })
+    if (event.done) return event.done
+  }
+  return undefined
 }
 
 export { newId } from './ids.ts'
