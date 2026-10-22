@@ -722,3 +722,10 @@ img.avatar, img.portrait { object-fit: cover; object-position: center top; paddi
 .receipt-chip svg { width: 13px; height: 13px; flex: none; }
 .receipt-chip.gain svg { color: var(--accent); }
 .receipt-chip.loss svg { color: var(--danger); }
+
+/* The status strip (src/features/story/StoryStatus.tsx): how things stand, one quiet line under the scene. */
+.status-strip { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 2px 0 6px; padding: 0; font-size: 0.85rem; color: var(--muted); }
+.status-item { display: inline-flex; align-items: center; gap: 5px; }
+.status-item svg { width: 14px; height: 14px; flex: none; }
+.status-item.loss { color: var(--text); }
+.status-item.loss svg { color: var(--danger); }

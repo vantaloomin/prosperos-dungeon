@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowDown, Bookmark, MapPin, RotateCcw, Send, Settings2, Timer, Undo2 } from 'lucide-react'
 import { api, newId, streamApi } from '../../api'
@@ -9,8 +9,9 @@ import { ErrorNotice } from '../../components/ErrorNotice'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { InfoTip } from '../../components/InfoTip'
 import { AiFooter, CrisisNote } from '../../components/Safety'
-import { aroundText, fightText, journeyTo, NO_TURN, paceText, placeGroups, receiptsByReply, sceneTime, spotsText, turnAfter, whereText } from './storyText'
+import { aroundText, foesText, journeyTo, NO_TURN, paceText, placeGroups, receiptsByReply, spotsText, turnAfter, whereText } from './storyText'
 import { TurnReceipt } from './StoryReceipt'
+import { StatusStrip } from './StoryStatus'
 import { RollCard, TurnLive } from './StoryTurn'
 import { StoryPeople } from './StoryPeople'
 import { CityOptions } from '../world/CityOptions'
@@ -101,13 +102,13 @@ function NoModel({ go }: { go: (view: View) => void }) {
 interface HeaderProps { story: StoryData; change: (request: () => Promise<StoryData>) => Promise<void>; onDraft: (text: string) => void }
 
 function StoryHeader({ story, change, onDraft }: HeaderProps) {
-  const fight = fightText(story.fight)
+  const fight = foesText(story.fight)
   return (
     <header className="story-header">
       <h1 id="story-heading" className="visually-hidden">Story</h1>
       <SceneBar scene={story.scene} journeys={story.map?.places.filter((place) => !place.here).map((place) => place.name) ?? []} onDraft={onDraft}
-        onMove={(body) => change(() => api<StoryData>('/story/scene', body, 'PUT'))} />
-      {fight && <p className={story.fight.fight || story.fight.dead ? 'story-fight' : 'subtle'} role="status">{fight}</p>}
+        onMove={(body) => change(() => api<StoryData>('/story/scene', body, 'PUT'))} status={<StatusStrip story={story} />} />
+      {fight && <p className="story-fight" role="status">{fight}</p>}
     </header>
   )
 }
@@ -144,9 +145,9 @@ function StoryPanel({ story, change, onTravel, onBack }: PanelProps) {
   )
 }
 
-interface SceneProps { scene: StoryScene; journeys: string[]; onDraft: (text: string) => void; onMove: (body: { city_id: string; place_id?: string }) => Promise<void> }
+interface SceneProps { scene: StoryScene; journeys: string[]; onDraft: (text: string) => void; onMove: (body: { city_id: string; place_id?: string }) => Promise<void>; status?: ReactNode }
 
-function SceneBar({ scene, journeys, onDraft, onMove }: SceneProps) {
+function SceneBar({ scene, journeys, onDraft, onMove, status }: SceneProps) {
   const [moving, setMoving] = useState(false)
   return (
     <div className="story-scene">
@@ -154,7 +155,7 @@ function SceneBar({ scene, journeys, onDraft, onMove }: SceneProps) {
         <p><MapPin aria-hidden="true" /> <strong>{whereText(scene)}</strong></p>
         {!moving && <button type="button" className="text-button" onClick={() => setMoving(true)}>Go somewhere else…</button>}
       </div>
-      <p className="subtle">{sceneTime(scene.local_time)}{scene.weather ? ` · ${scene.weather}` : ''}</p>
+      {status}
       {!!scene.place.spots?.length && <p className="subtle">{spotsText(scene.place.spots)}</p>}
       <p>{aroundText(scene.around)}</p>
       {moving && <GoElsewhere scene={scene} journeys={journeys} onDone={() => setMoving(false)} onDraft={onDraft} onMove={onMove} />}
@@ -162,7 +163,7 @@ function SceneBar({ scene, journeys, onDraft, onMove }: SceneProps) {
   )
 }
 
-interface GoProps extends Omit<SceneProps, 'scene'> { scene: StoryScene; onDone: () => void }
+interface GoProps extends Omit<SceneProps, 'scene' | 'status'> { scene: StoryScene; onDone: () => void }
 
 /** Somewhere on the travel map (a town, a keep) is a journey: it writes "I set out for…" into the composer, like the
  *  map does, so the road takes its hours and can bring trouble (dungeon/travel.py). A place across town is a cut. */

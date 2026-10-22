@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, challengeDice, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, threadKind, receiptsByReply } from '../../src/features/story/storyText.ts'
+import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, foesText, statusItems, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, challengeDice, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, threadKind, receiptsByReply } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -88,23 +88,27 @@ test('money, gear and slots read plainly', () => {
   assert.equal(slotsText({ used: 2.5, max: 10 }), '2.5 of 10 slots')
 })
 
-test('fightText says how the character is and who they are fighting', () => {
-  assert.equal(fightText({ condition: 'unhurt', dead: false, fight: null }), '')
-  assert.equal(fightText({ condition: 'hurt', dead: false, fight: null }), 'You are hurt.')
-  assert.equal(fightText({ condition: 'unhurt', dead: false, fight: null, injuries: ['a limp', 'a lost eye'] }),
-    'Lasting: a limp, a lost eye.')
-  assert.equal(fightText({ condition: 'hurt', dead: false, fight: null, stress: 'strained, 5 of 12', injuries: ['nightmares'] }),
-    'You are hurt. Nerve: strained, 5 of 12. Lasting: nightmares.')
-  assert.equal(fightText({ condition: 'grazed', dead: false, fight: { round: 1, foes: [
+test('foesText names who the character is fighting, or that they are dead', () => {
+  assert.equal(foesText({ condition: 'grazed', dead: false, fight: null }), '')
+  assert.equal(foesText({ condition: 'grazed', dead: false, fight: { round: 1, foes: [
     { name: 'the bandit', state: 'hurt', wound: null }, { name: 'the lookout', state: 'broken', wound: null }] } }),
-  'You are grazed. Fighting: the bandit (hurt), the lookout (broken).')
-  assert.equal(fightText({ condition: 'unhurt', dead: false, fight: { round: 1, foes: [{ name: 'the boar', state: 'hurt', wound: 2 }] } }),
+  'Fighting: the bandit (hurt), the lookout (broken).')
+  assert.equal(foesText({ condition: 'unhurt', dead: false, fight: { round: 1, foes: [{ name: 'the boar', state: 'hurt', wound: 2 }] } }),
     'Fighting: the boar (hurt, wound 2 of 5).')
-  assert.match(fightText({ condition: 'dying', dead: true, fight: null }), /dead/)
-  assert.equal(fightText({ condition: 'maimed', dead: false, fight: null, captors: 'warden of Brynwyr 1' }), 'You are maimed. Held prisoner by warden of Brynwyr 1.')
-  // Under 5E: hit points, the character's and (with the dice shown) the foes'.
-  assert.equal(fightText({ condition: 'hurt', dead: false, hp: 6, max_hp: 12, fight: { round: 1, foes: [{ name: 'the bandit', state: 'grazed', wound: 1, hp: 9, max_hp: 11 }] } }),
-    'You are hurt, 6 of 12 hit points. Fighting: the bandit (grazed, 9 of 11 HP).')
+  assert.match(foesText({ condition: 'dying', dead: true, fight: null }), /dead/)
+  // Under 5E, with the dice shown, the foes' hit points.
+  assert.equal(foesText({ condition: 'hurt', dead: false, fight: { round: 1, foes: [{ name: 'the bandit', state: 'grazed', wound: 1, hp: 9, max_hp: 11 }] } }),
+    'Fighting: the bandit (grazed, 9 of 11 HP).')
+})
+
+test('statusItems puts how things stand in a few words', () => {
+  const scene = { local_time: '1290-05-01T20:44:00', weather: 'rain' }
+  const texts = (fight: Parameters<typeof statusItems>[1], coin: string | null = '3.40 cr.') => statusItems(scene, fight, coin).map((item) => item.text)
+  assert.deepEqual(texts({ condition: 'unhurt', dead: false, fight: null }).slice(1), ['Unhurt', 'Nerve: steady', '3.40 cr.'])
+  assert.deepEqual(texts({ condition: 'hurt', dead: false, fight: null, hp: 6, max_hp: 12, stress: 'strained, 5 of 12', injuries: ['a limp', 'nightmares'], captors: 'the wardens' }, null).slice(1),
+    ['Hurt, 6 of 12 HP', 'Nerve: strained, 5 of 12', 'Lasting: a limp, nightmares', 'Held by the wardens'])
+  assert.deepEqual(texts({ condition: 'dying', dead: true, fight: null }).slice(1), ['Dead'])
+  assert.match(texts({ condition: 'unhurt', dead: false, fight: null })[0], / · rain$/)
 })
 
 test('intensityChoices offers the world\'s own preset first, by name', () => {
