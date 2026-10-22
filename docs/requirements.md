@@ -505,6 +505,75 @@ stored in the record as hidden truth.
   included, with no guaranteed warning. The player may find out late, or only by going back to an
   earlier branch.
 
+## The director
+
+Decided 2026-10-22 (Vanta's cards), from a friend's feedback that Vanta shared: play should feel like a game
+master is steering toward a larger story. Not a preset list of beats, and not an open sandbox
+with nobody's hand on it. The director is that hand. It is code that holds the campaign's plot
+state, and it gets a model's help with ideas. It decides what the world pushes toward. It never
+decides what the player does, and like everything else it never changes roll odds.
+
+- **The campaign's spine emerges from play.** In the first chapters the director seeds several
+  arcs at the player's tier (Vallarith Post-Reform: the Eight Pieces through the Heartwood, the
+  Long Border through Bastion's deserters, the Failing Wards through the keep). It commits to
+  the one the player bites on hardest, measured by thread heat, as the campaign's spine. If the
+  player hasn't bitten on any by the end of the third chapter, the director falls back to the
+  world's default spine for that era. Arcs that aren't chosen don't vanish: they carry on in the
+  background on their own clocks and can come back as side arcs. If the player later turns hard
+  toward another arc, the director can promote it, so the player's choices can still take canon
+  somewhere else.
+- **Threads are the GM's notebook.** Code keeps a list of open threads: leads, mysteries, grudges,
+  debts, promises and oaths, unanswered questions, and villains' agendas. Each one has an arc it
+  feeds (or none yet), a stage, a heat score (how recently and strongly play touched it), the hidden
+  truth behind it, and what would close it. Quests, factions, NPC secrets and off-page beats all
+  open threads and move them along. The player's journal shows each thread as the character
+  understands it. The GM view shows the real thing.
+- **How hard the hand pushes is a campaign slider.** The setting is **Soft**, **Guiding** (the
+  default) or **Firm**, picked at campaign start next to the tier sliders.
+  Under Soft, beats wait or lapse as before. Under Guiding, the arc comes to the player: its people
+  and clocks go looking for them, ignoring it has consequences, and the arc moves on without them.
+  Under Firm, arc beats fire on schedule wherever the player is. In every mode the player's
+  choices can take canon somewhere else, and nothing writes the player's actions for them.
+- **Every turn carries a hidden GM note.** Before the narrator writes, the director adds a short,
+  hidden note to the turn's facts. It says what pressure this scene is under, which seed to plant
+  if it fits, which thread an NPC present is carrying, and what an antagonist nearby is doing.
+  The narrator works these in where they fit the scene and the dice. The note never
+  overrides a roll or the record, and code checks afterwards which planted seeds actually reached
+  the page.
+- **Seeds pay off.** Clues, omens and odd details the director plants are logged against the
+  thread and hidden truth they point to (a Chekhov list). Each seed gets a payoff window. As a
+  thread nears its turn, code makes sure the seeds that reached the page come back. A seed that
+  never paid off is either cashed in or quietly retired in the GM view, never just left dangling.
+- **The director can adopt improvised details.** When the player engages with something the
+  narrator made up (a stranger watching from the bar, a symbol on a door), the director may give
+  it a meaning and tie it to a thread. The meaning is stored as hidden truth and checked against
+  the record and the world's hidden truths first, so nothing already established is contradicted.
+- **Side quests leave a mark.** Every generated or authored side quest carries at least one tie
+  the director can pick up later: a recurring NPC, a clue, an item that matters, a faction that
+  noticed. About one in three links straight into an active arc. The rest stay self-contained
+  stories that still leave something behind. Ties respect the tier rules: a local job can carry a
+  clue to a world-tier arc, but never its fight.
+- **Pacing follows a tension curve.** The director tracks each chapter's tension from scene kinds
+  (quiet, social, pressure, reveal, crisis) and recent outcomes. When the story has gone slack for
+  a few turns, it picks the next pressure from the hottest threads and the arcs that are due. After
+  a crisis it allows a quiet scene before the next one. The tone dial's drama setting moves the curve,
+  as it does for Life Cards. Arcs escalate in stages on their own clocks, so a thread left
+  alone grows worse.
+- **Antagonists recur.** Arcs and factions name their antagonists, who have agendas and clocks.
+  Any foe the player has a history with (one who escaped, was humiliated, lost someone to them,
+  or was spared) can be promoted to a **nemesis**. A nemesis has a grudge, remembers what the
+  player did and how they fight, adapts to it, and comes back with a plan. A foe confirmed dead on the page
+  stays dead unless the world's own magic allows a return, and then signs come first.
+- **Arcs are planned a stage at a time, Mabry style.** At each arc stage the director drafts the
+  next few candidate beats from the world's planned beats, the hottest threads and the faction
+  clocks. A director model slot drafts them, and code checks them against the record, the tier
+  rules and the intensity settings before storing them as hidden truth. By default the plan stays
+  hidden and the player only meets it in play. A GM-view setting lets the player pick, cut and
+  reorder the drafted beats, as Vanta did with Mabry's Season events. With no model, beats come
+  only from authored arcs and tables.
+- **Chapters open and close like sessions.** A chapter opens with a short "previously" drawn from
+  the hottest threads, and when it closes it leaves at least one open hook.
+
 ## Play screen and widgets
 
 Decided 2026-10-21. Builds on the widget layout under "Decided".
@@ -555,10 +624,10 @@ Decided 2026-10-21:
   undo history. Hidden truths are marked clearly so an author can't leak them by accident. For
   bulk edits, the app can also export a world to a folder of Markdown and JSON and import it back,
   with a validator checking it before it replaces the database.
-- **Planned beats are a soft pull.** The director nudges the story toward a world's planned beats
-  (Havenbrooke's seasons, Mabry's season events) but never forces them. If the player goes
-  elsewhere, the beats wait or quietly lapse, and the player's choices can take canon somewhere
-  else entirely.
+- **Planned beats feed the director.** The director (see "The director") steers the story toward
+  a world's planned beats (Havenbrooke's seasons, Mabry's season events). How hard it pushes
+  depends on the campaign's hand setting (Soft, Guiding or Firm). It never writes the player's
+  actions, and the player's choices can take canon somewhere else entirely.
 
 ## Narrator prompting
 
@@ -640,6 +709,8 @@ requests (Claude Code 2.1.306, Codex CLI 0.163.0):
 
 1. Player writes intent only.
 2. **Referee** splits the turn into actions and decides what NPCs do on their own initiative.
+   The **director** adds its hidden GM note (scene pressure, a seed to plant, what antagonists
+   nearby are doing; see "The director").
 3. For each uncertain or opposed action: needs-a-roll, stat, difficulty, opposing actor.
 4. **Code** rolls, logs, and applies the band. Life Cards may inject an event.
 5. **Narrator** writes the turn from the results; never contradicts a roll.

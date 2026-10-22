@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "note": "Planned beats are a soft pull (docs/requirements.md, World packages): the director nudges toward them and never forces them; if the player goes elsewhere they wait or lapse. All of these are drafts for Vanta to keep, change or cut.",
+  "note": "Planned beats feed the director (docs/requirements.md, The director): how hard it pushes toward them follows the campaign's hand setting (Soft, Guiding or Firm), and it never writes the player's actions. All of these are drafts for Vanta to keep, change or cut.",
   "arcs": [
     {
       "id": "the-heartwood",
