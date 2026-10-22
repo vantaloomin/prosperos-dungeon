@@ -152,11 +152,17 @@ export function slotsText(slots: Gear['slots']): string {
   return `${round(slots.used)} of ${round(slots.max)} slots`
 }
 
+function foeNumbers(foe: NonNullable<StoryFight['fight']>['foes'][number]): string {
+  if (foe.max_hp !== undefined) return `, ${foe.hp} of ${foe.max_hp} HP`
+  return foe.wound === null ? '' : `, wound ${foe.wound} of 5`
+}
+
 /** "You are hurt. Nerve: shaken. Lasting: a limp. Fighting: the bandit (hurt), the lookout (broken)." or '' when unhurt and not fighting. */
 export function fightText(fight: StoryFight): string {
   if (fight.dead) return 'Your character is dead. Go back to an earlier line to play on.'
-  const condition = fight.condition === 'unhurt' ? '' : `You are ${fight.condition}.`
-  const foes = fight.fight?.foes.map((foe) => `${foe.name} (${foe.state}${foe.wound === null ? '' : `, wound ${foe.wound} of 5`})`).join(', ')
+  const points = fight.max_hp === undefined ? '' : `, ${fight.hp} of ${fight.max_hp} hit points`
+  const condition = fight.condition === 'unhurt' ? '' : `You are ${fight.condition}${points}.`
+  const foes = fight.fight?.foes.map((foe) => `${foe.name} (${foe.state}${foeNumbers(foe)})`).join(', ')
   const lasting = fight.injuries?.length ? `Lasting: ${fight.injuries.join(', ')}.` : ''
   const nerve = fight.stress ? `Nerve: ${fight.stress}.` : ''
   return [condition, nerve, lasting, foes ? `Fighting: ${foes}.` : ''].filter(Boolean).join(' ')

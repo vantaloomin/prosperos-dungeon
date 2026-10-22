@@ -63,6 +63,7 @@
           "text": "A boar the size of a cart, ley-fat and mad, comes out of the undergrowth.",
           "foe": {
             "name": "ley-mad boar",
+            "srd52": "giant-boar",
             "count": 1,
             "vitality": 16,
             "resolve": 16,

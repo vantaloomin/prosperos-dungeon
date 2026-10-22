@@ -316,10 +316,12 @@ export interface StoryBookmark { id: string; name: string; message_id: string; b
 export interface StoryCampaign { chapters: StoryChapter[]; tree: StoryTreeBranch[]; bookmarks: StoryBookmark[]; ironman: boolean; pending: { reason: string; title: string } | null }
 export interface NotebookNote { id: string; text: string; created_at: string; updated_at: string }
 export interface StoryBranch { id: string; playing: boolean; turns: number; last_line: string; last_at: string; started_at: string }
-/** The fight and the character's wounds (dungeon/combat.py); a foe's `wound` level only with the dice shown. */
+/** The fight and the character's wounds (dungeon/combat.py); a foe's `wound` level (and 5E hit points) only with the dice shown. */
 export interface StoryFight {
   condition: string; dead: boolean; injuries?: string[]; stress?: string
-  fight: { round: number; foes: { name: string; state: string; wound: number | null }[] } | null
+  /** Hit points, under 5E. */
+  hp?: number; max_hp?: number
+  fight: { round: number; foes: { name: string; state: string; wound: number | null; hp?: number; max_hp?: number }[] } | null
 }
 export type IntensityPreset = 'world' | 'restrained' | 'mature' | 'unflinching'
 /** How far the story goes: `preset` in play, the player's `chosen` one ('world' follows the world), the world's own. */
