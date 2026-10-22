@@ -86,9 +86,17 @@ def enabled(entry: dict) -> bool:
     return entry.get('enabled', True) not in (False, 'false')
 
 
-def title(entry: dict, number: int) -> str:
+def title(entry: dict, number: int, words: list[str] | None = None, text: str = '') -> str:
+    """The entry's own name; else its first keywords ("Kingswood, the reeve"); else the start of its text."""
     found = next((entry[key] for key in TITLE_FIELDS if isinstance(entry.get(key), str) and entry[key].strip()), '')
-    return found.strip()[:160] or f'Entry {number}'
+    if found.strip():
+        return found.strip()[:160]
+    if words:
+        named = ', '.join(words[:2])
+        return named[:1].upper() + named[1:160]
+    said = text.split()
+    start = ' '.join(said[:6]) + ('…' if len(said) > 6 else '')
+    return start[:160] or f'Entry {number}'
 
 
 def entry(item, kind: str, number: int) -> dict | None:
@@ -101,7 +109,7 @@ def entry(item, kind: str, number: int) -> dict | None:
     words, pattern = keywords(item, kind)
     always = item.get(ALWAYS_FIELDS.get(kind, 'constant')) in (True, 'true')
     usable = always or bool(words)
-    return {'title': title(item, number), 'text': text.strip()[:MAX_TEXT], 'keywords': words, 'always': always,
+    return {'title': title(item, number, words, text), 'text': text.strip()[:MAX_TEXT], 'keywords': words, 'always': always,
             'enabled': enabled(item) and usable, 'pattern': pattern and not always}
 
 

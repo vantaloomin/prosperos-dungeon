@@ -8,6 +8,7 @@ from test_travel import ok
 
 from dungeon import package_import, packages
 from dungeon.errors import DomainError
+from dungeon.imports import lorebooks
 
 LOREBOOK = {'entries': {'0': {'key': ['Reedby'], 'content': 'A village on stilts in the Fen.', 'comment': 'Reedby'},
                         '1': {'key': ['the Fen'], 'content': 'Grey water and reeds to the horizon.', 'comment': 'The Fen'}}}
@@ -82,3 +83,10 @@ def test_drafting_needs_a_model_and_a_built_in_world_cannot_be_imported_over(cli
 def test_a_model_answer_with_no_entries_is_an_error():
     with pytest.raises(DomainError, match='did not answer with entries'):
         package_import.entries_from('Sorry, I cannot.')
+
+
+def test_a_lorebook_entry_with_no_name_is_titled_from_its_keywords_or_its_text():
+    assert lorebooks.title({}, 3, ['kingswood', 'the reeve', 'mill'], '') == 'Kingswood, the reeve'
+    assert lorebooks.title({}, 3, [], 'The fens flood each spring and the road goes under.') == 'The fens flood each spring and…'
+    assert lorebooks.title({'comment': ' The Fen '}, 3, ['fen'], 'x') == 'The Fen'
+    assert lorebooks.title({}, 3, [], '') == 'Entry 3'

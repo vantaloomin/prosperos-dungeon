@@ -66,6 +66,8 @@ DEFEAT = {
     'rob': (('robbed', 7), ('death', 2), ('rescued', 1)),
     'drive_off': (('thrown_out', 8), ('rescued', 2)),
 }
+# The foes whose blows can leave a lasting injury (maimed_by).
+MAIMING = ('kill', 'rob')
 DEFEAT_TEXT = {
     'death': 'The player\'s character dies here.',
     'robbed': 'They take the character\'s purse and leave them for dead.',
@@ -457,10 +459,10 @@ def defeat(connection, state: dict, rng, now: str, saved: bool | None = None) ->
 
 
 def maimed_by(state: dict) -> str | None:
-    """Who left the character a lasting injury this round. A brawl to drive them off leaves bruises, not a lost eye:
-    only foes who would kill can maim."""
+    """Who left the character a lasting injury this round. A brawl to drive them off leaves bruises, not a lost eye,
+    and captors want their prisoner whole: only foes who fight to kill or rob can maim."""
     cause = state.pop('hurt_by', None)
-    return cause if cause and deadly(state) else None
+    return cause if cause and state['wants'] in MAIMING else None
 
 
 def deadly(state: dict) -> bool:

@@ -36,7 +36,9 @@ EQUIVALENT = {'Mind': ('int', 'Idea'), 'Allure': ('cha', 'Charm'), 'Resolve': ('
 SAVE = {'Vitality': ('con', 'Stamina')}
 # Skills by the words of an action, the more specific first.
 SKILL_WORDS = (
-    ('first_aid', ('bandage', 'stitch', 'patch up', 'tend the wound', 'tend his', 'tend her', 'first aid', 'splint')),
+    ('first_aid', ('bandage', 'stitch', 'patch up', 'tend the wound', 'tend his', 'tend her', 'first aid', 'splint',
+                   'bind my', 'binds my', 'bind up', 'binds up', 'bind the wound', 'bind his wound', 'bind her wound',
+                   'dress the wound', 'dress my', 'wrap the wound', 'wrap my', 'clean the wound', 'tourniquet')),
     ('medicine', ('treat', 'cure', 'heal', 'diagnose', 'physic', 'poultice')),
     ('sleight_of_hand', ('pickpocket', 'palm', 'lift his', 'lift her', 'sleight', 'cut the purse', 'cutpurse')),
     ('fine_manipulation', ('pick the lock', 'pick a lock', 'disarm the trap', 'untie')),

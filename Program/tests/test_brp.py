@@ -162,3 +162,9 @@ def test_first_aid_on_the_characters_own_wound_heals_once(client, app):
         assert healed['skill'].endswith('(heals 3)') and combat_brp.hit_points(connection) == (11, 14)
         again = sheet.check(connection, 'Mind', text='I bandage my arm', rng=Faces(10, 3))
         assert 'heals' not in again['skill'] and combat_brp.hit_points(connection) == (11, 14)
+
+
+@pytest.mark.parametrize('text', ['I bind my wounds with a strip of my shirt', 'I dress the wound', 'She binds up my leg',
+                                  'I tie a tourniquet above the cut'])
+def test_binding_a_wound_is_first_aid(text):
+    assert brp.skill_for(text) == 'first_aid'
