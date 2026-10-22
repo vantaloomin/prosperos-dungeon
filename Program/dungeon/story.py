@@ -1162,7 +1162,8 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
             # What the line touched in the GM's notebook, and the scene's kind (dungeon/director.py).
             if found := happenings.where(packet['city_id'], scene_row(connection)['place_id']):
                 director.touch(connection, found['world'], f"{user['text']}\n{text}",
-                               director.scene_kind(rolls, fought, packet['people']), user['id'], database.now())
+                               director.scene_kind(rolls, fought, packet['people'], noted), user['id'],
+                               database.now())
                 plotting.after_line(connection, text, user['id'])
         reply = add(connection, database.now(), 'narrator', text, scene_row(connection), reply_to=user['id'],
                     status=status, error=error,
