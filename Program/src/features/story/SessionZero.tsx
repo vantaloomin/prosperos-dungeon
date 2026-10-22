@@ -30,7 +30,8 @@ export function SessionZero({ choices, intensity, ruleset, who, busy, onStart, o
         <ToneFields rules={rules} intensity={intensity} onChange={setTone} />
         {ruleset === 'srd52' && <DefeatField value={rules.defeat ?? 'as_written'} onChange={(defeat) => setTone({ defeat })} />}
         {choices.arc && <HandField value={steer} onChange={setHand} />}
-        <TasteFields rules={rules} onChange={setTaste} />
+        {ruleset === 'narrative' ? <p className="subtle">Narrative has no dice to show: each try is judged No, No but, Yes but or Yes, and the story tells it.</p>
+          : <TasteFields rules={rules} onChange={setTaste} />}
         <CampaignFields choices={choices} value={campaign} onChange={setCampaign} />
       </details>
       <div className="form-actions">

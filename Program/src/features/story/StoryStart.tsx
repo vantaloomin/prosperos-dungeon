@@ -126,17 +126,17 @@ interface RulesBuildProps {
 
 /** The character's sheet in the campaign's ruleset. */
 function RulesBuild({ choices, kind, stats, percent, narrated, onStats, onBuild, onIron, onPercent, onNarrated }: RulesBuildProps) {
-  if (kind === 'narrative' && choices.narrative) return <NarrativeBuild hint={choices.narrative.hint} narrated={narrated} onChange={onNarrated} />
+  if (kind === 'narrative' && choices.narrative) return <NarrativeBuild narrated={narrated} onChange={onNarrated} />
   if (kind === 'srd52' && choices.srd52) return <Srd52Build choices={choices.srd52} onChange={onBuild} />
   if (kind === 'ironsworn' && choices.ironsworn) return <IronswornBuild choices={choices.ironsworn} onChange={onIron} />
   if (kind === 'brp' && choices.brp && percent) return <PercentileBuild choices={choices.brp} build={percent} onChange={onPercent} />
   return <MarvelStats choices={choices} stats={stats} onChange={onStats} />
 }
 
-/** Narrative Only (dungeon/rules/narrative.py): no stats to buy; About you is the sheet, and two optional lists sharpen it. */
-function NarrativeBuild({ hint, narrated, onChange }: { hint: string; narrated: Narrated; onChange: (narrated: Narrated) => void }) {
+/** Narrative Only (dungeon/rules/narrative.py): no stats to buy; About you is the sheet, and two optional lists sharpen it.
+ *  The ruleset's own hint shows under the Rules pick (RulesetPick). */
+function NarrativeBuild({ narrated, onChange }: { narrated: Narrated; onChange: (narrated: Narrated) => void }) {
   return <>
-    <p className="subtle">{hint}</p>
     <TextInput label="Good at (optional)" hint="A few things, separated by commas." value={narrated.good_at} maxLength={500} onChange={(good_at) => onChange({ ...narrated, good_at })} />
     <TextInput label="Bad at (optional)" hint="A few things, separated by commas." value={narrated.bad_at} maxLength={500} onChange={(bad_at) => onChange({ ...narrated, bad_at })} />
   </>
@@ -232,13 +232,15 @@ function IronswornBuild({ choices, onChange }: { choices: IronswornChoices; onCh
 /** The ruleset the campaign is played in (dungeon/sheet.py): chosen now and locked for the whole campaign. */
 function RulesetPick({ choices, value, onChange }: { choices: StartChoices; value: Ruleset | null; onChange: (value: Ruleset) => void }) {
   if (!choices.rulesets || choices.rulesets.length < 2) return null
-  return (
-    <Field label="Rules" hint="How the dice decide. Chosen now for the whole campaign; it cannot change later.">
-      {(id, describedBy) => <select id={id} value={value ?? choices.ruleset ?? 'marvel'} aria-describedby={describedBy} onChange={(event) => onChange(event.target.value as Ruleset)}>
+  const current = value ?? choices.ruleset ?? 'marvel'
+  return (<>
+    <Field label="Rules" hint="How what your character tries is decided. Chosen now for the whole campaign; it cannot change later.">
+      {(id, describedBy) => <select id={id} value={current} aria-describedby={describedBy} onChange={(event) => onChange(event.target.value as Ruleset)}>
         {choices.rulesets?.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
       </select>}
     </Field>
-  )
+    {current === 'narrative' && choices.narrative && <p className="subtle">{choices.narrative.hint}</p>}
+  </>)
 }
 
 type Build = { class_id: string; species_id: string; background_id: string; scores: Record<string, number>; skills: string[] }
