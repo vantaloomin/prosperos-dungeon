@@ -6,6 +6,7 @@ import { reworded, sentences } from './storyText'
 import { linkText } from './entity'
 import { EntityName } from './EntityCard'
 import { useNameLinks } from './entityContext'
+import { IllustrateButton } from './StoryArt'
 
 interface Props {
   message: StoryMessage
@@ -103,7 +104,15 @@ export function StoryNarration({ message, onRewrite, onSwitch, draft }: Props) {
         <button type="button" className="text-button" disabled={busy} onClick={() => setChosen('')}>Cancel</button>
       </div>
     </form>}
-    {message.previous && onSwitch && <button type="button" className="text-button story-back" disabled={busy} onClick={() => void act(() => onSwitch(message.id))}
-      title="Switch between the wording before your last rewrite and the rewrite."><Repeat aria-hidden="true" />Switch wording</button>}
+    <NarrationActions message={message} busy={busy} illustrate={!!onRewrite && !draft} onSwitch={onSwitch && (() => void act(() => onSwitch(message.id)))} />
   </>)
+}
+
+/** Under a passage: switch back to its earlier wording after a rewrite, and picture it. */
+function NarrationActions({ message, busy, illustrate, onSwitch }: { message: StoryMessage; busy: boolean; illustrate: boolean; onSwitch?: () => void }) {
+  return <>
+    {message.previous && onSwitch && <button type="button" className="text-button story-back" disabled={busy} onClick={onSwitch}
+      title="Switch between the wording before your last rewrite and the rewrite."><Repeat aria-hidden="true" />Switch wording</button>}
+    {illustrate && <IllustrateButton messageId={message.id} />}
+  </>
 }

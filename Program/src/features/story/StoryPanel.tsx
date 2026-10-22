@@ -13,6 +13,7 @@ import { StoryInjuries } from './StoryInjuries'
 import { StoryIntensity } from './StoryIntensity'
 import { StoryJournal } from './StoryJournal'
 import { StoryMap } from './StoryMap'
+import { StoryArt } from './StoryArt'
 import { StoryNotebook } from './StoryNotebook'
 import { StoryPeople } from './StoryPeople'
 import { StoryPowers } from './StoryPowers'
@@ -194,6 +195,7 @@ const WIDGETS: Record<Widget, (props: PanelProps, refresh: () => void) => ReactN
   branches: ({ story, change }) => <StoryBranches branches={story.branches} open
     onSwitch={(id) => void change(() => api<StoryData>(`/story/branches/${encodeURIComponent(id)}/switch`, {}))} />,
   notebook: () => <StoryNotebook open />,
+  art: ({ story }) => <StoryArt people={story.people} place={{ key: `${story.scene.city.id}/${story.scene.place.id}`, name: story.scene.place.name }} open />,
   export: () => <StoryExport open />,
   rules: ({ story }, refresh) => <ToneAndRules story={story} refresh={refresh} />,
 }

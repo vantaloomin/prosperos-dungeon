@@ -4,10 +4,11 @@ import json
 from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Request
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import Field
 
 from dungeon import (
+    art,
     book,
     campaign,
     chapters,
@@ -352,6 +353,11 @@ def remove_from_notebook(request: Request, note_id: str):
         return {'notes': chapters.notebook(connection)}
 
 
+class ArtAsk(Input):
+    kind: Literal['portrait', 'place', 'scene', 'passage']
+    subject: str = Field(default='', max_length=200)
+
+
 class Enrolment(Input):
     classes: list[str] | None = Field(default=None, max_length=20)
 
@@ -551,3 +557,24 @@ def leave(request: Request, institution_id: str):
     with database.connect(write=True) as connection:
         institutions.leave(connection, institution_id)
         return journal_view(connection, database)
+
+
+@router.get('/art')
+def gallery(request: Request):
+    """The pictures made in the story (dungeon/art.py), the newest of each subject, marked when out of date."""
+    return {'art': art.gallery(request.app.state.database)}
+
+
+@router.post('/art')
+async def ask_art(request: Request, body: ArtAsk):
+    """A picture asked for: a portrait (`subject` 'player' or someone met), the place, the scene, or a passage (its
+    message id). It is made in the background; the gallery shows it when it is done."""
+    made = art.request(request.app.state.database, body.kind, body.subject)
+    if (running := art.start(request.app.state, made['id'])) is not None:
+        await running
+    return {'art': art.gallery(request.app.state.database), 'asked': made['id']}
+
+
+@router.get('/art/{art_id}/file')
+def art_file(request: Request, art_id: str):
+    return FileResponse(art.file_of(request.app.state.database, art_id))

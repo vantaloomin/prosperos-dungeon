@@ -883,3 +883,25 @@ CREATE TABLE IF NOT EXISTS story_grades (
   weight INTEGER NOT NULL DEFAULT 1,
   mark INTEGER NOT NULL CHECK (mark BETWEEN 0 AND 100)
 );
+
+-- Pictures asked for in the story (dungeon/art.py): what each shows and where it is. Not game state: going back keeps
+-- them. `state` fingerprints what it was built from, to tell when it is out of date; `reference` marks someone's
+-- first portrait, sent with every later picture of them.
+CREATE TABLE IF NOT EXISTS story_art (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL CHECK (kind IN ('portrait', 'place', 'scene', 'passage')),
+  subject TEXT NOT NULL,
+  chapter_id TEXT,
+  prompt TEXT NOT NULL,
+  style TEXT,
+  state TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'done', 'failed', 'refused')),
+  file TEXT,
+  width INTEGER,
+  height INTEGER,
+  backend_id TEXT,
+  reference INTEGER NOT NULL DEFAULT 0 CHECK (reference IN (0, 1)),
+  error TEXT,
+  created_at TEXT NOT NULL,
+  done_at TEXT
+);
