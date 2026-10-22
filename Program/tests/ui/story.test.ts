@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, challengeDice, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, threadKind } from '../../src/features/story/storyText.ts'
+import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, challengeDice, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, threadKind, receiptsByReply } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -261,4 +261,17 @@ test('an Ironsworn roll reads its move and lands an action die and two challenge
   assert.equal(rollText(roll), 'Face Danger +iron vs 5 and 6: 4 + 3 = 7, Success')
   assert.deepEqual(challengeDice(roll.skill), [5, 6])
   assert.deepEqual(diceFaces(roll).map((face) => [face.sides, face.value]), [[6, '4'], [10, '5'], [10, '6']])
+})
+
+test('a turn receipt shows under the narration that answers its line', () => {
+  const base = { seq: 1, text: '', status: 'complete' as const, error: null, city_id: 'kingswood', place_id: 'inn', created_at: '' }
+  const chip = { kind: 'coins' as const, tone: 'gain' as const, text: '+2.50 cr.' }
+  const receipts = receiptsByReply([
+    { ...base, id: 'u1', role: 'user', reply_to: null, receipt: [chip] },
+    { ...base, id: 'n1', role: 'narrator', reply_to: 'u1' },
+    { ...base, id: 'u2', role: 'user', reply_to: null },
+    { ...base, id: 'n2', role: 'narrator', reply_to: 'u2' },
+  ])
+  assert.deepEqual([...receipts.keys()], ['n1'])
+  assert.deepEqual(receipts.get('n1'), [chip])
 })

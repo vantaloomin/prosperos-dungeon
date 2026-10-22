@@ -715,3 +715,10 @@ img.avatar, img.portrait { object-fit: cover; object-position: center top; paddi
 .dice-stage { position: fixed; inset: 15% 10%; z-index: 40; pointer-events: none; opacity: 0; transition: opacity 0.4s ease; }
 .dice-stage.rolling { opacity: 1; transition-duration: 0.1s; }
 .dice-stage canvas { width: 100% !important; height: 100% !important; }
+
+/* The turn receipt (src/features/story/StoryReceipt.tsx): what a turn changed, in quiet chips under its narration. */
+.turn-receipt { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 14px; padding: 0; }
+.receipt-chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border: 1px solid var(--border); border-radius: 999px; font-size: 0.82rem; color: var(--muted); background: var(--surface); }
+.receipt-chip svg { width: 13px; height: 13px; flex: none; }
+.receipt-chip.gain svg { color: var(--accent); }
+.receipt-chip.loss svg { color: var(--danger); }
