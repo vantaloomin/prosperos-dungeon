@@ -239,7 +239,8 @@ export interface Premade { id: string; name: string; gender: PersonaGender; age:
 /** Campaign start: the town's premades and the point-buy for making your own. */
 export type StoryArc = 'grounded' | 'classic' | 'epic'
 export type StoryPace = 'slow' | 'steady' | 'fast'
-export interface StoryStart { premades: Premade[]; points: number; range: [number, number]; stat_names: string[]; meanings: Record<string, string>; arc?: { arc: StoryArc; pace: StoryPace } | null }
+export type StoryHand = 'soft' | 'guiding' | 'firm'
+export interface StoryStart { premades: Premade[]; points: number; range: [number, number]; stat_names: string[]; meanings: Record<string, string>; arc?: { arc: StoryArc; pace: StoryPace; hand?: StoryHand } | null }
 /** The character's tier on the shared ladder and its track (dungeon/tiers.py); the numbers only with the dice shown. */
 /** Growth by use and the dark tracks (dungeon/growth.py); points only with the dice shown. */
 export interface SheetGrowth { marked: string[]; dark: { id: string; name: string; word: string; changes: string[]; points?: number; top?: number }[] }
@@ -247,7 +248,9 @@ export interface StoryTier { tier: string; words: string; track: string; arc: St
 /** A fact the game keeps that the player's character knows (dungeon/record.py). */
 export interface JournalEntry { id: string; kind: string; subject: string; text: string; truth: 'belief' | 'both'; source: 'code' | 'narrator' | 'player'; created_at: string }
 export interface JournalQuest { id: string; title: string; hook: string; status: 'open' | 'done' | 'failed' | 'missed'; outcome: string; left: string; kind?: 'authored' | 'job' | 'oath' }
-export interface Journal { entries: JournalEntry[]; quests: JournalQuest[] }
+/** A thread in the director's notebook the character has come across, as they understand it (dungeon/director.py). */
+export interface JournalThread { id: string; kind: 'mystery' | 'grudge' | 'lead' | 'promise'; title: string; seen: string }
+export interface Journal { entries: JournalEntry[]; quests: JournalQuest[]; threads?: JournalThread[] }
 /** One way the story went (dungeon/timeline.py); `playing` is the one on screen. */
 export interface StoryBranch { id: string; playing: boolean; turns: number; last_line: string; last_at: string; started_at: string }
 /** The fight and the character's wounds (dungeon/combat.py); a foe's `wound` level only with the dice shown. */

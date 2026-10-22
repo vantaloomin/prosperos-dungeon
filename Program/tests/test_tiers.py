@@ -44,7 +44,7 @@ def test_the_track_climbs_the_ladder_within_the_arc(app):
 def test_the_player_picks_the_arc_at_the_start_and_sees_it_in_words(client):
     ok(client.put('/api/story/scene', json={'city_id': 'kingswood', 'place_id': 'pell-provisions'}))
     ok(client.delete('/api/story'))
-    assert ok(client.get('/api/story/start'))['arc'] == {'arc': 'classic', 'pace': 'steady'}
+    assert ok(client.get('/api/story/start'))['arc'] == {'arc': 'classic', 'pace': 'steady', 'hand': 'guiding'}
     ok(client.post('/api/story/start', json={'premade_id': 'agna-holt', 'arc': 'epic', 'pace': 'fast'}))
     tier = ok(client.get('/api/story'))['tier']
     assert tier == {'tier': 'Realm', 'words': 'a name at court in Cyrel', 'track': 'Renown', 'arc': 'epic',

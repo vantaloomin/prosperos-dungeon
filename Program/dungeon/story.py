@@ -16,6 +16,7 @@ from dungeon import (
     authors_note,
     beats,
     combat,
+    director,
     factions,
     feelings,
     finds,
@@ -479,6 +480,8 @@ def pass_time(database, connection, minutes: int):
     row = optional(connection, 'SELECT city_id, place_id FROM story_scene WHERE id=1')
     if row and (found := happenings.where(row['city_id'], row['place_id'])):
         factions.advance(connection, found['world'], before, after, database.now())
+        # And the director's arcs, on their own clocks (dungeon/director.py).
+        director.advance(connection, found['world'], before, after, database.now())
 
 
 def arrive(connection, now: str) -> dict:
@@ -500,7 +503,8 @@ def clear(database) -> dict:
                       'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
                       'story_rounds', 'story_map', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
                       'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_beats', 'story_word',
-                      'story_offpage', 'story_tier', 'story_marks', 'story_dark'):
+                      'story_offpage', 'story_tier', 'story_marks', 'story_dark',
+                      'story_director', 'story_arcs', 'story_threads', 'story_nemeses'):
             connection.execute(f'DELETE FROM {table}')
         timeline.clear(connection)
     return story(database)
@@ -537,7 +541,8 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
            fought: list[str] | None = None, traded: list[str] | None = None,
            looked: list[str] | None = None, travelled: list[str] | None = None,
            rested: list[str] | None = None, tended: list[str] | None = None,
-           carded: list[str] | None = None, meanwhile: list[str] | None = None) -> dict:
+           carded: list[str] | None = None, meanwhile: list[str] | None = None,
+           noted: list[str] | None = None) -> dict:
     view = scene(connection, now)
     craft = narration_prompt.craft_for(config.get('context_tokens'), prompt_library.text(connection, 'narrator-craft'))
     who_text, name = persona_text(connection)
@@ -560,7 +565,7 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
                                      outcomes=outcomes, rolls_shown=dice_shown(connection))
     for extra in (travel.prompt_text(travelled or []), rest.prompt_text(rested or []),
                   injuries.treatment_text(tended or []), happenings.prompt_text(carded or []),
-                  beats.cutaway_text(meanwhile or []), combat.prompt_text(fought or [], connection),
+                  beats.cutaway_text(meanwhile or []), *(noted or []), combat.prompt_text(fought or [], connection),
                   counter_text(traded or []), finds.prompt_text(looked or [])):
         if extra:
             system += '\n\n' + extra
@@ -797,6 +802,24 @@ def town_turn(state, user: dict) -> list[str]:
         return lines
 
 
+def director_turn(state, user: dict) -> list[str]:
+    """The director's hidden note for the line (dungeon/director.py), written once and kept with it."""
+    database = state.database
+    with database.connect(write=True) as connection:
+        kept = optional(connection, "SELECT lines FROM story_cards WHERE message_id=? AND scene='director'",
+                        (user['id'],))
+        if kept:
+            return decode(kept['lines'])
+        now = story_clock.now(connection, database.clock)
+        view = scene(connection, now)
+        found = happenings.where(view['city']['id'], view['place']['id'])
+        text = director.note(connection, found['world'], found['node'], view['people'],
+                             happenings.drama(connection, view['data']), now) if found else ''
+        happenings.keep(connection, user['id'], 'director', datetime.fromisoformat(view['local_time']).date(), None,
+                        [text] if text else [])
+        return [text] if text else []
+
+
 def beats_turn(state, user: dict) -> list[str]:
     """The lives going on off the page (dungeon/beats.py), once for each line; the cutaways the narrator may show."""
     database = state.database
@@ -829,10 +852,14 @@ def fight_round(state, user: dict, rolls: list[dict]) -> list[str]:
             found = happenings.where(view['city']['id'], view['place']['id'])
             foe, sent = tiers.foe(connection, found, foe, found['tier']) if found else (foe, '')
         moment = story_clock.now(connection, database.clock)
+        def aftermath(events):
+            # What the fight did to the character, and what it left between them and a foe (dungeon/director.py).
+            director.history(connection, events, moment, database.now(), getattr(state, 'dice', None))
+            return stress.aftermath(connection, moment, events, getattr(state, 'dice', None), database.now())
+
         fought = combat.turn(connection, user['id'], view['people'], rolls, foe,
                              inventory.carried(connection, view['city']['id']), getattr(state, 'dice', None),
-                             database.now(), lambda events: stress.aftermath(connection, moment, events,
-                                                                             getattr(state, 'dice', None), database.now()))
+                             database.now(), aftermath)
         return ([sent] if sent else []) + fought
 
 
@@ -973,6 +1000,7 @@ async def answer(state, user: dict, on_text=None) -> dict:
     rested = rest_turn(state, user, rolls) if in_story else []
     carded = town_turn(state, user) if in_story else []
     meanwhile = beats_turn(state, user) if in_story else []
+    noted = director_turn(state, user) if in_story else []
     fought = fight_round(state, user, rolls) if in_story else []
     traded = counter_turn(state, user, rolls) if in_story else []
     tended = treat_turn(state, user, rolls) if in_story else []
@@ -980,7 +1008,7 @@ async def answer(state, user: dict, on_text=None) -> dict:
     with database.connect() as connection:
         packet = prompt(connection, story_clock.now(connection, database.clock), config, user,
                         turn.outcomes(rolls) if in_story else None, fought, traded, looked, travelled, rested, tended, carded,
-                        meanwhile)
+                        meanwhile, noted)
     text, error, flagged = await told(state, packet, config, in_story, steps, on_text)
     status = 'complete' if text and not error else 'failed'
     error = None if status == 'complete' else error or 'The model returned no story text.'
@@ -991,6 +1019,10 @@ async def answer(state, user: dict, on_text=None) -> dict:
                                        database.now(), packet['day'])
             feelings.from_rolls(connection, rolls)
             growth.mark(connection, rolls, user['id'])
+            # What the line touched in the GM's notebook, and the scene's kind (dungeon/director.py).
+            if found := happenings.where(packet['city_id'], scene_row(connection)['place_id']):
+                director.touch(connection, found['world'], f"{user['text']}\n{text}",
+                               director.scene_kind(rolls, fought, packet['people']), user['id'], database.now())
         reply = add(connection, database.now(), 'narrator', text, scene_row(connection), reply_to=user['id'],
                     status=status, error=error,
                     flags=flagged)

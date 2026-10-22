@@ -7,7 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse
 from pydantic import Field
 
-from dungeon import campaign, growth, quests, record, sheet, story, story_clock
+from dungeon import campaign, director, growth, quests, record, sheet, story, story_clock
 from dungeon.errors import DomainError
 from dungeon.models import Input, PersonaInput
 
@@ -140,6 +140,8 @@ class StoryStart(Input):
     # The arc (how far the character can rise) and its pace (dungeon/tiers.py); the world's own when left out.
     arc: Literal['grounded', 'classic', 'epic'] | None = None
     pace: Literal['slow', 'steady', 'fast'] | None = None
+    # How hard the director's hand pushes (dungeon/director.py).
+    hand: Literal['soft', 'guiding', 'firm'] | None = None
 
 
 @router.get('/start')
@@ -150,7 +152,7 @@ def start_choices(request: Request):
 @router.post('/start')
 def start(request: Request, body: StoryStart):
     return campaign.begin(request.app.state.database, body.premade_id, body.persona, body.stats, body.arc,
-                          body.pace)
+                          body.pace, body.hand)
 
 
 class StoryBack(Input):
@@ -191,7 +193,8 @@ class JournalChange(Input):
 
 def journal_view(connection, database) -> dict:
     return {'entries': record.entries(connection),
-            'quests': quests.view(connection, story_clock.now(connection, database.clock))}
+            'quests': quests.view(connection, story_clock.now(connection, database.clock)),
+            'threads': director.journal(connection)}
 
 
 @router.get('/journal')

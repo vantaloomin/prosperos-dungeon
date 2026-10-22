@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
-import type { Journal, JournalEntry, JournalQuest } from '../../types'
+import type { Journal, JournalEntry, JournalQuest, JournalThread } from '../../types'
 import { Notice } from '../../components/Feedback'
-import { journalKind, questState } from './storyText'
+import { journalKind, questState, threadKind } from './storyText'
 
 const JOURNAL_KEY = ['story-journal']
 
@@ -18,11 +18,12 @@ export function StoryJournal({ open }: { open?: boolean }) {
     catch (failure) { setError(failure instanceof Error ? failure.message : 'That was not saved.') }
   }
   if (!journal.data) return null
-  const { entries, quests } = journal.data
+  const { entries, quests, threads = [] } = journal.data
   return (
     <details className="story-people" open={open}>
       <summary>What you know ({entries.length})</summary>
       {!!quests.length && <Underway quests={quests} />}
+      {!!threads.length && <Threads threads={threads} />}
       <ul>
         {entries.map((entry) => <JournalLine key={entry.id} entry={entry}
           onSave={(text) => change(() => api<Journal>(`/story/journal/${entry.id}`, { text }, 'PATCH'))}
@@ -42,6 +43,19 @@ function Underway({ quests }: { quests: JournalQuest[] }) {
         <p className="subtle">{questState(quest)}</p>
         <p><strong>{quest.title}</strong></p>
         <p>{quest.status === 'open' ? quest.hook : quest.outcome}</p>
+      </li>)}
+    </ul>
+  )
+}
+
+/** The loose ends your character has come across (dungeon/director.py), as they understand them. */
+function Threads({ threads }: { threads: JournalThread[] }) {
+  return (
+    <ul aria-label="Loose ends">
+      {threads.map((thread) => <li key={thread.id}>
+        <p className="subtle">{threadKind(thread.kind)}</p>
+        <p><strong>{thread.title}</strong></p>
+        <p>{thread.seen}</p>
       </li>)}
     </ul>
   )

@@ -399,6 +399,55 @@ CREATE TABLE IF NOT EXISTS story_dark (
   lost INTEGER NOT NULL DEFAULT 0
 );
 
+-- The director (dungeon/director.py): the campaign's hand and spine, the lines played and their kinds (the tension
+-- curve), the seeds planted; each arc's stage and how hard play has bitten on it; the threads (the GM's notebook);
+-- and the nemeses.
+CREATE TABLE IF NOT EXISTS story_director (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  world TEXT,
+  hand TEXT NOT NULL DEFAULT 'guiding' CHECK (hand IN ('soft', 'guiding', 'firm')),
+  spine_id TEXT,
+  lines INTEGER NOT NULL DEFAULT 0,
+  recent TEXT NOT NULL DEFAULT '[]',
+  planted TEXT NOT NULL DEFAULT '[]',
+  last_message TEXT
+);
+
+CREATE TABLE IF NOT EXISTS story_arcs (
+  arc_id TEXT PRIMARY KEY,
+  stage INTEGER NOT NULL DEFAULT 0,
+  bite INTEGER NOT NULL DEFAULT 0,
+  moved_at TEXT,
+  told INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS story_threads (
+  id TEXT PRIMARY KEY,
+  arc_id TEXT,
+  kind TEXT NOT NULL,
+  title TEXT NOT NULL,
+  seen TEXT NOT NULL DEFAULT '',
+  truth TEXT NOT NULL DEFAULT '',
+  words TEXT NOT NULL DEFAULT '[]',
+  heat REAL NOT NULL DEFAULT 0,
+  bite INTEGER NOT NULL DEFAULT 0,
+  known INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'open',
+  quest_id TEXT,
+  opened_at TEXT,
+  touched_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS story_nemeses (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  grudge TEXT NOT NULL,
+  remembers TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'alive',
+  since TEXT NOT NULL,
+  thread_id TEXT
+);
+
 -- Off-page beats (dungeon/beats.py): what has become of the people the character is connected to, each beat that
 -- happened, the word of it still travelling to the character, and when the off-page clock last looked.
 CREATE TABLE IF NOT EXISTS story_fates (

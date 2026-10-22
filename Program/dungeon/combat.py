@@ -286,7 +286,8 @@ def turn(connection, message_id: str, people: list[dict], rolls: list[dict], sta
          rng, now: str, aftermath=None) -> list[str]:
     """The fight's part of a turn, decided once: start a fight if one begins, play the round, and keep the lines.
     `aftermath(events)` deals with what the round did to the character, [(event, who)]: 'horror' when a fight with
-    something dreadful starts, 'kill' when the character kills, 'maimed' when a hit calls for a lasting injury, and
+    something dreadful starts, 'kill' when the character kills, 'fled' when a foe gets away from a fight the character
+    won, 'maimed' when a hit calls for a lasting injury, and
     the defeat table's outcome; it says what that left (dungeon/stress.py)."""
     if (kept := saved_round(connection, message_id)) is not None:
         return kept
@@ -301,6 +302,9 @@ def turn(connection, message_id: str, people: list[dict], rolls: list[dict], sta
     events = [('horror', foe['name']) for foe in state['foes'][:1] if foe.get('horror') and not state['round']]
     state, lines, ending = play_round(connection, state, rolls, items, rng)
     events += [('kill', foe['name']) for foe in state['foes'] if foe['wound'] >= DYING > before[foe['id']]]
+    # A foe who broke and got away alive (the story director may make a nemesis of them).
+    events += [('fled', foe['name']) for foe in state['foes'] if ending == 'won' and foe['broken']
+               and foe['wound'] < DOWN]
     if ending == 'dying':
         outcome, said = defeat(connection, state, rng, now)
         lines.append(f"The player's character falls, dying. {said}")
