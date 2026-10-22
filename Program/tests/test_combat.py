@@ -202,3 +202,21 @@ def test_a_prisoner_stays_held_until_they_get_free(client, connected, provider, 
         assert combat.escape(connection, [roll('I pick the lock', 'success', 'Luck')]) == [
             "The player's character gets free of warden of Brynwyr."]
         assert combat.captors(connection) is None
+
+
+def test_a_stand_in_who_is_beaten_does_not_come_back_fresh(client, connected, provider, app):
+    kingswood(client, 'the-sawpit')
+    app.state.dice = Dice(95)
+    provider.replies = [reply('He goes down.'), reply('Nobody there.'), reply('He swings back.')]
+    tell(client, 'I punch him in the jaw as hard as I can.', 'story-0001')
+    assert 'their opponent' in provider.requests[-1]['system']
+    # The fight ends on that line (beaten, fled or given up: here, simply over).
+    with app.state.database.connect(write=True) as connection:
+        combat.save_fight(connection, None)
+    # Straight after, "him" is the one already beaten: no fresh opponent.
+    tell(client, 'I hit him again.', 'story-0002')
+    assert '## The fight' not in provider.requests[-1]['system']
+    assert ok(client.get('/api/story'))['fight']['fight'] is None
+    # A line later the player can pick a new fight.
+    tell(client, 'I punch him.', 'story-0003')
+    assert '## The fight' in provider.requests[-1]['system']

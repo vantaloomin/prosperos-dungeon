@@ -29,7 +29,7 @@ import json
 import random
 import re
 
-from dungeon import combat5e, combat_brp, combat_iron, record, referee, sheet
+from dungeon import combat5e, combat_brp, combat_iron, record, referee, sheet, timeline
 from dungeon.database import encode, identifier, optional
 from dungeon.rules import marvel
 
@@ -483,7 +483,7 @@ def turn(connection, message_id: str, people: list[dict], rolls: list[dict], sta
         return kept
     rng = rng or random.SystemRandom()
     freed = escape(connection, rolls) if fight(connection) is None else []
-    state = fight(connection) or begin(connection, people, rolls, start, rng)
+    state = fight(connection) or begin(connection, people, rolls, start, rng, message_id)
     if state is None:
         if freed:
             connection.execute('INSERT INTO story_rounds (message_id, lines) VALUES (?, ?)', (message_id, encode(freed)))
@@ -523,10 +523,23 @@ def card_for(connection, message_id: str, card: dict, now: str):
          result['target'], result['skill'], now))
 
 
-def begin(connection, people: list[dict], rolls: list[dict], start: dict | None, rng) -> dict | None:
-    """A fight that starts this turn: on someone in the scene the player attacks, a danger's foe, or a stand-in."""
+def just_ended(connection, message_id: str) -> bool:
+    """Whether the player's line before this one ended a fight. The stand-in they beat, or who beat them, is gone, so
+    "I hit him again" right after starts nothing new against a fresh one."""
+    where, values = timeline.visible(connection)
+    row = optional(connection, f"SELECT r.lines FROM story_messages m LEFT JOIN story_rounds r ON r.message_id=m.id "
+                               f"WHERE {where} AND m.role='user' AND m.id<>? ORDER BY m.seq DESC LIMIT 1",
+                   (*values, message_id))
+    return bool(row and row['lines']) and fight(connection) is None
+
+
+def begin(connection, people: list[dict], rolls: list[dict], start: dict | None, rng,
+          message_id: str = '') -> dict | None:
+    """A fight that starts this turn: on someone in the scene the player attacks, a danger's foe, or a stand-in (not
+    on the line straight after a fight ended)."""
     target = attack_on(people, rolls)
-    spec = person_foe(target) if target else start or stand_in(rolls)
+    spec = person_foe(target) if target else start or (
+        None if message_id and just_ended(connection, message_id) else stand_in(rolls))
     if spec is None:
         return None
     zone = 'near' if spec is start else 'engaged'
