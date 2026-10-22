@@ -18,7 +18,7 @@ SAVED = ('story_scene', 'story_people', 'character_stats', 'record_entries', 'st
          'story_injuries', 'story_stress', 'story_cards',
          'story_clocks', 'story_reputation', 'story_fates', 'story_beats', 'story_word', 'story_offpage',
          'story_tier', 'story_marks', 'story_dark',
-         'story_director', 'story_arcs', 'story_threads', 'story_nemeses')
+         'story_director', 'story_arcs', 'story_threads', 'story_nemeses', 'story_chapter_break')
 ROOT = 'first'
 OLD_NAMES = {new: old for old, new in RENAMED_TABLES}
 
@@ -90,14 +90,16 @@ def visible(connection, branch_id: str | None = None) -> tuple[str, tuple]:
     return '(' + ' OR '.join(parts) + ')', tuple(values)
 
 
-def leave(connection, now: str):
-    """Keep the game state of the branch being left, so it can be played on later."""
+def leave(connection, now: str, ending: str = ''):
+    """Keep the game state of the branch being left, so it can be played on later; `ending` is how it ended, when the
+    character died ('death') or was lost ('lost') there."""
     branch = active(connection)
-    connection.execute('INSERT INTO story_branches (id, parent_id, fork_seq, tip, created_at) VALUES (?, NULL, NULL, '
-                       '?, ?) ON CONFLICT(id) DO UPDATE SET tip=excluded.tip', (branch, state(connection), now))
+    connection.execute('INSERT INTO story_branches (id, parent_id, fork_seq, tip, created_at, ending) VALUES (?, NULL, '
+                       'NULL, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET tip=excluded.tip, ending=excluded.ending',
+                       (branch, state(connection), now, ending))
 
 
-def back(connection, message_id: str, now: str) -> dict:
+def back(connection, message_id: str, now: str, ending: str = '') -> dict:
     """Go back to before one of the player's lines: a new branch from there, with the state the line found."""
     where, values = visible(connection)
     line = optional(connection, f"SELECT * FROM story_messages WHERE id=? AND role='user' AND {where}",
@@ -105,7 +107,7 @@ def back(connection, message_id: str, now: str) -> dict:
     require(line is not None, 'That line is not in the story you are playing.', 404)
     saved = optional(connection, 'SELECT state FROM story_saves WHERE message_id=?', (message_id,))
     require(saved is not None, 'That line was sent before the story kept save points.', 409)
-    leave(connection, now)
+    leave(connection, now, ending)
     branch = identifier()
     connection.execute('INSERT INTO story_branches (id, parent_id, fork_seq, tip, created_at) VALUES (?, ?, ?, NULL, ?)',
                        (branch, active(connection), line['seq'], now))
@@ -114,13 +116,13 @@ def back(connection, message_id: str, now: str) -> dict:
     return line
 
 
-def switch(connection, branch_id: str, now: str):
+def switch(connection, branch_id: str, now: str, ending: str = ''):
     """Play on in another branch, where the player left it."""
     if branch_id == active(connection):
         return
     row = optional(connection, 'SELECT tip FROM story_branches WHERE id=?', (branch_id,))
     require(row is not None and row['tip'] is not None, 'That branch is not in this story.', 404)
-    leave(connection, now)
+    leave(connection, now, ending)
     restore(connection, row['tip'])
     connection.execute('UPDATE story_branches SET tip=NULL WHERE id=?', (branch_id,))
     set_active(connection, branch_id)

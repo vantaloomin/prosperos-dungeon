@@ -40,6 +40,10 @@ CREATE TABLE IF NOT EXISTS workspace_settings (
   roll_dice INTEGER NOT NULL DEFAULT 0,
   -- The GM view (dungeon/record.py): the whole record, hidden truth included, to see and edit.
   gm_view INTEGER NOT NULL DEFAULT 0,
+  -- Whether a narration that clashes with the record is rewritten before the player sees it (dungeon/story.py told).
+  contradiction_check INTEGER NOT NULL DEFAULT 1,
+  -- Tokens a turn may send at most (dungeon/remembering.py); 0 is the model's whole window.
+  context_cap INTEGER NOT NULL DEFAULT 0 CHECK (context_cap IN (0, 4000, 8000, 16000, 32000, 64000)),
   -- Injury persistence (dungeon/injuries.py): lasting injuries stay, fade, or never happen.
   injury_persistence TEXT NOT NULL DEFAULT 'permanent' CHECK (injury_persistence IN ('permanent', 'temporary', 'none')),
   -- The first-run notice: the story is AI written, and the user is 18 or older.
@@ -252,7 +256,9 @@ CREATE TABLE IF NOT EXISTS story_branches (
   parent_id TEXT,
   fork_seq INTEGER,
   tip TEXT,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  -- How it ended, when the character died ('death') or was lost ('lost') there (dungeon/chapters.py tree).
+  ending TEXT NOT NULL DEFAULT ''
 );
 
 -- Which branch is being played.
@@ -279,7 +285,10 @@ CREATE TABLE IF NOT EXISTS record_entries (
   source TEXT NOT NULL CHECK (source IN ('code', 'narrator', 'player')),
   message_id TEXT,
   removed INTEGER NOT NULL DEFAULT 0 CHECK (removed IN (0, 1)),
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  -- How much it matters (1 to 3) and the turn the character last had it in mind (dungeon/remembering.py).
+  weight INTEGER NOT NULL DEFAULT 1,
+  turn INTEGER NOT NULL DEFAULT 0
 );
 
 -- Every change the player made to their journal; `after` is NULL for a fact removed.
@@ -698,4 +707,53 @@ CREATE TABLE IF NOT EXISTS story_rests (
   message_id TEXT PRIMARY KEY,
   plan TEXT NOT NULL,
   lines TEXT
+);
+
+-- Chapters (dungeon/chapters.py): each starts at one of the player's lines; its end is kept on the branch where it
+-- ended, so both are read through the branches like the messages.
+CREATE TABLE IF NOT EXISTS story_chapters (
+  id TEXT PRIMARY KEY,
+  branch_id TEXT NOT NULL,
+  seq INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS story_chapter_ends (
+  chapter_id TEXT NOT NULL,
+  branch_id TEXT NOT NULL,
+  seq INTEGER NOT NULL,
+  reason TEXT NOT NULL,
+  title TEXT NOT NULL DEFAULT '',
+  summary TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (chapter_id, branch_id)
+);
+
+-- A scene break waiting for the player's next line, which opens the next chapter; game state, so it is branched.
+CREATE TABLE IF NOT EXISTS story_chapter_break (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  reason TEXT NOT NULL,
+  title TEXT NOT NULL DEFAULT ''
+);
+
+-- Named moments to find again; across every branch.
+CREATE TABLE IF NOT EXISTS story_bookmarks (
+  id TEXT PRIMARY KEY,
+  message_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+-- The player's own notebook: across every branch, and never read by a model.
+CREATE TABLE IF NOT EXISTS story_notebook (
+  id TEXT PRIMARY KEY,
+  text TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- The campaign's choices made at its start that hold across every branch: Ironman turns off going back.
+CREATE TABLE IF NOT EXISTS story_campaign (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  ironman INTEGER NOT NULL DEFAULT 0
 );

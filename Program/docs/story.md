@@ -99,6 +99,49 @@ folded into one rolling summary (`story_summary`) by the Continuity model, or th
 narrator gets that summary as "The story so far" in their place. The record and the summary are branched with the
 story.
 
+## Layered recall and forgetting
+
+`dungeon/remembering.py` decides what the narrator is reminded of each turn:
+
+- **Layered recall.** The narrator reads the recent turns word for word, the story so far as a summary, and up to 40
+  facts from the record: every death and promise first, then the facts about who is present, the place, and
+  anything named in the player's line or the last two messages, then the newest of the rest.
+- **Context fits the model.** The workspace setting `context_cap` (Settings > Models > Turn speed) caps the tokens a
+  turn sends. When the system prompt would take more than half the window, the summary goes first, then the facts
+  fall to a quarter, so the recent turns keep their room.
+- **Forgetting, but grudges stick.** Each fact has a weight (1 to 3: deaths, promises, debts and betrayals are 3;
+  secrets, wounds and relationships 2; the rest 1) and the turn the character last had it in mind. A weight-1 fact
+  fades after 25 turns and a weight-2 one after 100; weight 3 never does. A fact about someone the character feels
+  strongly about (any feeling at 3 or more either way) stays sharp, and a fact named again in a line or a narration
+  is fresh again. Hidden truth never fades. The narrator is told which facts are faded; the journal marks them
+  "fading". The record itself keeps every fact.
+- **Recalling a faded detail.** A line that tries to remember something ("I try to remember the ferryman") that
+  matches a faded fact takes a Mind roll in place of the Referee's; a success brings the facts about it back to mind.
+- **The contradiction check** (`contradiction_check`, on by default) rewrites a narration that has the dead acting
+  before the player reads it. Off is faster on slow local models; the passage is then flagged for the player to
+  rewrite.
+
+## Chapters and the branch tree
+
+`dungeon/chapters.py` gives the story its structure.
+
+- **Chapters close at scene breaks:** a new place, a journey or a rest, a fight over, a quest done or failed, or the
+  player ending one themselves ("End the chapter", with a name if they like). The break waits
+  (`story_chapter_break`, branched game state) and the player's next line opens the next chapter. After that turn the
+  Continuity model (or the Default one) summarizes and names the chapter that ended; a name the player gave stays.
+- **Chapters follow the branches.** A chapter (`story_chapters`) starts at one of the player's lines, and its end
+  (`story_chapter_ends`) is kept on the branch where it ended. Both are read through `timeline.visible` like the
+  messages, so a branch shares its parent's chapters up to where it forked, and a chapter that ended differently on
+  another branch is still open here.
+- **The chapter list** reads the branch being played like a table of contents; any chapter can be read in full. The
+  **tree** shows every branch under the one it forked from, with the chapters it began itself. A branch left with
+  the character dead or lost is marked by how it ended (`story_branches.ending`). "Play from here" goes back to a
+  chapter's first line in its branch, with new dice.
+- **Bookmarks** name a player's line to find it again; "Go there" plays on in its branch and shows the line.
+- **Ironman** is chosen at campaign start (`story_campaign`). It turns off going back to a line and switching branch,
+  so death is final; telling a line again keeps its dice, so it is still allowed.
+- **The notebook** (`story_notebook`) is the player's own. It spans every branch and no model ever reads it.
+
 ## What is happening
 
 A town's adventure file (`dungeon/world/data/adventures/<city>.json`, `dungeon/quests.py`) lists its quests and its

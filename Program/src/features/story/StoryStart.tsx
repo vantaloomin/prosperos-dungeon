@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
 import type { PersonaGender, Story as StoryData, StoryArc, StoryHand, StoryPace, StoryStart as StartChoices } from '../../types'
-import { Field, TextArea, TextInput } from '../../components/Fields'
+import { Field, TextArea, TextInput, Toggle } from '../../components/Fields'
 import { Stepper } from '../../components/NumberFields'
 import { Loading, Notice } from '../../components/Feedback'
 import { GENDERS } from '../worlds/worldsText'
@@ -19,12 +19,13 @@ export function StoryStart({ onStarted }: { onStarted: (data: StoryData) => void
   const [arc, setArc] = useState<StoryArc | null>(null)
   const [pace, setPace] = useState<StoryPace | null>(null)
   const [hand, setHand] = useState<StoryHand | null>(null)
+  const [ironman, setIronman] = useState(false)
   if (!choices.data) return <Loading label="Finding who you could be" />
   const begin = async (body: object) => {
     setBusy(true)
     setError('')
     try {
-      onStarted(await api<StoryData>('/story/start', { ...body, ...(arc && { arc }), ...(pace && { pace }), ...(hand && { hand }) }))
+      onStarted(await api<StoryData>('/story/start', { ...body, ...(arc && { arc }), ...(pace && { pace }), ...(hand && { hand }), ironman }))
       await Promise.all([client.invalidateQueries({ queryKey: ['story-sheet'] }), client.invalidateQueries({ queryKey: WORLDS_KEY })])
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'The story did not start. Try again.') }
     finally { setBusy(false) }
@@ -51,6 +52,8 @@ export function StoryStart({ onStarted }: { onStarted: (data: StoryData) => void
           </select>}
         </Field>
       </div>}
+      <Toggle label="Ironman" hint="No going back for this whole campaign: no earlier line, no other branch. If your character dies, the story ends there."
+        checked={ironman} onChange={setIronman} />
       {!own && <>
         <p className="subtle">Play someone from this town, or make your own.</p>
         <ul className="story-premades">

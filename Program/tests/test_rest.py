@@ -1,4 +1,5 @@
 """Rest (dungeon/rest.py): safe and risky nights, precautions, a fight in the dark, time, food and mending."""
+from conftest import narrator as last_narration
 from conftest import tell
 from test_inventory import begin
 from test_travel import Road, clock_at, ok, reply
@@ -60,7 +61,7 @@ def test_raiders_in_the_night_start_a_fight_and_end_the_rest(client, connected, 
     # No rest with a fight on.
     reply(provider, 'No sleep.')
     tell(client, 'I lie down and sleep.', 'story-0002')
-    assert 'cannot rest with a fight on' in provider.requests[-1]['system']
+    assert 'cannot rest with a fight on' in last_narration(provider)['system']
 
 
 def test_days_out_in_the_open_eat_from_the_pack_and_hunger_slows_mending(client, connected, provider, app):

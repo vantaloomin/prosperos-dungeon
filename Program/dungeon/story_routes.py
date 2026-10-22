@@ -7,7 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse
 from pydantic import Field
 
-from dungeon import campaign, director, growth, quests, record, sheet, story, story_clock
+from dungeon import campaign, chapters, director, growth, quests, record, sheet, story, story_clock
 from dungeon.errors import DomainError
 from dungeon.models import Input, PersonaInput
 
@@ -144,6 +144,8 @@ class StoryStart(Input):
     pace: Literal['slow', 'steady', 'fast'] | None = None
     # How hard the director's hand pushes (dungeon/director.py).
     hand: Literal['soft', 'guiding', 'firm'] | None = None
+    # Ironman (dungeon/chapters.py): no going back for the whole campaign, so death is final.
+    ironman: bool = False
 
 
 @router.get('/start')
@@ -154,7 +156,7 @@ def start_choices(request: Request):
 @router.post('/start')
 def start(request: Request, body: StoryStart):
     return campaign.begin(request.app.state.database, body.premade_id, body.persona, body.stats, body.arc,
-                          body.pace, body.hand)
+                          body.pace, body.hand, body.ironman)
 
 
 class StoryBack(Input):
@@ -170,6 +172,93 @@ def back(request: Request, body: StoryBack):
 @router.post('/branches/{branch_id}/switch')
 def switch_branch(request: Request, branch_id: str):
     return story.switch_branch(request.app.state.database, branch_id)
+
+
+class ChapterClose(Input):
+    title: str = Field('', max_length=80)
+
+
+@router.post('/chapters/close')
+def close_chapter(request: Request, body: ChapterClose):
+    """The player ends the chapter here, naming it if they like; their next line opens the next one."""
+    database = request.app.state.database
+    with database.connect(write=True) as connection:
+        chapters.mark(connection, 'player', body.title)
+    return story.story(database)
+
+
+@router.get('/chapters/{chapter_id}')
+def read_chapter(request: Request, chapter_id: str, branch_id: str | None = None):
+    """A chapter's lines as they were told in a branch (the one being played by default), to read."""
+    with request.app.state.database.connect() as connection:
+        return {'lines': chapters.read(connection, chapter_id, branch_id)}
+
+
+@router.post('/chapters/{chapter_id}/back')
+def chapter_back(request: Request, chapter_id: str):
+    """Play on from the start of a chapter in the tree, with new dice."""
+    return story.chapter_back(request.app.state.database, chapter_id)
+
+
+class BookmarkInput(Input):
+    message_id: str = Field(min_length=1, max_length=80)
+    name: str = Field(min_length=1, max_length=80)
+
+
+@router.post('/bookmarks')
+def add_bookmark(request: Request, body: BookmarkInput):
+    database = request.app.state.database
+    with database.connect(write=True) as connection:
+        chapters.bookmark(connection, body.message_id, body.name, database.now())
+    return story.story(database)
+
+
+@router.delete('/bookmarks/{bookmark_id}')
+def remove_bookmark(request: Request, bookmark_id: str):
+    database = request.app.state.database
+    with database.connect(write=True) as connection:
+        chapters.unbookmark(connection, bookmark_id)
+    return story.story(database)
+
+
+@router.post('/bookmarks/{bookmark_id}/go')
+def go_to_bookmark(request: Request, bookmark_id: str):
+    return story.bookmark_go(request.app.state.database, bookmark_id)
+
+
+class NotebookNote(Input):
+    text: str = Field(min_length=1, max_length=4000)
+
+
+@router.get('/notebook')
+def notebook(request: Request):
+    """The player's own notes, across every branch; no model reads them (dungeon/chapters.py)."""
+    with request.app.state.database.connect() as connection:
+        return {'notes': chapters.notebook(connection)}
+
+
+@router.post('/notebook')
+def add_to_notebook(request: Request, body: NotebookNote):
+    database = request.app.state.database
+    with database.connect(write=True) as connection:
+        chapters.write_note(connection, body.text, database.now())
+        return {'notes': chapters.notebook(connection)}
+
+
+@router.patch('/notebook/{note_id}')
+def change_notebook(request: Request, note_id: str, body: NotebookNote):
+    database = request.app.state.database
+    with database.connect(write=True) as connection:
+        chapters.write_note(connection, body.text, database.now(), note_id)
+        return {'notes': chapters.notebook(connection)}
+
+
+@router.delete('/notebook/{note_id}')
+def remove_from_notebook(request: Request, note_id: str):
+    database = request.app.state.database
+    with database.connect(write=True) as connection:
+        chapters.remove_note(connection, note_id)
+        return {'notes': chapters.notebook(connection)}
 
 
 class JournalNote(Input):

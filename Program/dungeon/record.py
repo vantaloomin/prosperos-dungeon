@@ -23,6 +23,7 @@ Both are game state, kept per branch (dungeon/timeline.py SAVED).
 import json
 import re
 
+from dungeon import remembering
 from dungeon.database import identifier, many, one, optional, settings
 from dungeon.errors import DomainError, require
 from dungeon.providers.scheduling import CONVERSATION
@@ -32,7 +33,7 @@ JOB = 'continuity'
 KINDS = ('death', 'item', 'wound', 'promise', 'location', 'secret', 'relationship', 'fact')
 TRUTHS = ('world', 'belief', 'both')
 MOST_FACTS = 6
-# Entries the narrator is given each turn: every death and promise, then the newest of the rest.
+# Entries the narrator is given each turn (dungeon/remembering.py chooses them).
 IN_PROMPT = 40
 # Messages the narrator reads word for word; older ones are folded into the summary FOLD at a time.
 RECENT = 30
@@ -112,6 +113,7 @@ def add(connection, kind: str, subject: str, text: str, now: str, source: str = 
     entry_id = identifier()
     connection.execute('INSERT INTO record_entries (id, kind, subject, text, truth, source, message_id, created_at) '
                        'VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (entry_id, kind, subject, text, truth, source, message_id, now))
+    remembering.stamp(connection, entry_id, kind, text)
     return one(connection, 'SELECT * FROM record_entries WHERE id=?', (entry_id,))
 
 
@@ -120,7 +122,9 @@ def entries(connection, known_only: bool = True) -> list[dict]:
     hidden = "AND truth != 'world'" if known_only else ''
     rows = many(connection, f'SELECT id, kind, subject, text, truth, source, message_id IS NOT NULL AS pulled, '
                             f'created_at FROM record_entries WHERE removed=0 {hidden} ORDER BY created_at DESC, rowid DESC')
-    return [row | {'pulled': row['source'] == 'narrator' and bool(row['pulled'])} for row in rows]
+    fading = remembering.faded_ids(connection)
+    return [row | {'pulled': row['source'] == 'narrator' and bool(row['pulled']), 'faded': row['id'] in fading}
+            for row in rows]
 
 
 def gm_view(connection) -> bool:
@@ -147,18 +151,10 @@ def correct(connection, entry_id: str, now: str, text: str | None = None) -> Non
                        (identifier(), entry_id, row['text'], text, now))
 
 
-def prompt_text(connection) -> str:
-    """The record for the narrator: what is true, including what the player's character does not know."""
-    rows = many(connection, 'SELECT kind, subject, text, truth FROM record_entries WHERE removed=0 '
-                            "ORDER BY kind IN ('death', 'promise') DESC, created_at DESC, rowid DESC LIMIT ?",
-                (IN_PROMPT,))
-    if not rows:
-        return ''
-    lines = [f"- {row['kind']}, {row['subject']}: {row['text']}"
-             + {'world': " (hidden: the player's character does not know)",
-                'belief': " (the player's character believes this; it may be wrong)", 'both': ''}[row['truth']]
-             for row in rows]
-    return '## The record (kept by the game; never contradict it)\n' + '\n'.join(lines)
+def prompt_text(connection, focus: str = '', limit: int = IN_PROMPT) -> str:
+    """The record for the narrator: what is true, including what the player's character does not know, chosen by
+    relevance to `focus` (dungeon/remembering.py)."""
+    return remembering.prompt_text(connection, focus, limit)
 
 
 def well_formed(item) -> dict | None:
@@ -195,11 +191,13 @@ async def asked(state, config: dict, system: str, text: str, shape: dict | None 
             config, key_for(state.vault, config), system, [{'role': 'user', 'content': text}])])
 
 
-async def schema_first(state, config: dict, system: str, text: str, shape: dict) -> str:
-    """Asked with the schema; asked again without it when the backend refuses it or the answer cannot be read."""
+async def schema_first(state, config: dict, system: str, text: str, shape: dict, readable=None) -> str:
+    """Asked with the schema; asked again without it when the backend refuses it or the answer cannot be read (by
+    `readable`, the facts by default)."""
+    readable = readable or (lambda answer: checked(answer) is not None)
     try:
         answer = await asked(state, config, system, text, shape)
-        if checked(answer) is not None:
+        if readable(answer):
             return answer
     except DomainError:
         pass

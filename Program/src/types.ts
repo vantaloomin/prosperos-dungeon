@@ -26,6 +26,12 @@ export interface WorkspaceSettings {
   show_adult_side?: boolean
   /** Seconds a story turn may take before its optional steps give way; 0 is automatic (dungeon/pace.py). */
   turn_budget?: number
+  /** Rewrite a narration that clashes with the record before it is shown; on by default (dungeon/story.py told). */
+  contradiction_check?: boolean
+  /** Tokens a turn may send at most; 0 is the model's whole window (dungeon/remembering.py). */
+  context_cap?: number
+  /** The GM view of the record: hidden truth shown and editable (dungeon/record.py). */
+  gm_view?: boolean
   /** How far the story goes on the page; 'world' follows the world's own preset. */
   intensity?: IntensityPreset
   /** Settings > Debug: every model request and response is written in full to logs/model-calls; off by default. */
@@ -259,12 +265,19 @@ export interface SheetGrowth { marked: string[]; dark: { id: string; name: strin
 export interface StoryTier { tier: string; words: string; track: string; arc: StoryArc; pace: StoryPace; points?: number; next?: number | null }
 /** A fact the game keeps that the player's character knows (dungeon/record.py). */
 /** `world` (hidden truth) and `pulled` (a fact the model took from the story) show only in the GM view. */
-export interface JournalEntry { id: string; kind: string; subject: string; text: string; truth: 'world' | 'belief' | 'both'; source: 'code' | 'narrator' | 'player'; pulled?: boolean; created_at: string }
+export interface JournalEntry { id: string; kind: string; subject: string; text: string; truth: 'world' | 'belief' | 'both'; source: 'code' | 'narrator' | 'player'; pulled?: boolean; faded?: boolean; created_at: string }
 export interface JournalQuest { id: string; title: string; hook: string; status: 'open' | 'done' | 'failed' | 'missed'; outcome: string; left: string; kind?: 'authored' | 'job' | 'oath' }
 /** A thread in the director's notebook the character has come across, as they understand it (dungeon/director.py). */
 export interface JournalThread { id: string; kind: 'mystery' | 'grudge' | 'lead' | 'promise'; title: string; seen: string }
 export interface Journal { entries: JournalEntry[]; quests: JournalQuest[]; threads?: JournalThread[]; gm?: boolean }
 /** One way the story went (dungeon/timeline.py); `playing` is the one on screen. */
+/** A chapter of a branch (dungeon/chapters.py): `open` while it is still being played. */
+export interface StoryChapter { id: string; number: number; title: string; summary: string; open: boolean; turns: number; ended_by: 'place' | 'time' | 'fight' | 'quest' | 'player' | null; branch_id: string; seq: number }
+/** A branch in the tree: where it forked, how it ended if the character died or was lost, and its own chapters. */
+export interface StoryTreeBranch { id: string; parent_id: string | null; fork_seq: number | null; playing: boolean; ending: '' | 'death' | 'lost'; chapters: StoryChapter[] }
+export interface StoryBookmark { id: string; name: string; message_id: string; branch_id: string; text: string; created_at: string }
+export interface StoryCampaign { chapters: StoryChapter[]; tree: StoryTreeBranch[]; bookmarks: StoryBookmark[]; ironman: boolean; pending: { reason: string; title: string } | null }
+export interface NotebookNote { id: string; text: string; created_at: string; updated_at: string }
 export interface StoryBranch { id: string; playing: boolean; turns: number; last_line: string; last_at: string; started_at: string }
 /** The fight and the character's wounds (dungeon/combat.py); a foe's `wound` level only with the dice shown. */
 export interface StoryFight {
@@ -281,7 +294,7 @@ export interface StoryIntensity {
   cutaways?: boolean
 }
 export type DramaLevel = 'world' | 'quiet' | 'uneasy' | 'eventful' | 'merciless'
-export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; bands?: BandStep[] | null; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null; injury_persistence: InjuryPersistence; factions?: StoryFaction[]; tier?: StoryTier | null }
+export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; bands?: BandStep[] | null; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null; injury_persistence: InjuryPersistence; factions?: StoryFaction[]; tier?: StoryTier | null; campaign?: StoryCampaign; message_id?: string }
 /** A faction the character knows of (dungeon/factions.py): standing in words, with the number when the dice are shown. */
 export interface StoryFaction { id: string; name: string; summary: string; standing: string }
 export type InjuryPersistence = 'permanent' | 'temporary' | 'none'
