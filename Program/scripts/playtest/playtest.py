@@ -102,8 +102,11 @@ def set_up(dungeon: Dungeon, account_dir: str, model: str, helper_model: str, ef
     helper = dungeon.call('POST', '/api/models/profiles', {'name': f'Playtest {helper_model}',
                                                            'config': common | {'model': helper_model}})
     who = dungeon.call('POST', f"/api/models/profiles/{narrator['id']}/check")
-    for job, profile in (('chat', narrator), ('story', narrator), ('referee', helper), ('continuity', helper)):
-        dungeon.call('PUT', '/api/models/routes', {'job': job, 'profile_id': profile['id']})
+    jobs = {job['key'] for job in dungeon.call('GET', '/api/models')['jobs']}
+    for job, profile in (('chat', narrator), ('story', narrator), ('referee', helper), ('continuity', helper),
+                         ('director', helper)):
+        if job in jobs:
+            dungeon.call('PUT', '/api/models/routes', {'job': job, 'profile_id': profile['id']})
     return who.get('note', '')
 
 
@@ -279,6 +282,73 @@ class Play:
         result = self.dungeon.call('POST', '/api/story/back', {'message_id': target['id']})
         self.write(f"### Go back to before \"{target['text']}\" (draft: {result.get('draft')!r})\n")
         return result.get('draft') or target['text']
+
+    # Milestone 3: chapters, bookmarks, the notebook, the GM view, export ----------------------------------------
+
+    def attempt(self, label: str, method: str, path: str, body=None, expect_refusal=False):
+        """A screen action that may be refused; a refusal is a finding unless the scenario expects one."""
+        try:
+            result = self.dungeon.call(method, path, body)
+        except ApiError as error:
+            self.write(f'### {label}: refused ({error})\n')
+            if not expect_refusal:
+                self.flag(f'{label} was refused: {error}')
+            return None
+        self.write(f'### {label}\n')
+        if expect_refusal:
+            self.flag(f'{label} should have been refused.')
+        return result
+
+    def lines(self) -> list[dict]:
+        return [m for m in self.story()['messages'] if m['role'] == 'user']
+
+    def chapters(self):
+        campaign = self.story().get('campaign') or {}
+        self.write('#### Chapters')
+        for chapter in campaign.get('chapters') or []:
+            self.write(f"- {chapter.get('number')}. {chapter.get('title') or '(untitled)'} "
+                       f"[{'open' if chapter.get('open') else 'closed'}, {chapter.get('turns')} lines, "
+                       f"by {chapter.get('ended_by') or chapter.get('reason') or '-'}]: {chapter.get('summary') or ''}"
+                       + (f" Still open: {chapter['hook']}" if chapter.get('hook') else ''))
+        for branch in campaign.get('tree') or []:
+            self.write(f"- branch {json.dumps(branch, ensure_ascii=False)[:300]}")
+        for mark in campaign.get('bookmarks') or []:
+            self.write(f"- bookmark {json.dumps(mark, ensure_ascii=False)[:200]}")
+        self.write(f"- ironman: {campaign.get('ironman')}, pending break: {campaign.get('pending')}\n")
+        return campaign
+
+    def gm(self):
+        behind = self.dungeon.call('GET', '/api/story/gm')
+        self.write('#### Behind the story (GM view)')
+        for quest in behind.get('quests') or []:
+            self.write(f"- quest {quest.get('title')}: {quest.get('status')}, known {quest.get('known')}")
+        for seed in behind.get('seeds') or []:
+            self.write(f"- seed [{seed.get('status')}] {seed.get('text')}")
+        for plan in behind.get('plans') or []:
+            for beat in plan.get('beats') or []:
+                self.write(f"- beat {plan['arc_id']} stage {plan['stage']} [{beat.get('source')}"
+                           f"{', used' if beat.get('used') else ''}{', cut' if beat.get('cut') else ''}]: "
+                           f"{beat.get('text')}")
+        for person in behind.get('people') or []:
+            self.write(f"- person {person.get('name')}: {json.dumps(person.get('feelings'), ensure_ascii=False)}")
+        self.write(f"- corrections: {len(behind.get('corrections') or [])}\n")
+        return behind
+
+    def export(self):
+        for format in ('md', 'epub', 'pdf'):
+            response = self.dungeon.http.get('/api/story/export/book', params={'format': format})
+            self.write(f"### Export the book as {format}: {response.status_code}, {len(response.content)} bytes, "
+                       f"{response.headers.get('content-type')}")
+            if response.status_code != 200 or not response.content:
+                self.flag(f'Book export as {format} failed: {response.status_code} {response.text[:200]}')
+            elif format == 'md':
+                self.write('```\n' + response.text[:1500] + '\n```')
+        campaign = self.dungeon.http.get('/api/story/export/campaign')
+        self.write(f'### Export the campaign: {campaign.status_code}, {len(campaign.content)} bytes\n')
+        if campaign.status_code != 200:
+            self.flag(f'Campaign export failed: {campaign.status_code} {campaign.text[:200]}')
+            return None
+        return campaign.content
 
 
 def run(name: str, scenario, args, out_dir: Path):
