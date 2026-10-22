@@ -26,6 +26,7 @@ from dungeon import (
     happenings,
     in_character,
     injuries,
+    institutions,
     inventory,
     jobs,
     judge,
@@ -621,6 +622,9 @@ def pass_time(database, connection, minutes: int):
         factions.advance(connection, found['world'], before, after, database.now())
         # And the director's arcs, on their own clocks (dungeon/director.py).
         director.advance(connection, found['world'], before, after, database.now())
+    if row:
+        # Classes attended or missed, and the demands of the character's institutions (dungeon/institutions.py).
+        institutions.advance(connection, before, after, row['city_id'], row['place_id'], database.now())
 
 
 def arrive(connection, now: str) -> dict:
@@ -644,7 +648,7 @@ def clear(database) -> dict:
                       'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_beats', 'story_word',
                       'story_offpage', 'story_tier', 'story_marks', 'story_dark',
                       'story_director', 'story_arcs', 'story_threads', 'story_nemeses', 'story_seeds',
-                      'story_arc_beats', 'story_sheet'):
+                      'story_arc_beats', 'story_sheet', 'story_enrollment', 'story_attendance', 'story_grades'):
             connection.execute(f'DELETE FROM {name}')
         timeline.clear(connection)
         chapters.clear(connection)
@@ -710,7 +714,8 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
     for summary_kept, facts in ((True, record.IN_PROMPT), (False, record.IN_PROMPT), (False, record.IN_PROMPT // 4)):
         memory = '\n\n'.join(part for part in (summary_kept and record.summary_text(connection),
                                                  record.prompt_text(connection, focus, facts),
-                                                 quests.prompt_text(connection, now), beats.prompt_text(connection),
+                                                 quests.prompt_text(connection, now),
+                                                 institutions.prompt_text(connection, now), beats.prompt_text(connection),
                                                  found and factions.prompt_text(connection, found['world'],
                                                                                 found['node']),
                                                  found and tiers.prompt_text(connection, found), lore_text,

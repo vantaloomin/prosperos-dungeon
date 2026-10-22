@@ -21,7 +21,7 @@ import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from dungeon import director, factions, feelings, growth, inventory, record, sworn, tiers, world_data
+from dungeon import director, factions, feelings, growth, institutions, inventory, record, sworn, tiers, world_data
 from dungeon.database import decode, encode, identifier, many, optional
 
 ADVENTURES = Path(__file__).parent / 'world' / 'data' / 'adventures'
@@ -86,15 +86,8 @@ def create(connection, kind: str, city_id: str, title: str, hook: str, truth: st
     return quest_id
 
 
-def settle(connection, quest: dict, status: str, stamp: str = '') -> list[str]:
-    """What a job or an oath leaves when it ends: pay and standing, or the trust an oath cost. Work done earns the
-    character's tier track (dungeon/tiers.py); a town's own quest done, or a rise in tier, is a milestone
-    (dungeon/growth.py). Returns those lines, kept in the record for the narrator."""
-    faction = quest.get('faction_id') and factions.anywhere(quest['faction_id'])
-    director.close(connection, quest['id'])
-    world = tiers.world_of(quest['city_id'])
-    risen = tiers.earn(connection, world, tiers.for_work(quest.get('tier') or 1, tiers.tier(connection, world))) \
-        if world and status == 'done' and quest.get('kind') != 'oath' else ''
+def kept(connection, quest: dict, status: str, faction: dict | None):
+    """A job's pay and standing, or the trust a broken oath cost."""
     if quest.get('kind') == 'job' and status == 'done':
         inventory.set_purse(connection, inventory.purse(connection) + (quest.get('reward') or 0))
         if faction:
@@ -105,12 +98,27 @@ def settle(connection, quest: dict, status: str, stamp: str = '') -> list[str]:
         person = optional(connection, 'SELECT key FROM story_people WHERE lower(name)=lower(?)', (quest['giver'],))
         if person:
             feelings.change(connection, person['key'], {'trust': -2, 'respect': -1}, f"broke an oath: {quest['title']}")
+
+
+def settle(connection, quest: dict, status: str, stamp: str = '') -> list[str]:
+    """What a job or an oath leaves when it ends: pay and standing, or the trust an oath cost; an institution's
+    demand is graded instead (dungeon/institutions.py). Work done earns the character's tier track
+    (dungeon/tiers.py); a town's own quest done, or a rise in tier, is a milestone (dungeon/growth.py). Returns those
+    lines, kept in the record for the narrator."""
+    faction = quest.get('faction_id') and factions.anywhere(quest['faction_id'])
+    director.close(connection, quest['id'])
+    world = tiers.world_of(quest['city_id'])
+    risen = tiers.earn(connection, world, tiers.for_work(quest.get('tier') or 1, tiers.tier(connection, world))) \
+        if world and status == 'done' and quest.get('kind') != 'oath' else ''
+    graded = institutions.settled(connection, quest, status) if quest.get('institution') else []
+    if not quest.get('institution'):
+        kept(connection, quest, status, faction)
     town_quest = status == 'done' and quest.get('kind') not in ('job', 'oath')
     reached = growth.milestone(connection, quest['title'] if town_quest else 'a rise in standing', stamp) \
         if town_quest or risen else ''
     # Under Ironsworn a quest or an oath done is a vow fulfilled.
     vowed = sworn.fulfil(connection, quest) if status == 'done' else ''
-    lines = [line for line in (risen, reached, vowed) if line]
+    lines = [line for line in (risen, reached, vowed, *graded) if line]
     for line in lines:
         record.add(connection, 'fact', 'The character', line, stamp or 'game')
     return lines
@@ -157,7 +165,7 @@ def prompt_text(connection, now: datetime) -> str:
 def view(connection, now: datetime) -> list[dict]:
     """The quests the player's character knows of, with the time left; hidden truth stays out."""
     return [{'id': quest['id'], 'title': quest['title'], 'hook': quest['hook'], 'status': quest['status'],
-             'kind': quest.get('kind') or 'authored',
+             'kind': 'coursework' if quest.get('institution') else quest.get('kind') or 'authored',
              'outcome': quest['outcome'], 'left': left_text(quest['due_at'], now) if quest['status'] == 'open' else ''}
             for quest in rows(connection) if quest['known']]
 

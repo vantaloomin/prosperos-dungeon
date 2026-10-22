@@ -365,7 +365,12 @@ CREATE TABLE IF NOT EXISTS story_quests (
   thread_id TEXT,
   ties TEXT NOT NULL DEFAULT '[]',
   -- Its tier on the shared ladder (dungeon/tiers.py).
-  tier INTEGER NOT NULL DEFAULT 1
+  tier INTEGER NOT NULL DEFAULT 1,
+  -- An institution's demand (dungeon/institutions.py): whose, which and when (`id@when`, so it opens once), and its
+  -- weight in the term's grades.
+  institution TEXT,
+  demand TEXT,
+  weight INTEGER NOT NULL DEFAULT 1
 );
 
 -- What the character carries and the shops' stock (dungeon/inventory.py); money in hundredths of the currency.
@@ -848,4 +853,31 @@ CREATE TABLE IF NOT EXISTS story_arc_beats (
   cut INTEGER NOT NULL DEFAULT 0,
   used INTEGER NOT NULL DEFAULT 0,
   source TEXT NOT NULL DEFAULT 'world'
+);
+
+-- The institutions the character belongs to and the classes they take (dungeon/institutions.py).
+CREATE TABLE IF NOT EXISTS story_enrollment (
+  institution_id TEXT PRIMARY KEY,
+  world TEXT NOT NULL,
+  classes TEXT NOT NULL DEFAULT '[]',
+  enrolled_at TEXT NOT NULL
+);
+
+-- Classes attended and missed, each term.
+CREATE TABLE IF NOT EXISTS story_attendance (
+  institution_id TEXT NOT NULL,
+  term TEXT NOT NULL,
+  attended INTEGER NOT NULL DEFAULT 0,
+  missed INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (institution_id, term)
+);
+
+-- Each demand's mark (0 to 100) and weight, each term.
+CREATE TABLE IF NOT EXISTS story_grades (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  institution_id TEXT NOT NULL,
+  term TEXT NOT NULL,
+  title TEXT NOT NULL,
+  weight INTEGER NOT NULL DEFAULT 1,
+  mark INTEGER NOT NULL CHECK (mark BETWEEN 0 AND 100)
 );

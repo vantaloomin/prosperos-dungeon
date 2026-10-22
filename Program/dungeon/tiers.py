@@ -17,6 +17,7 @@ Vallarith's is renown, earned by work done.
 The track is game state, branched with the story (dungeon/timeline.py SAVED).
 """
 import random
+from datetime import datetime
 from pathlib import Path
 
 from dungeon import factions, travel, world_data
@@ -39,6 +40,12 @@ def track(world: str) -> dict:
     found = world_data.read('tiers', world) or {}
     return {'track': 'renown', 'name': 'Renown', 'arc': 'classic', 'pace': 'steady',
             'words': [f'{name} renown' for name in LADDER]} | found
+
+
+def start(world: str | None) -> datetime | None:
+    """When a campaign in the world begins on the story clock (the tier file's `start`), or None for today."""
+    found = track(world).get('start') if world else None
+    return datetime.fromisoformat(found) if found else None
 
 
 def name(tier: int) -> str:

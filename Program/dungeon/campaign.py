@@ -11,6 +11,7 @@ from dungeon import (
     chapters,
     combat_brp,
     director,
+    institutions,
     inventory,
     legacy,
     package_lore,
@@ -202,8 +203,10 @@ def begin(database, premade_id: str | None = None, persona: PersonaInput | None 
         # The Table (dungeon/table.py): session zero's rules, the rest from the world's tone and the player's last taste.
         table.choose(connection, rules or {}, database.now())
         table.begin(connection)
-        story_clock.start(connection, database.clock.now())
-        quests.start(connection, city_id, database.clock.now())
+        # The story clock starts at the world's own date when it has one (Havenbrooke's 2009), else today.
+        began = tiers.start(tiers.world_of(city_id)) or database.clock.now()
+        story_clock.start(connection, began)
+        quests.start(connection, city_id, began)
         inventory.give_kit(connection, city_id, premade_id)
         # A made Percentile character carries their profession's weapons (dungeon/combat_brp.py).
         combat_brp.arm(connection, city_id, None if premade_id or ruleset != brp.ID else native)
@@ -214,8 +217,10 @@ def begin(database, premade_id: str | None = None, persona: PersonaInput | None 
             director.begin(connection, world, hand, database.now())
             # The world package's public lore, read by keyword like any lorebook (dungeon/package_lore.py).
             package_lore.bring(connection, database.root, world, database.now())
+            # The school or guild the character starts in (dungeon/institutions.py).
+            institutions.begin(connection, world, chosen if premade_id else None, began)
         # An earlier campaign's character as this world's history (dungeon/legacy.py).
         if earlier:
-            legacy.bring(connection, earlier, legacy_of['role'], database.clock.now())
+            legacy.bring(connection, earlier, legacy_of['role'], began)
         story.arrive(connection, database.now())
     return story.story(database)

@@ -1,4 +1,4 @@
-import type { ReceiptChip, StoryMessage, Srd52Spells, BandStep, HiddenRoll, TurnAction, TurnEvent, TurnSoFar, Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace, StoryArc, StoryPace, StoryTier, SheetGrowth, StoryHand, JournalThread, StoryChapter, LegacyRole } from '../../types'
+import type { ReceiptChip, StoryMessage, Srd52Spells, BandStep, HiddenRoll, TurnAction, TurnEvent, TurnSoFar, Gear, JournalEntry, JournalQuest, JournalInstitution, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace, StoryArc, StoryPace, StoryTier, SheetGrowth, StoryHand, JournalThread, StoryChapter, LegacyRole } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -145,7 +145,7 @@ const QUEST_ENDS: Record<string, string> = { done: 'Done', failed: 'Failed', mis
 
 /** A quest's state in the journal: the story time left while it is open, else how it ended. */
 export function questState(quest: Pick<JournalQuest, 'status' | 'left' | 'kind'>): string {
-  const kind = quest.kind === 'job' ? 'Job · ' : quest.kind === 'oath' ? 'Oath · ' : ''
+  const kind = quest.kind === 'job' ? 'Job · ' : quest.kind === 'oath' ? 'Oath · ' : quest.kind === 'coursework' ? 'Coursework · ' : ''
   if (quest.status !== 'open') return kind + (QUEST_ENDS[quest.status] ?? 'Over')
   return kind + (quest.left ? `Underway · ${quest.left}` : 'Underway')
 }
@@ -437,4 +437,18 @@ export function receiptsByReply(messages: StoryMessage[]): Map<string, ReceiptCh
   const byLine = new Map(messages.filter((message) => message.receipt?.length).map((message) => [message.id, message.receipt ?? []]))
   return new Map(messages.filter((message) => message.role === 'narrator' && message.reply_to && byLine.has(message.reply_to))
     .map((message) => [message.id, byLine.get(message.reply_to ?? '') ?? []]))
+}
+
+/** A school or guild in a line: the term, the grades so far and classes missed (dungeon/institutions.py). */
+export function institutionLine(item: Pick<JournalInstitution, 'term' | 'grades'>): string {
+  if (!item.term) return 'Out of term'
+  if (!item.grades) return `${item.term} · no grades yet`
+  const missed = item.grades.missed ? ` · ${item.grades.missed} ${item.grades.missed === 1 ? 'class' : 'classes'} missed` : ''
+  return `${item.term} · ${item.grades.letter} (${item.grades.gpa.toFixed(1)})${missed}`
+}
+
+/** The rest of today's classes, or that there are none. */
+export function todayLine(item: Pick<JournalInstitution, 'term' | 'today'>): string {
+  if (!item.term) return ''
+  return item.today.length ? `Today: ${item.today.map((entry) => `${entry.name} at ${entry.at}`).join(', ')}` : 'No more classes today'
 }

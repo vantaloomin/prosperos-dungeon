@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
-import type { Journal, JournalEntry, JournalQuest, JournalThread } from '../../types'
+import type { Journal, JournalEntry, JournalInstitution, JournalQuest, JournalThread } from '../../types'
 import { Notice } from '../../components/Feedback'
 import { Toggle } from '../../components/Fields'
 import { StoryGm } from './StoryGm'
-import { journalKind, questState, threadKind } from './storyText'
+import { institutionLine, journalKind, questState, threadKind, todayLine } from './storyText'
 import { useTable } from './table'
 
 const JOURNAL_KEY = ['story-journal']
@@ -23,7 +23,7 @@ export function StoryJournal({ open }: { open?: boolean }) {
     catch (failure) { setError(failure instanceof Error ? failure.message : 'That was not saved.') }
   }
   if (!journal.data) return null
-  const { entries, quests, threads = [], gm = false, summary = '' } = journal.data
+  const { entries, quests, institutions = [], threads = [], gm = false, summary = '' } = journal.data
   const setGm = async (checked: boolean) => {
     setError('')
     try { await table.save({ gm_view: checked }) }
@@ -35,8 +35,7 @@ export function StoryJournal({ open }: { open?: boolean }) {
       <Toggle label="GM view" hint="Shows everything the game keeps, secrets your character does not know included, so you can fix the model's mistakes. It spoils the story."
         checked={gm} onChange={(checked) => void setGm(checked)} />
       <Behind gm={gm} summary={summary} />
-      {!!quests.length && <Underway quests={quests} />}
-      {!!threads.length && <Threads threads={threads} />}
+      <GoingOn institutions={institutions} quests={quests} threads={threads} />
       <ul>
         {entries.map((entry) => <JournalLine key={entry.id} entry={entry}
           onSave={(text) => change(() => api<Journal>(`/story/journal/${entry.id}`, { text }, 'PATCH'))}
@@ -55,6 +54,28 @@ function Behind({ gm, summary }: { gm: boolean; summary: string }) {
     {gm && <StoryGm />}
     {summary && <details><summary>The story so far</summary><p className="story-note">{summary}</p></details>}
   </>
+}
+
+/** What is going on: schools and guilds, quests, and loose ends, each when there are any. */
+function GoingOn({ institutions, quests, threads }: { institutions: JournalInstitution[]; quests: JournalQuest[]; threads: JournalThread[] }) {
+  return <>
+    {!!institutions.length && <Schools institutions={institutions} />}
+    {!!quests.length && <Underway quests={quests} />}
+    {!!threads.length && <Threads threads={threads} />}
+  </>
+}
+
+/** The schools and guilds your character belongs to (dungeon/institutions.py): the term, grades and today's classes. */
+function Schools({ institutions }: { institutions: JournalInstitution[] }) {
+  return (
+    <ul aria-label="School and duties">
+      {institutions.map((item) => <li key={item.id}>
+        <p className="subtle">{institutionLine(item)}</p>
+        <p><strong>{item.name}</strong></p>
+        {item.term && <p>{todayLine(item)}</p>}
+      </li>)}
+    </ul>
+  )
 }
 
 /** The quests your character knows of (dungeon/quests.py), with the story time left. */

@@ -170,8 +170,8 @@ def test_the_gm_view_shows_everything_and_asks_again_for_or_clears_one_fact(clie
                         reply('{"facts": [{"kind": "secret", "subject": "the bouncer", "text": "He works for the '
                               'co-op.", "truth": "world"}]}')]
     tell(client, 'I watch the bouncer.', 'story-0001')
-    assert ok(client.get('/api/story/journal')) | {'quests': [], 'threads': []} == {
-        'entries': [], 'gm': False, 'quests': [], 'threads': [], 'summary': ''}
+    assert ok(client.get('/api/story/journal')) | {'quests': [], 'institutions': [], 'threads': []} == {
+        'entries': [], 'gm': False, 'quests': [], 'institutions': [], 'threads': [], 'summary': ''}
     with app.state.database.connect() as connection:
         [hidden] = record.entries(connection, known_only=False)
     assert client.post(f"/api/story/journal/{hidden['id']}/regenerate").status_code == 409

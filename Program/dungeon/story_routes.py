@@ -14,6 +14,7 @@ from dungeon import (
     director,
     gm,
     growth,
+    institutions,
     legacy,
     plotting,
     quests,
@@ -351,6 +352,10 @@ def remove_from_notebook(request: Request, note_id: str):
         return {'notes': chapters.notebook(connection)}
 
 
+class Enrolment(Input):
+    classes: list[str] | None = Field(default=None, max_length=20)
+
+
 class JournalNote(Input):
     subject: str = Field(min_length=1, max_length=120)
     text: str = Field(min_length=1, max_length=500)
@@ -377,6 +382,7 @@ def journal_view(connection, database) -> dict:
     return {'entries': record.entries(connection, known_only=not behind), 'gm': behind,
             'summary': record.summary(connection)['text'],
             'quests': quests.view(connection, story_clock.now(connection, database.clock)),
+            'institutions': institutions.view(connection, story_clock.now(connection, database.clock)),
             'threads': director.journal(connection)}
 
 
@@ -525,3 +531,23 @@ def export_campaign(request: Request):
     """The whole campaign (every branch, save, the record and the settings) as one file, to keep or move."""
     content, name = legacy.campaign_file(request.app.state.database)
     return attachment(content, 'application/zip', name)
+
+
+@router.put('/institutions/{institution_id}')
+def enroll(request: Request, institution_id: str, body: Enrolment):
+    """The character joins a school or guild of this world, in the classes named (dungeon/institutions.py)."""
+    database = request.app.state.database
+    with database.connect(write=True) as connection:
+        world = tiers.world_of(story.scene_row(connection)['city_id'])
+        joined = world and institutions.enroll(connection, world, institution_id, body.classes,
+                                               story_clock.now(connection, database.clock))
+        require(bool(joined), 'That institution is not in this world.', 404)
+        return journal_view(connection, database)
+
+
+@router.delete('/institutions/{institution_id}')
+def leave(request: Request, institution_id: str):
+    database = request.app.state.database
+    with database.connect(write=True) as connection:
+        institutions.leave(connection, institution_id)
+        return journal_view(connection, database)
