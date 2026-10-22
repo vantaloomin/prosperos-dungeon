@@ -2,7 +2,8 @@
 
 Code runs the fight; the narrator writes it. One line of the player's is one round:
 - A fight starts when the player attacks someone in the scene (by name or by what they do: "the barkeep"), or when
-  a dangerous place's threat brings a foe (dungeon/quests.py).
+  a dangerous place's threat brings a foe (dungeon/quests.py). An attack on someone the scene does not hold (an extra
+  the narrator brought in) fights a stand-in.
 - Each round the player's rolled actions land first: an attack that succeeds wounds its target by the band (a cost
   one level, a success two, a critical three) and the weapon carried (a sword or axe one more, bare hands one less).
   A successful dodge, block or parry makes the foes' attacks this round hard. A successful flight ends the fight.
@@ -23,7 +24,7 @@ import json
 import random
 import re
 
-from dungeon import record
+from dungeon import record, sheet
 from dungeon.database import encode, optional
 from dungeon.rules import marvel
 
@@ -34,8 +35,14 @@ MEND_NIGHTS = {1: 1, 2: 2, 3: 4, 4: 7}
 DAMAGE = {'success_cost': 1, 'success': 2, 'critical_success': 3}
 WEAPONS = {'sword': 1, 'felling-axe': 1, 'hatchet': 0, 'knife': 0, 'cudgel': 0, 'crowbar': 0}
 BARE_HANDS = -1
-ATTACK = re.compile(r'\b(attack|hit|punch|strike|fight|swing|stab|slash|shoot|kick|tackle|wrestle|club|cut|kill)\w*',
+ATTACK = re.compile(r'\b(attack|hit|punch|strike|fight|swing|stab|slash|shoot|kick|tackle|wrestle|club|cut|kill|hack|'
+                    r'lunge|thrust|smash|bash|bite|headbutt|throttle|strangle|go(?:es)? for|sword|axe|knife|blade)\w*',
                     re.I)
+# Who an attack is aimed at when it names nobody in the scene: someone the narrator brought in ("punch him", "the big
+# logger"). An attack on a thing ("hack at the roots") names neither.
+SOMEONE = re.compile(r'\b(him|her|them|man|woman|men|women|fellow|lad|boy|girl|stranger|drunk|thug|brute|logger|'
+                     r'cutter|guard|bandit|thief|sailor|soldier|bully)\b', re.I)
+OPPONENT = 'their opponent'
 GUARD = re.compile(r'\b(dodge|block|parry|defend|duck|guard)\w*', re.I)
 FLEE = re.compile(r'\b(flee|run away|run for|escape|retreat|bolt|get away)\w*', re.I)
 SUCCESS = ('success_cost', 'success', 'critical_success')
@@ -135,6 +142,17 @@ def foes_from(spec: dict, zone: str = 'near') -> list[dict]:
              'vitality': spec.get('vitality', 10), 'resolve': spec.get('resolve', 10), 'weapon': spec.get('weapon', 0),
              'wound': 0, 'zone': zone, 'broken': False} | ({'horror': True} if spec.get('horror') else {})
             for n in range(count)]
+
+
+def stand_in(rolls: list[dict]) -> dict | None:
+    """A foe for an attack on someone the scene does not hold (the narrator's own extra), named as the action names
+    them ("the big logger"), else 'their opponent'."""
+    for roll in rolls:
+        if roll['stat'] == 'Vitality' and ATTACK.search(roll['action']) and (who := SOMEONE.search(roll['action'])):
+            named = re.search(rf'\b(?:the|that|this)\s+((?:[a-z-]+\s+){{0,2}}?{who.group(1)})\b', roll['action'], re.I)
+            return {'name': f'the {named.group(1).lower()}' if named else OPPONENT, 'vitality': 10, 'resolve': 10,
+                    'weapon': 0, 'wants': 'drive_off'}
+    return None
 
 
 def person_foe(person: dict) -> dict:
@@ -252,7 +270,7 @@ def play_round(connection, state: dict, rolls: list[dict], items: list[dict], rn
 def defeat(connection, state: dict, rng, now: str) -> tuple[str, str]:
     """The character went down: cling on with Vitality, then what the winners do with them."""
     rng = rng or random.SystemRandom()
-    clung = marvel.roll(10, 'hard', rng)['band'] in SUCCESS
+    clung = marvel.roll(sheet.stats(connection).get('Vitality', 10), 'hard', rng)['band'] in SUCCESS
     table = [(outcome, weight) for outcome, weight in DEFEAT[state['wants']] if not (clung and outcome == 'death')]
     pick = rng.randint(1, sum(weight for _, weight in table))
     outcome = next(name for name, weight in _running(table) if pick <= weight)
@@ -294,10 +312,11 @@ def turn(connection, message_id: str, people: list[dict], rolls: list[dict], sta
     state = fight(connection)
     if state is None:
         target = attack_on(people, rolls)
-        spec = person_foe(target) if target else start
+        spec = person_foe(target) if target else start or stand_in(rolls)
         if spec is None:
             return []
-        state = {'round': 0, 'wants': spec.get('wants', 'kill'), 'foes': foes_from(spec, 'engaged' if target else 'near')}
+        state = {'round': 0, 'wants': spec.get('wants', 'kill'),
+                 'foes': foes_from(spec, 'near' if spec is start else 'engaged')}
     before = {foe['id']: foe['wound'] for foe in state['foes']}
     events = [('horror', foe['name']) for foe in state['foes'][:1] if foe.get('horror') and not state['round']]
     state, lines, ending = play_round(connection, state, rolls, items, rng)

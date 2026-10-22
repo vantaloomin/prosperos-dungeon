@@ -191,7 +191,9 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
 
 - **Starting.** A fight starts when the player attacks someone in the scene, by name or by what they do ("I punch
   the barkeep"), or when a dangerous place's threat brings a foe (Kingswood's Heartwood: a ley-mad boar, or two
-  wardens who want the character taken).
+  wardens who want the character taken). An attack on someone the scene does not hold, an extra the narrator brought
+  in ("I punch him", "I hit the big logger"), fights a stand-in named as the line names them. Mid-fight every line
+  goes to the Referee, so "I go for the nearest one" is an attack, not a walk.
 - **A round.** The player's rolled actions land first. An attack that succeeds wounds its target by the band (a
   success with a cost one level, a success two, a critical three), plus one with a sword or felling axe and minus
   one bare-handed. A successful dodge, block or parry makes the foes' attacks hard this round; a successful flight
@@ -201,7 +203,7 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
 - **Wounds.** Grazed, Hurt, Wounded, Maimed, Dying. Wounded makes physical actions a step harder; Maimed makes every
   action a step harder and physical ones two. MARVEL heals gritty: a wound drops one level after nights of rest set
   by its severity (Grazed 1, Hurt 2, Wounded 4, Maimed 7; see "Rest"), and a new wound starts the count again. The narrator is told the character's condition every turn.
-- **Defeat.** At Dying the character rolls Vitality to cling on (which rules death out), then the defeat table is
+- **Defeat.** At Dying the character rolls their Vitality (hard) to cling on (which rules death out), then the defeat table is
   weighted by what the foes want: beasts kill, wardens capture, robbers rob, a brawl ends with the character
   beaten and thrown out, and sometimes someone drags them clear. Death is real: a dead character plays no more
   lines, and "Go back here" on an earlier line brings them back.
