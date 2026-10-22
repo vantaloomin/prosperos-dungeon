@@ -301,7 +301,23 @@ CREATE TABLE IF NOT EXISTS story_quests (
   status TEXT NOT NULL CHECK (status IN ('open', 'done', 'failed', 'missed')),
   known INTEGER NOT NULL DEFAULT 0 CHECK (known IN (0, 1)),
   due_at TEXT,
-  outcome TEXT NOT NULL DEFAULT ''
+  outcome TEXT NOT NULL DEFAULT '',
+  -- Where it came from: a town's adventure file, a faction's job (dungeon/jobs.py), or an oath the player swore.
+  kind TEXT NOT NULL DEFAULT 'authored' CHECK (kind IN ('authored', 'job', 'oath')),
+  -- A job's or an oath's own text (an authored quest's is in its adventure file).
+  title TEXT,
+  hook TEXT,
+  truth TEXT,
+  missed TEXT,
+  -- Who asked, for whom, what it pays (hundredths) and the standing it earns.
+  faction_id TEXT,
+  giver TEXT,
+  reward INTEGER NOT NULL DEFAULT 0,
+  standing INTEGER NOT NULL DEFAULT 0,
+  -- For the story director: the arc it feeds, its thread, and the loose ends it leaves ([{kind, ref}]).
+  arc_id TEXT,
+  thread_id TEXT,
+  ties TEXT NOT NULL DEFAULT '[]'
 );
 
 -- What the character carries and the shops' stock (dungeon/inventory.py); money in hundredths of the currency.

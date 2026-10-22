@@ -22,6 +22,7 @@ from dungeon import (
     in_character,
     injuries,
     inventory,
+    jobs,
     pace,
     passages,
     prompt_library,
@@ -755,7 +756,13 @@ def town_turn(state, user: dict) -> list[str]:
             happenings.keep(connection, user['id'], 'news', day, None, lines)
         if not happenings.drawn_today(connection, 'town', day):
             drawn, minutes = life_card(database, connection, 'town', user['id'])
-            lines += drawn
+            # A faction holding the town may need something done (dungeon/jobs.py).
+            work = jobs.offer(connection, found['world'], found['node'], view['city']['id'],
+                              happenings.wage(view['data']), view['data']['currency'],
+                              story_clock.now(connection, database.clock), getattr(state, 'dice', None))
+            if work:
+                happenings.keep(connection, user['id'], 'news', day, None, lines + work)
+            lines += drawn + work
             pass_time(database, connection, minutes)
         return lines
 
@@ -872,11 +879,14 @@ async def afterwards(state, user: dict, reply: dict, packet: dict, steps: pace.S
         with database.connect() as connection:
             there = [{'key': row['key'], 'name': row['name']} for row in feelings.met(connection)
                      if row['key'] in {person['sheet']['key'] for person in packet['people']}]
-            ask = quests.ending_ask(connection) + feelings.feelings_ask(there)
+            ask = quests.ending_ask(connection) + quests.oath_ask() + feelings.feelings_ask(there)
         answered = await record.extract(state, user['text'], reply, ask)
         with database.connect(write=True) as connection:
             for item in quests.endings(answered):
                 quests.end(connection, item['id'], item['status'], item['outcome'])
+            # An oath the character swore is an obligation, with its deadline (dungeon/quests.py).
+            for oath in quests.oaths(answered):
+                quests.swear(connection, user['city_id'], oath, story_clock.now(connection, database.clock))
             feelings.from_answer(connection, answered, {person['key'] for person in there})
         steps.timed('extraction', since)
         since = steps.clock()

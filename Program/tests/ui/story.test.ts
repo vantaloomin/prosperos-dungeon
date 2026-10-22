@@ -75,6 +75,8 @@ test('a quest shows the time left, or how it ended', () => {
   assert.equal(questState({ status: 'open', left: 'about 7 days left' }), 'Underway · about 7 days left')
   assert.equal(questState({ status: 'open', left: '' }), 'Underway')
   assert.equal(questState({ status: 'missed', left: '' }), 'Too late')
+  assert.equal(questState({ status: 'open', left: '3 days left', kind: 'oath' }), 'Oath · Underway · 3 days left')
+  assert.equal(questState({ status: 'done', left: '', kind: 'job' }), 'Job · ' + questState({ status: 'done', left: '' }))
 })
 
 test('money, gear and slots read plainly', () => {

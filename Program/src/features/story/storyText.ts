@@ -120,9 +120,10 @@ export function journalKind(entry: Pick<JournalEntry, 'kind' | 'subject' | 'trut
 const QUEST_ENDS: Record<string, string> = { done: 'Done', failed: 'Failed', missed: 'Too late' }
 
 /** A quest's state in the journal: the story time left while it is open, else how it ended. */
-export function questState(quest: Pick<JournalQuest, 'status' | 'left'>): string {
-  if (quest.status !== 'open') return QUEST_ENDS[quest.status] ?? 'Over'
-  return quest.left ? `Underway · ${quest.left}` : 'Underway'
+export function questState(quest: Pick<JournalQuest, 'status' | 'left' | 'kind'>): string {
+  const kind = quest.kind === 'job' ? 'Job · ' : quest.kind === 'oath' ? 'Oath · ' : ''
+  if (quest.status !== 'open') return kind + (QUEST_ENDS[quest.status] ?? 'Over')
+  return kind + (quest.left ? `Underway · ${quest.left}` : 'Underway')
 }
 
 /** "3.40 cr.", from hundredths of the currency. */

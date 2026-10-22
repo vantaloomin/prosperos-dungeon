@@ -339,6 +339,21 @@ holds, rivals, allies and clocks.
   character's standing, to act through their people without announcing a clock.
 - Life Cards naming `{faction}` can now be drawn where a faction holds the place, and name one of them.
 
+## Jobs and oaths
+
+`dungeon/jobs.py` and `dungeon/quests.py`. Besides a town's authored quests, `story_quests` holds quests of their
+own text (`kind` job or oath, with `title`, `hook`, `truth`, `missed`), and for the story director an `arc_id`, a
+`thread_id` and `ties` (the loose ends a quest leaves, `[{kind: npc|clue|item|faction, ref}]`).
+
+- **Jobs.** Each faction lists the jobs it needs done in the towns it holds (`jobs` in the factions file: giver,
+  hook, truth, missed, days, pay in day wages, standing, ties). On a town day, while a faction holding the town has
+  no job open, it may offer one it has not offered before (`jobs.OFFER`, 50 in 100). The narrator gets "Work is
+  going: …"; the journal shows it as a Job with its time left. Done (the Continuity model's call, as for any quest)
+  it pays and earns its standing; failed, it costs a point of standing; left to lapse, only its `missed` happens.
+- **Oaths.** Every turn the Continuity model is also asked for promises, oaths, threats and bargains the player's
+  character made. Each becomes an Oath quest to the one it was sworn to, due in the days it gives (7 if it gives
+  none). Broken or let lapse, it costs that person two points of trust and one of respect, and the record keeps it.
+
 ## Rewrite
 
 `dungeon/passages.py`. The automatic rewrites still run when there is time; whatever the checks find and do not

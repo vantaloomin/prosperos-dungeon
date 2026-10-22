@@ -240,7 +240,7 @@ export interface Premade { id: string; name: string; gender: PersonaGender; age:
 export interface StoryStart { premades: Premade[]; points: number; range: [number, number]; stat_names: string[]; meanings: Record<string, string> }
 /** A fact the game keeps that the player's character knows (dungeon/record.py). */
 export interface JournalEntry { id: string; kind: string; subject: string; text: string; truth: 'belief' | 'both'; source: 'code' | 'narrator' | 'player'; created_at: string }
-export interface JournalQuest { id: string; title: string; hook: string; status: 'open' | 'done' | 'failed' | 'missed'; outcome: string; left: string }
+export interface JournalQuest { id: string; title: string; hook: string; status: 'open' | 'done' | 'failed' | 'missed'; outcome: string; left: string; kind?: 'authored' | 'job' | 'oath' }
 export interface Journal { entries: JournalEntry[]; quests: JournalQuest[] }
 /** One way the story went (dungeon/timeline.py); `playing` is the one on screen. */
 export interface StoryBranch { id: string; playing: boolean; turns: number; last_line: string; last_at: string; started_at: string }

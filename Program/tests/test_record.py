@@ -37,7 +37,7 @@ def test_facts_the_narrator_brings_in_are_kept_unless_they_contradict_the_record
               ' "truth": "world"}, {"kind": "mood", "subject": "you", "text": "You feel sad."}]}')]
     tell(client, 'I shove past the bouncer.', 'story-0002')
     assert 'The record says these people are dead: old tom.' in provider.requests[-2]['system']
-    assert provider.requests[-1]['system'] == record.EXTRACT
+    assert provider.requests[-1]['system'].startswith(record.EXTRACT)
     assert "The narrator: Old Tom's stool" in provider.requests[-1]['messages'][0]['content']
     known = ok(client.get('/api/story/journal'))['entries']
     # The dead stay dead, hidden truth stays out of the journal, and a made-up kind is dropped.
