@@ -97,6 +97,10 @@ def chosen(connection, focus: str, limit: int) -> list[dict]:
     return (first + relevant + rest)[:limit]
 
 
+# How a legacy character's old deeds open in the record (dungeon/legacy.py): the narrator retells them as history.
+HISTORY = 'Old accounts of what they did, long past:'
+
+
 def prompt_text(connection, focus: str = '', limit: int = 40) -> str:
     """The record for the narrator: what is true, including what the player's character does not know, and what they
     now remember only vaguely."""
@@ -108,6 +112,8 @@ def prompt_text(connection, focus: str = '', limit: int = 40) -> str:
     for row in rows:
         note = {'world': " (hidden: the player's character does not know)",
                 'belief': " (the player's character believes this; it may be wrong)", 'both': ''}[row['truth']]
+        if HISTORY in row['text']:
+            note += ' (history: retell it in the past tense, never word for word)'
         if faded(row, now, sharp):
             note += ' (faded: the character remembers this only vaguely, and the people in it may have forgotten)'
         lines.append(f"- {row['kind']}, {row['subject']}: {row['text']}{note}")

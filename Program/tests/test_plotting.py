@@ -107,6 +107,8 @@ def test_a_drafted_beat_keeps_to_its_own_arc():
     asking = plotting.drafting(director.arc('vallarith', 'the-long-border'),
                                director.arc('vallarith', 'the-long-border')['stages'][0],
                                [{'arc_id': 'the-eight-pieces', 'title': 'The contract', 'truth': 'a cult'},
+                                {'arc_id': None, 'title': "The Wardens' Eyes", 'truth': 'herb bundles'},
                                 {'arc_id': 'the-long-border', 'title': 'The levy', 'truth': 'short of men'}])
-    assert 'The levy' in asking and 'The contract' not in asking
+    # A side quest tied to no arc is no arc's beat (playtest M4, finding 8).
+    assert 'The levy' in asking and 'The contract' not in asking and 'herb bundles' not in asking
     assert [beat for beat in beats if not plotting.words_of(beat) & foreign] == beats[1:]

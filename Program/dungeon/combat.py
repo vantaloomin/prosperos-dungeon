@@ -29,8 +29,8 @@ import json
 import random
 import re
 
-from dungeon import combat5e, combat_brp, combat_iron, record, sheet
-from dungeon.database import encode, optional
+from dungeon import combat5e, combat_brp, combat_iron, record, referee, sheet
+from dungeon.database import encode, identifier, optional
 from dungeon.rules import marvel
 
 LEVELS = ('unhurt', 'grazed', 'hurt', 'wounded', 'maimed', 'dying')
@@ -43,6 +43,9 @@ BARE_HANDS = -1
 ATTACK = re.compile(r'\b(attack|hit|punch|strike|fight|swing|stab|slash|shoot|kick|tackle|wrestle|club|cut|kill|hack|'
                     r'lunge|thrust|smash|bash|bite|headbutt|throttle|strangle|go(?:es)? for|sword|axe|knife|blade)\w*',
                     re.I)
+# A line that takes up a weapon (dungeon/combat.py hands).
+ARMED = re.compile(r'\b(sword|blade|axe|hatchet|knife|dagger|cudgel|club|crowbar|mace|spear|bow|staff|hammer|sling|'
+                   r'weapon|draws?|stab|slash|shoot)\w*', re.I)
 # Who an attack is aimed at when it names nobody in the scene: someone the narrator brought in ("punch him", "the big
 # logger"). An attack on a thing ("hack at the roots") names neither.
 SOMEONE = re.compile(r'\b(him|her|them|man|woman|men|women|fellow|lad|boy|girl|stranger|drunk|thug|brute|logger|'
@@ -305,7 +308,9 @@ def player_moves(connection, state: dict, rolls: list[dict], items: list[dict], 
         elif GUARD.search(roll['action']):
             # Under 5E a dodge needs no roll; under BRP a line that defends dodges every attack this round.
             guarded = guarded or landed or five or percent
-        elif roll['stat'] == 'Vitality' and ATTACK.search(roll['action']) and (targets := standing(state)):
+        elif roll['stat'] == 'Vitality' and (ATTACK.search(roll['action']) or referee.PRESSING.search(roll['action'])) \
+                and (targets := standing(state)):
+            items = hands(state, roll['action'], items)
             if five:
                 combat5e.strike(connection, roll, aimed_at(roll, targets), items, rng, lines)
             elif percent:
@@ -315,6 +320,24 @@ def player_moves(connection, state: dict, rolls: list[dict], items: list[dict], 
             else:
                 strike(roll, targets, items, lines)
     return False, guarded
+
+
+def hands(state: dict, action: str, items: list[dict]) -> list[dict]:
+    """What the character fights with: a fight begun bare-handed ("I punch him") stays bare-handed ("I hit him
+    again") until a line names a weapon."""
+    if combat5e.BARE.search(action):
+        state['bare'] = True
+    elif ARMED.search(action):
+        state['bare'] = False
+    return [] if state.get('bare') else items
+
+
+def fighting_whom(connection) -> str | None:
+    """Who the character is fighting, with how each stands, for the Referee ("the thug (badly hurt)"); None when no
+    fight is on."""
+    state = fight(connection)
+    targets = standing(state) if state else []
+    return ', '.join(f"{foe['name']} ({foe_word(foe)})" for foe in targets) or None
 
 
 def aimed_at(roll: dict, targets: list[dict]) -> dict:
@@ -396,7 +419,8 @@ def defeat(connection, state: dict, rng, now: str, saved: bool | None = None) ->
     if saved is False:
         outcome = 'death'
     else:
-        clung = saved or sheet.check(connection, 'Vitality', 'hard', rng=rng, save=True)['band'] in SUCCESS
+        clung = saved or (deadly(state) and sheet.check(connection, 'Vitality', 'hard', rng=rng, save=True)['band']
+                          in SUCCESS)
         table = [(outcome, weight) for outcome, weight in DEFEAT[state['wants']] if not (clung and outcome == 'death')]
         pick = rng.randint(1, sum(weight for _, weight in table))
         outcome = next(name for name, weight in _running(table) if pick <= weight)
@@ -416,6 +440,11 @@ def defeat(connection, state: dict, rng, now: str, saved: bool | None = None) ->
             connection.execute('UPDATE story_wounds SET captors=? WHERE id=1', (winners,))
         record.add(connection, 'fact', "the player's character", f'Beaten by {winners}. {DEFEAT_TEXT[outcome]}', now)
     return outcome, DEFEAT_TEXT[outcome]
+
+
+def deadly(state: dict) -> bool:
+    """Whether the foes would kill: a brawl to drive someone off ends in a beating, never a death."""
+    return any(outcome == 'death' for outcome, _ in DEFEAT[state['wants']])
 
 
 def _running(table):
@@ -461,11 +490,26 @@ def turn(connection, message_id: str, people: list[dict], rolls: list[dict], sta
         lines += combat5e.gain(connection, combat5e.fight_xp(state), 'the fight won', now)
     if cause := state.pop('hurt_by', None):
         events.append(('maimed', cause))
+    for card in state.pop('cards', []):
+        card_for(connection, message_id, card, now)
     if aftermath and events and not condition(connection)['dead']:
         lines += aftermath(events)
     save_fight(connection, None if ending else state)
     connection.execute('INSERT INTO story_rounds (message_id, lines) VALUES (?, ?)', (message_id, encode(lines)))
     return lines
+
+
+def card_for(connection, message_id: str, card: dict, now: str):
+    """A roll the fight itself made (Ironsworn's Endure Harm and Face Death), as a roll card after the line's own."""
+    result = card['result']
+    position = optional(connection, 'SELECT COUNT(*) AS n FROM story_rolls WHERE message_id=?', (message_id,))['n']
+    connection.execute(
+        'INSERT INTO story_rolls (id, message_id, position, actor, action, said, stat, difficulty, die, natural, bonus, '
+        'shift, total, band, threat, ruleset, target, skill, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, '
+        '?, NULL, ?, ?, ?, ?)',
+        (identifier(), message_id, position, sheet.PERSONA, card['action'], card['stat'], 'normal', result['die'],
+         result['natural'], result['bonus'], result['shift'], result['total'], result['band'], sheet.ruleset(connection),
+         result['target'], result['skill'], now))
 
 
 def begin(connection, people: list[dict], rolls: list[dict], start: dict | None, rng) -> dict | None:
@@ -505,8 +549,8 @@ def fall(connection, state: dict, rng, now: str, lines: list[str], events: list)
     elif basic(connection):
         # BRP: a collapse from a major wound is not death; a fatal wound leaves it to the defeat table.
         saved = True if state.pop('collapsed', False) and combat_brp.hit_points(connection)[0] > 0 else None
-    elif sworn(connection):
-        saved, how = combat_iron.face_death(connection, rng)
+    elif sworn(connection) and deadly(state):
+        saved, how = combat_iron.face_death(connection, state, rng)
         lines.append(f"The player's character is brought to the brink of death and faces it: {how or 'it takes them.'}")
     outcome, said = defeat(connection, state, rng, now, saved)
     lines.append(f"The player's character falls, dying. {said}")

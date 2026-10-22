@@ -94,6 +94,9 @@ def decide(connection, message_id: str, city_id: str, place_id: str, text: str, 
         if not resting(text) or optional(connection, 'SELECT 1 FROM story_journeys WHERE message_id=?', (message_id,)):
             return None
         rest = {'fighting': True} if combat.fight(connection) else plan(city_id, place_id, text, rng)
+        if combat.captors(connection):
+            # A prisoner sleeps under their captors' eyes: no beast comes for them in the night.
+            rest['interrupted'] = None
         connection.execute('INSERT INTO story_rests (message_id, plan) VALUES (?, ?)', (message_id, encode(rest)))
     else:
         rest = decode(row['plan'])

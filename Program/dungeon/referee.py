@@ -85,11 +85,22 @@ def stat_for(text: str) -> str | None:
     return None
 
 
-def by_keywords(text: str) -> list[dict]:
+# Mid-fight, a line that keeps at the foe is an attack though it names no blow ("I keep at him", "again").
+PRESSING = re.compile(r'\b(keeps? at|again|finish (?:him|her|it|them|off)|go(?:es)? at|lays? into|have at|'
+                      r'press(?:es)? (?:the attack|on|him|her|them)|another (?:blow|swing|punch|cut))', re.I)
+
+
+def fight_note(fight: str) -> str:
+    """What the Referee is told when a fight is on, before the player's turn."""
+    return (f"A fight is on: the player's character is fighting {fight}. An action aimed at a foe, or one that keeps "
+            "the fight going (\"I keep at him\", \"again\"), is an attack: it rolls Vitality.\n\nThe player's turn: ")
+
+
+def by_keywords(text: str, fight: str | None = None) -> list[dict]:
     """The rules with no model: each sentence that names something uncertain is an action at normal difficulty."""
     actions = []
     for part in sentences(text):
-        stat = stat_for(part)
+        stat = 'Vitality' if fight and PRESSING.search(part) else stat_for(part)
         if stat:
             actions.append({'action': part, 'roll': True, 'stat': stat, 'difficulty': 'normal', 'said': True})
     return actions[:MOST_ACTIONS]
@@ -145,23 +156,28 @@ def judged(action: str, answers: dict) -> dict:
             'difficulty': LEVELS[min(len(LEVELS) - 1, max(0, round(level)))]}
 
 
-async def decided(state, config: dict, actions: list[str]) -> list[dict]:
-    """Each action's roll, stat and difficulty from the decision model, all asked at once."""
+async def decided(state, config: dict, actions: list[str], fight: str | None = None) -> list[dict]:
+    """Each action's roll, stat and difficulty from the decision model, all asked at once (told of the fight, when
+    one is on)."""
     key = key_for(state.vault, config)
+    asked = [fight_note(fight) + action if fight else action for action in actions]
     async with state.scheduler.reserve(config, CONVERSATION):
-        answers = await asyncio.gather(*(state.decider.ask(config, key, action, QUESTIONS) for action in actions))
+        answers = await asyncio.gather(*(state.decider.ask(config, key, action, QUESTIONS) for action in asked))
     return [judged(action, answer) for action, answer in zip(actions, answers)]
 
 
-async def decide(state, text: str, config: dict | None, decisions: dict | None = None) -> list[dict]:
+async def decide(state, text: str, config: dict | None, decisions: dict | None = None,
+                 fight: str | None = None) -> list[dict]:
     """The rolled actions of one turn: split by the Referee's model when there is one, decided by the decision model
-    when there is one, else by the Referee's own answer, else by the keyword rules."""
+    when there is one, else by the Referee's own answer, else by the keyword rules. `fight` names who the character
+    is fighting, when a fight is on, so a line that keeps at them is read as an attack."""
     actions = None
+    told = fight_note(fight) + text if fight else text
     if config is not None:
         try:
             async with state.scheduler.reserve(config, CONVERSATION):
                 answer = ''.join([chunk.text async for chunk in state.provider.stream(
-                    config, key_for(state.vault, config), SYSTEM, [{'role': 'user', 'content': text}])])
+                    config, key_for(state.vault, config), SYSTEM, [{'role': 'user', 'content': told}])])
         except Exception:  # noqa: BLE001 - a Referee that fails falls back to the rules; the turn goes on.
             answer = ''
         actions = split(answer)
@@ -169,7 +185,7 @@ async def decide(state, text: str, config: dict | None, decisions: dict | None =
         # Without the Referee's split, each sentence is an action in the player's own words.
         parts = [action['action'] for action in actions] if actions is not None else sentences(text)[:MOST_ACTIONS]
         try:
-            judged_actions = await decided(state, decisions, parts)
+            judged_actions = await decided(state, decisions, parts, fight)
         except Exception:  # noqa: BLE001 - a decision model that fails falls back too; the turn goes on.
             judged_actions = None
         if judged_actions is not None:
@@ -177,4 +193,4 @@ async def decide(state, text: str, config: dict | None, decisions: dict | None =
             return [{**action, **said} for action in judged_actions if action['roll']]
     if actions is not None:
         return [action for action in actions if action['roll']]
-    return by_keywords(text)
+    return by_keywords(text, fight)

@@ -183,6 +183,8 @@ def endure(connection, state: dict, foe: dict, rng, lines: list[str]) -> int:
     stat = 'iron' if found['stats']['iron'] >= left else None
     result = ironsworn.roll(found | {'stats': found['stats'] | {'health': left}}, 'Vitality', 'normal', '', rng,
                             stat or 'health', 'endure_harm')
+    state.setdefault('cards', []).append({'action': f"Endure Harm from {foe['name']}", 'stat': 'Vitality',
+                                          'result': result})
     shift = 1 if result['band'] in ('success', 'critical_success') else -1 if result['band'] in \
         ('failure', 'critical_failure') else 0
     found['momentum'] = max(ironsworn.MOMENTUM_MIN, min(ironsworn.momentum_max(found), result['momentum'] + shift - over))
@@ -212,10 +214,11 @@ def foes_attack(connection, state: dict, standing, guarded: bool, rng, lines: li
     return 5 if state.pop('brink', False) else level
 
 
-def face_death(connection, rng) -> tuple[bool, str]:
+def face_death(connection, state: dict, rng) -> tuple[bool, str]:
     """(alive, how): +heart. A strong hit and death rejects them; a weak hit, they come back owing it; a miss, dead."""
     found = sheet.native(connection)
     result = ironsworn.roll(found, 'Resolve', 'normal', '', rng, 'heart', 'face_death')
+    state.setdefault('cards', []).append({'action': 'Face Death', 'stat': 'Resolve', 'result': result})
     if result['band'] in ('success', 'critical_success'):
         return True, 'Death rejects them.'
     if result['band'] == 'success_cost':

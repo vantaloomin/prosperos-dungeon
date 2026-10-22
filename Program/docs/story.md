@@ -95,8 +95,8 @@ healers, townsfolk) keeps MARVEL stats for now.
   level, picked by code (damaging and healing spells first, the highest level it can cast) and kept as it levels,
   with the class's slots (Pact Magic's few slots of one level for a Warlock). A line that names a known spell casts
   it: out of a fight it is a check with the spellcasting ability and proficiency against the DC; a levelled spell
-  spends the lowest slot it fits, and with none left it fails. A healing spell (Cure Wounds, Healing Word) always
-  works and heals the character. In a fight a damaging spell is a spell attack on AC, or the foe's save against the
+  spends the lowest slot it fits, and with none left it just fails, with no dice (the card says no roll). A healing
+  spell (Cure Wounds, Healing Word) always works and heals the character. In a fight a damaging spell is a spell attack on AC, or the foe's save against the
   spell save DC (8 + ability + proficiency), as in "Fights under 5E". A long rest gives every slot back.
 - The sheet shows the level, XP to the next, the features, the spells and the slots left.
 
@@ -328,7 +328,8 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
   the barkeep"), or when a dangerous place's threat brings a foe (Kingswood's Heartwood: a ley-mad boar, or two
   wardens who want the character taken). An attack on someone the scene does not hold, an extra the narrator brought
   in ("I punch him", "I hit the big logger"), fights a stand-in named as the line names them. Mid-fight every line
-  goes to the Referee, so "I go for the nearest one" is an attack, not a walk.
+  goes to the Referee, told who the character is fighting, so "I go for the nearest one" or "I keep at him" is an
+  attack, not a walk or a question.
 - **A round.** The player's rolled actions land first. An attack that succeeds wounds its target by the band (a
   success with a cost one level, a success two, a critical three), plus one with a sword or felling axe and minus
   one bare-handed. A successful dodge, block or parry makes the foes' attacks hard this round; a successful flight
@@ -344,7 +345,8 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
   lines, and "Go back here" on an earlier line brings them back.
 - **Held prisoner.** A capture keeps the character held (`story_wounds.captors`): no moving on, by line, by "Go
   somewhere else" or by road, until a line that tries to get free (slip the bonds, pick the lock, bribe, run)
-  succeeds. The narrator is told every turn, and the Story screen shows who holds them.
+  succeeds. The narrator is told every turn, and the Story screen shows who holds them. A prisoner is held, not out
+  in the place: its danger rolls nothing, and no beast comes for them in the night.
 - **In the story.** The narrator gets "The fight" with the round exactly as it went and who is still fighting, and
   writes only that. The Story screen shows the character's condition and the foes, with their wound levels while
   the dice are shown. Moving elsewhere is refused mid-fight.
@@ -359,8 +361,8 @@ The same fight, on 5E's numbers from the SRD 5.2.1 pack (`dungeon/combat5e.py`):
   one is read from its name (a bandit or thief is a Bandit, a press-gang thug a Tough, a warden a Scout, a ghoul a
   Ghoul), else picked by how tough the MARVEL spec is. Each has its AC, hit points rolled from the block's formula,
   and the block's first attack.
-- **The player's attack** (an unarmed strike for a punch, a kick or a shove; else the weapon the line names, else
-  the best carried) keeps the d20 the turn already rolled: the natural plus the attack bonus (Strength, or
+- **The player's attack** (an unarmed strike for a punch, a kick or a shove, and for every blow after it until a
+  line names a weapon; else the weapon the line names, else the best carried) keeps the d20 the turn already rolled: the natural plus the attack bonus (Strength, or
   Dexterity with a finesse or ranged weapon, plus proficiency when the class has the weapon) against the target's
   AC. A natural 20 is a critical hit (the damage dice twice), a natural 1 always misses. Damage is the carried
   weapon's die plus the same ability (unarmed, 1 + Strength). The roll's card is rewritten as the attack and the AC.
@@ -394,7 +396,9 @@ The same fight on Ironsworn's moves (`dungeon/combat_iron.py`):
 - **Endure Harm.** A foe with the upper hand hits: -health by its rank, then +health or +iron (a strong hit +1
   momentum, a miss -1). A dodge that lands turns the attack aside and takes the upper hand.
 - **Face Death.** At 0 health a miss on Endure Harm brings the character to the brink: +heart, a strong or weak hit
-  and death lets them go (the defeat table, without death), a miss and they are dead.
+  and death lets them go (the defeat table, without death), a miss and they are dead. Only a foe who would kill
+  brings Face Death: a brawl to drive the character off ends in a beating and being thrown out. Endure Harm and
+  Face Death show as roll cards after the line's own.
 - **Health** reads as the game's wound words (unharmed, bruised, hurt, battered, badly hurt, at death's door); a
   wound outside a fight lowers health to match, and a night's rest gives +1 health (Make Camp).
 

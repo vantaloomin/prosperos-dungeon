@@ -23,3 +23,10 @@ def test_a_models_answer_keeps_only_what_is_well_formed():
         {'action': 'attack', 'roll': True, 'stat': 'Vitality', 'difficulty': 'normal'}]
     assert referee.checked('I cannot help with that.') is None
     assert referee.checked('{"actions": "none"}') is None
+
+
+def test_mid_fight_a_line_that_keeps_at_the_foe_is_an_attack():
+    # Playtest M4, finding 5: "I keep at him" is no Face Danger about pressing for an answer.
+    assert referee.by_keywords('I keep at him.') == []
+    assert referee.by_keywords('I keep at him.', 'the thug (hurt)')[0]['stat'] == 'Vitality'
+    assert 'fighting the thug (hurt)' in referee.fight_note('the thug (hurt)')

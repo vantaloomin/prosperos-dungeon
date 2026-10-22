@@ -222,7 +222,8 @@ def foreign_words(world: str, arc_id: str) -> set[str]:
 def drafting(found: dict, stage: dict, hot: list[dict]) -> str:
     """What the director model is given for one arc's stage: the arc, where it plays, and only its own threads."""
     where = ', '.join((found.get('antagonist') or {}).get('where') or [])
-    own = [row for row in hot if row.get('arc_id') in (found['id'], None)][:3]
+    # Only threads tied to this arc: an untied side quest's secrets (Sereth's herb bundles) are no other arc's beat.
+    own = [row for row in hot if row.get('arc_id') == found['id']][:3]
     return (f"The arc: {found['name']}." + (f" It plays in: {where}." if where else '')
             + f"\nIts new stage: {stage['truth']}\nThe world's own beat: {stage['word']}\n"
             + ('The threads of this arc the player cares about: '

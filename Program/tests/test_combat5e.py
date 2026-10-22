@@ -191,7 +191,8 @@ def test_spells_spend_slots_hit_foes_heal_and_come_back_with_a_long_rest(client,
         assert cast['skill'] == 'Burning Hands (spell)' and cast['bonus'] == 5 and cast['band'] == 'success'
         sheet.check(connection, 'Essence', 'normal', 'I cast Thunderwave', Always(15))
         empty = sheet.check(connection, 'Essence', 'normal', 'I cast Ice Knife', Always(15))
-        assert empty['band'] == 'failure' and 'no spell slot left' in empty['skill']
+        # With no slot left it just fails: no dice (playtest M4, finding 3).
+        assert empty['band'] == 'failure' and 'no spell slot left' in empty['skill'] and empty['natural'] == 0
         # A cantrip costs nothing: Fire Bolt is a spell attack on AC, 1d10 fire.
         foe = combat5e.foes_from({'name': 'the bandit'}, 'engaged', Always(4))[0]
         state = {'round': 0, 'wants': 'rob', 'foes': [foe]}

@@ -115,7 +115,9 @@ def cast(connection, found: dict, result: dict, rng) -> dict:
     spell = srd52.spells()[result['spell']]
     slot = srd52.spend(found, spell)
     if slot is None:
-        return result | {'band': 'failure', 'skill': f"{spell['name']} (no spell slot left)", 'spell': None}
+        # No dice: the spell just fails (the card shows no roll).
+        return result | {'band': 'failure', 'natural': 0, 'total': 0, 'rolls': [],
+                         'skill': f"{spell['name']} (no spell slot left)", 'spell': None}
     if dice := srd52.healing_of(spell):
         from dungeon import combat, combat5e
         healed = max(1, combat5e.roll_dice(dice, rng or random.SystemRandom())
