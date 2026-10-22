@@ -71,8 +71,17 @@ export function personLine(person: StoryPerson): string {
   return `Met ${times} · now ${person.doing}${where}`
 }
 
-/** "Allure d8: 62 + 5, hard (-10) = 57, Success at a cost". */
+/** What a roll tested, as the card heads it: "Allure · hard", or under 5E "Athletics · DC 15". */
+export function rollWhat(roll: StoryRoll): string {
+  return roll.target ? `${roll.skill} · DC ${roll.target}` : `${roll.stat} · ${roll.difficulty.replace('_', ' ')}`
+}
+
+/** "Allure d8: 62 + 5, hard (-10) = 57, Success at a cost"; under 5E "Athletics d20: 12 + 5 = 17 vs DC 15, Success". */
 export function rollText(roll: StoryRoll): string {
+  if (roll.target) {
+    const bonus = roll.bonus < 0 ? ` - ${-roll.bonus}` : ` + ${roll.bonus}`
+    return `${roll.skill} d20: ${roll.natural}${bonus} = ${roll.total} vs DC ${roll.target}, ${roll.label}`
+  }
   const die = roll.die ? ` d${roll.die}` : ''
   const sum = roll.die ? `${roll.natural} + ${roll.bonus}` : `${roll.natural}`
   const shift = roll.shift ? `, ${roll.difficulty.replace('_', ' ')} (${roll.shift > 0 ? '-' : '+'}${Math.abs(roll.shift)})` : ''
@@ -278,10 +287,11 @@ export function nearMiss(roll: StoryRoll, bands: BandStep[]): string {
 }
 
 /** One die on screen: the d100 as a tens and a ones d10, then the stat die and what it added. */
-export interface DieFace { key: 'tens' | 'ones' | 'stat'; sides: number; value: string }
+export interface DieFace { key: 'tens' | 'ones' | 'stat' | 'd20'; sides: number; value: string }
 
 /** The faces the dice land on for a roll the code already made: 100 reads 00 and 0, as percentile dice do. */
 export function diceFaces(roll: StoryRoll): DieFace[] {
+  if (roll.ruleset === 'srd52') return [{ key: 'd20', sides: 20, value: String(roll.natural) }]
   const faces: DieFace[] = [
     { key: 'tens', sides: 10, value: String(Math.floor((roll.natural % 100) / 10) * 10).padStart(2, '0') },
     { key: 'ones', sides: 10, value: String(roll.natural % 10) },
@@ -325,4 +335,32 @@ export const LEGACY_ROLES: Record<LegacyRole, string> = {
   legend: 'A legend: the world remembers them',
   villain: 'A villain: they live on, hidden and turned',
   corpse: 'A corpse: long dead, and only their deeds remain',
+}
+
+/** "+3", "-1", "+0". */
+export function signed(value: number): string {
+  return value < 0 ? String(value) : `+${value}`
+}
+
+const ABILITIES: Record<string, string> = { str: 'Str', dex: 'Dex', con: 'Con', int: 'Int', wis: 'Wis', cha: 'Cha' }
+
+/** "Dex 17 (+3), save" for a 5E ability; "save" when the class is proficient in its saving throw. */
+export function abilityLine(ability: string, score: number, modifier: number, save: boolean): string {
+  return `${ABILITIES[ability] ?? ability} ${score} (${signed(modifier)})${save ? ', save' : ''}`
+}
+
+/** Whether the standard array is placed on the six abilities, each value once (dungeon/rules/srd52.py build). */
+export function arrayPlaced(scores: Record<string, number>, array: number[]): boolean {
+  const placed = Object.values(scores).sort((a, b) => b - a)
+  return placed.length === array.length && placed.every((value, index) => value === array[index])
+}
+
+/** The class's skills a new 5E character can pick, without the ones the background already gives. */
+export function skillChoices(from: string[], background: string[]): string[] {
+  return from.filter((skill) => !background.includes(skill))
+}
+
+/** A skill's id from its name, as the pack writes them ("Sleight of Hand" is sleight-of-hand). */
+export function skillId(name: string): string {
+  return name.trim().toLowerCase().replaceAll(' ', '-')
 }

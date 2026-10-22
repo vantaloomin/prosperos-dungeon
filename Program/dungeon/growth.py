@@ -65,6 +65,10 @@ def grow(connection, now: str, rng=None) -> list[str]:
     """After a night's rest: each marked stat may rise a point."""
     rng = rng or random.SystemRandom()
     lines = []
+    # Growth by use is MARVEL's; another ruleset grows its own way (5E: experience and levels).
+    if sheet.ruleset(connection) != marvel.ID:
+        connection.execute('UPDATE story_marks SET marked=0')
+        return lines
     for stat in marked(connection):
         value = sheet.stats(connection)[stat]
         if rng.randint(1, 100) > GROW * value:

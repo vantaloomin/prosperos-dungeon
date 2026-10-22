@@ -9,6 +9,8 @@ Read from Mabry Curve's roll log (rng/roll.py itself was not in the archive):
 """
 import random
 
+ID = 'marvel'
+NAME = 'MARVEL'
 STATS = ('Mind', 'Allure', 'Resolve', 'Vitality', 'Essence', 'Luck')
 # What each stat covers, for the Referee, the narrator and the sheet.
 MEANINGS = {'Mind': 'reason, perception, knowledge, skill with the hands',

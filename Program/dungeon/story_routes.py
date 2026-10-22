@@ -23,7 +23,7 @@ from dungeon import (
     story_clock,
     tiers,
 )
-from dungeon.errors import DomainError
+from dungeon.errors import DomainError, require
 from dungeon.models import Input, PersonaInput
 
 router = APIRouter(prefix='/api/story')
@@ -138,21 +138,31 @@ class SheetChange(Input):
 @router.get('/sheet')
 def read_sheet(request: Request):
     with request.app.state.database.connect() as connection:
-        return sheet.view(connection) | {'growth': growth.view(connection, story.dice_shown(connection))}
+        return sheet.full_view(connection) | {'growth': growth.view(connection, story.dice_shown(connection))}
 
 
 @router.put('/sheet')
 def change_sheet(request: Request, body: SheetChange):
     database = request.app.state.database
     with database.connect(write=True) as connection:
+        require(sheet.ruleset(connection) == 'marvel', 'A 5E sheet is set when the character is made.', 409)
         sheet.set_stats(connection, body.stats, database.now())
-        return sheet.view(connection) | {'growth': growth.view(connection, story.dice_shown(connection))}
+        return sheet.full_view(connection) | {'growth': growth.view(connection, story.dice_shown(connection))}
 
 
 class LegacyChoice(Input):
     """Another world's story brought in as history (dungeon/legacy.py)."""
     world_id: str = Field(min_length=1, max_length=80)
     role: Literal['legend', 'villain', 'corpse']
+
+
+class Srd52Build(Input):
+    """A 5E character (dungeon/rules/srd52.py build): pack ids, the standard array placed, the class's skills."""
+    class_id: str = Field(min_length=1, max_length=80)
+    species_id: str = Field(min_length=1, max_length=80)
+    background_id: str = Field(min_length=1, max_length=80)
+    scores: dict[str, int]
+    skills: list[str] = Field(default_factory=list, max_length=8)
 
 
 class StoryStart(Input):
@@ -168,6 +178,9 @@ class StoryStart(Input):
     # Ironman (dungeon/chapters.py): no going back for the whole campaign, so death is final.
     ironman: bool = False
     legacy: LegacyChoice | None = None
+    # The ruleset (dungeon/sheet.py), locked for the campaign; the world's own when left out.
+    ruleset: Literal['marvel', 'srd52'] | None = None
+    build: Srd52Build | None = None
 
 
 @router.get('/start')
@@ -178,7 +191,8 @@ def start_choices(request: Request):
 @router.post('/start')
 def start(request: Request, body: StoryStart):
     return campaign.begin(request.app.state.database, body.premade_id, body.persona, body.stats, body.arc,
-                          body.pace, body.hand, body.ironman, body.legacy and body.legacy.model_dump())
+                          body.pace, body.hand, body.ironman, body.legacy and body.legacy.model_dump(), body.ruleset,
+                          body.build and body.build.model_dump())
 
 
 class StoryBack(Input):

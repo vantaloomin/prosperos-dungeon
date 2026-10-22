@@ -3,7 +3,7 @@ import type { BandStep, HiddenRoll, StoryRoll, TurnSoFar } from '../../types'
 import { useWorkspaceSettings } from '../../workspace'
 import { DiceTray } from './StoryDice'
 import { useTumble } from './dice'
-import { actionLine, bandSpans, isShown, markerAt, nearMiss, rollText } from './storyText'
+import { actionLine, bandSpans, isShown, markerAt, nearMiss, rollText, rollWhat } from './storyText'
 
 const SUCCESS = new Set(['success_cost', 'success', 'critical_success'])
 
@@ -22,11 +22,11 @@ function ShownRoll({ roll, bands, live, dice }: { roll: StoryRoll; bands?: BandS
   const tumble = useTumble(roll, live && dice)
   const close = bands ? nearMiss(roll, bands) : ''
   return (
-    <div className={dice ? 'roll-card with-dice' : 'roll-card'} title={rollText(roll)} aria-label={`${roll.action}: ${roll.stat}, ${roll.difficulty.replace('_', ' ')}. ${roll.label}, ${roll.total}.`}>
+    <div className={dice ? 'roll-card with-dice' : 'roll-card'} title={rollText(roll)} aria-label={`${roll.action}: ${rollWhat(roll)}. ${roll.label}, ${roll.total}.`}>
       {dice && <DiceTray tumble={tumble} />}
       <div className="roll-what">
         <span className="subtle">{roll.action}</span>
-        <strong>{roll.stat} · {roll.difficulty.replace('_', ' ')}</strong>
+        <strong>{rollWhat(roll)}</strong>
       </div>
       {!!bands?.length && <RollStrip bands={bands} total={roll.total} marker={tumble.done} live={live} />}
       <div className="roll-result">

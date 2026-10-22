@@ -46,6 +46,28 @@ The narrator gets the persona in its own layer, "The player's character": their 
 what their stats make them good and poor at (14 and up, 7 and down), in words, never numbers. It is told to voice
 them from what is there and invent nothing about their past.
 
+## Rulesets
+
+The campaign's ruleset is picked on the start screen ("Rules") and locked for the whole campaign
+(`story_campaign.ruleset`, `dungeon/sheet.py`). A world names its default; every built-in world plays MARVEL for
+now. Whatever the ruleset, the Referee still names an approach (one of MARVEL's six stats) and a difficulty, and
+`sheet.check` rolls the persona's checks the ruleset's way, on the shared outcome ladder. Everyone else (foes,
+healers, townsfolk) keeps MARVEL stats for now.
+
+- **MARVEL** (`dungeon/rules/marvel.py`): see "Who decides what".
+- **5E via the SRD 5.2.1** (`dungeon/rules/srd52.py`, content in `dungeon/rules/packs/srd52`, CC-BY-4.0; the
+  attribution shows on the start screen and the sheet). A character is a class, species and background from the pack,
+  the standard array placed on the six abilities with the background's +2 and +1, the background's skills and the
+  class's picks, and level 1 hit points and Armor Class. A premade has its own 5E build (`srd52` in its premade
+  data), or one from its strongest stat. A check is a d20 plus the ability modifier, plus proficiency in the skill,
+  against a DC (10 easy, 15 normal, 20 hard, 25 very hard, 30 extreme): pass or fail as written. The skill comes from
+  the action's words ("climb" is Athletics), else the approach's ability. Resisting stress and clinging on in a
+  fight are saving throws (Wisdom, Constitution). The roll card reads "Athletics · DC 15" and lands a single d20. Growth by use is MARVEL's
+  and does not run under 5E.
+
+Not yet (Milestone 4, next steps): 5E fights with hit points, AC and attacks; levels, XP and spells; Ironsworn and
+Starforged; Basic Roleplaying.
+
 ## The turn loop
 
 Each line the user sends is one turn (`dungeon/turn.py`). Code settles what happens before the narrator writes:

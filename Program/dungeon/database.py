@@ -153,7 +153,10 @@ ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"
                  ('story_chapter_ends', 'hook', "TEXT NOT NULL DEFAULT ''"),
                  ('story_chapter_break', 'summary', "TEXT NOT NULL DEFAULT ''"),
                  ('story_chapter_break', 'named', "TEXT NOT NULL DEFAULT ''"),
-                 ('story_chapter_break', 'hook', "TEXT NOT NULL DEFAULT ''"))
+                 ('story_chapter_break', 'hook', "TEXT NOT NULL DEFAULT ''"),
+                 ('story_campaign', 'ruleset', "TEXT NOT NULL DEFAULT 'marvel'"),
+                 ('story_rolls', 'ruleset', "TEXT NOT NULL DEFAULT 'marvel'"), ('story_rolls', 'target', 'INTEGER'),
+                 ('story_rolls', 'skill', 'TEXT'))
 
 
 # Tables renamed since they were made: (old, new). Renamed before the schema runs, so their rows carry over.
