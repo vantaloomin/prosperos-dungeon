@@ -1,18 +1,19 @@
 import { useState } from 'react'
-import { api } from '../../api'
 import type { InjuryPersistence } from '../../types'
 import { Field } from '../../components/Fields'
 import { Notice } from '../../components/Feedback'
+import { useTable } from './table'
 
 const CHOICES: [InjuryPersistence, string][] = [['permanent', 'Permanent: they stay'],
   ['temporary', 'Temporary: they fade with time'], ['none', 'None: wounds heal clean']]
 
 /** Injury persistence (dungeon/injuries.py): whether a maiming leaves a lasting injury, and whether it stays. */
 export function StoryInjuries({ persistence, onSaved }: { persistence: InjuryPersistence; onSaved: () => void }) {
+  const { save: keep } = useTable()
   const [error, setError] = useState('')
   const save = async (value: InjuryPersistence) => {
     setError('')
-    try { await api('/settings', { injury_persistence: value }, 'PUT'); onSaved() }
+    try { await keep({ injury_persistence: value }); onSaved() }
     catch (failure) { setError(failure instanceof Error ? failure.message : 'That setting was not saved.') }
   }
   return (<>

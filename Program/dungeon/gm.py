@@ -1,7 +1,7 @@
 """The GM view (requirements "Memory and context": "a settings toggle opens a full GM view that shows and edits
 everything, secrets included"; docs/story.md "The GM view").
 
-With the workspace setting `gm_view` on, the player sees what the game keeps behind the story: every quest with
+With the GM view on (the Table's `gm_view`, dungeon/table.py), the player sees what the game keeps behind the story: every quest with
 its hidden truth, how everyone met feels and why, the director's arcs at their stages with their truths, its threads
 and nemeses, the factions' standing, the dark tracks' points, and the log of every correction made to the record.
 They can set a person's feelings and a faction's standing by hand, and plan with the director (dungeon/plotting.py):

@@ -41,6 +41,7 @@ from dungeon import (
     story_clock,
     story_people,
     stress,
+    table,
     tiers,
     timeline,
     travel,
@@ -103,12 +104,12 @@ def intensity(connection, data: dict) -> dict:
     """How far the story goes on the page: the player's preset, or the world's (requirements "Intensity and tone").
     v0 has one preset for every category; per-category sliders and veils come later."""
     world = data.get('intensity') or {}
-    chosen = settings(connection)['intensity']
+    chosen = table.rule(connection, 'intensity')
     world_preset = world.get('preset') or narration_prompt.DEFAULT_PRESET
-    drama, world_drama = settings(connection)['drama'], world.get('drama') or happenings.DEFAULT_DRAMA
+    drama, world_drama = table.rule(connection, 'drama'), world.get('drama') or happenings.DEFAULT_DRAMA
     return {'preset': world_preset if chosen == 'world' else chosen, 'chosen': chosen, 'world': world_preset,
             'voice': world.get('voice') or '', 'drama': world_drama if drama == 'world' else drama,
-            'drama_chosen': drama, 'drama_world': world_drama, 'cutaways': bool(settings(connection)['cutaways'])}
+            'drama_chosen': drama, 'drama_world': world_drama, 'cutaways': table.rule(connection, 'cutaways')}
 
 
 def no_model() -> DomainError:
@@ -402,7 +403,7 @@ def messages(connection, limit: int = HISTORY_LIMIT) -> list[dict]:
 
 def dice_shown(connection) -> bool:
     """Roll visibility (Story > Tone and rules > Dice and hidden values): hidden unless the player shows them."""
-    return bool(settings(connection)['show_odds'])
+    return table.rule(connection, 'show_odds')
 
 
 def with_rolls(connection, rows: list[dict]) -> list[dict]:
@@ -427,6 +428,7 @@ def story(database) -> dict:
                     'injuries': injuries.view(connection, view['now']),
                     'stress': stress.view(connection, dice_shown(connection))},
                 'injury_persistence': injuries.persistence(connection),
+                'table': table.rules(connection),
                 'intensity': intensity(connection, view['data']),
                 'map': travel.view(connection, view['city']['id'], view['place']['id']),
                 'factions': powers(connection, view), 'tier': standing(connection, view)}
@@ -616,7 +618,7 @@ def clear(database) -> dict:
     with database.connect(write=True) as connection:
         connection.execute('DELETE FROM story_messages')
         connection.execute('DELETE FROM story_people')
-        for table in ('record_entries', 'record_corrections', 'story_summary', 'story_clock', 'story_quests',
+        for name in ('record_entries', 'record_corrections', 'story_summary', 'story_clock', 'story_quests',
                       'story_inventory', 'story_purse', 'story_stock', 'story_trades', 'story_wounds', 'story_fight',
                       'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
                       'story_rounds', 'story_map', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
@@ -624,7 +626,7 @@ def clear(database) -> dict:
                       'story_offpage', 'story_tier', 'story_marks', 'story_dark',
                       'story_director', 'story_arcs', 'story_threads', 'story_nemeses', 'story_seeds',
                       'story_arc_beats', 'story_sheet'):
-            connection.execute(f'DELETE FROM {table}')
+            connection.execute(f'DELETE FROM {name}')
         timeline.clear(connection)
         chapters.clear(connection)
     return story(database)

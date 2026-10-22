@@ -155,6 +155,15 @@ ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"
                  ('story_chapter_break', 'named', "TEXT NOT NULL DEFAULT ''"),
                  ('story_chapter_break', 'hook', "TEXT NOT NULL DEFAULT ''"),
                  ('story_campaign', 'ruleset', "TEXT NOT NULL DEFAULT 'marvel'"),
+                 ('story_campaign', 'intensity', "TEXT CHECK (intensity IN ('world', 'restrained', 'mature', "
+                                                 "'unflinching'))"),
+                 ('story_campaign', 'drama', "TEXT CHECK (drama IN ('world', 'quiet', 'uneasy', 'eventful', "
+                                             "'merciless'))"),
+                 ('story_campaign', 'injury_persistence', "TEXT CHECK (injury_persistence IN ('permanent', "
+                                                          "'temporary', 'none'))"),
+                 ('story_campaign', 'show_odds', 'INTEGER'), ('story_campaign', 'roll_dice', 'INTEGER'),
+                 ('story_campaign', 'show_adult_side', 'INTEGER'), ('story_campaign', 'gm_view', 'INTEGER'),
+                 ('story_campaign', 'cutaways', 'INTEGER'),
                  ('story_rolls', 'ruleset', "TEXT NOT NULL DEFAULT 'marvel'"), ('story_rolls', 'target', 'INTEGER'),
                  ('story_rolls', 'skill', 'TEXT'))
 
@@ -184,6 +193,8 @@ def initialize(connection, timestamp: str):
     add_columns(connection)
     for table in SINGLETONS:
         connection.execute(f'INSERT OR IGNORE INTO {table} (id, updated_at) VALUES (1, ?)', (timestamp,))
+    from dungeon import table
+    table.adopt(connection)
     from dungeon.life import ages
     ages.start_town(connection, timestamp)
     connection.executemany('INSERT OR REPLACE INTO app_identity (key, value) VALUES (?, ?)',

@@ -6,6 +6,7 @@ import { Notice } from '../../components/Feedback'
 import { Toggle } from '../../components/Fields'
 import { StoryGm } from './StoryGm'
 import { journalKind, questState, threadKind } from './storyText'
+import { useTable } from './table'
 
 const JOURNAL_KEY = ['story-journal']
 
@@ -14,6 +15,7 @@ const JOURNAL_KEY = ['story-journal']
 export function StoryJournal({ open }: { open?: boolean }) {
   const client = useQueryClient()
   const journal = useQuery({ queryKey: JOURNAL_KEY, queryFn: () => api<Journal>('/story/journal') })
+  const table = useTable()
   const [error, setError] = useState('')
   const change = async (request: () => Promise<Journal>) => {
     setError('')
@@ -24,7 +26,7 @@ export function StoryJournal({ open }: { open?: boolean }) {
   const { entries, quests, threads = [], gm = false, summary = '' } = journal.data
   const setGm = async (checked: boolean) => {
     setError('')
-    try { await api('/settings', { gm_view: checked }, 'PUT'); await Promise.all([client.invalidateQueries({ queryKey: JOURNAL_KEY }), client.invalidateQueries({ queryKey: ['story-gm'] })]) }
+    try { await table.save({ gm_view: checked }) }
     catch (failure) { setError(failure instanceof Error ? failure.message : 'That setting was not saved.') }
   }
   return (

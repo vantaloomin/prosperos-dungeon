@@ -46,6 +46,16 @@ The narrator gets the persona in its own layer, "The player's character": their 
 what their stats make them good and poor at (14 and up, 7 and down), in words, never numbers. It is told to voice
 them from what is there and invent nothing about their past.
 
+## The Table
+
+Each campaign keeps its own rules (`dungeon/table.py`, columns on `story_campaign`), so they no longer follow the
+player from world to world the way settings do. Tone (intensity, how eventful, lasting injuries) starts as the world's
+at every new campaign; what is shown (the dice, rolling them, townsfolk's adult side, the GM view, meanwhile
+cutaways) starts where the player last left it, which the workspace settings remember. A rule the player sets before
+the campaign begins is kept. A campaign from before the Table keeps the rules it was played by. The rules are not in
+`timeline.SAVED`, so going back never undoes one. The Story screen's "Tone and rules" fold sets them
+(`PUT /api/story/table`); `PUT /api/settings` still sets them for the campaign being played too.
+
 ## Rulesets
 
 The campaign's ruleset is picked on the start screen ("Rules") and locked for the whole campaign
@@ -709,6 +719,7 @@ A fixed layout for Milestone 1 (`src/features/story/Story.tsx`); the free grid o
 | `PATCH /api/story/journal/{id}` `{text}` / `DELETE /api/story/journal/{id}` | Corrects or removes a fact, logged; 404 for hidden truth or a fact not in the journal. |
 | `GET /api/story/gear` | `{coins, currency, slots: {used, max}, items, shop}`. `shop` is null away from a shop, else `{place_id, open, keeper, stock, offers}`; `offers` maps the character's items to what the shop pays. |
 | `POST /api/story/shop/buy` `{item_id, qty?}` / `POST /api/story/shop/sell` `{inventory_id, qty?}` | Trades at the counter. 404 with no shop here or no such item, 409 when closed, out of stock, too dear, too heavy, or not something the shop buys. |
+| `GET /api/story/table` / `PUT /api/story/table` | This campaign's rules (`intensity`, `drama`, `injury_persistence`, `show_odds`, `roll_dice`, `show_adult_side`, `gm_view`, `cutaways`); a change to what is shown is remembered for the next campaign. `GET /api/story` carries them as `table`. |
 | `DELETE /api/story` | Starts a new story: the history, every branch, the record and the people met go, the scene stays. |
 
 ## People you've met
