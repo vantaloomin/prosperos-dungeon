@@ -455,7 +455,11 @@ def percentile(play):
             break
         play.say('I break away and run for the door.')
     play.say('I climb the Sawpit stairs two at a time and look about for anyone following.')
-    play.say('I bind my wounds with a strip of my shirt.', {'roll': True})
+    hurt = (play.story().get('fight') or {}).get('hp', 0) < (play.story().get('fight') or {}).get('max_hp', 0)
+    view = play.say('I bind my wounds with a strip of my shirt.', {'roll': hurt})
+    rolled = [roll for m in (view or {}).get('messages') or [] if m['role'] == 'user' for roll in m.get('rolls') or []]
+    if hurt and not any('First Aid' in (roll.get('skill') or '') for roll in rolled[-2:]):
+        play.flag('Binding a real wound did not roll First Aid.')
     play.say('I sleep three nights at the Wayhouse to heal.')
     play.sheet()
 
@@ -525,6 +529,8 @@ def fivee_defeat_aim(play):
     final = fivee_defeat(play, 'by_aim')
     if final.get('dead') and 'warden' in json.dumps(play.story().get('fight') or {}):
         play.flag('Under "Foes decide a defeat", wardens who want capture killed the character.')
+    if final.get('captors') and final.get('injuries'):
+        play.flag(f"The captors maimed the character they took: {final.get('injuries')}")
 
 
 def fivee_defeat_written(play):
@@ -553,6 +559,10 @@ def importer(play):
                                                                                    'files': files}) or {}
     draft_id = draft.get('id') or (draft.get('draft') or {}).get('id')
     play.write(f'- draft: {json.dumps(draft, ensure_ascii=False)[:800]}\n')
+    lore_titles = [entry.get('title') for item in draft.get('sections') or [] if item.get('id') == 'lore'
+                   for entry in item.get('entries') or []]
+    if any((title or '').startswith('Entry ') for title in lore_titles):
+        play.flag(f'Lorebook entries are titled by number, not by their keywords: {lore_titles}')
     if not draft_id:
         play.flag('No draft id from the import.')
         return
@@ -578,9 +588,47 @@ def importer(play):
     play.write(f'- packages: {names[:800]}\n')
 
 
+def editor(play):
+    """M5: the world editor on a built-in world: find an entry, edit it, see a bad edit refused, undo, edit again and
+    play it, then reset the world to how it shipped."""
+    base = '/api/packages/vallarith'
+    found = play.attempt('Search the lore for Dun Aldun', 'GET', f'{base}/entries?section=lore&q=Dun%20Aldun') or {}
+    play.write(f'- search: {json.dumps(found, ensure_ascii=False)[:700]}\n')
+    entry_id = next((hit['id'] for hit in found.get('entries') or [] if hit.get('section') == 'lore'), None)
+    if not entry_id:
+        play.flag('No lore entry found for Dun Aldun.')
+        return
+    shown = play.attempt('Open the entry', 'GET', f'{base}/entries/lore/{entry_id}') or {}
+    entry = shown.get('entry') or shown
+    play.write(f'- entry: {json.dumps(entry, ensure_ascii=False)[:600]}\n')
+    original = entry.get('text', '')
+    edited = dict(entry, text=original + ' Since the spring, the Stoneheart Clan sells its steel only through Mordun, '
+                                          'and only for silver weighed on dwarven scales.')
+    play.attempt('Save an edit', 'PUT', f'{base}/entries/lore/{entry_id}', {'entry': edited})
+    play.attempt('Save a bad id', 'PUT', f'{base}/entries/lore/{entry_id}', {'entry': dict(entry, id='Not Kebab Case')},
+                 expect_refusal=True)
+    play.attempt('Undo', 'POST', f'{base}/undo')
+    after = (play.attempt('Read it back', 'GET', f'{base}/entries/lore/{entry_id}') or {})
+    if (after.get('entry') or after).get('text') != original:
+        play.flag('Undo did not restore the entry as it was.')
+    play.attempt('Save the edit again', 'PUT', f'{base}/entries/lore/{entry_id}', {'entry': edited})
+    history = play.attempt('Read the history', 'GET', f'{base}/history') or {}
+    play.write(f"- history entries: {len(history.get('history') or [])}\n")
+    play.start('agna-holt')
+    view = play.say('I ask the keeper how a body buys dwarven steel these days, and from where.')
+    told = next((m['text'] for m in reversed((view or {}).get('messages') or []) if m['role'] == 'narrator'), '')
+    play.write(f"- the edit on the page: {'silver' in told.lower() and 'mordun' in told.lower()}\n")
+    reset = play.attempt('Reset the built-in world', 'POST', f'{base}/reset') or {}
+    play.write(f'- after reset: {json.dumps(reset, ensure_ascii=False)[:300]}\n')
+    back = play.attempt('Read the entry after reset', 'GET', f'{base}/entries/lore/{entry_id}') or {}
+    if (back.get('entry') or back).get('text') != original:
+        play.flag('Reset did not bring the entry back as it shipped.')
+
+
 SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl, 'road': road,
              'director': director, 'chapters': chapters, 'ironman': ironman, 'gm_view': gm_view, 'memory': memory,
              'legacy': legacy, 'fivee_checks': fivee_checks, 'fivee_fight': fivee_fight,
              'fivee_caster': fivee_caster, 'ironsworn': ironsworn, 'percentile': percentile,
              'lore': lore, 'narrative': narrative, 'fivee_defeat_aim': fivee_defeat_aim,
-             'fivee_defeat_written': fivee_defeat_written, 'importer': importer}
+             'fivee_defeat_written': fivee_defeat_written, 'importer': importer,
+             'editor': editor}
