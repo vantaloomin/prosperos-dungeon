@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
-import type { BrpSheet, IronswornSheet, MarvelSheet, Sheet, SheetGrowth, Srd52Sheet, Srd52Spells } from '../../types'
+import type { BrpSheet, IronswornSheet, MarvelSheet, NarrativeSheet, Sheet, SheetGrowth, Srd52Sheet, Srd52Spells } from '../../types'
 import { Stepper } from '../../components/NumberFields'
 import { Notice } from '../../components/Feedback'
 import { abilityLine, darkText, signed, spellLine, xpLine } from './storyText'
@@ -27,7 +27,17 @@ function Rules({ sheet }: { sheet: Sheet }) {
   if (sheet.ruleset === 'srd52') return <Srd52 sheet={sheet} />
   if (sheet.ruleset === 'ironsworn') return <Ironsworn sheet={sheet} />
   if (sheet.ruleset === 'brp') return <Percentile sheet={sheet} />
+  if (sheet.ruleset === 'narrative') return <Narrative sheet={sheet} />
   return <Marvel sheet={sheet} />
+}
+
+/** A Narrative Only sheet (dungeon/rules/narrative.py): no stats; who the character is decides what happens. */
+function Narrative({ sheet }: { sheet: NarrativeSheet }) {
+  return <>
+    <p className="subtle">No stats or dice: what happens comes from who your character is and what you write.</p>
+    {!!sheet.good_at.length && <p>Good at: {sheet.good_at.join(', ')}</p>}
+    {!!sheet.bad_at.length && <p>Bad at: {sheet.bad_at.join(', ')}</p>}
+  </>
 }
 
 /** A Percentile sheet (dungeon/rules/brp.py): set when the character was made; skills grow by experience. */

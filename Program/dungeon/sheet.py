@@ -10,9 +10,10 @@ import random
 
 from dungeon.database import decode, encode, many, optional
 from dungeon.errors import require
-from dungeon.rules import brp, ironsworn, marvel, srd52
+from dungeon.rules import brp, ironsworn, marvel, narrative, srd52
 
-RULESETS = {marvel.ID: marvel.NAME, srd52.ID: srd52.NAME, ironsworn.ID: ironsworn.NAME, brp.ID: brp.NAME}
+RULESETS = {marvel.ID: marvel.NAME, srd52.ID: srd52.NAME, ironsworn.ID: ironsworn.NAME, brp.ID: brp.NAME,
+            narrative.ID: narrative.NAME}
 WORLD_RULESETS: dict[str, str] = {}
 
 PERSONA = 'persona'
@@ -75,10 +76,13 @@ def set_native(connection, data: dict, now: str):
 
 
 def check(connection, approach: str, difficulty: str = 'normal', text: str = '', rng: random.Random | None = None,
-          save: bool = False) -> dict:
+          save: bool = False, judged: dict | None = None) -> dict:
     """One of the persona's checks in the campaign's ruleset, on the shared ladder. `approach` is a MARVEL stat;
-    `save` asks for a saving throw where the ruleset has them (resisting fear, pain, poison)."""
+    `save` asks for a saving throw where the ruleset has them (resisting fear, pain, poison). Under Narrative Only
+    nothing is rolled: the judge's verdict (`judged`, dungeon/judge.py) stands, else the difficulty decides."""
     played = ruleset(connection)
+    if played == narrative.ID:
+        return narrative.result((judged or {}).get('verdict'), (judged or {}).get('reason', ''), difficulty)
     found = native(connection) if played != marvel.ID else None
     if found and played == srd52.ID:
         result = srd52.check(found, approach, difficulty, text, rng, save) | {'ruleset': srd52.ID}
@@ -136,5 +140,5 @@ def full_view(connection) -> dict:
     found = native(connection) if played != marvel.ID else None
     if found:
         return srd52.view(found) if played == srd52.ID else brp.view(found) if played == brp.ID else \
-            ironsworn.view(found)
+            narrative.view(found) if played == narrative.ID else ironsworn.view(found)
     return view(connection) | {'ruleset': marvel.ID, 'ruleset_name': marvel.NAME}

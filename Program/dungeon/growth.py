@@ -23,7 +23,7 @@ from pathlib import Path
 from dungeon import record, sheet
 from dungeon.database import decode, encode, many, optional
 from dungeon.life import cards
-from dungeon.rules import brp, ironsworn, ladder, marvel
+from dungeon.rules import brp, ironsworn, ladder, marvel, narrative
 
 DARK = Path(__file__).parent / 'rules' / 'dark.json'
 GROW = 3
@@ -88,8 +88,9 @@ def grow(connection, now: str, rng=None) -> list[str]:
 
 def milestone(connection, why: str, now: str) -> str:
     """A milestone's bigger boost, to the stat used most since the last one."""
-    if sheet.ruleset(connection) in (ironsworn.ID, brp.ID):
-        # Ironsworn grows by its vows' experience (dungeon/sworn.py fulfil), BRP by its experience checks.
+    if sheet.ruleset(connection) in (ironsworn.ID, brp.ID, narrative.ID):
+        # Ironsworn grows by its vows' experience (dungeon/sworn.py fulfil), BRP by its experience checks, Narrative
+        # Only by what the character is known for (the record), which the judge reads.
         return ''
     if sheet.ruleset(connection) != marvel.ID:
         # 5E grows by XP: a milestone is worth the level's high encounter budget (dungeon/combat5e.py).

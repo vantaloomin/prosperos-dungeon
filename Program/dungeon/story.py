@@ -28,6 +28,7 @@ from dungeon import (
     injuries,
     inventory,
     jobs,
+    judge,
     library,
     lore,
     pace,
@@ -59,7 +60,7 @@ from dungeon.narration import prompt as narration_prompt
 from dungeon.narration import prose
 from dungeon.providers.chat import INCOMPLETE
 from dungeon.providers.scheduling import CONVERSATION
-from dungeon.rules import brp, ironsworn, marvel, srd52
+from dungeon.rules import brp, ironsworn, marvel, narrative, srd52
 from dungeon.sheet import native as native_sheet
 from dungeon.sheet import ruleset as ruleset_of
 from dungeon.sheet import stats as sheet_stats
@@ -319,7 +320,7 @@ def persona_text(connection) -> tuple[str, str | None]:
     native = native_sheet(connection) if played != marvel.ID else None
     if native:
         lines.append(srd52.described(native) if played == srd52.ID else brp.described(native) if played == brp.ID
-                     else ironsworn.described(native))
+                     else narrative.described(native) if played == narrative.ID else ironsworn.described(native))
     stats = {} if native else sheet_stats(connection)
     if strong := [marvel.MEANINGS[stat] for stat, value in stats.items() if value >= STRONG]:
         lines.append(f"Good at: {'; '.join(strong)}.")
@@ -327,7 +328,7 @@ def persona_text(connection) -> tuple[str, str | None]:
         lines.append(f"Poor at: {'; '.join(weak)}.")
     lines.append('Write their actions and words in their own voice, from what is here; invent nothing about their '
                  'past.')
-    return '\n'.join(lines), row['name']
+    return '\n'.join(line for line in lines if line), row['name']
 
 
 # Gear and the shop --------------------------------------------------------------------------------
@@ -409,7 +410,9 @@ def messages(connection, limit: int = HISTORY_LIMIT) -> list[dict]:
 
 def dice_shown(connection) -> bool:
     """Roll visibility (Story > Tone and rules > Dice and hidden values): hidden unless the player shows them."""
-    return table.rule(connection, 'show_odds')
+    # Narrative Only shows no roll card at all; the GM view still shows its verdicts.
+    return table.rule(connection, 'show_odds') and (ruleset_of(connection) != narrative.ID
+                                                    or table.rule(connection, 'gm_view'))
 
 
 def with_rolls(connection, rows: list[dict]) -> list[dict]:
@@ -1075,7 +1078,7 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
     """The turn's rolls: kept from an earlier telling, or decided now (obvious lines skip the Referee's model)."""
     database = state.database
     with database.connect() as connection:
-        rolls, judge = turn.saved(connection, user['id']), referee.own_model(connection)
+        rolls, splitter = turn.saved(connection, user['id']), referee.own_model(connection)
         decisions = referee.decision_model(connection)
         # Mid-fight nothing is obvious: "I go for the nearest one" is an attack, not a walk.
         fighting = combat.fight(connection) is not None
@@ -1086,7 +1089,7 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
         return rolls
     since = steps.clock()
     obvious = pace.obvious(user['text']) and not fighting
-    actions = await referee.decide(state, user['text'], None if obvious else judge, None if obvious else decisions,
+    actions = await referee.decide(state, user['text'], None if obvious else splitter, None if obvious else decisions,
                                    foes)
     steps.timed('referee', since)
     if not held and (hazard := quests.danger_action(user['city_id'], user['place_id'], getattr(state, 'dice', None))):
@@ -1107,6 +1110,14 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
             # The recall roll is the line's Mind roll; the Referee's own is dropped for it.
             actions = [*(action for action in actions if action['stat'] != 'Mind'), memory]
         actions = injuries.adjust(connection, combat.adjust(connection, feelings.adjust(connection, actions)), moment)
+        # Under Narrative Only a judge gives each action its verdict before it is kept (dungeon/judge.py).
+        ask = None if turn.saved(connection, user['id']) else judge.asking(
+            connection, persona_text(connection)[0], scene_text(scene(connection, moment)), user['text'], actions)
+        if ask is None:
+            return turn.saved(connection, user['id']) or turn.store(connection, user['id'], actions, database.now(),
+                                                                    getattr(state, 'dice', None))
+    actions = await judge.judged(state, actions, ask)
+    with database.connect(write=True) as connection:
         return turn.saved(connection, user['id']) or turn.store(connection, user['id'], actions, database.now(),
                                                                 getattr(state, 'dice', None))
 

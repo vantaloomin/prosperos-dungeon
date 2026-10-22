@@ -72,7 +72,8 @@ function MakeYourOwn({ choices, ruleset, busy, onBegin, onBack }: MakeProps) {
   const [percent, setPercent] = useState<PercentBuild | null>(() => choices.brp ? startingPercent(choices.brp) : null)
   const years = age ? Number(age) : null
   const kind = rulesKind(ruleset, choices)
-  const native = { srd52: build, ironsworn: iron, brp: percentReady(percent, choices.brp), marvel: true }[kind]
+  const [narrated, setNarrated] = useState({ good_at: '', bad_at: '' })
+  const native = { srd52: build, ironsworn: iron, brp: percentReady(percent, choices.brp), narrative: listed(narrated), marvel: true }[kind]
   const valid = !!name.trim() && builtFor(native, pointsLeft(stats, choices.points)) && adultAge(years)
   const sheetPart = kind === 'marvel' ? { stats } : { [BODY_KEYS[kind]]: native }
   const submit = () => onBegin({ persona: { name: name.trim(), gender, age: years, about: about.trim() }, ...sheetPart }, name.trim())
@@ -87,7 +88,7 @@ function MakeYourOwn({ choices, ruleset, busy, onBegin, onBack }: MakeProps) {
       <TextInput label="Age" type="number" value={age} onChange={setAge} min={18} max={120} />
       <TextArea label="About you" hint="Who they are, what they want, what they're running from. The narrator only knows what you write here."
         value={about} onChange={setAbout} rows={4} maxLength={2000} />
-      <RulesBuild choices={choices} kind={kind} stats={stats} percent={percent} onStats={setStats} onBuild={setBuild} onIron={setIron} onPercent={setPercent} />
+      <RulesBuild choices={choices} kind={kind} stats={stats} percent={percent} narrated={narrated} onStats={setStats} onBuild={setBuild} onIron={setIron} onPercent={setPercent} onNarrated={setNarrated} />
       <div className="form-actions">
         <button type="submit" className="button primary" disabled={busy || !valid}>Next: how it plays</button>
         {onBack && <button type="button" className="button" onClick={onBack}>Back</button>}
@@ -101,9 +102,16 @@ function builtFor(build: unknown, left: number): boolean {
   return build === true ? left >= 0 : !!build
 }
 
-type RulesKind = 'marvel' | 'srd52' | 'ironsworn' | 'brp'
+type RulesKind = 'marvel' | 'srd52' | 'ironsworn' | 'brp' | 'narrative'
 /** Where each ruleset's build goes in the start request (dungeon/story_routes.py StoryStart). */
-const BODY_KEYS: Record<Exclude<RulesKind, 'marvel'>, string> = { srd52: 'build', ironsworn: 'ironsworn', brp: 'brp' }
+const BODY_KEYS: Record<Exclude<RulesKind, 'marvel'>, string> = { srd52: 'build', ironsworn: 'ironsworn', brp: 'brp', narrative: 'narrative' }
+type Narrated = { good_at: string; bad_at: string }
+
+/** A Narrative Only build: the two optional lists, typed as comma-separated words. */
+function listed(narrated: Narrated): { good_at: string[]; bad_at: string[] } {
+  const split = (text: string) => text.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 6)
+  return { good_at: split(narrated.good_at), bad_at: split(narrated.bad_at) }
+}
 
 /** The ruleset whose build the form shows: one the start choices carry, else MARVEL. */
 function rulesKind(ruleset: Ruleset | undefined, choices: StartChoices): RulesKind {
@@ -111,17 +119,27 @@ function rulesKind(ruleset: Ruleset | undefined, choices: StartChoices): RulesKi
 }
 
 interface RulesBuildProps {
-  choices: StartChoices; kind: RulesKind; stats: Record<string, number>; percent: PercentBuild | null
+  choices: StartChoices; kind: RulesKind; stats: Record<string, number>; percent: PercentBuild | null; narrated: Narrated
   onStats: (stats: Record<string, number>) => void; onBuild: (build: Build | null) => void; onIron: (build: IronBuild | null) => void
-  onPercent: (build: PercentBuild) => void
+  onPercent: (build: PercentBuild) => void; onNarrated: (narrated: Narrated) => void
 }
 
 /** The character's sheet in the campaign's ruleset. */
-function RulesBuild({ choices, kind, stats, percent, onStats, onBuild, onIron, onPercent }: RulesBuildProps) {
+function RulesBuild({ choices, kind, stats, percent, narrated, onStats, onBuild, onIron, onPercent, onNarrated }: RulesBuildProps) {
+  if (kind === 'narrative' && choices.narrative) return <NarrativeBuild hint={choices.narrative.hint} narrated={narrated} onChange={onNarrated} />
   if (kind === 'srd52' && choices.srd52) return <Srd52Build choices={choices.srd52} onChange={onBuild} />
   if (kind === 'ironsworn' && choices.ironsworn) return <IronswornBuild choices={choices.ironsworn} onChange={onIron} />
   if (kind === 'brp' && choices.brp && percent) return <PercentileBuild choices={choices.brp} build={percent} onChange={onPercent} />
   return <MarvelStats choices={choices} stats={stats} onChange={onStats} />
+}
+
+/** Narrative Only (dungeon/rules/narrative.py): no stats to buy; About you is the sheet, and two optional lists sharpen it. */
+function NarrativeBuild({ hint, narrated, onChange }: { hint: string; narrated: Narrated; onChange: (narrated: Narrated) => void }) {
+  return <>
+    <p className="subtle">{hint}</p>
+    <TextInput label="Good at (optional)" hint="A few things, separated by commas." value={narrated.good_at} maxLength={500} onChange={(good_at) => onChange({ ...narrated, good_at })} />
+    <TextInput label="Bad at (optional)" hint="A few things, separated by commas." value={narrated.bad_at} maxLength={500} onChange={(bad_at) => onChange({ ...narrated, bad_at })} />
+  </>
 }
 
 type PercentBuild = { characteristics: Record<string, number>; profession: string; personality: string }

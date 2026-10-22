@@ -5,7 +5,7 @@ import random
 
 from dungeon import quests, sheet
 from dungeon.database import identifier, many
-from dungeon.rules import ladder, marvel
+from dungeon.rules import ladder, marvel, narrative
 
 ACTOR_NAME = {sheet.PERSONA: 'The player\'s character'}
 
@@ -17,7 +17,8 @@ def saved(connection, message_id: str) -> list[dict]:
 def store(connection, message_id: str, actions: list[dict], now: str, rng: random.Random | None = None) -> list[dict]:
     for position, action in enumerate(actions):
         # The campaign's ruleset rolls it (dungeon/sheet.py check): MARVEL on the stat, 5E on a skill and a DC.
-        result = sheet.check(connection, action['stat'], action['difficulty'], action['action'], rng)
+        result = sheet.check(connection, action['stat'], action['difficulty'], action['action'], rng,
+                             judged=action.get('judged'))
         connection.execute(
             'INSERT INTO story_rolls (id, message_id, position, actor, action, said, stat, difficulty, die, natural, '
             'bonus, shift, total, band, threat, ruleset, target, skill, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '
@@ -36,7 +37,15 @@ def outcomes(rolls: list[dict]) -> list[dict]:
     return [{'actor': ACTOR_NAME.get(row['actor'], row['actor']), 'action': row['action'], 'band': row['band'],
              'said': bool(row['said'])}
             | ({'detail': row['threat']} if row.get('threat') and row['band'] in quests.BITES else {})
+            | ({'detail': f"Why: {why}"} if (why := judged_why(row)) else {})
             for row in rolls]
+
+
+def judged_why(row: dict) -> str:
+    """The judge's reason for a Narrative Only verdict (dungeon/judge.py), kept after the verdict in `skill`."""
+    if row.get('ruleset') != narrative.ID or ': ' not in (row.get('skill') or ''):
+        return ''
+    return row['skill'].split(': ', 1)[1]
 
 
 def shown(row: dict) -> dict:
