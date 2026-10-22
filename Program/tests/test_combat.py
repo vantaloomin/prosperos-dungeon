@@ -225,3 +225,12 @@ def test_only_foes_who_would_kill_leave_a_lasting_injury():
     brawl, killers = {'wants': 'drive_off', 'hurt_by': 'the logger'}, {'wants': 'kill', 'hurt_by': 'the logger'}
     assert combat.maimed_by(brawl) is None and 'hurt_by' not in brawl
     assert combat.maimed_by(killers) == 'the logger' and combat.maimed_by({'wants': 'kill'}) is None
+
+
+def test_a_bare_handed_fight_is_still_bare_handed_on_the_next_line(app):
+    with app.state.database.connect(write=True) as connection:
+        state = {'round': 1, 'wants': 'drive_off', 'foes': [foe()]}
+        combat.hands(state, 'I punch him', [{'item_id': 'sword'}])
+        combat.save_fight(connection, state)
+        kept = combat.fight(connection)
+        assert kept['bare'] and combat.hands(kept, 'I hit him again', [{'item_id': 'sword'}]) == []

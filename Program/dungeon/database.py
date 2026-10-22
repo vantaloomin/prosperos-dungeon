@@ -127,6 +127,7 @@ ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"
                  ('story_wounds', 'treated', 'INTEGER NOT NULL DEFAULT 0'),
                  ('story_wounds', 'captors', 'TEXT'),
                  ('story_fight', 'initiative', 'TEXT'),
+                 ('story_fight', 'bare', 'INTEGER NOT NULL DEFAULT 0'),
                  ('story_quests', 'kind', "TEXT NOT NULL DEFAULT 'authored' CHECK (kind IN ('authored', 'job', "
                                           "'oath'))"),
                  *(('story_quests', column, 'TEXT') for column in ('title', 'hook', 'truth', 'missed', 'faction_id',

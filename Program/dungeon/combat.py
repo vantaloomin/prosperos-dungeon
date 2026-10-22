@@ -218,10 +218,12 @@ def save_fight(connection, state: dict | None):
     if state is None:
         connection.execute('DELETE FROM story_fight')
         return
-    connection.execute('INSERT INTO story_fight (id, round, wants, foes, initiative) VALUES (1, ?, ?, ?, ?) ON '
-                       'CONFLICT(id) DO UPDATE SET round=excluded.round, wants=excluded.wants, foes=excluded.foes, '
-                       'initiative=excluded.initiative',
-                       (state['round'], state['wants'], json.dumps(state['foes']), state.get('initiative')))
+    # Whether the fight is bare-handed (hands) is kept with it, so "I hit him again" next line stays a punch.
+    connection.execute('INSERT INTO story_fight (id, round, wants, foes, initiative, bare) VALUES (1, ?, ?, ?, ?, ?) '
+                       'ON CONFLICT(id) DO UPDATE SET round=excluded.round, wants=excluded.wants, foes=excluded.foes, '
+                       'initiative=excluded.initiative, bare=excluded.bare',
+                       (state['round'], state['wants'], json.dumps(state['foes']), state.get('initiative'),
+                        int(bool(state.get('bare')))))
 
 
 def foes_from(spec: dict, zone: str = 'near') -> list[dict]:
