@@ -446,6 +446,16 @@ textarea { resize: vertical; line-height: 1.6; }
 .city-packs code { overflow-wrap: anywhere; }
 .city-notes { margin: 6px 0 0; padding-left: 18px; max-height: 12rem; overflow-y: auto; }
 .city-notes.more-below { mask-image: linear-gradient(to bottom, #000 calc(100% - 2.5rem), transparent); }
+.world-packages { margin-top: 18px; display: grid; gap: 8px; }
+.world-packages > h3 { margin: 0; font-size: 1rem; }
+.world-packages > h4 { margin: 8px 0 0; font-size: 0.9375rem; }
+.world-packages .city-card h4 .subtle { font-weight: 400; font-size: 0.8125rem; }
+.package-review { display: grid; gap: 8px; min-width: 0; }
+.package-section p { margin: 0; }
+.inline-icon { width: 14px; height: 14px; vertical-align: -2px; }
+.hidden-warning { color: var(--danger); font-size: 0.875rem; }
+.package-entries { margin: 6px 0 0; padding-left: 18px; max-height: 14rem; overflow-y: auto; }
+.hidden-tag { margin-left: 8px; color: var(--danger); font-size: 0.8125rem; display: inline-flex; align-items: center; gap: 3px; }
 .vibe-picks { display: flex; flex-wrap: wrap; gap: 6px; }
 .vibe-pick { padding: 5px 11px; border: 1px solid var(--border); border-radius: 999px; font-size: 0.8125rem; background: transparent; }
 .vibe-pick[aria-pressed='true'] { background: var(--accent-tint); border-color: var(--accent); color: var(--accent); }

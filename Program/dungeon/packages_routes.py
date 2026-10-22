@@ -6,7 +6,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse
 from pydantic import Field
 
-from dungeon import packages
+from dungeon import package_import, packages
 from dungeon.errors import require
 from dungeon.models import Input
 
@@ -57,3 +57,64 @@ class FolderImport(Input):
 def import_folder(request: Request, body: FolderImport):
     """A world folder on this computer, checked and made into a package."""
     return packages.import_folder(root(request), Path(body.folder).expanduser())
+
+
+class ImportFile(Input):
+    name: str = Field(min_length=1, max_length=300)
+    text: str = Field(max_length=package_import.MAX_BYTES)
+
+
+class DraftStart(Input):
+    name: str = Field(min_length=1, max_length=120)
+    files: list[ImportFile] = Field(min_length=1, max_length=package_import.MAX_FILES)
+
+
+class SectionReview(Input):
+    status: str = Field(pattern='^(empty|drafted|approved)$')
+    entries: list[dict] | None = Field(default=None, max_length=5000)
+
+
+class DraftFinish(Input):
+    replace: bool = False
+
+
+@router.get('/drafts')
+def drafts(request: Request):
+    """The world imports still being reviewed."""
+    return {'drafts': package_import.drafts(root(request))}
+
+
+@router.post('/drafts')
+def start_draft(request: Request, body: DraftStart):
+    """A world import from the world's files: documents kept, a lorebook read as the lore section."""
+    return package_import.start(root(request), body.name, [item.model_dump() for item in body.files],
+                                request.app.state.database.now())
+
+
+@router.get('/drafts/{draft_id}')
+def draft(request: Request, draft_id: str):
+    return package_import.view(package_import.load(root(request), draft_id))
+
+
+@router.post('/drafts/{draft_id}/sections/{section}/draft')
+async def draft_section(request: Request, draft_id: str, section: str):
+    """One section drafted by the World importer's model from the documents."""
+    return await package_import.draft_section(request.app.state, root(request), draft_id, section)
+
+
+@router.put('/drafts/{draft_id}/sections/{section}')
+def review_section(request: Request, draft_id: str, section: str, body: SectionReview):
+    """The author's edits to a section, and whether it is approved."""
+    return package_import.review(root(request), draft_id, section, body.entries, body.status)
+
+
+@router.post('/drafts/{draft_id}/finish')
+def finish_draft(request: Request, draft_id: str, body: DraftFinish):
+    """The approved sections written as the world's package."""
+    return package_import.finish(root(request), draft_id, body.replace)
+
+
+@router.delete('/drafts/{draft_id}')
+def remove_draft(request: Request, draft_id: str):
+    package_import.remove(root(request), draft_id)
+    return {'ok': True}

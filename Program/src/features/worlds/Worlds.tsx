@@ -8,6 +8,7 @@ import { ErrorNotice } from '../../components/ErrorNotice'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { PersonaForm } from './PersonaForm'
 import { Cities } from '../world/Cities'
+import { WorldPackages } from './WorldPackages'
 import { AdultSideSettings } from '../settings/HiddenValues'
 import { TownsfolkMix } from '../settings/TownsfolkMix'
 import { CityPick, SOMEWHERE_NEW } from './CityPick'
@@ -62,6 +63,7 @@ export function Worlds() {
       <section className="worlds-makeup" aria-labelledby="world-makeup-heading">
         <h2 id="world-makeup-heading">What {data.world.name} is made of</h2>
         <Cities />
+        <WorldPackages />
         <AdultSideSettings />
         <TownsfolkMix />
       </section>
