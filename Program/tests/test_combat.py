@@ -1,5 +1,5 @@
 """Combat v0 (dungeon/combat.py): rounds, wounds, morale, the defeat table and healing."""
-from conftest import Chunk, tell
+from conftest import Chunk, narrator, tell
 
 from dungeon import combat
 
@@ -137,7 +137,7 @@ def test_wounds_mend_with_nights_of_rest(client, connected, provider, app):
     assert 'still wounded: 3 more nights of rest to mend' in provider.requests[-1]['system']
     tell(client, 'I rest for three days.', 'story-0002')
     assert ok(client.get('/api/story'))['fight']['condition'] == 'hurt'
-    assert "is hurt (kept by the game" in provider.requests[-1]['system']
+    assert "is hurt (kept by the game" in narrator(provider)['system']
     # A new wound starts the count again.
     with app.state.database.connect(write=True) as connection:
         combat.set_condition(connection, 1)

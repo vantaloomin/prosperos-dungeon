@@ -121,6 +121,27 @@ story.
   before the player reads it. Off is faster on slow local models; the passage is then flagged for the player to
   rewrite.
 
+## Chapters and the branch tree
+
+`dungeon/chapters.py` gives the story its structure.
+
+- **Chapters close at scene breaks:** a new place, a journey or a rest, a fight over, a quest done or failed, or the
+  player ending one themselves ("End the chapter", with a name if they like). The break waits
+  (`story_chapter_break`, branched game state) and the player's next line opens the next chapter. After that turn the
+  Continuity model (or the Default one) summarizes and names the chapter that ended; a name the player gave stays.
+- **Chapters follow the branches.** A chapter (`story_chapters`) starts at one of the player's lines, and its end
+  (`story_chapter_ends`) is kept on the branch where it ended. Both are read through `timeline.visible` like the
+  messages, so a branch shares its parent's chapters up to where it forked, and a chapter that ended differently on
+  another branch is still open here.
+- **The chapter list** reads the branch being played like a table of contents; any chapter can be read in full. The
+  **tree** shows every branch under the one it forked from, with the chapters it began itself. A branch left with
+  the character dead or lost is marked by how it ended (`story_branches.ending`). "Play from here" goes back to a
+  chapter's first line in its branch, with new dice.
+- **Bookmarks** name a player's line to find it again; "Go there" plays on in its branch and shows the line.
+- **Ironman** is chosen at campaign start (`story_campaign`). It turns off going back to a line and switching branch,
+  so death is final; telling a line again keeps its dice, so it is still allowed.
+- **The notebook** (`story_notebook`) is the player's own. It spans every branch and no model ever reads it.
+
 ## What is happening
 
 A town's adventure file (`dungeon/world/data/adventures/<city>.json`, `dungeon/quests.py`) lists its quests and its

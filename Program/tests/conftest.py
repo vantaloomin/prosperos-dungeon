@@ -151,3 +151,9 @@ def told(client, connected):
 def ok(response):
     assert response.status_code == 200, response.text
     return response.json()
+
+
+def narrator(provider) -> dict:
+    """The last request to the narrator, past the chapter summary a scene break asks for after the turn."""
+    from dungeon import chapters
+    return [request for request in provider.requests if request['system'] != chapters.SUMMARIZE][-1]

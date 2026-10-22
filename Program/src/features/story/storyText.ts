@@ -1,4 +1,4 @@
-import type { BandStep, HiddenRoll, TurnAction, TurnEvent, TurnSoFar, Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace, StoryArc, StoryPace, StoryTier, SheetGrowth, StoryHand, JournalThread } from '../../types'
+import type { BandStep, HiddenRoll, TurnAction, TurnEvent, TurnSoFar, Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace, StoryArc, StoryPace, StoryTier, SheetGrowth, StoryHand, JournalThread, StoryChapter } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -304,4 +304,18 @@ export function diceNotation(faces: DieFace[]): string {
     return face.key === 'ones' ? value || 10 : value
   })
   return `${faces.map((face) => (face.key === 'tens' ? '1d100' : `1d${face.sides}`)).join('+')}@${forced.join(',')}`
+}
+
+const ENDED_BY: Record<string, string> = { place: 'a new place', time: 'time passing', fight: 'the fight ending', quest: 'a quest ending', player: 'you' }
+
+/** A chapter's line in the list: its number, its length, and what ended it (dungeon/chapters.py). */
+export function chapterLine(chapter: Pick<StoryChapter, 'number' | 'turns' | 'open' | 'ended_by'>): string {
+  const turns = `${chapter.turns} ${chapter.turns === 1 ? 'turn' : 'turns'}`
+  if (chapter.open) return `Chapter ${chapter.number} · ${turns} · under way`
+  return `Chapter ${chapter.number} · ${turns}${chapter.ended_by ? ` · ended by ${ENDED_BY[chapter.ended_by] ?? 'a break'}` : ''}`
+}
+
+/** How a branch in the tree ended, when it was a dead end. */
+export function endingText(ending: string): string {
+  return ending === 'death' ? ' · ended in death' : ending === 'lost' ? ' · ended with the character lost' : ''
 }

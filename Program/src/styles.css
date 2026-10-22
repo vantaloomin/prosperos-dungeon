@@ -222,6 +222,9 @@ textarea { resize: vertical; line-height: 1.6; }
 .story-people ul { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: var(--card-gap); max-height: 40dvh; overflow-y: auto; }
 .story-people li { display: flex; flex-direction: column; gap: 6px; padding: var(--card-pad); border: 1px solid var(--border); border-radius: 10px; }
 .story-people .form-actions { gap: 14px; }
+.story-tree ul { padding-left: 16px; border-left: 1px solid var(--border); }
+.story-chapter-text p { font-family: var(--read-font); font-size: 0.875rem; }
+.story-bookmark { display: inline-flex; gap: 6px; align-items: center; }
 .story-note { font-family: var(--read-font); font-size: 0.875rem; color: var(--muted); font-style: italic; }
 .story-fight { padding: 8px 12px; border: 1px solid var(--danger-border); border-radius: 10px; background: var(--danger-tint); color: var(--danger); font-weight: 600; }
 .story-notice, .story-footer { max-width: 760px; width: 100%; margin: 0 auto; padding: 0 32px 10px; }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowDown, MapPin, RotateCcw, Send, Settings2, Timer, Undo2 } from 'lucide-react'
+import { ArrowDown, Bookmark, MapPin, RotateCcw, Send, Settings2, Timer, Undo2 } from 'lucide-react'
 import { api, newId, streamApi } from '../../api'
 import type { View } from '../../workspace'
 import type { BandStep, CitySummary, Story as StoryData, StoryBack, StoryMessage, StoryScene, TurnEvent, TurnSoFar } from '../../types'
@@ -18,6 +18,8 @@ import { StorySheet } from './StorySheet'
 import { StoryStart } from './StoryStart'
 import { StoryBranches } from './StoryBranches'
 import { StoryJournal } from './StoryJournal'
+import { StoryChapters } from './StoryChapters'
+import { StoryNotebook } from './StoryNotebook'
 import { StoryGear } from './StoryGear'
 import { StoryIntensity } from './StoryIntensity'
 import { StoryInjuries } from './StoryInjuries'
@@ -74,13 +76,15 @@ export function Story({ go }: { go: (view: View) => void }) {
             onRetry={() => void run('', () => streamApi('/story/retry/stream', {}, grow, note))}
             onRewrite={(id, passage, note) => change(() => api<StoryData>(`/story/messages/${id}/rewrite`, { passage, note }))}
             onSwitch={(id) => change(() => api<StoryData>(`/story/messages/${id}/switch`, {}))}
-            onBack={(id) => void run(null, () => api<StoryBack>('/story/back', { message_id: id }).then((data) => { update(data); setDraft({ text: data.draft, at: Date.now() }) }))} />
+            onBack={story.data.campaign?.ironman ? undefined : (id) => void run(null, () => api<StoryBack>('/story/back', { message_id: id }).then((data) => { update(data); setDraft({ text: data.draft, at: Date.now() }) }))}
+            onBookmark={(id, name) => change(() => api<StoryData>('/story/bookmarks', { message_id: id, name }))} />
           {error && <div className="story-notice"><Notice tone="error">{error}</Notice></div>}
           <StoryComposer key={draft.at} busy={pending !== null} draft={draft.text} onSend={(text) => void send(text)} />
         </>}
         <NewStory empty={!story.data.messages.length} onClear={() => run(null, () => api<StoryData>('/story', undefined, 'DELETE').then(update))} />
       </div>
-      <StoryPanel story={story.data} change={change} onTravel={(name) => setDraft({ text: `I set out for ${name}.`, at: Date.now() })} />
+      <StoryPanel story={story.data} change={change} onTravel={(name) => setDraft({ text: `I set out for ${name}.`, at: Date.now() })}
+        onBack={(data) => setDraft({ text: data.draft, at: Date.now() })} />
     </section>
   )
 }
@@ -107,9 +111,9 @@ function StoryHeader({ story, change, onDraft }: HeaderProps) {
 
 /** The fixed side panel (beside the story on a wide screen, above it on a narrow one): the sheet, the pack and the
  * shop window, the journal, the map, the people met and the other branches. The free grid comes in Milestone 6. */
-interface PanelProps { story: StoryData; change: (request: () => Promise<StoryData>) => Promise<void>; onTravel: (name: string) => void }
+interface PanelProps { story: StoryData; change: (request: () => Promise<StoryData>) => Promise<void>; onTravel: (name: string) => void; onBack: (data: StoryBack) => void }
 
-function StoryPanel({ story, change, onTravel }: PanelProps) {
+function StoryPanel({ story, change, onTravel, onBack }: PanelProps) {
   const client = useQueryClient()
   const refresh = () => client.invalidateQueries({ queryKey: STORY_KEY })
   // Beside the story there is room to show the sheet, pack and journal open; above it they start folded.
@@ -120,8 +124,10 @@ function StoryPanel({ story, change, onTravel }: PanelProps) {
       {!!story.messages.length && <StoryMap map={story.map} open={wide} onTravel={onTravel} />}
       {!!story.messages.length && <StoryPowers factions={story.factions ?? []} tier={story.tier} />}
       <StoryPeople people={story.people} onFind={(key) => void change(() => api<StoryData>('/story/find', { key }))} />
-      <StoryBranches branches={story.branches}
-        onSwitch={(id) => void change(() => api<StoryData>(`/story/branches/${encodeURIComponent(id)}/switch`, {}))} />
+      {story.campaign && <StoryChapters campaign={story.campaign} change={change} onBack={onBack} />}
+      {!story.campaign?.ironman && <StoryBranches branches={story.branches}
+        onSwitch={(id) => void change(() => api<StoryData>(`/story/branches/${encodeURIComponent(id)}/switch`, {}))} />}
+      {!!story.messages.length && <StoryNotebook />}
       {/* Tone and rules are set once and changed now and then, so they fold away below what play needs. */}
       <details className="story-people story-dials">
         <summary><Settings2 aria-hidden="true" />Tone and rules</summary>
@@ -189,7 +195,7 @@ function GoElsewhere({ scene, journeys, onDone, onDraft, onMove }: GoProps) {
 interface Rewrites { onRewrite: (id: string, passage: string, note: string) => Promise<void>; onSwitch: (id: string) => Promise<void> }
 interface LogProps extends Rewrites {
   messages: StoryMessage[]; pending: string | null; streamed: string; turn: TurnSoFar; bands?: BandStep[] | null
-  onRetry: () => void; onBack: (id: string) => void
+  onRetry: () => void; onBack?: (id: string) => void; onBookmark: (id: string, name: string) => Promise<void>
 }
 
 /** How near the bottom (px) still counts as reading the newest text, so the log keeps following it. */
@@ -214,12 +220,13 @@ function useFollow(shown: string, pending: string | null) {
   return { log, end, onScroll, toEnd, behind: !atEnd && readTo !== shown }
 }
 
-function StoryLog({ messages, pending, streamed, turn, bands, onRetry, onBack, onRewrite, onSwitch }: LogProps) {
+function StoryLog({ messages, pending, streamed, turn, bands, onRetry, onBack, onBookmark, onRewrite, onSwitch }: LogProps) {
   const { log, end, onScroll, toEnd, behind } = useFollow(`${messages.length}:${streamed.length}`, pending)
   const last = messages[messages.length - 1]
   return (
     <div className="story-log" aria-live="polite" ref={log} onScroll={onScroll}>
       {messages.map((message) => <StoryLine key={message.id} message={message} bands={bands} onBack={pending ? undefined : onBack}
+        onBookmark={pending ? undefined : onBookmark}
         rewrites={pending === null ? { onRewrite, onSwitch } : undefined} draft={pending === null && message === last ? streamed : undefined} />)}
       {pending && <p className="story-user">{pending}</p>}
       {pending !== null && <TurnLive turn={turn} writing={!!streamed} />}
@@ -233,12 +240,12 @@ function StoryLog({ messages, pending, streamed, turn, bands, onRetry, onBack, o
 
 /** `onBack` goes back to before a line of the player's, to send it again with new dice; `rewrites` rewords a
  *  narration (none while a turn is being told). */
-interface LineProps { message: StoryMessage; bands?: BandStep[] | null; onBack?: (id: string) => void; rewrites?: Rewrites; draft?: string }
+interface LineProps { message: StoryMessage; bands?: BandStep[] | null; onBack?: (id: string) => void; onBookmark?: (id: string, name: string) => Promise<void>; rewrites?: Rewrites; draft?: string }
 
-function StoryLine({ message, bands, onBack, rewrites, draft }: LineProps) {
+function StoryLine({ message, bands, onBack, onBookmark, rewrites, draft }: LineProps) {
   if (message.role === 'scene') return <p className="story-move">{message.text}</p>
   if (message.role === 'user') return <>
-    <p className="story-user">{message.text}</p>
+    <p className="story-user" id={`line-${message.id}`}>{message.text}</p>
     <div className="story-turn">
       {message.rolls?.map((roll, index) => <RollCard key={index} roll={roll} bands={bands} />)}
       <div className="story-turn-actions">
@@ -246,12 +253,26 @@ function StoryLine({ message, bands, onBack, rewrites, draft }: LineProps) {
         {message.pace && <span className="story-pace" title={paceText(message.pace)}><Timer aria-hidden="true" /><span className="visually-hidden">{paceText(message.pace)}</span></span>}
         {onBack && <button type="button" className="text-button story-back" onClick={() => onBack(message.id)}
           title="Go back to before this line and send it again, with new dice. The story from here is kept as a branch."><Undo2 aria-hidden="true" />Go back here</button>}
+        {onBookmark && <BookmarkButton onSave={(name) => onBookmark(message.id, name)} />}
       </div>
     </div>
     {message.crisis_help && <CrisisNote />}
   </>
   if (message.status === 'failed') return <Notice tone="error">The narrator could not go on: {message.error}</Notice>
   return <StoryNarration message={message} draft={draft} {...rewrites} />
+}
+
+/** Names this moment to find it again (dungeon/chapters.py bookmarks). */
+function BookmarkButton({ onSave }: { onSave: (name: string) => Promise<void> }) {
+  const [name, setName] = useState<string | null>(null)
+  if (name === null) return <button type="button" className="text-button" onClick={() => setName('')}><Bookmark aria-hidden="true" />Bookmark</button>
+  return (
+    <form className="story-bookmark" onSubmit={(event) => { event.preventDefault(); if (name.trim()) void onSave(name.trim()).then(() => setName(null)) }}>
+      <input aria-label="Name this moment" placeholder="Name this moment" maxLength={80} value={name} onChange={(event) => setName(event.target.value)} autoFocus />
+      <button type="submit" className="text-button" disabled={!name.trim()}>Save</button>
+      <button type="button" className="text-button" onClick={() => setName(null)}>Cancel</button>
+    </form>
+  )
 }
 
 /** `draft` is a line taken back to send again; a new draft remounts the composer with it. */

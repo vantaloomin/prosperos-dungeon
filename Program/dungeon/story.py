@@ -15,6 +15,7 @@ from datetime import datetime
 from dungeon import (
     authors_note,
     beats,
+    chapters,
     combat,
     director,
     factions,
@@ -377,6 +378,7 @@ def story(database) -> dict:
                 'people': people(connection, view), 'ready': config_for(connection, JOB) is not None,
                 'dice_shown': dice_shown(connection), 'bands': turn.bands() if dice_shown(connection) else None,
                 'branches': timeline.branches(connection),
+                'campaign': chapters.view(connection),
                 'fight': combat.view(connection, dice_shown(connection)) | {
                     'injuries': injuries.view(connection, view['now']),
                     'stress': stress.view(connection, dice_shown(connection))},
@@ -401,17 +403,50 @@ def powers(connection, view: dict) -> list[dict]:
     return factions.view(connection, found['world'], visited | {found['node']}, dice_shown(connection))
 
 
+def ending(connection) -> str:
+    """How the branch being left ended, when the character died or was lost there (dungeon/chapters.py tree)."""
+    return 'death' if combat.condition(connection)['dead'] else 'lost' if growth.lost(connection) else ''
+
+
 def back(database, message_id: str) -> dict:
     """Go back to before one of the player's lines; the line comes back as a draft to send again, with new dice."""
     with database.connect(write=True) as connection:
-        line = timeline.back(connection, message_id, database.now())
+        chapters.no_going_back(connection)
+        line = timeline.back(connection, message_id, database.now(), ending(connection))
     return story(database) | {'draft': line['text']}
 
 
 def switch_branch(database, branch_id: str) -> dict:
     with database.connect(write=True) as connection:
-        timeline.switch(connection, branch_id, database.now())
+        if branch_id != timeline.active(connection):
+            chapters.no_going_back(connection)
+        timeline.switch(connection, branch_id, database.now(), ending(connection))
     return story(database)
+
+
+def chapter_back(database, chapter_id: str) -> dict:
+    """Play on from the start of a chapter in the tree: in its branch, back to before its first line."""
+    with database.connect(write=True) as connection:
+        chapters.no_going_back(connection)
+        row = optional(connection, 'SELECT branch_id, seq FROM story_chapters WHERE id=?', (chapter_id,))
+        require(row is not None, 'That chapter is not in this story.', 404)
+        if row['branch_id'] != timeline.active(connection):
+            timeline.switch(connection, row['branch_id'], database.now(), ending(connection))
+        line = optional(connection, "SELECT id FROM story_messages WHERE branch_id=? AND seq=? AND role='user'",
+                        (row['branch_id'], row['seq']))
+        require(line is not None, 'That chapter has no line to go back to.', 409)
+    return back(database, line['id'])
+
+
+def bookmark_go(database, bookmark_id: str) -> dict:
+    """Play on in the branch a bookmark's line was told in; the screen then shows the line."""
+    with database.connect() as connection:
+        marked = chapters.marked_branch(connection, bookmark_id)
+        where, values = timeline.visible(connection)
+        here = optional(connection, f'SELECT 1 FROM story_messages WHERE id=? AND {where}',
+                        (marked['message_id'], *values))
+    result = story(database) if here else switch_branch(database, marked['branch_id'])
+    return result | {'message_id': marked['message_id']}
 
 
 def people(connection, view: dict) -> list[dict]:
@@ -509,6 +544,7 @@ def clear(database) -> dict:
                       'story_director', 'story_arcs', 'story_threads', 'story_nemeses'):
             connection.execute(f'DELETE FROM {table}')
         timeline.clear(connection)
+        chapters.clear(connection)
     return story(database)
 
 
@@ -649,6 +685,18 @@ def haggle_lines(connection, city: str, shop: dict, day: str, rolls: list[dict],
     if roll['band'] == 'success_cost' and keeper_key:
         feelings.change(connection, keeper_key, {'affection': -1}, 'Beat me down on price.')
     return [f"The haggle settles today's prices: {inventory.haggle_text(percent) or 'no change'}."]
+
+
+def scene_break(connection, user: dict, travelled: list[str], rested: list[str], fought: list[str]) -> str | None:
+    """Why the line ends a chapter, if it does: a new place, time passing on the road or in rest, a fight over."""
+    now = scene_row(connection)
+    if (now['city_id'], now['place_id']) != (user['city_id'], user['place_id']):
+        return 'place'
+    if travelled or rested:
+        return 'time'
+    if fought and not combat.fight(connection):
+        return 'fight'
+    return None
 
 
 def recall_turn(state, rolls: list[dict]) -> list[str]:
@@ -988,6 +1036,7 @@ async def afterwards(state, user: dict, reply: dict, packet: dict, steps: pace.S
         with database.connect(write=True) as connection:
             for item in quests.endings(answered):
                 quests.end(connection, item['id'], item['status'], item['outcome'], database.now())
+                chapters.mark(connection, 'quest')
             # What the character did that feeds a dark track (dungeon/growth.py).
             for track in growth.darkened(answered):
                 view = scene(connection, story_clock.now(connection, database.clock))
@@ -1002,6 +1051,7 @@ async def afterwards(state, user: dict, reply: dict, packet: dict, steps: pace.S
         with database.connect() as connection:
             rows = messages(connection)
         await record.fold(state, rows)
+        await chapters.summarize(state)
         steps.timed('summary', since)
         with database.connect(write=True) as connection:
             if optional(connection, 'SELECT 1 FROM story_messages WHERE id=?', (user['id'],)):
@@ -1066,6 +1116,8 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
             feelings.from_rolls(connection, rolls)
             growth.mark(connection, rolls, user['id'])
             remembering.refresh(connection, f"{user['text']}\n{text}")
+            if reason := scene_break(connection, user, travelled, rested, fought):
+                chapters.mark(connection, reason)
             # What the line touched in the GM's notebook, and the scene's kind (dungeon/director.py).
             if found := happenings.where(packet['city_id'], scene_row(connection)['place_id']):
                 director.touch(connection, found['world'], f"{user['text']}\n{text}",
@@ -1084,12 +1136,14 @@ def received(database, text: str, client_id: str) -> tuple[dict, dict | None]:
     with database.connect(write=True) as connection:
         user = optional(connection, 'SELECT * FROM story_messages WHERE client_id=?', (client_id,))
         if user is None:
-            require(not combat.condition(connection)['dead'],
-                    'Your character is dead. Go back to an earlier line to play on.', 409)
-            require(not growth.lost(connection),
-                    f'Your character is lost to {growth.lost(connection)}. Go back to an earlier line to play on.', 409)
+            after = ' In Ironman, that is final: start a new story.' if chapters.ironman(connection) else \
+                ' Go back to an earlier line to play on.'
+            require(not combat.condition(connection)['dead'], 'Your character is dead.' + after, 409)
+            require(not growth.lost(connection), f'Your character is lost to {growth.lost(connection)}.' + after, 409)
             user = add(connection, database.now(), 'user', text, scene_row(connection), client_id=client_id)
             timeline.save(connection, user['id'])
+            # A break left pending by the last line opens a new chapter with this one (dungeon/chapters.py).
+            chapters.arrive(connection, user, database.now())
             # The time the line takes passes as it is sent: the narrator writes the scene after it.
             if not in_character.out_of_character(text):
                 # A rest passes its own nights (dungeon/rest.py).

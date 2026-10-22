@@ -191,11 +191,13 @@ async def asked(state, config: dict, system: str, text: str, shape: dict | None 
             config, key_for(state.vault, config), system, [{'role': 'user', 'content': text}])])
 
 
-async def schema_first(state, config: dict, system: str, text: str, shape: dict) -> str:
-    """Asked with the schema; asked again without it when the backend refuses it or the answer cannot be read."""
+async def schema_first(state, config: dict, system: str, text: str, shape: dict, readable=None) -> str:
+    """Asked with the schema; asked again without it when the backend refuses it or the answer cannot be read (by
+    `readable`, the facts by default)."""
+    readable = readable or (lambda answer: checked(answer) is not None)
     try:
         answer = await asked(state, config, system, text, shape)
-        if checked(answer) is not None:
+        if readable(answer):
             return answer
     except DomainError:
         pass
