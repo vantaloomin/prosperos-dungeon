@@ -667,6 +667,32 @@ own text (`kind` job or oath, with `title`, `hook`, `truth`, `missed`), and for 
   An oath sworn on a quest the character already knows of, named in the line ("I swear an iron vow the Heartwood
   contract will fail"), is that quest, now a vow: the record keeps what was sworn, and no second oath is filed.
 
+## Institutions
+
+`dungeon/institutions.py`. A school, a guild or an army the character belongs to, from the world's
+`engine/institutions/<world>.json` (`institutions`: id, name, city_id, faction, default, core, terms, classes,
+demands, attendance_weight).
+
+- **Enrolment** (`story_enrollment`). A premade starts in what its `enrolled` names; a made character in a world
+  with a `default` institution starts in it with its `core` classes. `PUT /api/story/institutions/{id}`
+  `{classes?}` joins (or changes classes), `DELETE` leaves.
+- **Terms** run once on set dates (`start`, `end`) or every year (`from`, `to` as month-day). **Classes** meet on
+  their `days` at `start` during a term. When the story clock passes a class's start, the character attended if the
+  scene is at its `place_id` (anywhere in the institution's town when it names none); otherwise it is missed and
+  the record keeps it (`story_attendance`). A long sleep or journey checks at most three weeks.
+- **Demands are quests** (job quests with `institution`, `demand` and `weight` set, shown as Coursework).
+  `every_days` demands open each period and are due `due_days` later; `week` demands (exams) are due that many
+  weeks into the term and open `notice_days` (7) before. Each opens once (`demand` is `id@when`). The Continuity
+  model decides done or failed; a deadline passed is missed.
+- **Grades** (`story_grades`). A demand settled is a mark (done 90, failed 60, missed 0) at its weight; attendance is
+  one more mark at `attendance_weight` (2). The term's weighted average gives a letter and a grade point (A 4.0, B
+  3.0, C 2.0, D 1.0, F 0). Failed or missed work costs a point of standing with the institution's `faction`; work
+  done earns the tier track like any job. Faction jobs ignore coursework when deciding whether a faction is busy.
+- **A world's own date.** The tier file's `start` (`"2009-08-31T08:00"`) is when its campaigns begin on the story
+  clock, so a school's terms line up; with none, the story starts today.
+- **The narrator** gets "## School and duties": the term, the rest of today's classes and the grades so far, and
+  is told never to invent another class. The journal shows each institution with its term, grades and today.
+
 ## Off-page beats and word getting around
 
 `dungeon/beats.py`. The people the character is connected to keep living while the character is elsewhere: anyone

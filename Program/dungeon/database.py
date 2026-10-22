@@ -136,6 +136,8 @@ ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"
                  ('story_quests', 'standing', 'INTEGER NOT NULL DEFAULT 0'),
                  ('story_quests', 'ties', "TEXT NOT NULL DEFAULT '[]'"),
                  ('story_quests', 'tier', 'INTEGER NOT NULL DEFAULT 1'),
+                 ('story_quests', 'institution', 'TEXT'), ('story_quests', 'demand', 'TEXT'),
+                 ('story_quests', 'weight', 'INTEGER NOT NULL DEFAULT 1'),
                  *(('story_people', axis, 'INTEGER NOT NULL DEFAULT 0')
                    for axis in ('trust', 'affection', 'respect', 'fear', 'desire')),
                  ('story_people', 'impressions', "TEXT NOT NULL DEFAULT '[]'"),

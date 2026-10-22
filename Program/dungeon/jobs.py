@@ -32,7 +32,7 @@ def offer(connection, world: str, node_id: str, city_id: str, wage: int, currenc
     rng = rng or random.SystemRandom()
     character = tiers.tier(connection, world)
     at, stretch = tiers.offer_tiers(character, looking, rng)
-    rows = many(connection, "SELECT faction_id, title, status FROM story_quests WHERE kind='job'")
+    rows = many(connection, "SELECT faction_id, title, status FROM story_quests WHERE kind='job' AND institution IS NULL")
     busy = {row['faction_id'] for row in rows if row['status'] == 'open'}
     offered = {(row['faction_id'], row['title']) for row in rows}
     open_jobs = [(faction, job) for faction in factions.local(world, node_id) if faction['id'] not in busy

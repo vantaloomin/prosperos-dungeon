@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, foesText, statusItems, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, unrolled, challengeDice, brpCost, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, threadKind, receiptsByReply } from '../../src/features/story/storyText.ts'
+import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, foesText, statusItems, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, unrolled, challengeDice, brpCost, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, threadKind, receiptsByReply, institutionLine, todayLine } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -297,4 +297,15 @@ test('a spell with no slot left just fails, with no dice', () => {
   assert.ok(unrolled(roll))
   assert.equal(rollText(roll), 'Ice Knife (no spell slot left): no roll, Failure')
   assert.ok(!unrolled({ ...roll, natural: 7 }))
+})
+
+test('a school says its term, grades and what is on today', () => {
+  const grades = { average: 85, letter: 'B', gpa: 3, attended: 5, missed: 1 }
+  assert.equal(institutionLine({ term: 'Fall term 2009', grades }), 'Fall term 2009 · B (3.0) · 1 class missed')
+  assert.equal(institutionLine({ term: 'Fall term 2009', grades: null }), 'Fall term 2009 · no grades yet')
+  assert.equal(institutionLine({ term: null, grades: null }), 'Out of term')
+  const today = [{ id: 'letters', name: 'Letters', at: '10:00', place_id: null, soon: true }]
+  assert.equal(todayLine({ term: 'Fall term 2009', today }), 'Today: Letters at 10:00')
+  assert.equal(todayLine({ term: 'Fall term 2009', today: [] }), 'No more classes today')
+  assert.equal(questState({ status: 'open', left: '2 days left', kind: 'coursework' }), 'Coursework · Underway · 2 days left')
 })
