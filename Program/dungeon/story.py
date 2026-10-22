@@ -969,10 +969,12 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
     database = state.database
     with database.connect() as connection:
         rolls, judge = turn.saved(connection, user['id']), referee.own_model(connection)
+        decisions = referee.decision_model(connection)
     if rolls:
         return rolls
     since = steps.clock()
-    actions = await referee.decide(state, user['text'], None if pace.obvious(user['text']) else judge)
+    obvious = pace.obvious(user['text'])
+    actions = await referee.decide(state, user['text'], None if obvious else judge, None if obvious else decisions)
     steps.timed('referee', since)
     if hazard := quests.danger_action(user['city_id'], user['place_id'], getattr(state, 'dice', None)):
         actions = [*actions, hazard]

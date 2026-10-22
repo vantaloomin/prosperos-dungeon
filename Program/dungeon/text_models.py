@@ -23,6 +23,7 @@ from dungeon.providers.config import (
     ProfileConfig,
     ProfileCreate,
     ProfileUpdate,
+    decisions_ready,
     is_recall,
     profile_ready,
     ready_for,
@@ -38,6 +39,10 @@ JOBS = [
     {'key': 'referee', 'name': 'Referee', 'detail': 'Splits what you do into actions and picks the stat and '
      'difficulty of each roll. Off unless you choose a profile here: without one, keyword rules decide, and the '
      'narrator\'s model is never asked. A small, fast model is plenty.'},
+    {'key': 'decisions', 'name': 'Referee decisions', 'detail': 'Decides, for each action, whether it needs a roll, '
+     'which stat and how hard, from the odds a decision model gives each answer: Jev or OpenAI Decisions, or a model '
+     'on a local or compatible server, such as the narrator\'s own. The Referee profile still splits the turn into '
+     'actions when you choose one. Off unless you choose a profile here.'},
     {'key': 'continuity', 'name': 'Continuity', 'detail': 'After each turn, lists the new facts the narrator brought '
      'in for the record, and now and then folds older turns into the story so far. Facts are only kept when you choose '
      'a profile here; the story so far uses the Default without one. A small, fast model is plenty.'},
@@ -59,7 +64,8 @@ def profile_view(row: dict) -> dict:
     config = decode(row['config'])
     return {'id': row['id'], 'name': row['name'], 'revision': row['revision'], 'config': config,
             'provider_name': PROVIDER_NAMES[config['provider']], 'has_saved_key': bool(row['credential_ref']),
-            'ready': profile_ready(config), 'recall_ready': recall_ready(config), 'updated_at': row['updated_at']}
+            'ready': profile_ready(config), 'recall_ready': recall_ready(config),
+            'decisions_ready': decisions_ready(config), 'updated_at': row['updated_at']}
 
 
 def routes(connection) -> dict[str, str]:
@@ -234,6 +240,9 @@ def assign(connection, job: str, profile_id: str | None, timestamp: str):
     config = decode(row['config'])
     if job == 'recall':
         require(recall_ready(config), 'Semantic recall needs a profile with an embedding model.', 409)
+    elif job == 'decisions':
+        require(decisions_ready(config), 'Referee decisions need a decisions profile, or a text profile with a model '
+                'on a local or OpenAI-compatible server.', 409)
     else:
         require(profile_ready(config), 'Finish this profile: choose a model before giving it a job.', 409)
     connection.execute('INSERT INTO model_routes (job, profile_id, updated_at) VALUES (?, ?, ?) ON CONFLICT(job) '
