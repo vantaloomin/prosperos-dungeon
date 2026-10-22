@@ -41,8 +41,8 @@ SECTIONS = {'lore': 'entries', 'regions': 'regions', 'settlements': 'settlements
 # Sections whose every entry is hidden from the player; and the fields that hold a hidden truth in any entry.
 HIDDEN_SECTIONS = ('hidden-truths',)
 HIDDEN_FIELDS = ('secret', 'secrets', 'guise', 'mortal_life', 'truth', 'hidden')
-ENGINE_KINDS = ('adventures', 'arcs', 'cities', 'factions', 'finds', 'institutions', 'items', 'premades', 'tiers',
-                'travel')
+ENGINE_KINDS = ('adventures', 'arcs', 'art', 'cities', 'factions', 'finds', 'institutions', 'items', 'premades',
+                'tiers', 'travel')
 ID = re.compile(r'^[a-z0-9]+(?:-[a-z0-9]+)*$')
 # Cross-references that must name an entry of another section: (section, field, the section it names).
 REFERENCES = (('settlements', 'region', 'regions'), ('cast', 'faction', 'factions'), ('cast', 'settlement', 'settlements'),

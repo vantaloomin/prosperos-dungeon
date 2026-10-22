@@ -326,6 +326,8 @@ export interface StoryTier { tier: string; words: string; track: string; arc: St
 /** `world` (hidden truth) and `pulled` (a fact the model took from the story) show only in the GM view. */
 export interface JournalEntry { id: string; kind: string; subject: string; text: string; truth: 'world' | 'belief' | 'both'; source: 'code' | 'narrator' | 'player'; pulled?: boolean; faded?: boolean; created_at: string }
 export interface JournalQuest { id: string; title: string; hook: string; status: 'open' | 'done' | 'failed' | 'missed'; outcome: string; left: string; kind?: 'authored' | 'job' | 'oath' | 'coursework' }
+export type ArtKind = 'portrait' | 'place' | 'scene' | 'passage'
+export interface StoryArt { id: string; kind: ArtKind; subject: string; chapter_id: string | null; status: 'queued' | 'running' | 'done' | 'failed' | 'refused'; error: string | null; reference: boolean; url: string | null; width: number | null; height: number | null; created_at: string; stale: boolean }
 export interface InstitutionGrades { average: number; letter: string; gpa: number; attended: number; missed: number }
 export interface JournalInstitution { id: string; name: string; term: string | null; classes: { id: string; name: string }[]; today: { id: string; name: string; at: string; place_id: string | null; soon: boolean }[]; grades: InstitutionGrades | null }
 /** A thread in the director's notebook the character has come across, as they understand it (dungeon/director.py). */

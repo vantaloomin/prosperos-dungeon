@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, foesText, statusItems, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, unrolled, challengeDice, brpCost, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, threadKind, receiptsByReply, institutionLine, todayLine } from '../../src/features/story/storyText.ts'
+import { artLabel, artStatus, making } from '../../src/features/story/artText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -308,4 +309,16 @@ test('a school says its term, grades and what is on today', () => {
   assert.equal(todayLine({ term: 'Fall term 2009', today }), 'Today: Letters at 10:00')
   assert.equal(todayLine({ term: 'Fall term 2009', today: [] }), 'No more classes today')
   assert.equal(questState({ status: 'open', left: '2 days left', kind: 'coursework' }), 'Coursework · Underway · 2 days left')
+})
+
+test('a picture says what it shows and where it stands', () => {
+  const people = [{ key: 'town:k:0', name: 'Fenwick Cutter' }]
+  assert.equal(artLabel({ kind: 'portrait', subject: 'player' }, people), 'You')
+  assert.equal(artLabel({ kind: 'portrait', subject: 'town:k:0' }, people), 'Fenwick Cutter')
+  assert.equal(artLabel({ kind: 'place', subject: 'kingswood/pell-provisions' }, people), 'Pell provisions')
+  assert.equal(artLabel({ kind: 'scene', subject: 'kingswood/pell-provisions' }, people, 'Pell Provisions'), 'The scene at Pell Provisions')
+  assert.equal(artStatus({ status: 'running', error: null, stale: false }), 'Making it…')
+  assert.equal(artStatus({ status: 'refused', error: 'No image backend is enabled.', stale: false }), 'No image backend is enabled.')
+  assert.equal(artStatus({ status: 'done', error: null, stale: true }), 'Out of date: something has changed since.')
+  assert.equal(making([{ status: 'done' }, { status: 'queued' }]), true)
 })

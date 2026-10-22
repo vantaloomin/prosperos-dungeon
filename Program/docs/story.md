@@ -693,6 +693,31 @@ demands, attendance_weight).
 - **The narrator** gets "## School and duties": the term, the rest of today's classes and the grades so far, and
   is told never to invent another class. The journal shows each institution with its term, grades and today.
 
+## Art
+
+`dungeon/art.py` (requirements "Art"). Pictures are made only when the player asks, through the image backends in
+Settings (`dungeon/images`), and never hold up the story.
+
+- **What.** `POST /api/story/art` `{kind, subject}`: a `portrait` of the character (`player`) or of someone met (their
+  key), the `place` at this hour and weather, the `scene` (the place, who is there, the latest passage), or a
+  `passage` (a narrator message's id, from "Picture this" under each passage). It is queued and made in the
+  background; `GET /api/story/art` lists the newest picture of each subject and `GET /api/story/art/{id}/file`
+  serves it. The Pictures widget (drawer, under More) asks and shows them.
+- **Built from what code tracks.** The character's portrait reads the persona, their condition, lasting injuries and
+  what they carry; someone met reads who the town says they are, the story's notes about them and a face from their
+  strongest feeling toward the character. A world can set its look in `engine/art/<world>.json` (`style`); a
+  backend's own style wins over it.
+- **Likeness.** The first portrait of someone is their reference (`reference`), sent with every later picture of
+  them to a backend that takes one (`images.backends.takes_reference`).
+- **Out of date.** Each picture keeps a fingerprint of its prompt (`state`); when building it again gives another
+  (a new wound, a change of heart, the hour moving on), the gallery marks it out of date with "Make it again". A
+  passage never goes out of date.
+- **Routing.** Each prompt is classified and routed as the image pipeline does (`images/content.py`,
+  `images/routing.py`): NSFW only to backends that take it, prohibited nowhere; a backend that fails passes it on,
+  and one that needs signing in again is blocked. With nowhere to go the picture is `refused` with the reason.
+- **Kept** in `story_art` with the chapter open when it was asked for; not game state, so going back keeps them. A
+  new story clears them.
+
 ## Off-page beats and word getting around
 
 `dungeon/beats.py`. The people the character is connected to keep living while the character is elsewhere: anyone

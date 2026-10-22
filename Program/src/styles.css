@@ -810,3 +810,10 @@ img.avatar, img.portrait { object-fit: cover; object-position: center top; paddi
 .lore-when-chips .icon-button { width: 26px; height: 26px; }
 .lore-when-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .lore-when-add select { max-width: 100%; }
+
+.art-gallery { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 10px; }
+.art-card { display: grid; gap: 4px; min-width: 0; }
+.art-card img { width: 100%; height: auto; border-radius: 6px; border: 1px solid var(--border); background: var(--canvas); }
+.art-card p { margin: 0; font-size: 0.8125rem; }
+.story-art select { min-height: 40px; }
+.story-art .form-actions { flex-wrap: wrap; }

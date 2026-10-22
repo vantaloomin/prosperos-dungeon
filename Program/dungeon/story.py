@@ -648,7 +648,7 @@ def clear(database) -> dict:
                       'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_beats', 'story_word',
                       'story_offpage', 'story_tier', 'story_marks', 'story_dark',
                       'story_director', 'story_arcs', 'story_threads', 'story_nemeses', 'story_seeds',
-                      'story_arc_beats', 'story_sheet', 'story_enrollment', 'story_attendance', 'story_grades'):
+                      'story_arc_beats', 'story_sheet', 'story_enrollment', 'story_attendance', 'story_grades', 'story_art'):
             connection.execute(f'DELETE FROM {name}')
         timeline.clear(connection)
         chapters.clear(connection)
