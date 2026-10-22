@@ -158,6 +158,22 @@ story.
   so death is final; telling a line again keeps its dice, so it is still allowed.
 - **The notebook** (`story_notebook`) is the player's own. It spans every branch and no model ever reads it.
 
+## Export and legacy
+
+- **The story as a book** (`dungeon/book.py`, `GET /api/story/export/book?format=md|epub|pdf`, Story > Export): the
+  branch being played, chapter by chapter with their titles, the player's lines set apart (quoted in Markdown,
+  in italics in EPUB and PDF). Nothing hidden goes in: no GM notes, record or rolls. The EPUB 3 and the PDF (6 by 9
+  inches, in the built-in Helvetica faces) are written with the standard library alone.
+- **The campaign file** (`dungeon/legacy.py`, `GET /api/story/export/campaign`) is a verified Dungeon archive of the
+  world being played: every branch, save, the record and the settings. "Import a campaign file" on the Worlds page
+  (`POST /api/worlds/import`, the file as the body) makes it a new world under the persona that played it (made
+  again if this install has none); saved credentials stay behind, as with any restore.
+- **Legacy.** At campaign start, another world's story can come in as history ("An earlier story"): its character,
+  whether they died, and what its chapters say they did. As a **legend**, the world remembers them and their deeds.
+  As a **villain**, they are believed gone but live on, turned, as hidden truth and a nemesis the director brings
+  back. As a **corpse**, the record holds their death, so the narrator never has them act. These facts are weight 3
+  and never fade.
+
 ## What is happening
 
 A town's adventure file (`dungeon/world/data/adventures/<city>.json`, `dungeon/quests.py`) lists its quests and its

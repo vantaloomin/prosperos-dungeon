@@ -4,10 +4,25 @@ import json
 from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import Field
 
-from dungeon import campaign, chapters, director, gm, growth, plotting, quests, record, sheet, story, story_clock, tiers
+from dungeon import (
+    book,
+    campaign,
+    chapters,
+    director,
+    gm,
+    growth,
+    legacy,
+    plotting,
+    quests,
+    record,
+    sheet,
+    story,
+    story_clock,
+    tiers,
+)
 from dungeon.errors import DomainError
 from dungeon.models import Input, PersonaInput
 
@@ -134,6 +149,12 @@ def change_sheet(request: Request, body: SheetChange):
         return sheet.view(connection) | {'growth': growth.view(connection, story.dice_shown(connection))}
 
 
+class LegacyChoice(Input):
+    """Another world's story brought in as history (dungeon/legacy.py)."""
+    world_id: str = Field(min_length=1, max_length=80)
+    role: Literal['legend', 'villain', 'corpse']
+
+
 class StoryStart(Input):
     """A premade character by id, or one the player made: who they are and their bought stats."""
     premade_id: str | None = Field(None, min_length=1, max_length=80)
@@ -146,6 +167,7 @@ class StoryStart(Input):
     hand: Literal['soft', 'guiding', 'firm'] | None = None
     # Ironman (dungeon/chapters.py): no going back for the whole campaign, so death is final.
     ironman: bool = False
+    legacy: LegacyChoice | None = None
 
 
 @router.get('/start')
@@ -156,7 +178,7 @@ def start_choices(request: Request):
 @router.post('/start')
 def start(request: Request, body: StoryStart):
     return campaign.begin(request.app.state.database, body.premade_id, body.persona, body.stats, body.arc,
-                          body.pace, body.hand, body.ironman)
+                          body.pace, body.hand, body.ironman, body.legacy and body.legacy.model_dump())
 
 
 class StoryBack(Input):
@@ -413,3 +435,25 @@ def buy(request: Request, body: Purchase):
 @router.post('/shop/sell')
 def sell(request: Request, body: Sale):
     return story.trade(request.app.state.database, 'sell', body.inventory_id, body.qty)
+
+
+# Export (dungeon/book.py, dungeon/legacy.py) ------------------------------------------------------
+
+def attachment(content: bytes, media_type: str, name: str) -> Response:
+    return Response(content, media_type=media_type, headers={'Content-Disposition': f'attachment; filename="{name}"'})
+
+
+@router.get('/export/book')
+def export_book(request: Request, format: Literal['md', 'epub', 'pdf'] = 'md'):  # noqa: A002 - the query's name
+    """The branch being played as a book."""
+    database = request.app.state.database
+    with database.connect() as connection:
+        content, media_type = book.export(connection, format, database.now())
+    return attachment(content, media_type, f'story-{database.now()[:10]}.{format}')
+
+
+@router.get('/export/campaign')
+def export_campaign(request: Request):
+    """The whole campaign (every branch, save, the record and the settings) as one file, to keep or move."""
+    content, name = legacy.campaign_file(request.app.state.database)
+    return attachment(content, 'application/zip', name)

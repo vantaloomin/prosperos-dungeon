@@ -8,7 +8,7 @@ with the player arriving where the scene is.
 import json
 from pathlib import Path
 
-from dungeon import chapters, director, inventory, quests, sheet, story, story_clock, tiers, timeline, worlds
+from dungeon import chapters, director, inventory, legacy, quests, sheet, story, story_clock, tiers, timeline, worlds
 from dungeon.database import one
 from dungeon.errors import require
 from dungeon.models import PersonaInput
@@ -32,7 +32,9 @@ def view(database) -> dict:
     return {'premades': premades(city_id), 'points': POINTS, 'range': list(START_RANGE),
             'stat_names': list(marvel.STATS), 'meanings': marvel.MEANINGS,
             'arc': world and {'arc': tiers.track(world)['arc'], 'pace': tiers.track(world)['pace'],
-                              'hand': director.DEFAULT_HAND}}
+                              'hand': director.DEFAULT_HAND},
+            # Other worlds' stories, to bring in as history (dungeon/legacy.py).
+            'legacy': legacy.candidates(database)}
 
 
 def bought(stats: dict[str, int]) -> dict[str, int]:
@@ -47,7 +49,7 @@ def bought(stats: dict[str, int]) -> dict[str, int]:
 
 def begin(database, premade_id: str | None = None, persona: PersonaInput | None = None,
           stats: dict[str, int] | None = None, arc: str | None = None, pace: str | None = None,
-          hand: str | None = None, ironman: bool = False) -> dict:
+          hand: str | None = None, ironman: bool = False, legacy_of: dict | None = None) -> dict:
     """Start the story as a premade character or one the player made; only a story with nothing in it yet."""
     with database.connect() as connection:
         where, values = timeline.visible(connection)
@@ -62,6 +64,7 @@ def begin(database, premade_id: str | None = None, persona: PersonaInput | None 
     else:
         require(persona is not None and bool((persona.name or '').strip()), 'Give your character a name.', 422)
         stats = bought(stats or {})
+    earlier = legacy_of and legacy.chosen(database, legacy_of['world_id'], legacy_of['role'])
     data = worlds.registry(database)
     active = worlds.found(data['worlds'], data['active'], 'world')
     worlds.update_persona(database, active['persona_id'], persona)
@@ -77,5 +80,8 @@ def begin(database, premade_id: str | None = None, persona: PersonaInput | None 
             tiers.begin(connection, world, arc, pace)
             # The director's arcs and threads, and how hard its hand pushes (dungeon/director.py).
             director.begin(connection, world, hand, database.now())
+        # An earlier campaign's character as this world's history (dungeon/legacy.py).
+        if earlier:
+            legacy.bring(connection, earlier, legacy_of['role'], database.clock.now())
         story.arrive(connection, database.now())
     return story.story(database)

@@ -258,7 +258,10 @@ export interface Premade { id: string; name: string; gender: PersonaGender; age:
 export type StoryArc = 'grounded' | 'classic' | 'epic'
 export type StoryPace = 'slow' | 'steady' | 'fast'
 export type StoryHand = 'soft' | 'guiding' | 'firm'
-export interface StoryStart { premades: Premade[]; points: number; range: [number, number]; stat_names: string[]; meanings: Record<string, string>; arc?: { arc: StoryArc; pace: StoryPace; hand?: StoryHand } | null }
+/** Another world's story that can come into a new campaign as history (dungeon/legacy.py). */
+export interface LegacyCandidate { world_id: string; world: string; name: string; dead: boolean; chapters: number }
+export type LegacyRole = 'legend' | 'villain' | 'corpse'
+export interface StoryStart { legacy?: LegacyCandidate[]; premades: Premade[]; points: number; range: [number, number]; stat_names: string[]; meanings: Record<string, string>; arc?: { arc: StoryArc; pace: StoryPace; hand?: StoryHand } | null }
 /** The character's tier on the shared ladder and its track (dungeon/tiers.py); the numbers only with the dice shown. */
 /** Growth by use and the dark tracks (dungeon/growth.py); points only with the dice shown. */
 export interface SheetGrowth { marked: string[]; dark: { id: string; name: string; word: string; changes: string[]; points?: number; top?: number }[] }

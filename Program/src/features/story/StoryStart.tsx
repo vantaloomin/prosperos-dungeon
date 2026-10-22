@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
-import type { PersonaGender, Story as StoryData, StoryArc, StoryHand, StoryPace, StoryStart as StartChoices } from '../../types'
+import type { LegacyCandidate, LegacyRole, PersonaGender, Story as StoryData, StoryArc, StoryHand, StoryPace, StoryStart as StartChoices } from '../../types'
 import { Field, TextArea, TextInput, Toggle } from '../../components/Fields'
 import { Stepper } from '../../components/NumberFields'
 import { Loading, Notice } from '../../components/Feedback'
 import { GENDERS } from '../worlds/worldsText'
 import { WORLDS_KEY } from '../worlds/useWorlds'
-import { ARC_NAMES, HAND_NAMES, PACE_NAMES, pointsLeft, pointsText, premadeLine, startingStats } from './storyText'
+import { ARC_NAMES, HAND_NAMES, LEGACY_ROLES, PACE_NAMES, pointsLeft, pointsText, premadeLine, startingStats } from './storyText'
 
 /** Campaign start (dungeon/campaign.py): play a premade character from this town, or make your own. */
 export function StoryStart({ onStarted }: { onStarted: (data: StoryData) => void }) {
@@ -20,12 +20,13 @@ export function StoryStart({ onStarted }: { onStarted: (data: StoryData) => void
   const [pace, setPace] = useState<StoryPace | null>(null)
   const [hand, setHand] = useState<StoryHand | null>(null)
   const [ironman, setIronman] = useState(false)
+  const [legacy, setLegacy] = useState<Legacy | null>(null)
   if (!choices.data) return <Loading label="Finding who you could be" />
   const begin = async (body: object) => {
     setBusy(true)
     setError('')
     try {
-      onStarted(await api<StoryData>('/story/start', { ...body, ...(arc && { arc }), ...(pace && { pace }), ...(hand && { hand }), ironman }))
+      onStarted(await api<StoryData>('/story/start', { ...body, ...(arc && { arc }), ...(pace && { pace }), ...(hand && { hand }), ironman, ...(legacy && { legacy }) }))
       await Promise.all([client.invalidateQueries({ queryKey: ['story-sheet'] }), client.invalidateQueries({ queryKey: WORLDS_KEY })])
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'The story did not start. Try again.') }
     finally { setBusy(false) }
@@ -54,6 +55,7 @@ export function StoryStart({ onStarted }: { onStarted: (data: StoryData) => void
       </div>}
       <Toggle label="Ironman" hint="No going back for this whole campaign: no earlier line, no other branch. If your character dies, the story ends there."
         checked={ironman} onChange={setIronman} />
+      <LegacyPick candidates={choices.data.legacy ?? []} value={legacy} onChange={setLegacy} />
       {!own && <>
         <p className="subtle">Play someone from this town, or make your own.</p>
         <ul className="story-premades">
@@ -110,5 +112,29 @@ function MakeYourOwn({ choices, busy, onBegin, onBack }: MakeProps) {
         {onBack && <button type="button" className="button" onClick={onBack}>Back</button>}
       </div>
     </form>
+  )
+}
+
+type Legacy = { world_id: string; role: LegacyRole }
+
+/** An earlier campaign's character, brought in as this world's history (dungeon/legacy.py). */
+function LegacyPick({ candidates, value, onChange }: { candidates: LegacyCandidate[]; value: Legacy | null; onChange: (value: Legacy | null) => void }) {
+  if (!candidates.length) return null
+  const line = (item: LegacyCandidate) => `${item.name}, from ${item.world}${item.dead ? ' (died)' : ''}`
+  return (
+    <div className="story-arc">
+      <Field label="An earlier story" hint="Bring a character from another world's story into this one, as history.">
+        {(id, describedBy) => <select id={id} value={value?.world_id ?? ''} aria-describedby={describedBy}
+          onChange={(event) => onChange(event.target.value ? { world_id: event.target.value, role: value?.role ?? 'legend' } : null)}>
+          <option value="">None</option>
+          {candidates.map((item) => <option key={item.world_id} value={item.world_id}>{line(item)}</option>)}
+        </select>}
+      </Field>
+      {value && <Field label="They come back as">
+        {(id) => <select id={id} value={value.role} onChange={(event) => onChange({ ...value, role: event.target.value as LegacyRole })}>
+          {(Object.entries(LEGACY_ROLES) as [LegacyRole, string][]).map(([role, label]) => <option key={role} value={role}>{label}</option>)}
+        </select>}
+      </Field>}
+    </div>
   )
 }
