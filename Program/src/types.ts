@@ -216,6 +216,16 @@ export interface StoryRoll {
   action: string; stat: string; difficulty: string; die: number | null; natural: number; bonus: number; shift: number
   total: number; band: Band; label: string
 }
+/** A roll while the dice are hidden: what was tried and with which stat, never the odds (dungeon/turn.py hidden). */
+export type HiddenRoll = Pick<StoryRoll, 'action' | 'stat'>
+/** One of the ruleset's bands by total, worst first; the top band has no ceiling (dungeon/turn.py bands). */
+export interface BandStep { band: Band; label: string; ceiling: number | null }
+/** An action a turn rolls for, named before the result; the difficulty only while the dice are shown. */
+export interface TurnAction { action: string; stat: string; difficulty?: string }
+/** A turn's stages as the stream tells them, before and around the narration (dungeon/story.py answer). */
+export type TurnEvent = { stage: 'reading' | 'writing' } | { actions: TurnAction[]; bands?: BandStep[] } | { roll: StoryRoll | HiddenRoll }
+/** What a turn under way has shown so far. */
+export interface TurnSoFar { stage: 'reading' | 'writing' | null; actions: TurnAction[]; bands: BandStep[] | null; rolls: (StoryRoll | HiddenRoll)[] }
 /** The persona's MARVEL stats (dungeon/sheet.py) and the die each one rolls. */
 export interface Sheet { stats: Record<string, number>; stat_names: string[]; range: [number, number]; dice: Record<string, number | null>; growth?: SheetGrowth }
 /** Someone the user has met in their story (dungeon/story_people.py), with where their rules put them now. */
@@ -268,7 +278,7 @@ export interface StoryIntensity {
   cutaways?: boolean
 }
 export type DramaLevel = 'world' | 'quiet' | 'uneasy' | 'eventful' | 'merciless'
-export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null; injury_persistence: InjuryPersistence; factions?: StoryFaction[]; tier?: StoryTier | null }
+export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; bands?: BandStep[] | null; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null; injury_persistence: InjuryPersistence; factions?: StoryFaction[]; tier?: StoryTier | null }
 /** A faction the character knows of (dungeon/factions.py): standing in words, with the number when the dice are shown. */
 export interface StoryFaction { id: string; name: string; summary: string; standing: string }
 export type InjuryPersistence = 'permanent' | 'temporary' | 'none'

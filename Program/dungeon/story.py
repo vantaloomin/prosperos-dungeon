@@ -374,7 +374,8 @@ def story(database) -> dict:
         view = scene(connection, story_clock.now(connection, database.clock))
         return {'scene': scene_view(view), 'messages': with_rolls(connection, messages(connection)),
                 'people': people(connection, view), 'ready': config_for(connection, JOB) is not None,
-                'dice_shown': dice_shown(connection), 'branches': timeline.branches(connection),
+                'dice_shown': dice_shown(connection), 'bands': turn.bands() if dice_shown(connection) else None,
+                'branches': timeline.branches(connection),
                 'fight': combat.view(connection, dice_shown(connection)) | {
                     'injuries': injuries.view(connection, view['now']),
                     'stress': stress.view(connection, dice_shown(connection))},
@@ -984,18 +985,37 @@ async def afterwards(state, user: dict, reply: dict, packet: dict, steps: pace.S
         log.exception('After the turn')
 
 
-async def answer(state, user: dict, on_text=None) -> dict:
+async def no_event(_event: dict):
+    pass
+
+
+async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
     """The narrator's reply to the user's message, saved complete or failed with the reason. Fact extraction and the
-    summary are left for `state.after_turn`, run once the reply is on screen (dungeon/pace.py)."""
-    await settled(state)
+    summary are left for `state.after_turn`, run once the reply is on screen (dungeon/pace.py). `on_event(event)` hears
+    the turn's stages as they happen, for the stream: reading the line, the actions and each roll, then writing; with
+    the dice hidden, only what was tried and with which stat (dungeon/turn.py)."""
+    emit = on_event or no_event
     database = state.database
     in_story = not in_character.out_of_character(user['text'])
+    # No model fails the turn before it says it has begun.
+    with database.connect() as connection:
+        if config_for(connection, JOB) is None:
+            raise no_model()
+    if in_story:
+        await emit({'stage': 'reading'})
+    await settled(state)
     with database.connect() as connection:
         config = config_for(connection, JOB)
         if config is None:
             raise no_model()
         steps = pace.Steps(pace.budget_for(connection, config), getattr(state, 'pace_clock', None) or time.monotonic)
     rolls = await rolled(state, user, steps) if in_story else []
+    if rolls:
+        with database.connect() as connection:
+            shown = dice_shown(connection)
+        await emit({'actions': turn.announced(rolls, shown)} | ({'bands': turn.bands()} if shown else {}))
+        for roll in rolls:
+            await emit({'roll': turn.shown(roll) if shown else turn.hidden(roll)})
     travelled = travel_turn(state, user, rolls) if in_story else []
     rested = rest_turn(state, user, rolls) if in_story else []
     carded = town_turn(state, user) if in_story else []
@@ -1009,6 +1029,7 @@ async def answer(state, user: dict, on_text=None) -> dict:
         packet = prompt(connection, story_clock.now(connection, database.clock), config, user,
                         turn.outcomes(rolls) if in_story else None, fought, traded, looked, travelled, rested, tended, carded,
                         meanwhile, noted)
+    await emit({'stage': 'writing'})
     text, error, flagged = await told(state, packet, config, in_story, steps, on_text)
     status = 'complete' if text and not error else 'failed'
     error = None if status == 'complete' else error or 'The model returned no story text.'
@@ -1053,12 +1074,12 @@ def received(database, text: str, client_id: str) -> tuple[dict, dict | None]:
         return user, reply
 
 
-async def send(state, text: str, client_id: str, on_text=None) -> dict:
+async def send(state, text: str, client_id: str, on_text=None, on_event=None) -> dict:
     user, reply = received(state.database, text, client_id)
-    return {'message': user, 'reply': reply or await answer(state, user, on_text)}
+    return {'message': user, 'reply': reply or await answer(state, user, on_text, on_event)}
 
 
-async def retry(state, on_text=None) -> dict:
+async def retry(state, on_text=None, on_event=None) -> dict:
     """Tell the last part again: a new reply to the user's latest message, replacing the one there."""
     await settled(state)
     with state.database.connect(write=True) as connection:
@@ -1074,7 +1095,7 @@ async def retry(state, on_text=None) -> dict:
         connection.execute('DELETE FROM story_messages WHERE reply_to=?', (user['id'],))
         # So are the meetings and feelings it moved; the kept rolls move them again.
         timeline.restore_at(connection, user['id'], ('story_people',))
-    return {'message': user, 'reply': await answer(state, user, on_text)}
+    return {'message': user, 'reply': await answer(state, user, on_text, on_event)}
 
 
 # Rewrite -----------------------------------------------------------------------------------------

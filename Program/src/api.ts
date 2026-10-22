@@ -44,10 +44,13 @@ function failure(status: number, data: { detail?: unknown; code?: string }): Api
 }
 
 type StreamEvent<T> = { text?: string; done?: T; error?: string; code?: string; status?: number }
+/** Anything else a stream sends, such as a turn's stages and rolls (dungeon/story.py answer). */
+export type StreamNote = Record<string, unknown>
 
 /** A POST whose answer streams as newline-delimited JSON (dungeon/story_routes.py streamed): `onText` gets each
- * piece as it comes, and the promise resolves with the "done" result. */
-export async function streamApi<T>(path: string, body: unknown, onText: (piece: string) => void): Promise<T> {
+ * piece as it comes, `onNote` every other event, and the promise resolves with the "done" result. */
+export async function streamApi<T>(path: string, body: unknown, onText: (piece: string) => void,
+  onNote?: (note: StreamNote) => void): Promise<T> {
   let response: Response
   try {
     response = await fetch(`/api${path}`, { method: 'POST', headers: headers('application/json'), body: JSON.stringify(body) })
@@ -62,7 +65,7 @@ export async function streamApi<T>(path: string, body: unknown, onText: (piece: 
     if (done) break
     const [events, rest] = ndjsonLines(buffer + value)
     buffer = rest
-    const result = handled(events as StreamEvent<T>[], onText)
+    const result = handled(events as StreamEvent<T>[], onText, onNote)
     // The turn's after-work (fact extraction) carries on server-side; the reply is ready now.
     if (result !== undefined) { void reader.cancel().catch(() => undefined); return result }
   }
@@ -70,9 +73,10 @@ export async function streamApi<T>(path: string, body: unknown, onText: (piece: 
 }
 
 /** Passes on streamed text, throws a streamed error, and gives back the result once it comes. */
-function handled<T>(events: StreamEvent<T>[], onText: (piece: string) => void): T | undefined {
+function handled<T>(events: StreamEvent<T>[], onText: (piece: string) => void, onNote?: (note: StreamNote) => void): T | undefined {
   for (const event of events) {
     if (event.text) onText(event.text)
+    if (onNote && !('text' in event || 'done' in event || 'error' in event)) onNote(event as StreamNote)
     if (event.error) throw failure(event.status ?? 500, { detail: event.error, code: event.code })
     if (event.done) return event.done
   }

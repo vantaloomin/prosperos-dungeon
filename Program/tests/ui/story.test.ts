@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { aroundText, branchLine, journeyTo, reworded, sentences, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats, tierText, darkText, threadKind } from '../../src/features/story/storyText.ts'
+import { actionLine, aroundText, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats, tierText, darkText, threadKind } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -163,4 +163,38 @@ test('reworded marks only sentences whose words changed after streaming', () => 
   const saved = 'The stew has gone to skin; nobody wants it.\n\nShe wipes the bar. The wood is already clean.'
   assert.deepEqual([...reworded(draft, saved)], ['The wood is already clean.'])
   assert.equal(reworded(saved, saved).size, 0)
+})
+
+const BANDS = [{ band: 'failure', label: 'Fail', ceiling: 30 }, { band: 'failure_upside', label: 'Fail with an upside', ceiling: 50 },
+  { band: 'success_cost', label: 'Success at a cost', ceiling: 70 }, { band: 'success', label: 'Success', ceiling: 89 },
+  { band: 'critical_success', label: 'Critical success', ceiling: null }] as const
+const ROLL = { action: 'win her over', stat: 'Allure', difficulty: 'hard', die: 10, natural: 52, bonus: 7, shift: 10, total: 49, band: 'failure_upside', label: 'Fail with an upside' } as const
+
+test('turnAfter builds a turn from its stream events in order', () => {
+  let turn = turnAfter(NO_TURN, { stage: 'reading' })
+  turn = turnAfter(turn, { actions: [{ action: 'win her over', stat: 'Allure', difficulty: 'hard' }], bands: [...BANDS] })
+  turn = turnAfter(turn, { roll: { ...ROLL } })
+  turn = turnAfter(turn, { stage: 'writing' })
+  assert.equal(turn.stage, 'writing')
+  assert.equal(turn.bands?.length, 5)
+  assert.deepEqual(turn.rolls, [ROLL])
+  assert.equal(turnAfter(NO_TURN, { actions: [{ action: 'a', stat: 'Luck' }] }).bands, null)
+})
+
+test('actionLine names the difficulty only while the dice are shown', () => {
+  assert.equal(actionLine({ action: 'a', stat: 'Allure', difficulty: 'very_hard' }), 'Rolling Allure, very hard')
+  assert.equal(actionLine({ action: 'a', stat: 'Allure' }), 'Testing your Allure')
+})
+
+test('bandSpans and markerAt lay the bands and a total on a 1 to 100 strip', () => {
+  assert.deepEqual(bandSpans([...BANDS]).map(({ from, to }) => [from, to]), [[1, 30], [31, 50], [51, 70], [71, 89], [90, 100]])
+  assert.equal(markerAt(124), 100)
+  assert.equal(markerAt(-3), 1)
+})
+
+test('nearMiss says how close the next band was, within 5', () => {
+  assert.equal(nearMiss({ ...ROLL }, [...BANDS]), '2 short of success at a cost')
+  assert.equal(nearMiss({ ...ROLL, total: 40 }, [...BANDS]), '')
+  assert.equal(nearMiss({ ...ROLL, total: 95, band: 'critical_success' }, [...BANDS]), '')
+  assert.equal(nearMiss({ ...ROLL, total: 49, band: 'critical_failure', natural: 8 }, [...BANDS]), '')
 })
