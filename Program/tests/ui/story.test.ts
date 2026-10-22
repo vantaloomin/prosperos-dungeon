@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { aroundText, branchLine, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats, tierText, darkText } from '../../src/features/story/storyText.ts'
+import { aroundText, branchLine, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats, tierText, darkText, threadKind } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -139,4 +139,9 @@ test('a dark track reads as a word, with its points when the dice are shown', ()
   const track = { id: 'corruption', name: 'Corruption', word: 'tainted', changes: [] }
   assert.equal(darkText(track), 'Corruption: tainted')
   assert.equal(darkText({ ...track, points: 4, top: 10 }), 'Corruption: tainted (4 of 10)')
+})
+
+test('a loose end in the journal says what kind it is', () => {
+  assert.equal(threadKind('mystery'), 'A mystery')
+  assert.equal(threadKind('grudge'), 'A grudge')
 })

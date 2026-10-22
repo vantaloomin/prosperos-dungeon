@@ -424,6 +424,40 @@ milestones (5e and Ironsworn will keep their own growth rules).
 
 Marks and dark tracks are game state (`timeline.SAVED`).
 
+## The director
+
+`dungeon/director.py` v0 (requirements "The director"), with each world's arcs for its era in
+`dungeon/world/data/arcs/<world>.json` (Vallarith Post-Reform: the Eight Pieces, entered through the Heartwood
+contract; the Long Border, through Bastion's deserters; the Failing Wards, through the Abandoned Keep). Each arc has
+stages, each with its tier, the world's truth, a seed the narrator may plant and the word that reaches a character
+who is not there; the words that tell code play touched it; and its antagonist, with where they work.
+
+- **Arcs and the spine.** A new campaign seeds every arc at its first stage, each with a thread. Every line that
+  touches an arc's threads is a bite on it; the first to six bites becomes the spine (within three chapters of 20
+  lines; after that, the world's default, the Eight Pieces). An arc bitten twice as hard can take the spine's place.
+- **Threads** (`story_threads`): an arc's mystery, each quest's lead (each job, oath and town quest opens one, its id
+  in `story_quests.thread_id`), each nemesis's grudge. Heat rises by 3 when play touches one and cools by a third
+  every line. Closing a quest closes its thread. The journal's "Loose ends" shows the mysteries and grudges the
+  character has come across, as they understand them.
+- **The hand**, picked on the start screen: Soft, Guiding (the default) or Firm. Each story day, each arc may move a
+  stage (10, 15 or 20 in 100 by the hand; twice that for the spine), changing the world's truth in the record. Under
+  Soft that is all; under Guiding the note brings the arc's people looking for the character; under Firm it shows
+  in the scene wherever they are. A stage above the character's tier reaches them only as a rumor.
+- **The hidden GM note** ("## The game master's note"), kept with each line: the pressure the tension curve calls
+  for, what of the arcs is due, a seed from the arc in focus (each once), the threads the people present carry, and
+  the antagonist of an arc in play if they work here.
+- **The tension curve.** Each line is a crisis (a fight), pressure (a roll with a danger on it), social (people
+  about) or quiet. After a crisis the note lets the next scene breathe; after a slack run (5, 4, 3 or 2 quiet or
+  social lines, by the drama setting) it asks for pressure: a nemesis who is due, the hottest thread, or the spine.
+- **Side quests.** A job offered links into the arc in focus one time in three, carrying the arc's current seed as a
+  clue tie.
+- **Nemeses.** A foe who broke and got away from a fight the character won, or who robbed, took or threw out the
+  character, becomes a nemesis half the time: a grudge, the stat the character relies on most, a thread. Three days
+  on they come back through the note, with a plan. Killed on the page, they stay dead.
+
+Not in v0 (M3, "Director, full"): checking which seeds reached the page and paying them off, adopting improvised
+details, the director model drafting each stage's beats, GM-view co-planning and "previously" chapter openers.
+
 ## Rewrite
 
 `dungeon/passages.py`. The automatic rewrites still run when there is time; whatever the checks find and do not

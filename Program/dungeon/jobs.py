@@ -11,7 +11,7 @@ import random
 import re
 from datetime import datetime, timedelta
 
-from dungeon import factions, inventory, quests, tiers
+from dungeon import director, factions, inventory, quests, tiers
 from dungeon.database import many
 
 OFFER = 50
@@ -42,9 +42,12 @@ def offer(connection, world: str, node_id: str, city_id: str, wage: int, currenc
         return []
     faction, job = rng.choice(open_jobs)
     pay = job['wages'] * wage
+    # Some work links straight into an arc in play, and leaves one of its seeds behind (dungeon/director.py).
+    arc_id, clue = director.link(connection, world, rng)
     quests.create(connection, 'job', city_id, job['title'], job['hook'], job['truth'], job['missed'],
                   (now + timedelta(days=job['days'])).isoformat(), faction_id=faction['id'], giver=job['giver'],
-                  reward=pay, standing=job['standing'], ties=job['ties'], tier=job.get('tier', 1))
+                  reward=pay, standing=job['standing'], ties=job['ties'] + clue, tier=job.get('tier', 1),
+                  arc_id=arc_id)
     warned = [tiers.stretch_text(job.get('tier', 1), character)] if stretch else []
     return [f"Work is going: {job['giver']} ({faction['name']}) wants it done within {job['days']} days, for "
             f"{inventory.money_text(pay, currency)}: {job['hook']}", *warned]

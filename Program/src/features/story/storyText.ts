@@ -1,4 +1,4 @@
-import type { Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace, StoryArc, StoryPace, StoryTier, SheetGrowth } from '../../types'
+import type { Gear, JournalEntry, JournalQuest, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace, StoryArc, StoryPace, StoryTier, SheetGrowth, StoryHand, JournalThread } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -203,4 +203,14 @@ export function tierText(tier: StoryTier): string {
 /** "Corruption: tainted", with "(4 of 10)" when the dice are shown. */
 export function darkText(track: SheetGrowth['dark'][number]): string {
   return `${track.name}: ${track.word}${track.points === undefined ? '' : ` (${track.points} of ${track.top})`}`
+}
+
+/** How hard the director pushes the story (dungeon/director.py HANDS). */
+export const HAND_NAMES: Record<StoryHand, string> = {
+  soft: 'Soft: the story waits for you', guiding: 'Guiding: the story comes looking for you', firm: 'Firm: the story moves on schedule',
+}
+
+/** "A mystery", "A grudge", "A lead" or "A promise", for a loose end in the journal. */
+export function threadKind(kind: JournalThread['kind']): string {
+  return { mystery: 'A mystery', grudge: 'A grudge', lead: 'A lead', promise: 'A promise' }[kind]
 }

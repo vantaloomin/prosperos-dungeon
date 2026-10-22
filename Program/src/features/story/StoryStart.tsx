@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
-import type { PersonaGender, Story as StoryData, StoryArc, StoryPace, StoryStart as StartChoices } from '../../types'
+import type { PersonaGender, Story as StoryData, StoryArc, StoryHand, StoryPace, StoryStart as StartChoices } from '../../types'
 import { Field, TextArea, TextInput } from '../../components/Fields'
 import { Stepper } from '../../components/NumberFields'
 import { Loading, Notice } from '../../components/Feedback'
 import { GENDERS } from '../worlds/worldsText'
 import { WORLDS_KEY } from '../worlds/useWorlds'
-import { ARC_NAMES, PACE_NAMES, pointsLeft, pointsText, premadeLine, startingStats } from './storyText'
+import { ARC_NAMES, HAND_NAMES, PACE_NAMES, pointsLeft, pointsText, premadeLine, startingStats } from './storyText'
 
 /** Campaign start (dungeon/campaign.py): play a premade character from this town, or make your own. */
 export function StoryStart({ onStarted }: { onStarted: (data: StoryData) => void }) {
@@ -18,12 +18,13 @@ export function StoryStart({ onStarted }: { onStarted: (data: StoryData) => void
   const [error, setError] = useState('')
   const [arc, setArc] = useState<StoryArc | null>(null)
   const [pace, setPace] = useState<StoryPace | null>(null)
+  const [hand, setHand] = useState<StoryHand | null>(null)
   if (!choices.data) return <Loading label="Finding who you could be" />
   const begin = async (body: object) => {
     setBusy(true)
     setError('')
     try {
-      onStarted(await api<StoryData>('/story/start', { ...body, ...(arc && { arc }), ...(pace && { pace }) }))
+      onStarted(await api<StoryData>('/story/start', { ...body, ...(arc && { arc }), ...(pace && { pace }), ...(hand && { hand }) }))
       await Promise.all([client.invalidateQueries({ queryKey: ['story-sheet'] }), client.invalidateQueries({ queryKey: WORLDS_KEY })])
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'The story did not start. Try again.') }
     finally { setBusy(false) }
@@ -42,6 +43,11 @@ export function StoryStart({ onStarted }: { onStarted: (data: StoryData) => void
         <Field label="How fast">
           {(id) => <select id={id} value={pace ?? world.pace} onChange={(event) => setPace(event.target.value as StoryPace)}>
             {(Object.entries(PACE_NAMES) as [StoryPace, string][]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>}
+        </Field>
+        <Field label="How hard the story pushes" hint="How a game master's hand steers toward the larger story. It never decides what you do, or the dice.">
+          {(id, describedBy) => <select id={id} value={hand ?? world.hand ?? 'guiding'} aria-describedby={describedBy} onChange={(event) => setHand(event.target.value as StoryHand)}>
+            {(Object.entries(HAND_NAMES) as [StoryHand, string][]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>}
         </Field>
       </div>}

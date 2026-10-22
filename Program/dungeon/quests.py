@@ -20,7 +20,7 @@ import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from dungeon import factions, feelings, growth, inventory, record, tiers
+from dungeon import director, factions, feelings, growth, inventory, record, tiers
 from dungeon.database import decode, encode, identifier, many, optional
 
 ADVENTURES = Path(__file__).parent / 'world' / 'data' / 'adventures'
@@ -80,6 +80,9 @@ def create(connection, kind: str, city_id: str, title: str, hook: str, truth: st
                                              extra.get('faction_id'), extra.get('giver'), extra.get('reward', 0),
                                              extra.get('standing', 0), extra.get('arc_id'),
                                              encode(extra.get('ties', [])), extra.get('tier', 1)))
+    # Every quest opens a thread in the director's notebook (dungeon/director.py).
+    director.for_quest(connection, quest_id, kind, title, hook, truth, extra.get('ties', []), extra.get('arc_id'),
+                       extra.get('giver'))
     return quest_id
 
 
@@ -88,6 +91,7 @@ def settle(connection, quest: dict, status: str, stamp: str = '') -> list[str]:
     character's tier track (dungeon/tiers.py); a town's own quest done, or a rise in tier, is a milestone
     (dungeon/growth.py). Returns those lines, kept in the record for the narrator."""
     faction = quest.get('faction_id') and factions.anywhere(quest['faction_id'])
+    director.close(connection, quest['id'])
     world = tiers.world_of(quest['city_id'])
     risen = tiers.earn(connection, world, tiers.for_work(quest.get('tier') or 1, tiers.tier(connection, world))) \
         if world and status == 'done' and quest.get('kind') != 'oath' else ''
