@@ -566,7 +566,9 @@ CREATE TABLE IF NOT EXISTS story_fight (
   round INTEGER NOT NULL,
   wants TEXT NOT NULL,
   foes TEXT NOT NULL,
-  initiative TEXT
+  initiative TEXT,
+  -- A fight begun bare-handed stays so until a line names a weapon (dungeon/combat.py hands).
+  bare INTEGER NOT NULL DEFAULT 0
 );
 
 -- A haggle at a shop holds for the rest of that story day (dungeon/inventory.py): percent off (negative) or on.
