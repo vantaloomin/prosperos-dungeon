@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { aroundText, branchLine, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats, tierText } from '../../src/features/story/storyText.ts'
+import { aroundText, branchLine, fightText, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, sceneTime, startingStats, tierText, darkText } from '../../src/features/story/storyText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -133,4 +133,10 @@ test('the tier reads in words, with its numbers only when the dice are shown', (
   assert.equal(tierText(tier), 'Renown: Local, known on their own street')
   assert.equal(tierText({ ...tier, points: 3, next: 12 }), 'Renown: Local, known on their own street (3 of 12)')
   assert.equal(tierText({ ...tier, tier: 'Mythic', points: 200, next: null }), 'Renown: Mythic, known on their own street (200)')
+})
+
+test('a dark track reads as a word, with its points when the dice are shown', () => {
+  const track = { id: 'corruption', name: 'Corruption', word: 'tainted', changes: [] }
+  assert.equal(darkText(track), 'Corruption: tainted')
+  assert.equal(darkText({ ...track, points: 4, top: 10 }), 'Corruption: tainted (4 of 10)')
 })

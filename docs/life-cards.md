@@ -128,6 +128,6 @@ checks over every line of card text, and checks the filters.
 ## Decks
 
 - **Vallarith** (`vallarith.json`): grimdark, built from the Vallarith lorebook, Ley notes, deities and
-  timeline. 102 cards and 70 table rows across all four scenes.
+  timeline. 103 cards and 70 table rows across all four scenes.
 - **Havenbrooke**: Companion's everyday Life deck (`world/data/life_deck.json` and `random_tables.json`)
   stays as its base (Vanta, 2026-10-21), to be converted to this schema and darkened in a Havenbrooke pass.

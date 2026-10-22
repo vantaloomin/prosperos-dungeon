@@ -19,6 +19,7 @@ from dungeon import (
     factions,
     feelings,
     finds,
+    growth,
     happenings,
     in_character,
     injuries,
@@ -499,7 +500,7 @@ def clear(database) -> dict:
                       'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
                       'story_rounds', 'story_map', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
                       'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_beats', 'story_word',
-                      'story_offpage', 'story_tier'):
+                      'story_offpage', 'story_tier', 'story_marks', 'story_dark'):
             connection.execute(f'DELETE FROM {table}')
         timeline.clear(connection)
     return story(database)
@@ -540,7 +541,7 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
     view = scene(connection, now)
     craft = narration_prompt.craft_for(config.get('context_tokens'), prompt_library.text(connection, 'narrator-craft'))
     who_text, name = persona_text(connection)
-    for extra in (combat.condition_text(connection), stress.prompt_text(connection),
+    for extra in (combat.condition_text(connection), stress.prompt_text(connection), growth.prompt_text(connection),
                   injuries.prompt_text(connection, now),
                   inventory.prompt_text(connection, view['city']['id'], view['data']['currency'])):
         if extra:
@@ -670,13 +671,13 @@ def rest_turn(state, user: dict, rolls: list[dict]) -> list[str]:
         if resting is None:
             return []
         if resting['lines'] is None:
-            resting['lines'] = slept(database, connection, resting, rolls, user['id'])
+            resting['lines'] = slept(database, connection, resting, rolls, user['id'], getattr(state, 'dice', None))
             connection.execute('UPDATE story_rests SET lines=? WHERE message_id=?',
                                (encode(resting['lines']), user['id']))
         return resting['lines']
 
 
-def slept(database, connection, resting: dict, rolls: list[dict], message_id: str) -> list[str]:
+def slept(database, connection, resting: dict, rolls: list[dict], message_id: str, rng=None) -> list[str]:
     if resting.get('fighting'):
         return ["The player's character cannot rest with a fight on their hands."]
     nights, lost, cut_short, happened = rest.night(resting, rolls)
@@ -693,7 +694,10 @@ def slept(database, connection, resting: dict, rolls: list[dict], message_id: st
     lines = [rest.opening(resting), *happened]
     if hungry:
         lines.append(f"The pack runs out of food: {hungry} hungry day{'s' if hungry > 1 else ''}, and no mending on them.")
-    return lines + combat.mend(connection, nights - lost - hungry) + stress.ease(connection, nights - lost - hungry)
+    # A night's sleep turns what the character used into growth (dungeon/growth.py).
+    grown = growth.grow(connection, database.now(), rng) if nights - lost > 0 else []
+    return (lines + combat.mend(connection, nights - lost - hungry) + stress.ease(connection, nights - lost - hungry)
+            + grown)
 
 
 def treat_turn(state, user: dict, rolls: list[dict]) -> list[str]:
@@ -747,7 +751,7 @@ def life_card(database, connection, kind: str, message_id: str) -> tuple[list[st
     lines, minutes = happenings.play(connection, drawn, {
         'people': view['people'], 'name': persona and persona['name'], 'data': data, 'map': drawn['map'],
         'now': story_clock.now(connection, database.clock), 'logged': database.now(),
-        'rng': None}) if drawn else ([], 0)
+        'rng': None, 'preset': intensity(connection, data)['preset']}) if drawn else ([], 0)
     happenings.keep(connection, message_id, kind, day, drawn and drawn['card']['id'], lines)
     return lines, minutes
 
@@ -925,11 +929,17 @@ async def afterwards(state, user: dict, reply: dict, packet: dict, steps: pace.S
         with database.connect() as connection:
             there = [{'key': row['key'], 'name': row['name']} for row in feelings.met(connection)
                      if row['key'] in {person['sheet']['key'] for person in packet['people']}]
-            ask = quests.ending_ask(connection) + quests.oath_ask() + feelings.feelings_ask(there)
+            ask = (quests.ending_ask(connection) + quests.oath_ask() + feelings.feelings_ask(there)
+                   + growth.dark_ask())
         answered = await record.extract(state, user['text'], reply, ask)
         with database.connect(write=True) as connection:
             for item in quests.endings(answered):
-                quests.end(connection, item['id'], item['status'], item['outcome'])
+                quests.end(connection, item['id'], item['status'], item['outcome'], database.now())
+            # What the character did that feeds a dark track (dungeon/growth.py).
+            for track in growth.darkened(answered):
+                view = scene(connection, story_clock.now(connection, database.clock))
+                growth.darken(connection, track, 1, intensity(connection, view['data'])['preset'], database.now(),
+                              getattr(state, 'dice', None))
             # An oath the character swore is an obligation, with its deadline (dungeon/quests.py).
             for oath in quests.oaths(answered):
                 quests.swear(connection, user['city_id'], oath, story_clock.now(connection, database.clock))
@@ -980,6 +990,7 @@ async def answer(state, user: dict, on_text=None) -> dict:
             story_people.note_exchange(connection, packet['people'], packet['city_id'], user['text'], text,
                                        database.now(), packet['day'])
             feelings.from_rolls(connection, rolls)
+            growth.mark(connection, rolls, user['id'])
         reply = add(connection, database.now(), 'narrator', text, scene_row(connection), reply_to=user['id'],
                     status=status, error=error,
                     flags=flagged)
@@ -996,6 +1007,8 @@ def received(database, text: str, client_id: str) -> tuple[dict, dict | None]:
         if user is None:
             require(not combat.condition(connection)['dead'],
                     'Your character is dead. Go back to an earlier line to play on.', 409)
+            require(not growth.lost(connection),
+                    f'Your character is lost to {growth.lost(connection)}. Go back to an earlier line to play on.', 409)
             user = add(connection, database.now(), 'user', text, scene_row(connection), client_id=client_id)
             timeline.save(connection, user['id'])
             # The time the line takes passes as it is sent: the narrator writes the scene after it.
