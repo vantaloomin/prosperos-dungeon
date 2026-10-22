@@ -3,6 +3,9 @@ import { PenLine, Repeat } from 'lucide-react'
 import type { StoryMessage } from '../../types'
 import { InfoTip } from '../../components/InfoTip'
 import { reworded, sentences } from './storyText'
+import { linkText } from './entity'
+import { EntityName } from './EntityCard'
+import { useNameLinks } from './entityContext'
 
 interface Props {
   message: StoryMessage
@@ -26,11 +29,17 @@ const REWORDED = 'The prose and continuity checks reworded the marked sentences 
 
 const rewordedIn = (text: string, draft?: string) => new Set(draft ? [...reworded(draft, text)].map((sentence) => sentence.trim()) : [])
 
+/** Text with the names of people met and factions known as links to their cards (rule 2). */
+function Linked({ text }: { text: string }) {
+  const parts = linkText(text, useNameLinks())
+  return <>{parts.map((part, index) => typeof part === 'string' ? part : <EntityName key={index} entity={part.entity}>{part.name}</EntityName>)}</>
+}
+
 /** A paragraph, with the sentences in `changed` marked; the mark fades in so the swap reads as an edit. */
 function Paragraph({ text, changed }: { text: string; changed: Set<string> }) {
-  if (!changed.size) return <p>{text}</p>
+  if (!changed.size) return <p><Linked text={text} /></p>
   return <p>{sentences(text).map((sentence, index) => changed.has(sentence.trim())
-    ? <mark key={index} className="story-reworded">{sentence}</mark> : sentence)}</p>
+    ? <mark key={index} className="story-reworded"><Linked text={sentence} /></mark> : <Linked key={index} text={sentence} />)}</p>
 }
 
 const shortened = (text: string) => text.length > 120 ? `${text.slice(0, 117).trimEnd()}…` : text

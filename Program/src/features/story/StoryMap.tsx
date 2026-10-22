@@ -1,4 +1,5 @@
 import type { StoryMap as TravelMap } from '../../types'
+import { EntityName } from './EntityCard'
 
 const SIZE = 300
 const PAD = 28
@@ -33,7 +34,7 @@ export function StoryMap({ map, open, onTravel }: { map: TravelMap | null; open?
       </svg>
       <ul className="map-places">
         {map.places.filter((place) => !place.here).map((place) => <li key={place.id}>
-          <span>{place.name}{place.visited ? '' : ' (heard of)'}</span>
+          <span><EntityName entity={{ kind: 'place', id: place.id }}>{place.name}</EntityName>{place.visited ? '' : ' (heard of)'}</span>
           <button type="button" className="text-button" onClick={() => onTravel(place.name)}>Set out</button>
         </li>)}
       </ul>

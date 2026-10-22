@@ -828,6 +828,13 @@ free grid of widgets is an optional mode late in Milestone 6.
   powers, chapters, other branches, the notebook, export, and Tone and rules. Each opens in the panel, unfolded, with
   "Pin to the scene". Widgets with nothing to show are left out. A Settings search for a story setting opens Tone and
   rules.
+- **Entity cards** (`EntityCard.tsx`, `entity.ts`): a person met, a place on the map, an item in the pack and a
+  faction open the same card, and so do the names of people met and factions known in the narration (whole names, and
+  a first name no one else shares). The card says what the character has seen of it, the journal's facts about it
+  (never hidden truth, even with the GM view on), and what they can do. Each action writes a line into the composer
+  ("I turn to Agnes Brill.", "I set out for Eriane.") for the turn loop to roll; only "Go to …" moves the story at once.
+- **Receipt chips** open their widget in the panel: coin and items the pack, wounds the sheet, quests and facts the
+  journal.
 - **Wide and narrow:** on a screen 1100 pixels wide or more the panel sits beside the story and scrolls on its own,
   with the tabs at its foot. On a narrower one the tabs sit under the composer and open the panel as a sheet over the
   story; a dot on the Scene tab says the scene changed (a fight started) while it was closed, so nothing opens over

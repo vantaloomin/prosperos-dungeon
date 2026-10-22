@@ -18,6 +18,7 @@ import { AuthorsNote } from './AuthorsNote'
 import { StoryStart } from './StoryStart'
 import { StoryNarration } from './StoryNarration'
 import { StoryPanel } from './StoryPanel'
+import { EntityHost } from './EntityCard'
 import { STORY_KEY } from './table'
 
 const OUT_OF_STORY = 'To step out of the story, start a message with OOC: or wrap it in ((double parentheses)).'
@@ -56,7 +57,9 @@ export function Story({ go }: { go: (view: View) => void }) {
   const note = (event: unknown) => setTurn((before) => turnAfter(before, event as TurnEvent))
   const send = (text: string) => run(text, () => streamApi('/story/messages/stream', { text, client_id: newId() }, grow, note))
   const change = (request: () => Promise<StoryData>) => run(null, () => request().then(update))
+  const draftLine = (text: string) => setDraft({ text, at: Date.now() })
   return (
+    <EntityHost story={story.data} onDraft={draftLine} onFind={(key) => void change(() => api<StoryData>('/story/find', { key }))}>
     <section className="story" aria-labelledby="story-heading">
       <div className="story-main">
         <StoryHeader story={story.data} change={change} onDraft={(text) => setDraft({ text, at: Date.now() })} />
@@ -76,6 +79,7 @@ export function Story({ go }: { go: (view: View) => void }) {
       <StoryPanel story={story.data} change={change} onTravel={(name) => setDraft({ text: `I set out for ${name}.`, at: Date.now() })}
         onBack={(data) => setDraft({ text: data.draft, at: Date.now() })} />
     </section>
+    </EntityHost>
   )
 }
 

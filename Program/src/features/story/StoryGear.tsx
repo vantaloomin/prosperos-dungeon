@@ -4,6 +4,7 @@ import { api } from '../../api'
 import type { Gear, Shop } from '../../types'
 import { Notice } from '../../components/Feedback'
 import { gearLine, haggleText, moneyText, slotsText } from './storyText'
+import { EntityName } from './EntityCard'
 
 const GEAR_KEY = ['story-gear']
 
@@ -24,7 +25,7 @@ export function StoryGear({ onTrade, open }: { onTrade: () => void; open?: boole
       <summary>Your pack ({moneyText(coins, currency)} · {slotsText(slots)})</summary>
       <ul aria-label="Your pack">
         {items.map((item) => <li key={item.id}>
-          <p>{gearLine(item)}</p>
+          <p><EntityName entity={{ kind: 'item', id: item.id }}>{gearLine(item)}</EntityName></p>
           {shop?.open && shop.offers[item.id] !== undefined && <div className="form-actions">
             <button type="button" className="text-button" onClick={() => void trade('/story/shop/sell', { inventory_id: item.id })}>
               Sell one for {moneyText(shop.offers[item.id], currency)}</button>

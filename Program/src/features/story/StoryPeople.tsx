@@ -1,5 +1,6 @@
 import type { StoryPerson } from '../../types'
 import { personLine } from './storyText'
+import { EntityName } from './EntityCard'
 
 /** `title` names the list (the people here, in the scene panel); `open` shows it unfolded. */
 interface Props { people: StoryPerson[]; onFind: (key: string) => void; title?: string; open?: boolean }
@@ -13,7 +14,7 @@ export function StoryPeople({ people, onFind, title = "People you've met", open 
       <ul>
         {people.map((person) => (
           <li key={person.key}>
-            <p><strong>{person.name}</strong> <span className="subtle">{person.role}, {person.city}</span></p>
+            <p><strong><EntityName entity={{ kind: 'person', key: person.key }}>{person.name}</EntityName></strong> <span className="subtle">{person.role}, {person.city}</span></p>
             <p className="subtle">{personLine(person)}</p>
             {person.feelings && <p className="subtle">{person.feelings}</p>}
             {person.notes.length > 0 && <p className="story-note">{person.notes[person.notes.length - 1]}</p>}
