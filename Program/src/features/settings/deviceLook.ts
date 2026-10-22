@@ -4,10 +4,13 @@ import { useSyncExternalStore } from 'react'
  * sizes (Iris, v09-appearance-first-launch.md). Kept in this browser; nothing breaks when storage is unavailable. */
 export type ReadingFont = 'default' | 'atkinson' | 'opendyslexic'
 export type Motion = 'system' | 'reduce' | 'full'
-export interface DeviceLook { textScale: number; font: ReadingFont; fontEverywhere: boolean; motion: Motion }
+/** The story screen's layout (requirements "Play screen and widgets": presets as modes). Classic keeps the scene panel
+ *  beside the story on a wide screen; Reader gives the story the width and folds the panel into its tabs. */
+export type Layout = 'classic' | 'reader'
+export interface DeviceLook { textScale: number; font: ReadingFont; fontEverywhere: boolean; motion: Motion; layout: Layout }
 
 export const TEXT_SCALE = { min: 85, max: 200, step: 5 } as const
-export const DEFAULT_LOOK: DeviceLook = { textScale: 100, font: 'default', fontEverywhere: false, motion: 'system' }
+export const DEFAULT_LOOK: DeviceLook = { textScale: 100, font: 'default', fontEverywhere: false, motion: 'system', layout: 'classic' }
 const KEY = 'dungeon-device-look'
 const FONTS: ReadingFont[] = ['default', 'atkinson', 'opendyslexic']
 const MOTIONS: Motion[] = ['system', 'reduce', 'full']
@@ -26,6 +29,7 @@ export function cleanLook(value: unknown): DeviceLook {
     font: FONTS.includes(saved.font as ReadingFont) ? saved.font as ReadingFont : DEFAULT_LOOK.font,
     fontEverywhere: saved.fontEverywhere === true,
     motion: MOTIONS.includes(saved.motion as Motion) ? saved.motion as Motion : DEFAULT_LOOK.motion,
+    layout: saved.layout === 'reader' ? 'reader' : 'classic',
   }
 }
 
@@ -55,6 +59,7 @@ export function applyLook(look: DeviceLook) {
   root.dataset.font = look.font
   root.dataset.fontEverywhere = String(look.fontEverywhere && look.font !== 'default')
   root.dataset.motion = look.motion
+  root.dataset.layout = look.layout
   // From 150% the desktop nav rail shows icons only (their names stay for screen readers).
   root.dataset.textLarge = String(look.textScale >= 150)
 }

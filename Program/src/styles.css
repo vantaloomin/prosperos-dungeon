@@ -141,7 +141,18 @@ textarea { resize: vertical; line-height: 1.6; }
   .story-panel-title { padding-right: 0; }
   .story-panel .story-people ul { max-height: none; }
   .story-tabs { border-top: 1px solid var(--border); padding: 8px 12px; }
+  /* Reader (deviceLook.ts layout): the story keeps the width, and the panel opens over it from the tabs, as on a phone. */
+  :root[data-layout='reader'] .story { flex-direction: column; }
+  :root[data-layout='reader'] .story-main { display: contents; }
+  :root[data-layout='reader'] .story-panel { order: 3; flex: none; width: 100%; max-width: 760px; margin: 0 auto; border-left: 0; border-top: 1px solid var(--border); background: var(--canvas); }
+  :root[data-layout='reader'] .story-panel-body { position: absolute; left: 0; right: 0; bottom: 100%; max-height: 70dvh; padding: 14px 16px 16px;
+    background: var(--surface); border: 1px solid var(--border); border-bottom: 0; border-radius: 12px 12px 0 0; box-shadow: 0 -8px 24px var(--shadow); }
+  :root[data-layout='reader'] .story-panel-before .story-panel-body { position: static; max-height: 45dvh; background: none; border: 0; box-shadow: none; }
+  :root[data-layout='reader'] .story-tabs { border-top: 0; padding: 6px 8px; }
+  :root[data-layout='reader'] .story-panel-title { padding-right: 36px; }
 }
+.story-layout { flex: none; align-self: center; }
+.story-layout svg { width: 16px; height: 16px; }
 .story-header { max-width: 760px; width: 100%; margin: 0 auto; padding: 18px 32px 12px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--border); }
 .story-where { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
 .story-where .text-button { padding: 0; }

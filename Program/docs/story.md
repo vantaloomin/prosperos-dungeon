@@ -839,6 +839,10 @@ free grid of widgets is an optional mode late in Milestone 6.
   with the tabs at its foot. On a narrower one the tabs sit under the composer and open the panel as a sheet over the
   story; a dot on the Scene tab says the scene changed (a fight started) while it was closed, so nothing opens over
   the reading. Before the first line only people met and other branches show.
+- **Classic and Reader:** two layouts for a wide screen (`deviceLook.ts` `layout`, kept per device; Settings >
+  General > Appearance > Story layout, or the panel icon at the end of the tabs). Classic puts the panel beside the
+  story; Reader keeps the story column alone and the panel in tabs under it, opening over the story as on a phone.
+  A visual novel layout follows the Milestone 6 art.
 
 ## API
 
