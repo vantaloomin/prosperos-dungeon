@@ -179,8 +179,7 @@ def ironman(play):
 def gm_view(play):
     """M3: the GM view: the whole record with hidden truth, Behind the story, feelings set by hand, asking again for
     one fact, adopted details and the director's seeds and beats."""
-    play.dungeon.call('PUT', '/api/settings', {'gm_view': True})
-    play.start('lirien-of-the-ford')
+    play.start('lirien-of-the-ford', table={'gm_view': True})
     play.say('I take a corner table at the Felled Oak and watch the room.')
     play.say('That woman in the good cloak by the cellar door: I watch her closely. Who is she waiting for?')
     play.say('I go over, sit across from her and ask her plainly what she wants in Kingswood.')
@@ -478,8 +477,110 @@ def lore(play):
     play.say('I ask what the Kingdom of Cyrel and the High Elves of Brynwyr are to each other these days.')
 
 
+def narrative(play):
+    """M4: Narrative Only: the About text is the sheet; a judge rules No, No but, Yes but or Yes from who the character
+    is, the words and how people feel. An unlikely seduction by an ill-suited character, then plausible actions."""
+    play.start(persona={'name': 'Osric Vell', 'gender': 'man', 'age': 52,
+                        'about': 'A stooped, nervous bookkeeper with ink-black fingers, a wheeze and a bad wig. '
+                                 'He has never once been flirted with and would not know it if he were.'},
+               ruleset='narrative', narrative={'good_at': ['sums and ledgers', 'noticing a cooked book'],
+                                              'bad_at': ['talking to strangers', 'anything physical']},
+               table={'gm_view': True})
+    play.sheet()
+    play.say("I lean across the bar and seduce the keeper with a slow, smouldering look and a line about her eyes.",
+             {'roll': True})
+    play.say('I try again, bolder, and ask her up to my room.', {'roll': True})
+    play.move('guild-factor')
+    play.say('I ask to see the week\'s tally ledger and check its sums for anything cooked.', {'roll': True})
+    play.say('I vault the counter and wrestle the clerk for the key to the chest.', {'roll': True})
+    play.say('I explain politely that I am a bookkeeper and offer to balance their accounts for a fee.')
+
+
+def fivee_defeat(play, rule: str):
+    """A fragile 5E wizard in the Heartwood until a fight takes them down: under `rule`, how the defeat lands."""
+    srd = play.dungeon.call('GET', '/api/story/start').get('srd52') or {}
+    wizard = next(item for item in srd.get('classes') or [] if item['id'] == 'wizard')
+    background = next((item for item in srd.get('backgrounds') or [] if item['id'] == 'sage'), srd['backgrounds'][0])
+    ids = {skill['name']: skill['id'] for skill in srd.get('skills') or []}
+    picks = [ids.get(name, name) for name in wizard['skills']['from'] if name not in (background.get('skills') or [])]
+    play.start(persona={'name': 'Ivo Marsh', 'gender': 'man', 'age': 24, 'about': 'A hedge wizard, short of breath.'},
+               ruleset='srd52', table={'defeat': rule},
+               build={'class_id': 'wizard', 'species_id': 'human', 'background_id': background['id'],
+                      'scores': {'int': 15, 'con': 8, 'dex': 13, 'wis': 12, 'cha': 10, 'str': 14},
+                      'skills': picks[:wizard['skills']['count']]})
+    play.move('the-heartwood')
+    for _ in range(24):
+        view = play.say('I go deeper into the Heartwood.') if not ((play.story().get('fight') or {}).get('fight')) \
+            else play.say('I swing my staff at the nearest one.')
+        state = (view or play.story()).get('fight') or {}
+        if state.get('dead') or state.get('captors'):
+            break
+    final = play.story().get('fight') or {}
+    play.write(f"- after the fight: dead {final.get('dead')}, captors {final.get('captors')}\n")
+    return final
+
+
+def fivee_defeat_aim(play):
+    """M4: 5E with "Foes decide a defeat" on: wardens who want the character taken take them prisoner."""
+    final = fivee_defeat(play, 'by_aim')
+    if final.get('dead') and 'warden' in json.dumps(play.story().get('fight') or {}):
+        play.flag('Under "Foes decide a defeat", wardens who want capture killed the character.')
+
+
+def fivee_defeat_written(play):
+    """M4: 5E with the defeat as written: death saves run whatever the foes want."""
+    fivee_defeat(play, 'as_written')
+
+
+def importer(play):
+    """M5: the world importer: two documents and a lorebook become a draft; a section drafted by the model, reviewed
+    and approved; the package written and listed."""
+    files = [{'name': 'overview.md', 'text': (
+                 '# The Saltmarch\n\nA drowned coast of reed islands under the rule of the Tidewardens, a council '
+                 'of seven families who own every causeway. Salt and eels are the only trade. The town of Brackwater '
+                 'sits on the largest island; the hamlet of Low Reed on the edge of the open sea. Inland lies the '
+                 'Mire of Ash, where nobody goes. The Tidewardens secretly pay the Mire\'s witch for calm weather.')},
+             {'name': 'people.md', 'text': (
+                 '# People\n\n- Marra Quill, eldest Tidewarden, keeps the causeway tolls.\n- Fenwick, a salt boiler in '
+                 'Low Reed who smuggles eels past the tolls.\n- The Mire witch, never named, owed a child every '
+                 'seventh winter.')},
+             {'name': 'saltmarch-lore.json', 'text': json.dumps({'entries': {
+                 '0': {'key': ['causeway', 'causeways'], 'content': 'The causeways flood at spring tide; crossing '
+                       'without a Tidewarden token costs a silver penny.'},
+                 '1': {'key': ['eel', 'eels'], 'content': 'Saltmarch eels are smoked over reed fires and sold '
+                       'south by the barrel.'}}})}]
+    draft = play.attempt('Start a world import', 'POST', '/api/packages/drafts', {'name': 'The Saltmarch',
+                                                                                   'files': files}) or {}
+    draft_id = draft.get('id') or (draft.get('draft') or {}).get('id')
+    play.write(f'- draft: {json.dumps(draft, ensure_ascii=False)[:800]}\n')
+    if not draft_id:
+        play.flag('No draft id from the import.')
+        return
+    play.attempt('Approve the lorebook as the lore section', 'PUT', f'/api/packages/drafts/{draft_id}/sections/lore',
+                 {'status': 'approved'})
+    for section in ('regions', 'settlements', 'cast'):
+        drafted = play.attempt(f'Draft {section} with the model', 'POST',
+                               f'/api/packages/drafts/{draft_id}/sections/{section}/draft') or {}
+        found = next((item for item in drafted.get('sections') or [] if item.get('id') == section), {})
+        play.write(f"- {section}: {json.dumps(found.get('entries'), ensure_ascii=False)[:900]}\n")
+        if not found.get('entries'):
+            play.flag(f'The model drafted no {section}.')
+        play.attempt(f'Approve {section}', 'PUT', f'/api/packages/drafts/{draft_id}/sections/{section}',
+                     {'status': 'approved'})
+    view = play.attempt('Read the draft', 'GET', f'/api/packages/drafts/{draft_id}') or {}
+    play.write(f'- draft now: {json.dumps(view, ensure_ascii=False)[:1200]}\n')
+    finished = play.attempt('Write the package', 'POST', f'/api/packages/drafts/{draft_id}/finish', {})
+    play.write(f'- finished: {json.dumps(finished, ensure_ascii=False)[:600]}\n')
+    listed = play.dungeon.call('GET', '/api/packages')
+    names = json.dumps(listed, ensure_ascii=False)
+    if 'Saltmarch' not in names:
+        play.flag('The imported world is not listed among the packages.')
+    play.write(f'- packages: {names[:800]}\n')
+
+
 SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl, 'road': road,
              'director': director, 'chapters': chapters, 'ironman': ironman, 'gm_view': gm_view, 'memory': memory,
              'legacy': legacy, 'fivee_checks': fivee_checks, 'fivee_fight': fivee_fight,
              'fivee_caster': fivee_caster, 'ironsworn': ironsworn, 'percentile': percentile,
-             'lore': lore}
+             'lore': lore, 'narrative': narrative, 'fivee_defeat_aim': fivee_defeat_aim,
+             'fivee_defeat_written': fivee_defeat_written, 'importer': importer}
