@@ -142,3 +142,12 @@ def test_wounds_mend_with_nights_of_rest(client, connected, provider, app):
     with app.state.database.connect(write=True) as connection:
         combat.set_condition(connection, 1)
         assert combat.mend(connection, 0) == [] and combat.condition(connection)['rested'] == 0
+
+
+def test_an_attack_on_someone_the_scene_does_not_hold_brings_a_stand_in():
+    assert combat.stand_in([roll('throw my drink and punch the big logger', 'success')])['name'] == 'the big logger'
+    assert combat.stand_in([roll('punch him again', 'failure')])['name'] == 'their opponent'
+    # An attack on a thing, or a roll that is not an attack, brings nobody.
+    assert combat.stand_in([roll('hack at the roots blocking the trail', 'success')]) is None
+    assert combat.stand_in([roll('charm him', 'success', 'Allure')]) is None
+    assert combat.ATTACK.search('go for the nearest one with my sword, low and fast')
