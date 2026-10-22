@@ -1,0 +1,55 @@
+{
+ "about": "Vallarith's travel map (dungeon/travel.py, docs/story.md \"Journeys\"): places joined by roads, each road with its hours on foot, terrain and danger, and each region's road encounters. Positions are from the world map (worlds/vallarith/settlements.json). A node is a whole town (its city and arrival place) or a place on the Road (dungeon/world/data/cities/vallarith-road.json).",
+ "hours_a_day": 10,
+ "odds": {"none": 0, "low": 15, "medium": 30, "high": 50},
+ "food": ["bread", "dried-meat", "cheese"],
+ "nodes": [
+  {"id": "kingswood", "name": "Kingswood", "region": "kingdom-of-cyrel", "city": "kingswood", "place": "the-green", "safe": true, "map": {"x": 0.33, "y": 0.62}},
+  {"id": "convila", "name": "Convila", "region": "kingdom-of-cyrel", "city": "vallarith-road", "place": "convila", "safe": true, "map": {"x": 0.31, "y": 0.66}},
+  {"id": "eriane", "name": "Eriane", "region": "kingdom-of-cyrel", "city": "vallarith-road", "place": "eriane", "safe": true, "map": {"x": 0.37, "y": 0.55}},
+  {"id": "cyrel", "name": "Cyrel", "region": "kingdom-of-cyrel", "city": "vallarith-road", "place": "cyrel", "safe": true, "famous": true, "map": {"x": 0.46, "y": 0.56}},
+  {"id": "bastion", "name": "Bastion", "region": "kingdom-of-cyrel", "city": "vallarith-road", "place": "bastion", "safe": true, "map": {"x": 0.51, "y": 0.58}},
+  {"id": "mossrun", "name": "Mossrun", "region": "kingdom-of-cyrel", "city": "vallarith-road", "place": "mossrun", "safe": true, "map": {"x": 0.53, "y": 0.47}},
+  {"id": "asania", "name": "Asania", "region": "kingdoms-of-man", "city": "vallarith-road", "place": "asania", "safe": true, "famous": true, "map": {"x": 0.4, "y": 0.43}},
+  {"id": "abandoned-keep", "name": "the Abandoned Keep", "region": "badlands", "city": "vallarith-road", "place": "abandoned-keep", "safe": false, "map": {"x": 0.4, "y": 0.67}},
+  {"id": "adlmyr", "name": "Adlmyr", "region": "badlands", "city": "vallarith-road", "place": "adlmyr", "safe": false, "map": {"x": 0.49, "y": 0.65}},
+  {"id": "brynwyr", "name": "Brynwyr", "region": "brynwyr", "city": "vallarith-road", "place": "brynwyr", "safe": false, "map": {"x": 0.19, "y": 0.71}}
+ ],
+ "routes": [
+  {"from": "kingswood", "to": "convila", "hours": 8, "terrain": "the forest road", "danger": "low"},
+  {"from": "kingswood", "to": "eriane", "hours": 12, "terrain": "the Cyrel road", "danger": "low"},
+  {"from": "eriane", "to": "cyrel", "hours": 14, "terrain": "the Cyrel road", "danger": "low"},
+  {"from": "cyrel", "to": "bastion", "hours": 8, "terrain": "the fortress road", "danger": "medium"},
+  {"from": "cyrel", "to": "mossrun", "hours": 16, "terrain": "the wet mountain valleys", "danger": "medium"},
+  {"from": "eriane", "to": "asania", "hours": 30, "terrain": "the strait road through the war country", "danger": "medium"},
+  {"from": "kingswood", "to": "abandoned-keep", "hours": 10, "terrain": "the broken hills", "danger": "high"},
+  {"from": "abandoned-keep", "to": "adlmyr", "hours": 14, "terrain": "the broken hills", "danger": "high"},
+  {"from": "bastion", "to": "adlmyr", "hours": 12, "terrain": "the Badlands", "danger": "high"},
+  {"from": "convila", "to": "brynwyr", "hours": 24, "terrain": "the old forest past the border stones", "danger": "high"}
+ ],
+ "encounters": {
+  "kingdom-of-cyrel": [
+   {"weight": 3, "text": "A carter going the other way, with news from Cyrel, a sore back and a jug he is willing to share."},
+   {"weight": 2, "text": "A royal patrol stops the character, asks their business, and looks hard at what they carry."},
+   {"weight": 1, "text": "Deserters from the Asanian front, hanged at a crossroads with signs round their necks."},
+   {"weight": 2, "action": "slip past the toll-takers on the road without paying twice", "difficulty": "normal", "threat": "Road wardens who are not wardens stop the character for a crown's toll and a long look into the purse."},
+   {"weight": 2, "action": "spot the bandits' ambush before it springs", "difficulty": "normal", "threat": {"text": "Bandits come out of the ditch on both sides of the road, cudgels up.", "foe": {"name": "road bandit", "count": 2, "vitality": 10, "resolve": 8, "weapon": 0, "wants": "rob"}}}
+  ],
+  "kingdoms-of-man": [
+   {"weight": 3, "text": "A licensed mage's coach thunders past, its brooch-wearing guards watching the ditches."},
+   {"weight": 2, "text": "A village with half its lamps dark: the crystal allocation was cut and nobody says by whom."},
+   {"weight": 2, "action": "keep clear of the press gang working the road for the Asanian army", "difficulty": "normal", "threat": {"text": "An Asanian press gang closes in with a rope and a recruiting sergeant's smile.", "foe": {"name": "press-gang man", "count": 3, "vitality": 10, "resolve": 10, "weapon": 0, "wants": "capture"}}}
+  ],
+  "badlands": [
+   {"weight": 2, "text": "Old bones and older weapons where the horde came through, picked clean and bleached."},
+   {"weight": 2, "action": "find water before the sun finishes its work", "difficulty": "hard", "threat": "The water runs out a day early. Thirst sets in, and with it the shakes."},
+   {"weight": 3, "action": "see the raiders before they see the character", "difficulty": "hard", "threat": {"text": "Unguruk raiders ride down off the ridge, whooping, blades out.", "foe": {"name": "Unguruk raider", "count": 3, "vitality": 12, "resolve": 12, "weapon": 1, "wants": "kill"}}},
+   {"weight": 1, "action": "stay off the old ground where the wards have failed", "difficulty": "hard", "threat": {"text": "Something long dead and badly buried pulls itself out of the shale.", "foe": {"name": "ward-ghoul", "count": 1, "vitality": 14, "resolve": 20, "weapon": 1, "wants": "kill"}}}
+  ],
+  "brynwyr": [
+   {"weight": 2, "text": "Trees older than the kingdom, and a silence so deep the character's own breathing sounds rude."},
+   {"weight": 2, "text": "A young elf, curious and armed, watches from the branches and asks a single question."},
+   {"weight": 3, "action": "keep to the warden path and out of the wardens' sight", "difficulty": "hard", "threat": {"text": "Wardens close in among the trees, unseen, bows drawn.", "foe": {"name": "warden of Brynwyr", "count": 2, "vitality": 12, "resolve": 12, "weapon": 1, "wants": "capture"}}}
+  ]
+ }
+}

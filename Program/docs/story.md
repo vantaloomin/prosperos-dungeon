@@ -214,6 +214,30 @@ every step is timed.
 Not in v0: dead and spent items or people elsewhere in the contradiction check (only the dead), a GM view of
 skipped checks, and the dice log.
 
+## Journeys
+
+`dungeon/travel.py`, with each world's travel map in `dungeon/world/data/travel/` (Vallarith first): places joined
+by roads, each road with its hours on foot, terrain and danger (none, low, medium, high), and each region's road
+encounters. A place is a whole town (Kingswood: its city and the place one arrives at) or a place on **the Road**
+(`world/data/cities/vallarith-road.json`, built by `scripts/world/vallarith_road.py` from the world package's
+settlements): a gate, an edge or a ruin to arrive at, until that town is built out as a city of its own.
+
+- **Fog of war.** The character knows where they have been, every place one road from there, and the famous
+  places everybody has heard of (Cyrel, Asania). The Map in the side panel shows those and the roads between
+  them; Set out puts "I set out for …" in the box to send.
+- **Decided before the narrator writes.** "I set out for Eriane" (travel, head, ride, walk, journey, go … with
+  a place on the map) plans the shortest way in hours and rolls each road against its danger (15, 30 or 50 in
+  100). The first road that turns something up draws from its region's table: a sight or a meeting, which the
+  narrator weaves in, or a danger to get past, a Luck roll like a dangerous place in town. A failed roll brings
+  the threat; one with foes starts a fight there and the journey stops at that road's end. A place the character
+  has not heard of is not reached: the narrator is told they do not know the way.
+- **Time and food.** Walking takes the roads' hours, ten a day; the nights between pass camped on the road (14
+  hours each). Each day eats one food from the pack (bread, then dried meat, then cheese); the days without go
+  hungry. The story clock moves by all of it, so wounds heal and deadlines pass on the way.
+- The narrator gets "## The journey" with what happened, and the scene opens with "You arrive at …". The places
+  known (`story_map`) are branched with the story; each line's journey is kept (`story_journeys`), so telling it
+  again walks no further.
+
 ## Rewrite
 
 `dungeon/passages.py`. The automatic rewrites still run when there is time; whatever the checks find and do not
@@ -262,7 +286,7 @@ A fixed layout for Milestone 1 (`src/features/story/Story.tsx`); the free grid o
 
 | Request | Does |
 | --- | --- |
-| `GET /api/story` | `{scene, messages, people, ready, dice_shown, branches, fight, intensity}`. `intensity` is `{preset, chosen, world, voice}`: the preset in play, the player's choice (`world` follows the world) and the world's own preset and voice. `fight` is `{condition, dead, fight}`: the character's wound level, whether they are dead, and the fight under way (null when none) with its `round` and `foes` (`name`, `state`, and `wound` while the dice are shown). `branches` lists every branch with `playing`, `turns`, `last_line` and `last_at`, the one being played first. User messages carry their `rolls` and `pace` (`{steps, skipped, budget, total}`, seconds) while the dice are shown. `people` are those met, newest first, with `meetings`, `notes`, `doing` and `place` now. `scene` has the city, place, `local_time` (city clock, no offset), `weather`, the city's `places` and `around` (who is there, named only once met). `ready` is false without a model. |
+| `GET /api/story` | `{scene, messages, people, ready, dice_shown, branches, fight, intensity, map}`. `map` is the travel map as far as the character knows it (`{places, roads}`; places with `x`, `y`, `visited`, `here`), or null off any map. `intensity` is `{preset, chosen, world, voice}`: the preset in play, the player's choice (`world` follows the world) and the world's own preset and voice. `fight` is `{condition, dead, fight}`: the character's wound level, whether they are dead, and the fight under way (null when none) with its `round` and `foes` (`name`, `state`, and `wound` while the dice are shown). `branches` lists every branch with `playing`, `turns`, `last_line` and `last_at`, the one being played first. User messages carry their `rolls` and `pace` (`{steps, skipped, budget, total}`, seconds) while the dice are shown. `people` are those met, newest first, with `meetings`, `notes`, `doing` and `place` now. `scene` has the city, place, `local_time` (city clock, no offset), `weather`, the city's `places` and `around` (who is there, named only once met). `ready` is false without a model. |
 | `PUT /api/story/scene` `{city_id, place_id?}` | Moves there; a city alone means its opening place. 404 for an unknown city or place, 409 in the middle of a fight. |
 | `POST /api/story/messages` `{text, client_id}` | Saves the user's line once per `client_id` and returns `{message, reply}`. A failed reply is saved with `status: failed` and its `error`. Sending the same `client_id` again returns the saved reply, or tries again if it failed. 409 `no_connection` without a model; the line stays saved. 409 when the character is dead. |
 | `POST /api/story/find` `{key}` | Moves the story to where someone the user has met is now. 404 if not met, 409 if they are nowhere the story can go. |

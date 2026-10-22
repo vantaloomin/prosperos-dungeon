@@ -141,6 +141,17 @@ textarea { resize: vertical; line-height: 1.6; }
 .story-turn { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; margin: -12px 0 20px; }
 .story-rolls { list-style: none; margin: 0; padding: 0; max-width: 85%; width: fit-content; font-size: 0.8125rem; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
 .story-sheet { margin-top: 8px; }
+.story-map svg { width: 100%; height: auto; display: block; margin: 6px 0; }
+.map-road { stroke: var(--border); stroke-width: 2; }
+.map-road.danger-medium { stroke: var(--faint); stroke-dasharray: 6 3; }
+.map-road.danger-high { stroke: var(--danger); stroke-dasharray: 3 3; }
+.map-place circle { fill: var(--surface); stroke: var(--muted); stroke-width: 1.5; }
+.map-place.visited circle { fill: var(--muted); }
+.map-place.here circle { fill: var(--accent); stroke: var(--accent); }
+.map-place text { fill: var(--muted); font-size: 10px; }
+.map-place.here text { fill: var(--text); font-weight: 600; }
+.story-people .map-places { gap: 2px; margin: 0; font-size: 0.875rem; }
+.story-people .map-places li { flex-direction: row; justify-content: space-between; align-items: center; gap: 8px; padding: 2px 0; border: 0; border-radius: 0; }
 .story-back { font-size: 0.8125rem; color: var(--muted); }
 .story-back svg { width: 14px; height: 14px; }
 .story-note-form { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; margin-top: 8px; }
