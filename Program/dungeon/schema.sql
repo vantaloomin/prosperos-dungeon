@@ -374,7 +374,8 @@ CREATE TABLE IF NOT EXISTS story_wounds (
   level INTEGER NOT NULL CHECK (level BETWEEN 0 AND 5),
   dead INTEGER NOT NULL DEFAULT 0 CHECK (dead IN (0, 1)),
   rested INTEGER NOT NULL DEFAULT 0,
-  treated INTEGER NOT NULL DEFAULT 0
+  treated INTEGER NOT NULL DEFAULT 0,
+  captors TEXT
 );
 
 -- Life Cards drawn into the story (dungeon/happenings.py): each line's draw for a scene (town, road, rest), with

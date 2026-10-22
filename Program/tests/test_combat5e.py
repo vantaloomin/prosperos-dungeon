@@ -116,7 +116,7 @@ def test_wounds_outside_a_fight_move_the_hit_points_and_a_long_rest_restores_the
     fighter(client)
     with app.state.database.connect(write=True) as connection:
         combat.set_condition(connection, 3)
-        assert combat5e.hit_points(connection) == (5, 12) and 'wounded, 5 of 12 hit points' in \
+        assert combat5e.hit_points(connection) == (5, 12) and 'badly hurt, 5 of 12 hit points' in \
             combat.condition_text(connection)
         # No wound penalties under 5E.
         actions = [{'action': 'I climb', 'stat': 'Vitality', 'difficulty': 'normal'}]
@@ -198,7 +198,7 @@ def test_spells_spend_slots_hit_foes_heal_and_come_back_with_a_long_rest(client,
         rolled = {'id': 'r', 'action': 'I cast Fire Bolt at the bandit', 'band': 'success', 'stat': 'Essence',
                   'natural': 10, 'skill': 'Fire Bolt (spell)'}
         _, lines, _ = combat.play_round(connection, state, [rolled], [], Always(6))
-        assert lines[0] == "The player's character casts Fire Bolt at the bandit: 6 fire damage, now wounded."
+        assert lines[0] == "The player's character casts Fire Bolt at the bandit: 6 fire damage, now badly hurt."
         assert (rolled['skill'], rolled['total'], rolled['target']) == ('Fire Bolt (spell attack)', 15, 12)
         # A save spell: the foe's Dex save against DC 13; a cantrip on a made save does nothing.
         state = {'round': 0, 'wants': 'rob', 'foes': [combat5e.foes_from({'name': 'the bandit'}, 'engaged', Always(4))[0]]}
@@ -222,3 +222,23 @@ def test_a_healing_spell_heals_the_character(client, app):
         healed = sheet.check(connection, 'Essence', 'hard', 'I cast Cure Wounds on myself', Always(1))
         assert healed['band'] == 'success' and healed['skill'].startswith('Cure Wounds (heals')
         assert combat5e.hit_points(connection)[0] > before and combat.condition(connection)['level'] < 3
+
+
+def test_a_punch_is_an_unarmed_strike_and_starting_armour_counts():
+    # Playtest 5E findings 1 and 3: a fighter starts in Chain Mail; "I punch him" is no longsword.
+    quick = srd52.suggested('fighter', 'soldier')
+    built = srd52.build('fighter', 'human', 'soldier', quick['scores'], quick['picks'])
+    assert built['armor'] == ['chain-mail'] and built['ac'] == 16
+    assert srd52.starting_armor('ranger') == ['studded-leather-armor']
+    assert combat5e.weapon_of([{'item_id': 'sword'}], 'I punch him in the jaw') is None
+    assert combat5e.weapon_of([{'item_id': 'sword'}, {'item_id': 'knife'}], 'I stab him with my knife')['name'] == \
+        'Dagger'
+
+
+def test_under_5e_the_condition_reads_as_hit_points_not_marvel_wounds(client, app):
+    # Playtest 5E finding 5.
+    fighter(client)
+    with app.state.database.connect(write=True) as connection:
+        combat.set_condition(connection, 4)
+        assert combat.view(connection, True)['condition'] == 'barely standing'
+        assert 'maimed' not in combat.condition_text(connection)

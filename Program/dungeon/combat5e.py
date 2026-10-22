@@ -44,6 +44,11 @@ BY_VITALITY = ((8, 'commoner'), (11, 'bandit'), (13, 'tough'), (99, 'bandit-capt
 # What the Kingswood pack's weapons are in 5E.
 WEAPONS = {'sword': 'longsword', 'felling-axe': 'battleaxe', 'hatchet': 'handaxe', 'knife': 'dagger',
            'cudgel': 'club', 'crowbar': 'club', 'bow': 'shortbow'}
+# An attack with the body: an unarmed strike, whatever is carried.
+BARE = re.compile(r'\b(punch|kick|headbutt|head-butt|elbow|knee|fist|slap|shove|tackle|wrestle|grapple|throttle|'
+                  r'strangle|bite|bare hands?|stamp)\w*', re.I)
+# What hit points read as, by the wound level they map to (level_for): never MARVEL's wounds.
+WORDS = ('unhurt', 'lightly hurt', 'bloodied', 'badly hurt', 'barely standing', 'at 0 hit points')
 MORALE_DC = 10
 DEATH_SAVE = 10
 DICE = re.compile(r'(\d+)d(\d+)\s*([+-]\s*\d+)?')
@@ -148,10 +153,20 @@ def hurt(foe: dict, damage: int):
 
 # The player's attack ------------------------------------------------------------------------------
 
-def weapon_of(items: list[dict]) -> dict | None:
-    """The best weapon carried, as its SRD weapon."""
+def weapon_of(items: list[dict], action: str = '') -> dict | None:
+    """The weapon an attack uses, as its SRD weapon: none for a punch or a kick, the one the action names, else the
+    best carried."""
+    if BARE.search(action):
+        return None
     held = [weapons()[WEAPONS[row['item_id']]] for row in items if WEAPONS.get(row['item_id']) in weapons()]
-    return max(held, key=lambda weapon: roll_average(weapon['damage']['dice']), default=None)
+    named = [weapon for weapon in held if any(word in action.lower() for word in weapon_words(weapon))]
+    return max(named or held, key=lambda weapon: roll_average(weapon['damage']['dice']), default=None)
+
+
+def weapon_words(weapon: dict) -> list[str]:
+    """How a line names a carried weapon: its SRD name and the Kingswood item it is ("axe", "knife")."""
+    own = [item.replace('-', ' ') for item, srd in WEAPONS.items() if srd == weapon['id']]
+    return [weapon['name'].lower(), *own, *(word.split()[-1] for word in own)]
 
 
 def roll_average(formula: str) -> float:
@@ -177,7 +192,7 @@ def attack_bonus(found: dict, weapon: dict | None) -> tuple[int, str, str, int]:
 def strike(connection, roll: dict, target: dict, items: list[dict], rng, lines: list[str]):
     """The character's attack on `target` with the turn's own d20; its roll card is rewritten as the attack."""
     found = sheet.native(connection)
-    bonus, dice, what, modifier = attack_bonus(found, weapon_of(items))
+    bonus, dice, what, modifier = attack_bonus(found, weapon_of(items, roll['action']))
     natural = roll['natural']
     total = natural + bonus
     critical, hit = natural == 20, natural != 1 and (natural == 20 or total >= target['ac'])
@@ -279,8 +294,7 @@ def milestone_xp(connection) -> int:
 
 
 def describe(foe: dict) -> str:
-    from dungeon.combat import LEVELS
-    return 'broken, fleeing or giving up' if foe['broken'] else LEVELS[foe['wound']] if foe['wound'] else 'unhurt'
+    return 'broken, fleeing or giving up' if foe['broken'] else WORDS[foe['wound']]
 
 
 # The round ----------------------------------------------------------------------------------------
@@ -309,8 +323,9 @@ def foes_attack(connection, state: dict, standing, guarded: bool, rng, lines: li
             continue
         damage = max(1, roll_dice(foe['attack']['dice'], rng, natural == 20))
         before, hp = hp, max(0, hp - damage)
-        # A blow that drops the character low, or a critical, can leave a lasting injury (dungeon/injuries.py).
-        if natural == 20 or level_for(before, found['max_hp']) < 4 <= level_for(hp, found['max_hp']):
+        # A critical hit, or a blow that drops the character to 0, can leave a lasting injury (dungeon/injuries.py),
+        # as the lingering injuries rule has it.
+        if natural == 20 or before > 0 >= hp:
             state['hurt_by'] = foe['name']
         lines.append(f"{foe['name'].capitalize()} {'lands a critical hit on' if natural == 20 else 'hits'} the "
                      f"player's character for {damage} damage: {hp} of {found['max_hp']} hit points left.")

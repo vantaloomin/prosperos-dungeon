@@ -58,9 +58,11 @@ healers, townsfolk) keeps MARVEL stats for now.
 - **5E via the SRD 5.2.1** (`dungeon/rules/srd52.py`, content in `dungeon/rules/packs/srd52`, CC-BY-4.0; the
   attribution shows on the start screen and the sheet). A character is a class, species and background from the pack,
   the standard array placed on the six abilities with the background's +2 and +1, the background's skills and the
-  class's picks, and level 1 hit points and Armor Class. A premade has its own 5E build (`srd52` in its premade
+  class's picks, level 1 hit points, and Armor Class from the armour in the class's starting equipment (a Fighter's
+  Chain Mail, AC 16). A premade has its own 5E build (`srd52` in its premade
   data), or one from its strongest stat. A check is a d20 plus the ability modifier, plus proficiency in the skill,
-  against a DC (10 easy, 15 normal, 20 hard, 25 very hard, 30 extreme): pass or fail as written. The skill comes from
+  against a DC (10 easy, 12 normal, 15 hard, 20 very hard, 25 extreme, set so a hard check passes about half the time
+  for a starting character, as MARVEL's does): pass or fail as written. The skill comes from
   the action's words ("climb" is Athletics), else the approach's ability. Resisting stress and clinging on in a
   fight are saving throws (Wisdom, Constitution). The roll card reads "Athletics · DC 15" and lands a single d20. Growth by use is MARVEL's
   and does not run under 5E.
@@ -282,6 +284,9 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
   weighted by what the foes want: beasts kill, wardens capture, robbers rob, a brawl ends with the character
   beaten and thrown out, and sometimes someone drags them clear. Death is real: a dead character plays no more
   lines, and "Go back here" on an earlier line brings them back.
+- **Held prisoner.** A capture keeps the character held (`story_wounds.captors`): no moving on, by line, by "Go
+  somewhere else" or by road, until a line that tries to get free (slip the bonds, pick the lock, bribe, run)
+  succeeds. The narrator is told every turn, and the Story screen shows who holds them.
 - **In the story.** The narrator gets "The fight" with the round exactly as it went and who is still fighting, and
   writes only that. The Story screen shows the character's condition and the foes, with their wound levels while
   the dice are shown. Moving elsewhere is refused mid-fight.
@@ -296,13 +301,15 @@ The same fight, on 5E's numbers from the SRD 5.2.1 pack (`dungeon/combat5e.py`):
   one is read from its name (a bandit or thief is a Bandit, a press-gang thug a Tough, a warden a Scout, a ghoul a
   Ghoul), else picked by how tough the MARVEL spec is. Each has its AC, hit points rolled from the block's formula,
   and the block's first attack.
-- **The player's attack** keeps the d20 the turn already rolled: the natural plus the attack bonus (Strength, or
+- **The player's attack** (an unarmed strike for a punch, a kick or a shove; else the weapon the line names, else
+  the best carried) keeps the d20 the turn already rolled: the natural plus the attack bonus (Strength, or
   Dexterity with a finesse or ranged weapon, plus proficiency when the class has the weapon) against the target's
   AC. A natural 20 is a critical hit (the damage dice twice), a natural 1 always misses. Damage is the carried
   weapon's die plus the same ability (unarmed, 1 + Strength). The roll's card is rewritten as the attack and the AC.
 - **A dodge** needs no roll: the foes attack with disadvantage that round. Getting away keeps its roll.
-- **Foes attack** the character's AC and roll their damage against the sheet's hit points. The wound words the rest
-  of the game reads (Grazed to Dying) follow the hit points, and a wound dealt outside a fight (a Life Card) moves
+- **Foes attack** the character's AC and roll their damage against the sheet's hit points. The game's wound levels
+  follow the hit points and read as 5E words (lightly hurt, bloodied, badly hurt, barely standing, at 0 hit points),
+  and a lasting injury rolls only on a critical hit or a drop to 0, as the lingering injuries rule has it; and a wound dealt outside a fight (a Life Card) moves
   the hit points to match. There are no wound penalties.
 - **Morale** is a Wisdom save, DC 10, when a foe is badly hurt or down.
 - **At 0 hit points, death saves** (d20, 10 or more a success, three of either decides; a natural 1 is two

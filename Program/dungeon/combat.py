@@ -15,7 +15,8 @@ Code runs the fight; the narrator writes it. One line of the player's is one rou
   rest set by its severity (dungeon/rest.py), from Maimed down; a new wound starts the count again.
 - At Dying the character rolls Vitality to cling on, then the defeat table, weighted by what the foes want: beasts
   kill, wardens capture, robbers rob, a brawl ends with the character thrown out. Death is real; the player can
-  always go back to an earlier line.
+  always go back to an earlier line. A character taken prisoner stays held (story_wounds.captors): they go nowhere
+  until a line that tries to get free (slip the bonds, pick the lock, run) succeeds.
 
 Under 5E the same fight runs on hit points, Armor Class and SRD stat blocks (dungeon/combat5e.py).
 
@@ -46,6 +47,8 @@ SOMEONE = re.compile(r'\b(him|her|them|man|woman|men|women|fellow|lad|boy|girl|s
                      r'cutter|guard|bandit|thief|sailor|soldier|bully)\b', re.I)
 OPPONENT = 'their opponent'
 GUARD = re.compile(r'\b(dodge|block|parry|defend|duck|guard)\w*', re.I)
+FREE = re.compile(r'\b(free|untie|slip (?:the|my|out)|loosen|pick the lock|break (?:the|my) (?:bonds|ropes|chains)|'
+                  r'cut (?:the|my) (?:bonds|ropes)|bribe|break out)\w*', re.I)
 FLEE = re.compile(r'\b(flee|run away|run for|escape|retreat|bolt|get away)\w*', re.I)
 SUCCESS = ('success_cost', 'success', 'critical_success')
 HARDER = {'easy': 'normal', 'normal': 'hard', 'hard': 'very_hard', 'very_hard': 'extreme', 'extreme': 'extreme'}
@@ -83,6 +86,11 @@ def set_condition(connection, level: int, dead: bool = False, rested: int = 0):
                        'level=excluded.level, dead=excluded.dead', (max(0, min(DYING, level)), int(dead), rested))
     # Under 5E the hit points follow a wound dealt outside a fight (a Life Card, a fall).
     combat5e.follow_level(connection, max(0, min(DYING, level)))
+
+
+def word(connection, level: int) -> str:
+    """The character's condition in words: MARVEL's wound levels, or under 5E what the hit points read as."""
+    return (combat5e.WORDS if fifth(connection) else LEVELS)[level]
 
 
 def fifth(connection) -> bool:
@@ -129,15 +137,37 @@ def adjust(connection, actions: list[dict]) -> list[dict]:
     return adjusted
 
 
+def captors(connection) -> str | None:
+    """Who holds the character prisoner, if anyone."""
+    row = optional(connection, 'SELECT captors FROM story_wounds WHERE id=1')
+    return row['captors'] if row else None
+
+
+def escape(connection, rolls: list[dict]) -> list[str]:
+    """A prisoner's line that tries to get free: free on a success, still held on a failure."""
+    held = captors(connection)
+    tries = [roll for roll in rolls if FREE.search(roll['action']) or FLEE.search(roll['action'])] if held else []
+    if not tries:
+        return []
+    if any(roll['band'] in SUCCESS for roll in tries):
+        connection.execute('UPDATE story_wounds SET captors=NULL WHERE id=1')
+        return [f"The player's character gets free of {held}."]
+    return [f"The player's character tries to get free of {held} and cannot; they are still held."]
+
+
 def condition_text(connection) -> str:
     now = condition(connection)
     if now['dead']:
         return "The player's character is dead."
+    held = captors(connection)
+    prisoner = f"The player's character is a prisoner of {held}, bound and watched; they go nowhere until they get " \
+               "free (kept by the game)." if held else ''
     if not now['level']:
-        return ''
+        return prisoner
     points = combat5e.hit_points(connection)
     hp = f", {points[0]} of {points[1]} hit points" if points else ''
-    return f"The player's character is {LEVELS[now['level']]}{hp} (kept by the game; write the wounds as they are)."
+    return (f"The player's character is {word(connection, now['level'])}{hp} (kept by the game; write the wounds as they "
+            "are)." + (f' {prisoner}' if prisoner else ''))
 
 
 # The fight ---------------------------------------------------------------------------------------
@@ -211,6 +241,8 @@ def standing(state: dict) -> list[dict]:
 
 
 def foe_word(foe: dict) -> str:
+    if 'hp' in foe:
+        return combat5e.describe(foe) if foe['hp'] > 0 else 'down'
     if down(foe):
         return 'down'
     if foe['broken']:
@@ -332,6 +364,8 @@ def defeat(connection, state: dict, rng, now: str, saved: bool | None = None) ->
             combat5e.set_hp(connection, 1, now)
         if outcome == 'robbed':
             connection.execute('UPDATE story_purse SET coins=0')
+        if outcome == 'captured':
+            connection.execute('UPDATE story_wounds SET captors=? WHERE id=1', (winners,))
         record.add(connection, 'fact', "the player's character", f'Beaten by {winners}. {DEFEAT_TEXT[outcome]}', now)
     return outcome, DEFEAT_TEXT[outcome]
 
@@ -360,12 +394,16 @@ def turn(connection, message_id: str, people: list[dict], rolls: list[dict], sta
     if (kept := saved_round(connection, message_id)) is not None:
         return kept
     rng = rng or random.SystemRandom()
+    freed = escape(connection, rolls) if fight(connection) is None else []
     state = fight(connection) or begin(connection, people, rolls, start, rng)
     if state is None:
-        return []
+        if freed:
+            connection.execute('INSERT INTO story_rounds (message_id, lines) VALUES (?, ?)', (message_id, encode(freed)))
+        return freed
     before = {foe['id']: foe['wound'] for foe in state['foes']}
     events = [('horror', foe['name']) for foe in state['foes'][:1] if foe.get('horror') and not state['round']]
     state, lines, ending = play_round(connection, state, rolls, items, rng)
+    lines = freed + lines
     events += [('kill', foe['name']) for foe in state['foes'] if foe['wound'] >= DYING > before[foe['id']]]
     # A foe who broke and got away alive (the story director may make a nemesis of them).
     events += [('fled', foe['name']) for foe in state['foes'] if ending == 'won' and foe['broken'] and not down(foe)]
@@ -427,7 +465,7 @@ def view(connection, shown: bool) -> dict:
     """The fight and the character's wounds for the screen: levels with the dice shown, words otherwise."""
     state, now = fight(connection), condition(connection)
     points = combat5e.hit_points(connection)
-    return {'condition': LEVELS[now['level']], 'dead': now['dead'],
+    return {'condition': word(connection, now['level']), 'dead': now['dead'], 'captors': captors(connection),
             'fight': state and {'round': state['round'],
                                 'foes': [{'name': foe['name'], 'state': foe_word(foe),
                                           'wound': foe['wound'] if shown else None}

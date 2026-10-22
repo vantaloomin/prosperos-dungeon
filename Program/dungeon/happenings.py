@@ -163,7 +163,7 @@ def wound(connection, effect: dict, context: dict) -> list[str]:
     if level <= combat.condition(connection)['level']:
         return []
     combat.set_condition(connection, level)
-    lines = [f"The character is hurt in it: now {combat.LEVELS[level]}."]
+    lines = [f"The character is hurt in it: now {combat.word(connection, level)}."]
     if level >= combat.DOWN and (left := injuries.roll(connection, context['now'], context['title'], context['rng'],
                                                          context['logged'])):
         lines.append(left)
