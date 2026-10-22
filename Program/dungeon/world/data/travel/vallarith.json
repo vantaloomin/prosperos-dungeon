@@ -1,5 +1,5 @@
 {
- "about": "Vallarith's travel map (dungeon/travel.py, docs/story.md \"Journeys\"): places joined by roads, each road with its hours on foot, terrain and danger, each region's road encounters, and each region's danger and night-camp encounters for resting out in the open (dungeon/rest.py). Positions are from the world map (worlds/vallarith/settlements.json). A node is a whole town (its city and arrival place) or a place on the Road (dungeon/world/data/cities/vallarith-road.json).",
+ "about": "Vallarith's travel map (dungeon/travel.py, docs/story.md \"Journeys\"): places joined by roads, each road with its hours on foot, terrain and danger, each region's road encounters, and each region's danger and night-camp encounters for resting out in the open (dungeon/rest.py), and the world and region its Life Cards draw from (dungeon/happenings.py). Positions are from the world map (worlds/vallarith/settlements.json). A node is a whole town (its city and arrival place) or a place on the Road (dungeon/world/data/cities/vallarith-road.json).",
  "hours_a_day": 10,
  "odds": {"none": 0, "low": 15, "medium": 30, "high": 50},
  "food": ["bread", "dried-meat", "cheese"],
@@ -52,7 +52,8 @@
    {"weight": 3, "action": "keep to the warden path and out of the wardens' sight", "difficulty": "hard", "threat": {"text": "Wardens close in among the trees, unseen, bows drawn.", "foe": {"name": "warden of Brynwyr", "count": 2, "vitality": 12, "resolve": 12, "weapon": 1, "wants": "capture"}}}
   ]
  },
- "regions": {"kingdom-of-cyrel": {"danger": "low"}, "kingdoms-of-man": {"danger": "low"}, "badlands": {"danger": "high"}, "brynwyr": {"danger": "high"}},
+ "world": "vallarith",
+ "regions": {"kingdom-of-cyrel": {"danger": "low", "cards": "cyrel"}, "kingdoms-of-man": {"danger": "low", "cards": "asania"}, "badlands": {"danger": "high", "cards": "badlands"}, "brynwyr": {"danger": "high", "cards": "brynwyr"}},
  "camp": {
   "kingdom-of-cyrel": [
    {"weight": 3, "text": "A farm dog barks half the night at something past the firelight, and nothing comes of it."},

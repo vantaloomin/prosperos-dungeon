@@ -299,6 +299,27 @@ when the dice are shown): steady, shaken (1 to 3), strained (to 7), frayed (to 1
   narrator plays, kept, fading or ruled out by the Lasting injuries setting.
 - **Rest eases it**: one point a good night (see "Rest"). The narrator is told the track every turn.
 
+## Life Cards
+
+`dungeon/happenings.py` draws the world's Life Cards (`dungeon/life/cards.py`, `docs/life-cards.md`) into the
+story, with the deck and region from the travel map (`world`, `regions.*.cards`).
+
+- **When.** A day in town draws once, on the first line of the story day spent in a town (not on the Road, not mid
+  fight). A journey draws once for the road it ends on, unless a road encounter's fight stopped it. A rest out in
+  the open draws once; a card that brings foes ends the rest like a bad night.
+- **How eventful.** Beside the story, "How eventful": the world's own (Kingswood's is Eventful) or Quiet, Uneasy,
+  Eventful, Merciless (`workspace_settings.drama`; worlds set `intensity.drama`). It sets how often a scene draws
+  and which cards can turn up; the intensity preset leaves out what it does not allow. It never changes the dice.
+  Cards that need someone the game cannot name yet ({bond}, {them}, {faction}) are left out until companions,
+  beats and factions exist.
+- **Played by code.** The record keeps the card's truth as the world's, and what the character sees as their
+  belief when it is not the whole truth. The narrator gets "## What the world brings": what the character sees,
+  the choice it puts to them, and what code applied: stress (against Resolve), a wound, coin in day wages (the
+  town's `day-wage` price), food gained or lost, time, the feelings of someone there, a fight (`FOES`). Market,
+  rumor, quest, faction, fate and pursuer effects wait for their systems.
+- Each draw is kept (`story_cards`, branched with the story), so telling a turn again draws nothing new, and a
+  card is not drawn again within the deck's `repeat_days`.
+
 ## Rewrite
 
 `dungeon/passages.py`. The automatic rewrites still run when there is time; whatever the checks find and do not

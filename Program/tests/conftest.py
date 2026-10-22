@@ -73,6 +73,13 @@ def no_hold_after_replies(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def no_life_cards(monkeypatch):
+    """Life Cards drawn into the story (dungeon/happenings.py) would add events to unrelated tests' turns;
+    tests/test_happenings.py turns them on."""
+    monkeypatch.setattr('dungeon.happenings.ACTIVE', False)
+
+
+@pytest.fixture(autouse=True)
 def no_turnover(monkeypatch):
     """Townsfolk moving away and newcomers (dungeon/world/turnover.py) would change who unrelated tests meet as
     their clocks move on; tests/test_turnover.py turns it on. Each test also starts from the usual town levels."""

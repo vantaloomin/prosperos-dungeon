@@ -291,7 +291,8 @@ CITY = {
     # Vallarith is grimdark: the world's default intensity and narrator voice (requirements "Intensity and tone").
     'intensity': {'preset': 'unflinching',
                   'voice': 'grim and earthy: a hard frontier where kindness costs something, power is bought, and '
-                           'nobody is safe because they deserve to be'},
+                           'nobody is safe because they deserve to be',
+                  'drama': 'eventful'},
     'currency': {'code': 'crown', 'symbol': 'cr.', 'name': 'silver crowns'}, 'rent_period': 'week',
     'speeds': {'walk': 4.5, 'horse': 10, 'boat': 5},
     'sources': {SRC: {'kind': 'curated', 'title': "Kingswood written for Prospero's Dungeon from Vanta's Vallarith lore",

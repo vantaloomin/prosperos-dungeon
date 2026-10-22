@@ -8,7 +8,8 @@ model decides what happens.
 
 This page is the schema. The engine is `Program/dungeon/life/cards.py`; each world's deck is
 `Program/dungeon/life/decks/<world>.json` until world packages (Milestone 5) carry it in the world's
-database. Milestone 2 wires the draws into the story clock, travel, rests and off-page beats.
+database. `Program/dungeon/happenings.py` draws them into town days, journeys and rests (Program/docs/story.md
+"Life Cards"); off-page beats come with that system.
 
 ## What feeds what
 

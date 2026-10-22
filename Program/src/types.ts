@@ -251,7 +251,12 @@ export interface StoryFight {
 }
 export type IntensityPreset = 'world' | 'restrained' | 'mature' | 'unflinching'
 /** How far the story goes: `preset` in play, the player's `chosen` one ('world' follows the world), the world's own. */
-export interface StoryIntensity { preset: Exclude<IntensityPreset, 'world'>; chosen: IntensityPreset; world: Exclude<IntensityPreset, 'world'>; voice: string }
+export interface StoryIntensity {
+  preset: Exclude<IntensityPreset, 'world'>; chosen: IntensityPreset; world: Exclude<IntensityPreset, 'world'>; voice: string
+  /** How eventful the story is (dungeon/happenings.py): the level in play, the player's choice, the world's own. */
+  drama: Exclude<DramaLevel, 'world'>; drama_chosen: DramaLevel; drama_world: Exclude<DramaLevel, 'world'>
+}
+export type DramaLevel = 'world' | 'quiet' | 'uneasy' | 'eventful' | 'merciless'
 export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null; injury_persistence: InjuryPersistence }
 export type InjuryPersistence = 'permanent' | 'temporary' | 'none'
 /** The travel map as far as the character knows it (dungeon/travel.py); positions run 0 to 1 across the world map. */

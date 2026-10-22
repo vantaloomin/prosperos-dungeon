@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS workspace_settings (
   intensity TEXT NOT NULL DEFAULT 'world' CHECK (intensity IN ('world', 'restrained', 'mature', 'unflinching')),
   -- Seconds a story turn may take before its optional steps give way (dungeon/pace.py); 0 is automatic.
   turn_budget INTEGER NOT NULL DEFAULT 0 CHECK (turn_budget IN (0, 15, 30, 60, 90, 120, 180)),
+  -- How eventful the story is (dungeon/happenings.py): the world's own level, or one the player chose.
+  drama TEXT NOT NULL DEFAULT 'world' CHECK (drama IN ('world', 'quiet', 'uneasy', 'eventful', 'merciless')),
   -- Injury persistence (dungeon/injuries.py): lasting injuries stay, fade, or never happen.
   injury_persistence TEXT NOT NULL DEFAULT 'permanent' CHECK (injury_persistence IN ('permanent', 'temporary', 'none')),
   -- The first-run notice: the story is AI written, and the user is 18 or older.
@@ -341,6 +343,17 @@ CREATE TABLE IF NOT EXISTS story_wounds (
   dead INTEGER NOT NULL DEFAULT 0 CHECK (dead IN (0, 1)),
   rested INTEGER NOT NULL DEFAULT 0,
   treated INTEGER NOT NULL DEFAULT 0
+);
+
+-- Life Cards drawn into the story (dungeon/happenings.py): each line's draw for a scene (town, road, rest), with
+-- the card (none when nothing happened) and what the narrator was told.
+CREATE TABLE IF NOT EXISTS story_cards (
+  message_id TEXT NOT NULL,
+  scene TEXT NOT NULL,
+  day TEXT NOT NULL,
+  card_id TEXT,
+  lines TEXT NOT NULL,
+  PRIMARY KEY (message_id, scene)
 );
 
 -- The character's stress track (dungeon/stress.py), and how many they have killed.

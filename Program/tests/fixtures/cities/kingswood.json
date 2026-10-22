@@ -17,7 +17,8 @@
  "lon": -2.004,
  "intensity": {
   "preset": "unflinching",
-  "voice": "grim and earthy: a hard frontier where kindness costs something, power is bought, and nobody is safe because they deserve to be"
+  "voice": "grim and earthy: a hard frontier where kindness costs something, power is bought, and nobody is safe because they deserve to be",
+  "drama": "eventful"
  },
  "currency": {
   "code": "crown",

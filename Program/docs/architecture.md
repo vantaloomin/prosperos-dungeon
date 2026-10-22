@@ -42,6 +42,7 @@ top of it, milestone by milestone, as set out in [the roadmap](../../docs/roadma
 | `story_messages.flags`, `.previous` | A narration's flagged paragraphs and its wording before the last rewrite (`dungeon/passages.py`) |
 | `story_map`, `story_journeys` | The places on the travel map the character knows, and each line's journey (`dungeon/travel.py`) |
 | `story_injuries`, `story_treatments` | The character's lasting injuries, and each line's treatment (`dungeon/injuries.py`) |
+| `story_cards` | The Life Cards drawn into the story, by line and scene (`dungeon/happenings.py`) |
 | `story_stress` | The character's stress track and kill count (`dungeon/stress.py`) |
 | `story_rests` | Each line's rest: its nights and what one of them turned up (`dungeon/rest.py`) |
 | `story_turn_steps` | How long each step of a turn took and what gave way for time (`dungeon/pace.py`) |
