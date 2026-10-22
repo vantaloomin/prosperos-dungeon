@@ -25,7 +25,7 @@ from dungeon import (
 from dungeon.database import one
 from dungeon.errors import require
 from dungeon.models import PersonaInput
-from dungeon.rules import ironsworn, marvel, srd52
+from dungeon.rules import brp, ironsworn, marvel, srd52
 
 PREMADES = Path(__file__).parent / 'world' / 'data' / 'premades'
 # Point-buy at the start: the six stats share POINTS, each from START_RANGE, so the default sheet (all 10) fits.
@@ -51,6 +51,7 @@ def view(database) -> dict:
             # The rulesets a campaign can be played in, the world's own first (dungeon/sheet.py).
             'rulesets': [{'id': key, 'name': name} for key, name in sheet.RULESETS.items()],
             'ruleset': sheet.default_for(world), 'srd52': srd52_choices(), 'ironsworn': ironsworn_choices(),
+            'brp': brp_choices(),
             'arc': world and {'arc': tiers.track(world)['arc'], 'pace': tiers.track(world)['pace'],
                               'hand': director.DEFAULT_HAND},
             # Session zero (dungeon/table.py): the presets, and the rules as a new campaign would start.
@@ -83,6 +84,27 @@ def ironsworn_choices() -> dict:
                                                        if ability.get('enabled')), ''))}
                        for key, asset in ironsworn.assets().items()],
             'attribution': ironsworn.attribution()}
+
+
+def brp_choices() -> dict:
+    """What a BRP character is built from: the characteristics and their point-buy, professions, personalities."""
+    rules = brp.pack()['creation']
+    return {'characteristics': [{'id': item['id'], 'name': item['name'], 'roll': item['roll']}
+                                for item in brp.pack()['characteristics']],
+            'points': rules['points'], 'start': rules['start'], 'range': [rules['least'], rules['most']],
+            'costly': rules['costly'], 'costly_price': rules['costly_price'],
+            'professions': [{'id': item['id'], 'name': item['name'],
+                             'skills': [brp.skills()[skill]['name'] for skill in item['skills']]}
+                            for item in brp.pack()['professions']],
+            'personalities': [{'id': item['id'], 'name': item['name'], 'about': item['about']}
+                              for item in brp.pack()['personalities']],
+            'attribution': brp.attribution()}
+
+
+def premade_brp(chosen: dict) -> dict:
+    top = max(marvel.STATS, key=lambda stat: chosen['stats'].get(stat, 0))
+    quick = brp.suggested(top)
+    return brp.build(quick['characteristics'], quick['profession'], quick['personality'])
 
 
 # A premade's Ironsworn stat from its strongest MARVEL stat.
@@ -121,7 +143,7 @@ def begin(database, premade_id: str | None = None, persona: PersonaInput | None 
           stats: dict[str, int] | None = None, arc: str | None = None, pace: str | None = None,
           hand: str | None = None, ironman: bool = False, legacy_of: dict | None = None,
           ruleset: str | None = None, build: dict | None = None, iron: dict | None = None,
-          rules: dict | None = None) -> dict:
+          rules: dict | None = None, percentile: dict | None = None) -> dict:
     """Start the story as a premade character or one the player made; only a story with nothing in it yet. The
     ruleset (the world's own by default) is chosen now and locked; under 5E a made character is `build` (class,
     species, background, the standard array placed, the class's skills). `rules` are session zero's (dungeon/table.py)."""
@@ -139,7 +161,7 @@ def begin(database, premade_id: str | None = None, persona: PersonaInput | None 
         persona = PersonaInput(name=chosen['name'], gender=chosen['gender'], age=chosen['age'], about=chosen['about'])
         stats = chosen['stats']
         native = premade_build(chosen) if ruleset == srd52.ID else premade_ironsworn(chosen) \
-            if ruleset == ironsworn.ID else None
+            if ruleset == ironsworn.ID else premade_brp(chosen) if ruleset == brp.ID else None
     else:
         require(persona is not None and bool((persona.name or '').strip()), 'Give your character a name.', 422)
         if ruleset == srd52.ID:
@@ -150,6 +172,11 @@ def begin(database, premade_id: str | None = None, persona: PersonaInput | None 
         elif ruleset == ironsworn.ID:
             require(iron is not None, 'Place 3, 2, 2, 1 and 1 on the five stats and choose three assets.', 422)
             native = ironsworn.build(iron['stats'], iron['assets'])
+            stats = {stat: marvel.DEFAULT_STAT for stat in marvel.STATS}
+        elif ruleset == brp.ID:
+            require(percentile is not None, 'Buy the seven characteristics and choose a profession and a personality.',
+                    422)
+            native = brp.build(percentile['characteristics'], percentile['profession'], percentile['personality'])
             stats = {stat: marvel.DEFAULT_STAT for stat in marvel.STATS}
         else:
             stats = bought(stats or {})

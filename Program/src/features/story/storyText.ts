@@ -74,12 +74,14 @@ export function personLine(person: StoryPerson): string {
 /** What a roll tested, as the card heads it: "Allure · hard", or under 5E "Athletics · DC 15". */
 export function rollWhat(roll: StoryRoll): string {
   if (roll.ruleset === 'ironsworn') return (roll.skill ?? '').replace(/ vs .*$/, '')
+  if (roll.ruleset === 'brp') return roll.skill ?? roll.stat
   return roll.target ? `${roll.skill} · DC ${roll.target}` : `${roll.stat} · ${roll.difficulty.replace('_', ' ')}`
 }
 
 /** "Allure d8: 62 + 5, hard (-10) = 57, Success at a cost"; under 5E "Athletics d20: 12 + 5 = 17 vs DC 15, Success". */
 export function rollText(roll: StoryRoll): string {
   if (roll.ruleset === 'ironsworn') return `${roll.skill}: ${roll.natural} + ${roll.bonus} = ${roll.total}, ${roll.label}`
+  if (roll.ruleset === 'brp') return `${roll.skill} d100: ${roll.natural} against ${roll.target ?? 0}, ${roll.label}`
   if (roll.target) {
     const bonus = roll.bonus < 0 ? ` - ${-roll.bonus}` : ` + ${roll.bonus}`
     return `${roll.skill} d20: ${roll.natural}${bonus} = ${roll.total} vs DC ${roll.target}, ${roll.label}`
@@ -334,7 +336,7 @@ export function diceFaces(roll: StoryRoll): DieFace[] {
     { key: 'tens', sides: 10, value: String(Math.floor((roll.natural % 100) / 10) * 10).padStart(2, '0') },
     { key: 'ones', sides: 10, value: String(roll.natural % 10) },
   ]
-  return roll.die ? [...faces, { key: 'stat', sides: roll.die, value: String(roll.bonus) }] : faces
+  return roll.die && roll.ruleset !== 'brp' ? [...faces, { key: 'stat', sides: roll.die, value: String(roll.bonus) }] : faces
 }
 
 /** A face a die shows while it tumbles; `pick` is a number from 0 up to 1. */
@@ -397,6 +399,11 @@ export function spellLine(spells: Srd52Spells): string {
   const ordinal = (level: number) => `${level}${level === 1 ? 'st' : level === 2 ? 'nd' : level === 3 ? 'rd' : 'th'}`
   const slots = spells.slots.map((slot) => `${ordinal(slot.level)} ${slot.left} of ${slot.of}`).join(', ')
   return `${spells.ability}: spell attack ${signed(spells.attack)} · save DC ${spells.dc}${slots ? ` · slots: ${slots}` : ''}`
+}
+
+/** What BRP characteristics cost to buy: each point over (or under) the start, DEX, INT and POW at their price. */
+export function brpCost(characteristics: Record<string, number>, start: number, costly: string[], price: number): number {
+  return Object.entries(characteristics).reduce((sum, [stat, value]) => sum + (value - start) * (costly.includes(stat) ? price : 1), 0)
 }
 
 /** Whether the standard array is placed on the six abilities, each value once (dungeon/rules/srd52.py build). */

@@ -10,9 +10,9 @@ import random
 
 from dungeon.database import decode, encode, many, optional
 from dungeon.errors import require
-from dungeon.rules import ironsworn, marvel, srd52
+from dungeon.rules import brp, ironsworn, marvel, srd52
 
-RULESETS = {marvel.ID: marvel.NAME, srd52.ID: srd52.NAME, ironsworn.ID: ironsworn.NAME}
+RULESETS = {marvel.ID: marvel.NAME, srd52.ID: srd52.NAME, ironsworn.ID: ironsworn.NAME, brp.ID: brp.NAME}
 WORLD_RULESETS: dict[str, str] = {}
 
 PERSONA = 'persona'
@@ -83,6 +83,17 @@ def check(connection, approach: str, difficulty: str = 'normal', text: str = '',
     if found and played == srd52.ID:
         result = srd52.check(found, approach, difficulty, text, rng, save) | {'ruleset': srd52.ID}
         return cast(connection, found, result, rng) if result.get('spell') else result
+    if found and played == brp.ID:
+        # A skill that succeeds gets its experience check; First Aid on the character's own wound heals.
+        from dungeon import combat_brp
+        result = brp.check(found, approach, difficulty, text, rng, save) | {'ruleset': brp.ID}
+        result = combat_brp.first_aid(connection, found, result, rng)
+        if (not save and brp.check_skill(found, result)) or result.get('healed'):
+            set_native(connection, found, '')
+        if result.get('healed'):
+            from dungeon import combat, combat5e
+            combat.set_condition(connection, combat5e.level_for(found['hp'], found['max_hp']))
+        return result
     if found and played == ironsworn.ID:
         # Resisting is a suffer move: Endure Harm on iron for the body, Endure Stress on heart for the mind.
         move, stat = (('endure_harm', 'iron') if approach == 'Vitality' else ('endure_stress', 'heart')) if save \
@@ -122,5 +133,6 @@ def full_view(connection) -> dict:
     played = ruleset(connection)
     found = native(connection) if played != marvel.ID else None
     if found:
-        return srd52.view(found) if played == srd52.ID else ironsworn.view(found)
+        return srd52.view(found) if played == srd52.ID else brp.view(found) if played == brp.ID else \
+            ironsworn.view(found)
     return view(connection) | {'ruleset': marvel.ID, 'ruleset_name': marvel.NAME}

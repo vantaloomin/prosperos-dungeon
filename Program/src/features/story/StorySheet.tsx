@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
-import type { IronswornSheet, MarvelSheet, Sheet, SheetGrowth, Srd52Sheet, Srd52Spells } from '../../types'
+import type { BrpSheet, IronswornSheet, MarvelSheet, Sheet, SheetGrowth, Srd52Sheet, Srd52Spells } from '../../types'
 import { Stepper } from '../../components/NumberFields'
 import { Notice } from '../../components/Feedback'
 import { abilityLine, darkText, signed, spellLine, xpLine } from './storyText'
@@ -26,7 +26,25 @@ export function StorySheet({ open }: { open?: boolean }) {
 function Rules({ sheet }: { sheet: Sheet }) {
   if (sheet.ruleset === 'srd52') return <Srd52 sheet={sheet} />
   if (sheet.ruleset === 'ironsworn') return <Ironsworn sheet={sheet} />
+  if (sheet.ruleset === 'brp') return <Percentile sheet={sheet} />
   return <Marvel sheet={sheet} />
+}
+
+/** A Percentile sheet (dungeon/rules/brp.py): set when the character was made; skills grow by experience. */
+function Percentile({ sheet }: { sheet: BrpSheet }) {
+  return <>
+    <p>{sheet.names.profession}, {sheet.names.personality.toLowerCase()}</p>
+    <p>{Object.entries(sheet.characteristics).map(([stat, value]) => `${stat.toUpperCase()} ${value}`).join(' · ')}</p>
+    <p>Hit points {Math.max(0, sheet.hp)} of {sheet.max_hp} (major wound {sheet.major_wound}) · Damage {sheet.damage_modifier} · Armour {sheet.armor_name} ({sheet.armor_value})</p>
+    <p className="subtle">{Object.entries(sheet.rolls).map(([roll, value]) => `${roll} ${value}%`).join(' · ')}</p>
+    {!!sheet.major_wounds.length && <p className="subtle">{sheet.major_wounds.map((wound) => wound.text).join(' ')}</p>}
+    <details>
+      <summary>Skills</summary>
+      <p>{sheet.skill_list.filter((skill) => skill.value > 0).map((skill) => `${skill.name} ${skill.value}%${skill.checked ? ' •' : ''}`).join(' · ')}</p>
+      <p className="subtle">• an experience check, rolled after a night's rest.</p>
+    </details>
+    <p className="subtle story-attribution">{sheet.attribution}</p>
+  </>
 }
 
 /** An Ironsworn sheet (dungeon/rules/ironsworn.py): set when the character was made, so it only reads. */
