@@ -31,8 +31,10 @@ STAT = 'Luck'
 BITES = ('critical_failure', 'failure', 'failure_upside')
 NIGHT_HOURS = 14
 STOPPED = 'The journey stops here'
+# Setting out, on foot or (in a modern world such as Havenbrooke) by car, bus or train.
 GOING = re.compile(r'\b(travel\w*|set(s|ting)? (out|off)|head\w*|ride|rides|riding|walk\w*|journey\w*|march\w*|'
-                   r'make (my|our|their) way|go|goes|going|leave|leaves|leaving|return\w*)\b', re.I)
+                   r'make (my|our|their) way|go|goes|going|leave|leaves|leaving|return\w*|drive|drives|driving|'
+                   r'drove|take (a|the) (bus|train)|catch (a|the) (bus|train))\b', re.I)
 
 
 @world_data.memo
