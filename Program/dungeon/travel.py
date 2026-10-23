@@ -256,7 +256,18 @@ def today(connection, board: hexes.Grid, at: tuple[int, int]) -> str:
     return hexes.weather(board.seed, moment.date().isoformat(), board.cell(at)['region'], moment.month)
 
 
-def strike_out(connection, travel_map: dict, here: dict, direction: str, rng, hours: float | None = None) -> dict:
+def daylight(connection) -> float:
+    """The hours of light left for walking from now on the story clock; a walk set out at night waits for first light
+    (`till_light`) and has the whole day."""
+    row = optional(connection, 'SELECT at FROM story_clock WHERE id=1')
+    now = datetime.fromisoformat(row['at']) if row else datetime.now()
+    if not DAWN <= now.hour < DUSK:
+        return DUSK - DAWN
+    return DUSK - now.hour - now.minute / 60
+
+
+def strike_out(connection, travel_map: dict, here: dict, direction: str, rng, hours: float | None = None,
+               dark: bool = False) -> dict:
     """A day's walk across country in one direction, rolled for encounters and for keeping the way: if the character
     loses it, the walk drifts off to one side from there (`astray`), while they believe it went straight."""
     board = hexes.grid(connection, travel_map)
@@ -264,9 +275,14 @@ def strike_out(connection, travel_map: dict, here: dict, direction: str, rng, ho
     weather = today(connection, board, start)
     found = hexes.found_sites(connection, board)
     # A walk with no length said goes on for the map's `walk_hours` (a ramble in Havenbrooke's woods), else a day.
-    budget = min(travel_map['hours_a_day'], hours or travel_map.get('walk_hours') or travel_map['hours_a_day'])
+    meant = min(travel_map['hours_a_day'], hours or travel_map.get('walk_hours') or travel_map['hours_a_day'])
+    # And it ends at dusk, unless the line means to walk on in the dark.
+    budget = meant if dark else min(meant, daylight(connection))
     legs, stop = board.heading(start, direction, budget, weather, about=budget < travel_map['hours_a_day'])
-    stop = 'enough' if stop == 'day' and budget < travel_map['hours_a_day'] else stop
+    if stop == 'day' and budget < meant:
+        stop = 'dusk'
+    elif stop == 'day' and budget < travel_map['hours_a_day']:
+        stop = 'enough'
     legs, site = board.came_upon(legs, set(found), hexes.levels(connection))
     stop = 'site' if site else stop
     # A hamlet they know of on the way is somewhere to stop, as a place on the way is.
@@ -384,7 +400,8 @@ def off_the_map(connection, travel_map: dict, here: dict, text: str, rng) -> dic
     if site := site_named(connection, board, text, start):
         return journey_to(connection, travel_map, board, here, start, site, rng)
     direction = heading(text, wild)
-    return strike_out(connection, travel_map, here, direction, rng, walking_hours(text)) if direction else None
+    return strike_out(connection, travel_map, here, direction, rng, walking_hours(text),
+                      bool(DARK.search(text))) if direction else None
 
 
 def site_named(connection, board: hexes.Grid, text: str, start: tuple[int, int]) -> dict | None:
@@ -524,14 +541,20 @@ def ending(connection, travel_map: dict, plan_: dict, legs: list[dict], rolls: l
     stop = (plan_.get('lost') or {}).get('stop') if strayed(plan_, rolls) else plan_.get('stop')
     site = hexes.site(connection, board, actual)
     if stop in ('site', 'arrived') and site:
+        known_ = actual in hexes.found_sites(connection, board)
         hexes.find_site(connection, board, actual, site)
-        lines.append(f"They {'reach' if stop == 'arrived' else 'come upon'} {site['name']}: {site['text']}")
+        arrived = stop == 'arrived' or known_
+        lines.append(f"They reach {site['name']}, which they already knew of." if known_ else
+                     f"They {'reach' if arrived else 'come upon'} {site['name']}: {site['text']}")
         # A hamlet is a place of its own on the Road, with its own people (dungeon/story.py hamlets).
         end = travel_map['wild'] | ({'place': hexes.hamlet_id(actual), 'name': site['name']}
                                     if site['kind'] == 'hamlet' else {})
-        return end, f"You {'reach' if stop == 'arrived' else 'come upon'} {site['name']}.", lines
+        return end, f"You {'reach' if arrived else 'come upon'} {site['name']}.", lines
     if stop == 'water':
         lines.append(f"Open water stops them: there is no walking further {plan_.get('direction', 'that way')}.")
+    elif stop == 'dusk':
+        lines.append(f"Dusk stops them in {board.terrain_text(cell['terrain'])} in {region}: the light is going, and "
+                     'no one walks off the road in the dark by choice.')
     elif stop == 'enough':
         lines.append(f"They stop where they meant to, after {duration(sum(leg['hours'] for leg in legs))} of "
                      f"walking, in {board.terrain_text(cell['terrain'])} in {region}.")

@@ -594,8 +594,10 @@ Havenbrooke's (car or bus) and BABEL's (the Stair) do. Vallarith's is.
   the line says ("for an hour or so", "for two hours"; `travel.walking_hours`, taking the hex that comes closest),
   with at least one hex walked. With no length said it walks the map's `walk_hours` (Havenbrooke's woods: 2), else a
   day. It stops at a hamlet the character knows of, as at a place. Out in the wild any word for going or leaving
-  will do ("I strike out north-east"). At night (21:00 to 06:00) it waits for first light first, unless the line
-  means to walk in the dark ("through the night", "by moonlight"). A line that sets out on a journey passes no
+  will do ("I strike out north-east"). At night (21:00 to 06:00) it waits for first light first, and by day it
+  stops at dusk (`stop: dusk`), unless the line means to walk in the dark ("through the night", "by moonlight"). A
+  hamlet already seen is reached as somewhere known. A map with `road_cards: false` (Havenbrooke's woods) draws no
+  road Life Card after a walk, so a ramble in the woods meets no late bus. A line that sets out on a journey passes no
   time of its own: its time is the journey's (`travel.setting_out`). A walk that ends
   between places leaves the scene in the map's `wild` place (Vallarith's `the-wilds` on the Road), with the hex kept
   in `story_position`; the narrator gets "## Out in the wild": the land, the region, the day's weather, and the
