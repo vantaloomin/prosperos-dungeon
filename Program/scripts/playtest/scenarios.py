@@ -1410,6 +1410,53 @@ def party(play):
     play.write(f"- party after: {[person.get('name') for person in view.get('people') or [] if person.get('party')]}\n")
 
 
+def ironsworn_vows(play):
+    """Ironsworn progress: an iron vow, a landed roll that names it (Reach a Milestone), a sworn bond on the bonds
+    track, and the vow fulfilled with a progress roll."""
+    choices = play.dungeon.call('GET', '/api/story/start').get('ironsworn') or {}
+    placed = dict(zip(('iron', 'edge', 'wits', 'heart', 'shadow'), choices.get('array') or [3, 2, 2, 1, 1]))
+    by_category = {}
+    for asset in choices.get('assets') or []:
+        by_category.setdefault(asset['category'], asset['id'])
+    picks = list(by_category.values())[:choices.get('count') or 3]
+    play.start(persona={'name': 'Hald Brenner', 'gender': 'man', 'age': 41,
+                        'about': 'A sworn sword out of Bastion who keeps his oaths and little else.'},
+               ruleset='ironsworn', ironsworn={'stats': placed, 'assets': picks})
+    set_clock(play, '12:00')
+    play.say('I swear an iron vow to find whoever is breaking the saws at the mill, whatever it costs.')
+    play.sheet()
+    for line in ('I question the mill hands about who has been breaking the saws at the mill.',
+                 'I watch the mill from the timber stacks, looking for whoever is breaking the saws.',
+                 'I follow the tracks from the broken saws at the mill.'):
+        play.say(line, {'roll': True})
+    play.sheet()
+    play.say('I clasp Corin Ashby\'s hand. "I swear to stand by you, Corin."')
+    play.say('I catch the man breaking the saws at the mill red-handed and drag him to the guild factor. The vow '
+             'is done: I found whoever was breaking the saws.')
+    play.sheet()
+    play.journal()
+
+
+def fate_stress(play):
+    """Fate stress and consequences: blows taken in a fight mark stress boxes, then consequences in words; nights of
+    rest heal them."""
+    play.start('tobin-pell', ruleset='fate')
+    set_clock(play, '20:30')
+    play.move('the-sawpit')
+    play.say('I throw my drink in the face of the biggest logger in the place and punch him.', {'fight': True})
+    for line in ('I punch him again.', 'I keep swinging.', 'I duck and hit back.', 'I keep at it.'):
+        state = fight_on(play)
+        if not state.get('fight') or state.get('dead'):
+            break
+        play.say(line)
+    play.sheet()
+    if fight_on(play).get('fight'):
+        play.say('I put my hands up and back off toward the door. "All right, I\'m going."')
+    for _ in range(3):
+        play.say('I sleep until morning.')
+    play.sheet()
+
+
 SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl, 'road': road,
              'director': director, 'chapters': chapters, 'ironman': ironman, 'gm_view': gm_view, 'memory': memory,
              'legacy': legacy, 'fivee_checks': fivee_checks, 'fivee_fight': fivee_fight,
@@ -1424,4 +1471,5 @@ SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl,
              'spoils': spoils, 'mending': mending, 'town_map': town_map,
              'robbers': robbers, 'captors': captors, 'brawler': brawler, 'ambush': ambush,
              'lies': lies, 'labour': labour, 'ranges': ranges, 'shut_shop': shut_shop,
-             'dice_log': dice_log, 'haggling': haggling, 'life_cards': life_cards, 'bonds': bonds, 'party': party}
+             'dice_log': dice_log, 'haggling': haggling, 'life_cards': life_cards, 'bonds': bonds, 'party': party,
+             'ironsworn_vows': ironsworn_vows, 'fate_stress': fate_stress}
