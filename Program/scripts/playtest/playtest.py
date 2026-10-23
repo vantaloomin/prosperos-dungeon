@@ -183,6 +183,11 @@ class Play:
             self.flag(f"Turn {self.turns} reply failed: {reply.get('error')}")
         view = self.story()
         user = next((m for m in reversed(view['messages']) if m['role'] == 'user'), {})
+        # The story clock only moves forward, except when going back (which resets this).
+        now = view['scene']['local_time']
+        if getattr(self, 'clock', None) and now < self.clock:
+            self.flag(f'The story clock ran backwards: {self.clock} then {now}.')
+        self.clock = now
         self.details(view, user, took, first)
         self.check(text, reply.get('text') or '', view, user, expect or {})
         return view
@@ -292,6 +297,7 @@ class Play:
         lines = [m for m in view['messages'] if m['role'] == 'user']
         target = lines[-turns_ago]
         result = self.dungeon.call('POST', '/api/story/back', {'message_id': target['id']})
+        self.clock = None
         self.write(f"### Go back to before \"{target['text']}\" (draft: {result.get('draft')!r})\n")
         return result.get('draft') or target['text']
 

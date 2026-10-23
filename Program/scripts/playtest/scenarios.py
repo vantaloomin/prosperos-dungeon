@@ -108,6 +108,10 @@ def road(play):
     play.say('I take everything I found.')
     play.gear()
     play.sheet()
+    if (play.story().get('fight') or {}).get('dead'):
+        # Dead at the keep: go back to before the keep so the road home still plays.
+        play.back(next(n for n, line in enumerate(reversed(play.lines()), 1) if 'Abandoned Keep' in line['text']))
+        play.say('I think better of it and stay in Convila another night.')
     play.say('I set out for Kingswood.')
     play.say('I rest for three days at the Wayhouse.')
     play.journal()
@@ -730,8 +734,17 @@ def stage(play):
     play.write(f'- stage: {json.dumps(staged, ensure_ascii=False)[:400]}\n')
     if staged.get('place') or staged.get('portraits'):
         play.flag('The stage shows pictures with no image backend.')
-    around = (view or {}).get('scene', {}).get('around') or []
-    key = next((person.get('key') for person in around if isinstance(person, dict) and person.get('key')), '')
+    present = (view or {}).get('scene', {}).get('present') or []
+    for _ in range(3):
+        # The tavern can be empty in the small hours: wait for a crowd.
+        if present:
+            break
+        view = play.say('I wait six hours by the fire.')
+        present = (view or {}).get('scene', {}).get('present') or []
+    play.write(f'- present: {json.dumps(present, ensure_ascii=False)[:300]}\n')
+    key = next((person.get('key') for person in present if isinstance(person, dict) and person.get('key')), '')
+    if not key:
+        play.flag('Nobody in scene.present to ask a portrait of.')
     response = play.dungeon.http.post('/api/story/art', json={'kind': 'portrait', 'subject': key})
     play.write(f'### A portrait of {key or "nobody"} before meeting them: {response.status_code} {response.text[:200]}\n')
     if response.status_code == 404:
