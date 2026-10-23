@@ -77,22 +77,32 @@ export function IllustrateButton({ messageId }: { messageId: string }) {
 }
 
 /** The stage over the story (VN style): the place's picture behind, the portraits of who is here in front. Shown
- *  only once pictures are made, and only when this device has "Show pictures on the story" on. */
+ *  only once pictures are made, and only when this device has "Show pictures on the story" on. In the Visual novel
+ *  layout the picture fills the story column and the portraits stand on its own row above the text box
+ *  (styles.css `data-layout='novel'`), so they come apart. */
 export function StoryStage({ turn }: { turn: string }) {
   const look = useDeviceLook()
   const stage = useQuery({ queryKey: [...ART_KEY, 'stage', turn], queryFn: () => api<ArtStage>('/story/art/stage'),
     enabled: look.stageArt, refetchInterval: STAGE_REFRESH })
   const shown = look.stageArt ? stage.data : undefined
   if (!shown || (!shown.background && !shown.portraits.length)) return null
-  return (
+  const portraits = <StagePortraits portraits={shown.portraits} />
+  return <>
     <figure className="story-stage" style={shown.background ? { backgroundImage: `url(${shown.background.url})` } : undefined}>
-      <ul className="stage-portraits" aria-label="Who is here">
-        {shown.portraits.map((item) => <li key={item.key}>
-          <img src={item.url} alt={`Portrait of ${item.name}`} width={item.width ?? undefined} height={item.height ?? undefined} />
-          <span>{item.name}</span>
-        </li>)}
-      </ul>
+      {look.layout !== 'novel' && portraits}
       {shown.background && <figcaption className="visually-hidden">A picture of this place</figcaption>}
     </figure>
+    {look.layout === 'novel' && portraits}
+  </>
+}
+
+function StagePortraits({ portraits }: { portraits: ArtStage['portraits'] }) {
+  return (
+    <ul className="stage-portraits" aria-label="Who is here">
+      {portraits.map((item) => <li key={item.key}>
+        <img src={item.url} alt={`Portrait of ${item.name}`} width={item.width ?? undefined} height={item.height ?? undefined} />
+        <span>{item.name}</span>
+      </li>)}
+    </ul>
   )
 }
