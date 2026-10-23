@@ -5,8 +5,9 @@ import { useSyncExternalStore } from 'react'
 export type ReadingFont = 'default' | 'atkinson' | 'opendyslexic'
 export type Motion = 'system' | 'reduce' | 'full'
 /** The story screen's layout (requirements "Play screen and widgets": presets as modes). Classic keeps the scene panel
- *  beside the story on a wide screen; Reader gives the story the width and folds the panel into its tabs. */
-export type Layout = 'classic' | 'reader'
+ *  beside the story on a wide screen; Reader gives the story the width and folds the panel into its tabs; Custom is the
+ *  free grid the player arranges (src/features/story/grid.ts), never the default. */
+export type Layout = 'classic' | 'reader' | 'custom'
 /** `stageArt`: the place's picture behind the story and portraits of who is here, when they have been made. */
 export interface DeviceLook { textScale: number; font: ReadingFont; fontEverywhere: boolean; motion: Motion; layout: Layout; stageArt: boolean }
 
@@ -15,6 +16,7 @@ export const DEFAULT_LOOK: DeviceLook = { textScale: 100, font: 'default', fontE
 const KEY = 'dungeon-device-look'
 const FONTS: ReadingFont[] = ['default', 'atkinson', 'opendyslexic']
 const MOTIONS: Motion[] = ['system', 'reduce', 'full']
+const LAYOUTS: Layout[] = ['classic', 'reader', 'custom']
 const listeners = new Set<() => void>()
 
 export function clampScale(value: number): number {
@@ -30,7 +32,7 @@ export function cleanLook(value: unknown): DeviceLook {
     font: FONTS.includes(saved.font as ReadingFont) ? saved.font as ReadingFont : DEFAULT_LOOK.font,
     fontEverywhere: saved.fontEverywhere === true,
     motion: MOTIONS.includes(saved.motion as Motion) ? saved.motion as Motion : DEFAULT_LOOK.motion,
-    layout: saved.layout === 'reader' ? 'reader' : 'classic',
+    layout: LAYOUTS.includes(saved.layout as Layout) ? saved.layout as Layout : DEFAULT_LOOK.layout,
     stageArt: saved.stageArt !== false,
   }
 }

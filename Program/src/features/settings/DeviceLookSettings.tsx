@@ -7,7 +7,7 @@ const FONTS: { id: ReadingFont; label: string; hint: string }[] = [
   { id: 'atkinson', label: 'Atkinson Hyperlegible', hint: 'Clear, distinct letters' },
   { id: 'opendyslexic', label: 'OpenDyslexic', hint: 'Weighted letters for dyslexia' },
 ]
-const LAYOUTS: { id: Layout; label: string }[] = [{ id: 'classic', label: 'Classic' }, { id: 'reader', label: 'Reader' }]
+const LAYOUTS: { id: Layout; label: string }[] = [{ id: 'classic', label: 'Classic' }, { id: 'reader', label: 'Reader' }, { id: 'custom', label: 'Custom' }]
 const MOTIONS: { id: Motion; label: string }[] = [
   { id: 'system', label: 'Match my computer' }, { id: 'reduce', label: 'Less motion' }, { id: 'full', label: 'Full motion' },
 ]
@@ -93,7 +93,7 @@ function LayoutChoice({ layout }: { layout: Layout }) {
           </label>
         ))}
       </div>
-      <small id={`${name}-hint`} className="subtle">Classic shows the scene panel beside the story on a wide screen. Reader gives the story the room and keeps the panel in tabs under it, the way a phone does.</small>
+      <small id={`${name}-hint`} className="subtle">Classic shows the scene panel beside the story on a wide screen. Reader gives the story the room and keeps the panel in tabs under it, the way a phone does. Custom is a wider panel you arrange yourself: pick the widgets, their order and size, and keep layouts by name.</small>
     </fieldset>
   )
 }

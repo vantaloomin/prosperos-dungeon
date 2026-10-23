@@ -15,6 +15,7 @@ test('a damaged saved look falls back to the defaults, keeping what is valid', (
   assert.deepEqual(cleanLook({ textScale: 150, font: 'comic', motion: 'reduce', fontEverywhere: 'yes', layout: 'grid' }),
     { textScale: 150, font: 'default', fontEverywhere: false, motion: 'reduce', layout: 'classic', stageArt: true })
   assert.equal(cleanLook({ layout: 'reader' }).layout, 'reader')
+  assert.equal(cleanLook({ layout: 'custom' }).layout, 'custom')
   assert.equal(cleanLook({ stageArt: false }).stageArt, false)
 })
 

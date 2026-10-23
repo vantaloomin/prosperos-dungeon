@@ -150,7 +150,30 @@ textarea { resize: vertical; line-height: 1.6; }
   :root[data-layout='reader'] .story-panel-before .story-panel-body { position: static; max-height: 45dvh; background: none; border: 0; box-shadow: none; }
   :root[data-layout='reader'] .story-tabs { border-top: 0; padding: 6px 8px; }
   :root[data-layout='reader'] .story-panel-title { padding-right: 36px; }
+  /* Custom (deviceLook.ts layout, StoryGrid.tsx): a wider panel holding the player's own grid of tiles. */
+  :root[data-layout='custom'] .story-panel { flex-basis: 600px; max-width: 600px; }
 }
+.story-grid-bar, .story-grid-save { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.story-grid-pick select, .story-grid-add select { max-width: 220px; }
+.story-grid-save input { width: 150px; }
+.story-grid-add { display: inline-flex; align-items: center; gap: 6px; }
+.story-grid-add svg, .story-grid-bar svg { width: 15px; height: 15px; }
+.story-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: row dense; gap: 12px; align-items: start; }
+.story-tile { min-width: 0; display: flex; flex-direction: column; gap: 6px; border-radius: 10px; }
+.story-tile.wide { grid-column: span 2; }
+.story-tile.tall { grid-row: span 2; }
+.story-tile.tall .story-tile-body { max-height: 80dvh; overflow-y: auto; }
+.story-tile-body { min-width: 0; }
+.story-tile:not(.wide) .story-note-form { grid-template-columns: 1fr; }
+.story-tile-body input, .story-tile-body textarea, .story-tile-body select { min-width: 0; max-width: 100%; }
+.story-tile-tools { display: flex; align-items: center; gap: 4px; }
+.story-tile-tools .story-panel-heading { flex: 1; }
+.story-tile-tools select { font-size: 0.8rem; }
+.story-tile-tools .icon-button svg { width: 15px; height: 15px; }
+.story-grid.arranging .story-tile { outline: 1px dashed var(--border); outline-offset: 4px; cursor: grab; }
+.story-tile.flash { animation: tile-flash 1.6s ease-out; }
+@keyframes tile-flash { from { box-shadow: 0 0 0 3px var(--accent); } to { box-shadow: 0 0 0 3px transparent; } }
+:root[data-motion='reduce'] .story-tile.flash { animation: none; box-shadow: 0 0 0 3px var(--accent); }
 .story-layout { flex: none; align-self: center; }
 .story-layout svg { width: 16px; height: 16px; }
 .story-header { max-width: 760px; width: 100%; margin: 0 auto; padding: 18px 32px 12px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--border); }
