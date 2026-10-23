@@ -565,6 +565,15 @@ CREATE TABLE IF NOT EXISTS story_bonds (
   since TEXT NOT NULL
 );
 
+-- The party (dungeon/party.py): who travels with the character, with their townsfolk sheet from home.
+CREATE TABLE IF NOT EXISTS story_party (
+  key TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  city_id TEXT NOT NULL,
+  sheet TEXT NOT NULL,
+  joined TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS story_beats (
   message_id TEXT NOT NULL,
   key TEXT NOT NULL,

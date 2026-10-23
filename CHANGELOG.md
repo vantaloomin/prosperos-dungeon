@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Companions.** Ask someone along ("come with me, Hesk") and they decide for themselves: friends and bonds come,
+  the wary refuse, and anyone in between needs your Allure. Companions travel with you everywhere, act on their own,
+  and leave when you send them home, when you sour them, or when the world takes them. The drawer has a Party widget.
 - **Bonds.** Win someone's trust and affection, or swear yourself to them ("I swear to stand by you, Hesk"), and
   they are bonded to you. The sheet shows your Bonds track, People you've met marks who is bonded, and the narrator
   plays them as people who would stand by you. Life Cards about your bonds (a friend in debt, a confession) now turn
