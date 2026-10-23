@@ -171,6 +171,7 @@ class Play:
                     if 'error' in item:
                         error = f"{item.get('status')} {item.get('code')}: {item['error']}"
         took = time.monotonic() - started
+        error = error or (None if done else 'the stream ended with no reply and no error')
         if error:
             self.write(f'**Error:** {error}\n')
             if not (expect or {}).get('error'):

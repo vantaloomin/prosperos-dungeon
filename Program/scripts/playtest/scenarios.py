@@ -1125,8 +1125,14 @@ def town_map(play):
 def set_fight(play, spec: dict, zone: str = 'near'):
     """Put a fight with these foes on, as a road encounter would (the test's own setup, so it doesn't hang on the
     encounter dice)."""
-    from dungeon import combat  # the harness runs beside the app's code
-    foes = [foe | ({'ranged': True} if spec.get('ranged') else {}) for foe in combat.foes_from(spec, zone)]
+    import random
+
+    from dungeon import combat, combat5e, combat_brp, combat_iron  # the harness runs beside the app's code
+    ruleset = (play.dungeon.call('GET', '/api/story/sheet') or {}).get('ruleset')
+    made = (combat5e.foes_from(spec, zone, random.Random()) if ruleset == 'srd52' else
+            combat_brp.foes_from(spec, zone) if ruleset == 'brp' else
+            combat_iron.foes_from(spec, zone) if ruleset == 'ironsworn' else combat.foes_from(spec, zone))
+    foes = [foe | ({'ranged': True} if spec.get('ranged') else {}) for foe in made]
     sqlite3 = __import__('sqlite3')
     with sqlite3.connect(play.dungeon.data_dir / 'dungeon.sqlite3') as connection:
         connection.execute('INSERT INTO story_fight (id, round, wants, foes, initiative, bare) VALUES (1, 1, ?, ?, '
@@ -1503,6 +1509,109 @@ def real_time(play):
         play.flag(f'With the World clock on story time, five hours away still passed: {before} then {after}.')
 
 
+def fivee_start(play, class_id: str, name: str, about: str, scores: dict, levels: int = 2, hurt: int = 0):
+    """A 5E character of this class, raised `levels` levels as written (the test's own advance, to reach the
+    subclass), and `hurt` hit points down."""
+    from dungeon.rules import srd52  # the harness runs beside the app's code
+    srd = play.dungeon.call('GET', '/api/story/start').get('srd52') or {}
+    chosen = next(item for item in srd.get('classes') or [] if item['id'] == class_id)
+    background = (srd.get('backgrounds') or [{}])[0]
+    ids = {skill['name']: skill['id'] for skill in srd.get('skills') or []}
+    picks = [ids.get(skill, skill) for skill in chosen['skills']['from'] if skill not in (background.get('skills') or [])]
+    play.start(persona={'name': name, 'gender': 'woman', 'age': 33, 'about': about}, ruleset='srd52',
+               build={'class_id': class_id, 'species_id': 'human', 'background_id': background['id'], 'scores': scores,
+                      'skills': picks[:chosen['skills']['count']]})
+    sqlite3 = __import__('sqlite3')
+    with sqlite3.connect(play.dungeon.data_dir / 'dungeon.sqlite3') as connection:
+        sheet = json.loads(connection.execute('SELECT data FROM story_sheet WHERE id=1').fetchone()[0])
+        for _ in range(levels):
+            sheet, gained = srd52.advance(sheet)
+            play.write(f"- advanced to level {sheet['level']}: {gained}\n")
+        sheet['xp'] = srd52.xp_for(sheet['level']) or sheet.get('xp', 0)
+        sheet['hp'] = max(1, sheet['hp'] - hurt)
+        connection.execute('UPDATE story_sheet SET data=? WHERE id=1', (json.dumps(sheet),))
+    return play.sheet()
+
+
+def fivee_cleric(play):
+    """5E subclasses and upcasting: a Life Domain cleric at level 3 heals with Cure Wounds at 2nd level (Disciple of
+    Life adds 2 + the slot's level), then lays Hold Person on a thug and hits him while he is paralyzed."""
+    fivee_start(play, 'cleric', 'Maren Holt', 'A field priest of Tidum who followed the levy north and stayed.',
+                {'wis': 15, 'con': 14, 'str': 13, 'dex': 12, 'cha': 10, 'int': 8}, hurt=8)
+    play.say('I cast Cure Wounds at 2nd level on myself.', {'roll': True})
+    play.sheet()
+    play.move('the-ford')
+    set_fight(play, {'name': 'road thug', 'count': 1, 'vitality': 10, 'resolve': 8, 'weapon': 0, 'wants': 'rob'})
+    play.say('A thug comes at me by the ford. I cast Guiding Bolt at him with a 2nd-level slot.')
+    play.write(f"- fight: {json.dumps(fight_on(play).get('fight'))}\n")
+    if fight_on(play).get('fight'):
+        play.say('I cast Healing Word on myself and hit the thug with my mace.')
+    play.sheet()
+
+
+def fivee_evoker(play):
+    """An Evoker wizard at level 3: Magic Missile with a 2nd-level slot (three darts, always hitting), and a cantrip
+    whose made save still does half (Potent Cantrip)."""
+    fivee_start(play, 'wizard', 'Oriel Fenn', 'A hedge scholar from Eriane who reads ley lines for the Guild.',
+                {'int': 15, 'con': 14, 'dex': 13, 'wis': 12, 'cha': 10, 'str': 8})
+    play.move('the-ford')
+    set_fight(play, {'name': 'road thug', 'count': 2, 'vitality': 10, 'resolve': 8, 'weapon': 0, 'wants': 'kill'})
+    play.say('Two thugs come at me by the ford. I cast Burning Hands at the nearer one at 2nd level.')
+    for line in ('I cast Magic Missile at the other thug.', 'I cast Ice Knife at whoever is still standing.',
+                 'I cast Fire Bolt again.'):
+        if not fight_on(play).get('fight') or fight_on(play).get('dead'):
+            break
+        play.say(line)
+    play.sheet()
+
+
+def brp_magic(play):
+    """BRP magic: a wizard casts Light out of a fight and Blast 2 in one on power points, never spending the last;
+    sleep brings the points back."""
+    choices = play.dungeon.call('GET', '/api/story/start').get('brp') or {}
+    professions = [item.get('id') for item in choices.get('professions') or []]
+    play.write(f'- professions: {professions}\n')
+    if 'wizard' not in professions:
+        play.flag('No wizard profession offered under Percentile.')
+        return
+    play.start(persona={'name': 'Ysolde Varr', 'gender': 'woman', 'age': 40,
+                        'about': 'A guild-trained wizard from Eriane who came north to read the ley stones.'},
+               ruleset='brp', brp={'characteristics': {'str': 10, 'con': 11, 'siz': 11, 'cha': 11, 'dex': 11,
+                                                       'int': 13, 'pow': 13},
+                                   'profession': 'wizard', 'personality': 'cunning'})
+    play.sheet()
+    play.say('I cast a Light spell so I can read the notice on the green.', {'roll': True})
+    play.move('the-ford')
+    set_fight(play, {'name': 'road thug', 'count': 1, 'vitality': 10, 'resolve': 8, 'weapon': 0, 'wants': 'kill'})
+    play.say('A thug comes at me by the ford. I cast Blast 2 at him.')
+    for line in ('I cast Protection 2 on myself.', 'I cast Blast 3 at the thug.', 'I cast Blast 3 at the thug again.'):
+        if not fight_on(play).get('fight') or fight_on(play).get('dead'):
+            break
+        play.say(line)
+    play.sheet()
+    play.say('I sleep the night at the Wayhouse.')
+    play.sheet()
+
+
+def town_quests(play):
+    """Town adventures: a BABEL start on the Concourse begins its quests; reaching Hollin mid-campaign begins
+    Hollin's (once, deadlines from the arrival); a dangerous place there and a search with its finds."""
+    play.dungeon.call('PUT', '/api/story/scene', {'city_id': 'the-concourse', 'place_id': 'the-plaza'})
+    play.dungeon.call('DELETE', '/api/story')
+    premades = play.dungeon.call('GET', '/api/story/start').get('premades') or []
+    if not premades:
+        play.flag('No BABEL premades offered on the Concourse.')
+        return
+    play.start(premades[0]['id'])
+    play.journal()
+    play.say('I set out for Hollin.')
+    play.write(f"- scene: {play.story()['scene']['place']['id']} in {play.story()['scene']['city']['name']}\n")
+    play.journal()
+    play.say('I go down into the bone-cellar with a lamp and look around.')
+    play.say('I search the bone-cellar for anything worth carrying.')
+    play.gear()
+
+
 SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl, 'road': road,
              'director': director, 'chapters': chapters, 'ironman': ironman, 'gm_view': gm_view, 'memory': memory,
              'legacy': legacy, 'fivee_checks': fivee_checks, 'fivee_fight': fivee_fight,
@@ -1518,4 +1627,5 @@ SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl,
              'robbers': robbers, 'captors': captors, 'brawler': brawler, 'ambush': ambush,
              'lies': lies, 'labour': labour, 'ranges': ranges, 'shut_shop': shut_shop,
              'dice_log': dice_log, 'haggling': haggling, 'life_cards': life_cards, 'bonds': bonds, 'party': party,
-             'ironsworn_vows': ironsworn_vows, 'fate_stress': fate_stress, 'real_time': real_time}
+             'ironsworn_vows': ironsworn_vows, 'fate_stress': fate_stress, 'real_time': real_time,
+             'fivee_cleric': fivee_cleric, 'fivee_evoker': fivee_evoker, 'brp_magic': brp_magic, 'town_quests': town_quests}
