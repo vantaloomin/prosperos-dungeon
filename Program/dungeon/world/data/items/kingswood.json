@@ -270,6 +270,99 @@
    "slots": 0.1,
    "rarity": "uncommon",
    "legal": true
+  },
+  {
+   "id": "fireside-floor",
+   "name": "Fireside floor, a night",
+   "category": "service",
+   "price": 0.1,
+   "slots": 0,
+   "rarity": "common",
+   "legal": true,
+   "service": "lodging",
+   "tier": "floor"
+  },
+  {
+   "id": "bunk-night",
+   "name": "Common-room bunk, a night",
+   "category": "service",
+   "price": 0.4,
+   "slots": 0,
+   "rarity": "common",
+   "legal": true,
+   "service": "lodging",
+   "tier": "common"
+  },
+  {
+   "id": "private-room",
+   "name": "Private room, a night",
+   "category": "service",
+   "price": 1.5,
+   "slots": 0,
+   "rarity": "common",
+   "legal": true,
+   "service": "lodging",
+   "tier": "private"
+  },
+  {
+   "id": "hot-meal",
+   "name": "Hot meal",
+   "category": "service",
+   "price": 0.25,
+   "slots": 0,
+   "rarity": "common",
+   "legal": true,
+   "service": "meal"
+  },
+  {
+   "id": "stew-bowl",
+   "name": "Bowl of stew",
+   "category": "service",
+   "price": 0.25,
+   "slots": 0,
+   "rarity": "common",
+   "legal": true,
+   "service": "meal"
+  },
+  {
+   "id": "ale-mug",
+   "name": "Mug of ale",
+   "category": "service",
+   "price": 0.15,
+   "slots": 0,
+   "rarity": "common",
+   "legal": true,
+   "service": "drink"
+  },
+  {
+   "id": "hot-bath",
+   "name": "Hot bath",
+   "category": "service",
+   "price": 0.2,
+   "slots": 0,
+   "rarity": "common",
+   "legal": true,
+   "service": "bath"
+  },
+  {
+   "id": "stabling",
+   "name": "Stabling, a night",
+   "category": "service",
+   "price": 0.2,
+   "slots": 0,
+   "rarity": "common",
+   "legal": true,
+   "service": "stabling"
+  },
+  {
+   "id": "heartwood-guide",
+   "name": "Woods guide, a day",
+   "category": "service",
+   "price": 1.5,
+   "slots": 0,
+   "rarity": "common",
+   "legal": true,
+   "service": "guide"
   }
  ],
  "shops": [
@@ -330,6 +423,40 @@
    "stock": {
     "plum-spirit": 6,
     "poultice": 2
+   }
+  },
+  {
+   "place": "the-wayhouse",
+   "buys": [],
+   "sell_rate": 0.5,
+   "restock_days": 1,
+   "stock": {
+    "fireside-floor": 6,
+    "bunk-night": 8,
+    "private-room": 3,
+    "hot-meal": 20,
+    "hot-bath": 4,
+    "stabling": 4,
+    "heartwood-guide": 1
+   }
+  },
+  {
+   "place": "felled-oak",
+   "buys": [],
+   "sell_rate": 0.5,
+   "restock_days": 1,
+   "stock": {
+    "stew-bowl": 20,
+    "ale-mug": 40
+   }
+  },
+  {
+   "place": "bunkhouses",
+   "buys": [],
+   "sell_rate": 0.5,
+   "restock_days": 1,
+   "stock": {
+    "bunk-night": 12
    }
   }
  ],

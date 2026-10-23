@@ -683,7 +683,7 @@ def clear(database) -> dict:
         connection.execute('DELETE FROM story_messages')
         connection.execute('DELETE FROM story_people')
         for name in ('record_entries', 'record_corrections', 'story_summary', 'story_clock', 'story_quests',
-                      'story_inventory', 'story_purse', 'story_stock', 'story_shops', 'story_markets', 'story_trades', 'story_wounds', 'story_fight',
+                      'story_inventory', 'story_purse', 'story_stock', 'story_shops', 'story_markets', 'story_services', 'story_trades', 'story_wounds', 'story_fight',
                       'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
                       'story_rounds', 'story_map', 'story_hexes', 'story_sites', 'story_lots', 'story_position', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
                       'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_beats', 'story_word',
@@ -734,7 +734,7 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
     who_text, name = persona_text(connection)
     for extra in (combat.condition_text(connection), stress.prompt_text(connection), growth.prompt_text(connection),
                   injuries.prompt_text(connection, now),
-                  inventory.prompt_text(connection, view['city']['id'], view['data']['currency'])):
+                  inventory.prompt_text(connection, view['city']['id'], view['data']['currency'], story_day(view))):
         if extra:
             who_text = f'{who_text}\n{extra}' if who_text else extra
     shop, level = shop_view(connection, view), intensity(connection, view['data'])
@@ -932,14 +932,22 @@ def slept(database, connection, resting: dict, rolls: list[dict], message_id: st
         _, hungry = travel.eat(connection, resting['food'], nights - 1)
     row = scene_row(connection)
     local = local_moment(city_data(connection, row['city_id']), story_clock.now(connection, database.clock))
+    # A bed paid for here tonight (dungeon/inventory.py services): the narrator plays it, and a private room's quiet
+    # eases one more point of stress. Before dawn, last evening's bed still counts.
+    nights_of = [local.date()] + ([local.date() - timedelta(days=1)] if local.hour < rest.WAKE_HOUR else [])
+    paid = next((found for day in nights_of
+                 if (found := inventory.bed(connection, row['city_id'], row['place_id'], day.isoformat()))), None)
     pass_time(database, connection, rest.minutes(nights, cut_short, local))
     lines = [rest.opening(resting), *happened]
+    if paid:
+        lines.append(f"They sleep in what they paid for: {paid['name']}.")
     if hungry:
         lines.append(f"The pack runs out of food: {hungry} hungry day{'s' if hungry > 1 else ''}, and no mending on them.")
     # A night's sleep turns what the character used into growth (dungeon/growth.py).
     grown = growth.grow(connection, database.now(), rng) if nights - lost > 0 else []
-    return (lines + combat.mend(connection, nights - lost - hungry) + stress.ease(connection, nights - lost - hungry)
-            + grown)
+    comfort = 1 if paid and paid.get('tier') == 'private' and nights - lost > 0 else 0
+    return (lines + combat.mend(connection, nights - lost - hungry)
+            + stress.ease(connection, nights - lost - hungry + comfort) + grown)
 
 
 def treat_turn(state, user: dict, rolls: list[dict]) -> list[str]:

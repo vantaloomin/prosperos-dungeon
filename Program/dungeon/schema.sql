@@ -406,6 +406,17 @@ CREATE TABLE IF NOT EXISTS story_shops (
   PRIMARY KEY (city_id, place_id)
 );
 
+-- Services paid for (dungeon/inventory.py): lodging, a meal, a bath, a guide, kept for the story day they were bought.
+CREATE TABLE IF NOT EXISTS story_services (
+  id TEXT PRIMARY KEY,
+  city_id TEXT NOT NULL,
+  place_id TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  qty INTEGER NOT NULL,
+  day TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
 -- Markets moved by Life Cards (dungeon/inventory.py move_market): a kind of goods' prices in a town, until a day.
 CREATE TABLE IF NOT EXISTS story_markets (
   id TEXT PRIMARY KEY,

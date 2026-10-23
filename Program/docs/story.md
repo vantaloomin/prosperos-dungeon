@@ -365,10 +365,18 @@ its shops with their starting stock, and each premade's starting kit (plus a def
 - **Markets.** A Life Card's market effect (`dungeon/happenings.py`) moves a kind of goods' prices in the town for some
   days (`story_markets`: food, drink, medicine, arms, cloth, ley goods or everything), both what shops charge and what
   they pay. The counter and the narrator are told.
+- **Services.** Inns, taverns and bathhouses sell services from the same item files (category `service`, with its
+  `service` kind and, for lodging, a comfort `tier`): Kingswood's Wayhouse has a fireside floor (0.10 cr.), a
+  common-room bunk (0.40), a private room (1.50), hot meals, baths, stabling and a woods guide; the Felled Oak stew and
+  ale; the bunkhouses bunks. The Concourse's Pallet House and Tap and Tally, and the Gilded Bazaar's Copper Scale, have
+  theirs. Stock is how many rooms or bowls there are, back every day (`restock_days` 1). A service bought ("I take a
+  room", "I order the stew", "I hire a guide") is not carried: it is kept for that story day (`story_services`) and the
+  narrator is told "Paid for today". A rest where a bed was paid for that night is told so, and a private room eases
+  one more point of stress. A data test keeps a common-room night and a meal within an unskilled day's wage.
 - Everything branches with the story and is cleared by a new story.
 
-Not yet: an opposed roll against the keeper's Resolve, priced services (lodging, baths, hirelings), wear, loot from
-bodies, appearance state.
+Not yet: an opposed roll against the keeper's Resolve, hirelings who travel and fight beside the character, wear,
+loot from bodies, appearance state.
 
 ## Fights
 
