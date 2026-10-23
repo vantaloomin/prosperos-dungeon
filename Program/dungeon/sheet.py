@@ -86,7 +86,7 @@ def check(connection, approach: str, difficulty: str = 'normal', text: str = '',
     found = native(connection) if played != marvel.ID else None
     if found and played == srd52.ID:
         result = srd52.check(found, approach, difficulty, text, rng, save) | {'ruleset': srd52.ID}
-        return cast(connection, found, result, rng) if result.get('spell') else result
+        return cast(connection, found, result, rng, text) if result.get('spell') else result
     if found and played == brp.ID:
         # A skill that succeeds gets its experience check; First Aid on the character's own wound heals.
         from dungeon import combat_brp
@@ -119,25 +119,29 @@ def check(connection, approach: str, difficulty: str = 'normal', text: str = '',
                                                                             'skill': None}
 
 
-def cast(connection, found: dict, result: dict, rng) -> dict:
-    """A 5E spell cast by the turn's check: it spends a slot (none left, it fails); a healing spell always works and
-    heals the character."""
+def cast(connection, found: dict, result: dict, rng, text: str = '') -> dict:
+    """A 5E spell cast by the turn's check: it spends a slot, the one the line asks for when it is free ("at 2nd
+    level"; none left, it fails); a healing spell always works and heals the character. A slot above the spell's
+    level is named on the card ("2nd-level slot") for the fight to scale the spell by."""
     spell = srd52.spells()[result['spell']]
-    slot = srd52.spend(found, spell)
+    slot = srd52.spend(found, spell, srd52.upcast(text))
     if slot is None:
         # No dice: the spell just fails (the card shows no roll).
         return result | {'band': 'failure', 'natural': 0, 'total': 0, 'rolls': [],
                          'skill': f"{spell['name']} (no spell slot left)", 'spell': None}
+    upcast = f" ({srd52.ordinal(slot)}-level slot)" if slot > spell['level'] else ''
     if dice := srd52.healing_of(spell):
         from dungeon import combat, combat5e
-        healed = max(1, combat5e.roll_dice(dice, rng or random.SystemRandom())
-                     + srd52.modifier(found['abilities'][found['spell_ability']]))
+        # The Life Domain's Disciple of Life adds 2 + the slot's level to a levelled healing spell.
+        blessed = 2 + slot if slot and srd52.has(found, 'Disciple of Life') else 0
+        healed = max(1, combat5e.roll_dice(srd52.scaled(dice, spell, slot), rng or random.SystemRandom())
+                     + srd52.modifier(found['abilities'][found['spell_ability']]) + blessed)
         found['hp'] = min(found['max_hp'], found['hp'] + healed)
         set_native(connection, found, '')
         combat.set_condition(connection, combat5e.level_for(found['hp'], found['max_hp']))
-        return result | {'band': 'success', 'skill': f"{spell['name']} (heals {healed})"}
+        return result | {'band': 'success', 'skill': f"{spell['name']}{upcast} (heals {healed})"}
     set_native(connection, found, '')
-    return result
+    return result | ({'skill': f"{result['skill']}{upcast}"} if upcast else {})
 
 
 def full_view(connection) -> dict:

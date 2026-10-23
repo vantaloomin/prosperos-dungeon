@@ -112,10 +112,25 @@ healers, townsfolk) keeps MARVEL stats for now.
   spends the lowest slot it fits, and with none left it just fails, with no dice (the card says no roll). A healing
   spell (Cure Wounds, Healing Word) always works and heals the character. In a fight a damaging spell is a spell attack on AC, or the foe's save against the
   spell save DC (8 + ability + proficiency), as in "Fights under 5E". A long rest gives every slot back.
-- The sheet shows the level, XP to the next, the features, the spells and the slots left.
+- **Subclasses** (`srd52.subclassed`). The SRD has one subclass a class (Champion, Life Domain, Evoker, Thief…). At
+  the class's subclass level (3) it is the character's: its name takes the place of "Fighter Subclass" among the
+  features, and each level after adds its features. The spells a subclass always has prepared (Life Domain Spells,
+  a Circle of the Land druid's first land) are prepared on top of the class's count. In code: the Champion's
+  Improved Critical (19–20) and Superior Critical (18–20), the Life Domain's Disciple of Life (a levelled healing
+  spell heals 2 + the slot's level more) and the Evoker's Potent Cantrip (half damage on a made save). The others
+  are features the narrator reads.
+- **Upcasting** (`srd52.upcast`, `srd52.scaled`). A line that names a slot ("Cure Wounds at 2nd level", "with a
+  3rd-level slot") spends that slot when it is free, and the card says so; damage and healing grow as the spell's
+  higher-level text says (Burning Hands +1d6 a level). Magic Missile's darts always hit, 1d4 + 1 each, one more a
+  slot level.
+- **Conditions** (`combat5e.lay`). A spell that lays a condition on a failed save (Hold Person, Sleep, Charm Person,
+  Entangle…) does so in a fight: paralyzed, unconscious or incapacitated foes lose their turns (saving again each
+  round when the spell says so) and a hit on the paralyzed or unconscious is a critical hit; charmed foes stop
+  fighting and frightened ones flee; restrained or blinded ones attack with disadvantage.
+- The sheet shows the level, subclass, XP to the next, the features, the spells and the slots left.
 
-Not yet: choosing spells and the ability increase yourself, subclasses, class features in fights (Rage, Sneak
-Attack, Second Wind), upcasting and spells' other effects (conditions, areas, concentration).
+Not yet: choosing spells, the subclass and the ability increase yourself, class features in fights (Rage, Sneak
+Attack, Second Wind), areas (a spell hits one foe) and concentration.
 
 - **Ironsworn** (`dungeon/rules/ironsworn.py`, content in `dungeon/rules/packs/ironsworn`: Datasworn's Ironsworn
   data, CC-BY-4.0; the attribution shows on the start screen and the sheet). A character places 3, 2, 2, 1 and 1 on

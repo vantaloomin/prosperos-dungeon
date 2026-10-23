@@ -294,7 +294,7 @@ export interface MarvelSheet { ruleset: 'marvel'; ruleset_name: string; stats: R
 export interface Srd52Sheet {
   ruleset: 'srd52'; ruleset_name: string; level: number; xp: number; abilities: Record<string, number>; modifiers: Record<string, number>
   proficiency: number; max_hp: number; hp: number; ac: number; speed: number; saves: string[]; skills: string[]
-  names: { class: string; species: string; background: string }
+  names: { class: string; species: string; background: string; subclass?: string | null }
   skill_bonuses: Record<string, { name: string; ability: string; bonus: number; proficient: boolean }>
   attribution: string; growth?: SheetGrowth
   /** XP that reaches the next level (null at 20), the class's features so far, and the caster's spells. */

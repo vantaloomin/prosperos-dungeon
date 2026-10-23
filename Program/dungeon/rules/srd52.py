@@ -231,11 +231,52 @@ def advance(sheet: dict) -> tuple[dict, list[str]]:
     found['max_hp'] += max(1, by_id('classes')[found['class']]['hit_die'] // 2 + 1 + modifier(found['abilities']['con']))
     found['hp'] += found['max_hp'] - before
     found['ac'] = armor_class(found['class'], found['abilities'], found.get('armor'))
+    features = subclassed(found, features)
     found['features'] = list(dict.fromkeys(found.get('features', []) + features))
     gained.insert(0, f"{found['max_hp'] - before} more hit points")
     gained += features
     found = with_spells(found)
     return found, gained
+
+
+def subclassed(sheet: dict, features: list[str]) -> list[str]:
+    """The level's features with the subclass in them: at the class's subclass level the SRD's one subclass is the
+    character's (its name in place of "Fighter Subclass"), and from then each level adds its features. Changes
+    `sheet`."""
+    chosen = by_id('classes')[sheet['class']]['subclass']
+    if any(name.endswith(' Subclass') for name in features):
+        sheet['subclass'] = chosen['id']
+        features = [chosen['name'] if name.endswith(' Subclass') else name for name in features]
+    if sheet.get('subclass') != chosen['id']:
+        return features
+    return features + [feature['name'] for feature in chosen['features'] if feature['level'] == sheet['level']]
+
+
+def subclass_spells(sheet: dict) -> list[str]:
+    """The spells the subclass always has prepared at the character's level (a Circle of the Land druid's first
+    land, as code picks it)."""
+    chosen = by_id('classes')[sheet['class']]['subclass']
+    if sheet.get('subclass') != chosen['id']:
+        return []
+    named = {spell['name'].lower().replace('’', "'"): spell['id'] for spell in spells().values()}
+    found = []
+    for feature in chosen['features']:
+        if feature['name'].endswith(' Spells') and feature.get('tables'):
+            for level, names in feature['tables'][0]['rows']:
+                if int(level) <= sheet['level']:
+                    found += [named[name] for name in (part.strip().lower().replace('’', "'")
+                                                       for part in names.split(',')) if name in named]
+    return found
+
+
+def has(sheet: dict, feature: str) -> bool:
+    return feature in sheet.get('features', [])
+
+
+def critical_from(sheet: dict) -> int:
+    """The lowest natural d20 that is a critical hit: 20, or 19 with the Champion's Improved Critical, 18 with
+    Superior Critical."""
+    return 18 if has(sheet, 'Superior Critical') else 19 if has(sheet, 'Improved Critical') else 20
 
 
 # Spells -----------------------------------------------------------------------------------------------------
@@ -288,10 +329,15 @@ def with_spells(sheet: dict) -> dict:
     highest = max((number for number, count in enumerate(slots, 1) if count), default=1)
     old = sheet.get('spells') or {}
     used = old.get('used') or [0] * 9
+    always = subclass_spells(sheet)
+    own = picks_from(chosen['name'], range(1, highest + 1), int(columns.get('prepared_spells') or 0),
+                     [spell for spell in old.get('prepared', []) if spell not in always])
     return sheet | {'spells': {
-        'cantrips': picks_from(chosen['name'], range(0, 1), int(columns.get('cantrips') or 0), old.get('cantrips', [])),
-        'prepared': picks_from(chosen['name'], range(1, highest + 1), int(columns.get('prepared_spells') or 0),
-                               old.get('prepared', [])),
+        'cantrips': list(dict.fromkeys(
+            picks_from(chosen['name'], range(0, 1), int(columns.get('cantrips') or 0), old.get('cantrips', []))
+            + [spell for spell in always if spells()[spell]['level'] == 0])),
+        # The subclass's spells are always prepared, on top of the class's count.
+        'prepared': list(dict.fromkeys(own + [spell for spell in always if spells()[spell]['level'] > 0])),
         'slots': slots, 'used': [min(count, spent) for count, spent in zip(slots, used)]}}
 
 
@@ -316,12 +362,47 @@ def cantrip_dice(dice: str, level: int) -> str:
     return f"{int(count) * (1 + (level >= 5) + (level >= 11) + (level >= 17))}d{sides}"
 
 
-def spend(sheet: dict, spell: dict) -> int | None:
-    """Spends the lowest free slot the spell fits; returns its level (0 for a cantrip), None when none is left."""
+UPCAST = re.compile(r'\b(?:at|as an?|with an?|using an?|in an?|from an?|on an?)\s+(\d)(?:st|nd|rd|th)[- ]level\b|'
+                    r'\bupcast\w*\s+(?:to|at)\s+(?:level\s+)?(\d)\b', re.I)
+HIGHER = re.compile(r'(damage|healing)[^.]*?increases by (\d+)d(\d+) for each spell slot level above (\d)', re.I)
+
+
+def ordinal(number: int) -> str:
+    return f"{number}{ {1: 'st', 2: 'nd', 3: 'rd'}.get(number, 'th')}"
+
+
+SLOT = re.compile(r'\((\d)(?:st|nd|rd|th)-level slot\)')
+
+
+def slot_of(skill: str | None) -> int | None:
+    """The slot a roll's card says a spell was cast with, when above the spell's level."""
+    match = SLOT.search(skill or '')
+    return int(match.group(1)) if match else None
+
+
+def upcast(text: str) -> int | None:
+    """The slot level a line asks for ("cast Cure Wounds at 2nd level", "with a 3rd-level slot")."""
+    match = UPCAST.search(text)
+    return int(match.group(1) or match.group(2)) if match else None
+
+
+def scaled(dice: str, spell: dict, slot: int | None) -> str:
+    """A spell's damage or healing dice cast with a higher slot, as its higher_levels text says."""
+    match = HIGHER.search(spell.get('higher_levels') or '')
+    count, sides = dice.split('d')
+    if not match or not slot or slot <= int(match.group(4)) or match.group(3) != sides:
+        return dice
+    return f"{int(count) + int(match.group(2)) * (slot - int(match.group(4)))}d{sides}"
+
+
+def spend(sheet: dict, spell: dict, at: int | None = None) -> int | None:
+    """Spends a slot for the spell: the level asked for (`at`) when it is free, else the lowest free slot it fits;
+    returns the slot's level (0 for a cantrip), None when none is left."""
     if spell['level'] == 0:
         return 0
     own = sheet['spells']
-    for number in range(spell['level'], 10):
+    asked = [at] if at and spell['level'] <= at <= 9 else []
+    for number in asked + list(range(spell['level'], 10)):
         if own['used'][number - 1] < own['slots'][number - 1]:
             own['used'][number - 1] += 1
             return number
@@ -332,7 +413,8 @@ def view(sheet: dict) -> dict:
     """The sheet as the screen shows it: names, modifiers, every skill's bonus and the attribution."""
     bonus = proficiency(sheet['level'])
     names = {'class': by_id('classes')[sheet['class']]['name'], 'species': by_id('species')[sheet['species']]['name'],
-             'background': by_id('backgrounds')[sheet['background']]['name']}
+             'background': by_id('backgrounds')[sheet['background']]['name'],
+             'subclass': by_id('classes')[sheet['class']]['subclass']['name'] if sheet.get('subclass') else None}
     return {'ruleset': ID, 'ruleset_name': NAME, **sheet, 'names': names, 'proficiency': bonus,
             'modifiers': {ability: modifier(score) for ability, score in sheet['abilities'].items()},
             'skill_bonuses': {skill['id']: {'name': skill['name'], 'ability': skill['ability'],
@@ -361,7 +443,9 @@ def described(sheet: dict) -> str:
     view_names = view(sheet)['names']
     strong = [ABILITY_NAMES[ability] for ability, score in sheet['abilities'].items() if score >= 15]
     weak = [ABILITY_NAMES[ability] for ability, score in sheet['abilities'].items() if score <= 9]
-    return (f"A level {sheet['level']} {view_names['species']} {view_names['class']} ({view_names['background']})"
+    subclass = f", {view_names['subclass']}" if view_names['subclass'] else ''
+    return (f"A level {sheet['level']} {view_names['species']} {view_names['class']}{subclass} "
+            f"({view_names['background']})"
             + (f"; strong in {', '.join(strong)}" if strong else '') + (f"; weak in {', '.join(weak)}" if weak else '')
             + '.')
 
