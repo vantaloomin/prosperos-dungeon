@@ -920,6 +920,208 @@ def hamlet(play):
     play.say('I look for whoever is in charge here and ask what news there is.')
 
 
+def narration_format(play):
+    """How it's written: a new campaign starts in close third person, past tense, short; first person present and
+    long at the Table; then second person past, the next line following the change."""
+    play.start('agna-holt')
+    rules = play.dungeon.call('GET', '/api/story/table')
+    play.write(f"- format at start: pov {rules.get('pov')}, tense {rules.get('tense')}, length {rules.get('length')}\n")
+    if (rules.get('pov'), rules.get('tense'), rules.get('length')) != ('third', 'past', 'short'):
+        play.flag(f"A new campaign did not start in third person, past tense, short: {rules}")
+    play.say('I take a seat by the fire and watch who comes in.')
+    play.attempt('First person, present tense, long', 'PUT', '/api/story/table',
+                 {'pov': 'first', 'tense': 'present', 'length': 'long'})
+    play.say('I order an ale and ask the keeper what news there is from the Heartwood.', {'max_words': 1600})
+    play.attempt('Second person, past tense, medium', 'PUT', '/api/story/table',
+                 {'pov': 'second', 'tense': 'past', 'length': 'medium'})
+    play.say('I finish my ale and head up to bed.', {'max_words': 550})
+
+
+def selling(play):
+    """Shops: selling in the story, the keeper's till, stolen goods refused by an honest shop, and Mother Mag's fence
+    buying them at a quarter."""
+    play.start('tobin-pell')
+    play.move('pell-provisions')
+    play.gear()
+    play.say('I sell my blanket over the counter.')  # Tobin carries no blanket: the sale should be refused
+    play.say('I sell my ledger book over the counter.')
+    play.gear()
+    stolen = []
+    for line in ('I pocket a lantern from the shelf while the keeper is turned away.',
+                 'I slip a coil of rope under my coat when nobody is looking.',
+                 'I palm a flint and steel off the counter.'):
+        play.say(line)
+        stolen = [item['name'] for item in play.gear().get('items') or [] if item.get('stolen')]
+        if stolen:
+            break
+    play.write(f'- stolen: {stolen}\n')
+    if stolen:
+        play.say(f'I try to sell the {stolen[0].lower()} back to the keeper.')
+        play.gear()
+    play.move('mother-mags')
+    if not (play.gear().get('shop') or {}).get('open'):
+        play.say("I wait outside Mother Mag's until she opens for the evening.")
+        play.gear()
+    if stolen:
+        play.say(f'I fence the {stolen[0].lower()} to Mother Mag.')
+    play.say('I sell Mother Mag everything else I can spare, all of it.')
+    play.gear()
+
+
+def fence(play):
+    """Stolen goods: an honest shop turns them away, and Mother Mag's fence buys them at a quarter, out of a small
+    till. The goods are marked stolen and the clock set to evening by the test itself."""
+    play.start('tobin-pell')
+    sqlite3 = __import__('sqlite3')
+    with sqlite3.connect(play.dungeon.data_dir / 'dungeon.sqlite3') as connection:
+        connection.execute("UPDATE story_inventory SET stolen=1 WHERE item_id IN ('candles', 'gloves')")
+    play.write('- candles and gloves marked stolen for the test\n')
+    play.move('pell-provisions')
+    play.gear()
+    play.say('I sell the candles over the counter.')
+    play.gear()
+    with sqlite3.connect(play.dungeon.data_dir / 'dungeon.sqlite3') as connection:
+        at = connection.execute('SELECT at FROM story_clock WHERE id=1').fetchone()[0]
+        connection.execute('UPDATE story_clock SET at=? WHERE id=1', (at[:11] + '20:30:00' + at[19:],))
+    play.move('mother-mags')
+    before = play.gear()
+    play.say('I fence the candles to Mother Mag.')
+    play.say('I sell Mother Mag my gloves and my cloak too.')
+    after = play.gear()
+    if after.get('coins') == before.get('coins'):
+        play.flag("Mother Mag's fence bought nothing.")
+
+
+def wayhouse(play):
+    """Services: a private room, a hot meal and a bath at the Wayhouse, kept for the day and not carried; a night's
+    rest in the paid bed."""
+    play.start('agna-holt')
+    play.move('the-wayhouse')
+    coins = play.gear().get('coins')
+    play.say('I take a private room for the night.')
+    if play.gear().get('coins') == coins:
+        play.flag('"I take a private room for the night" paid for nothing.')
+        play.say('I rent the private room for the night, then.')
+    play.say('I order a hot meal and eat it by the fire.')
+    play.say('I pay for a hot bath and soak until the water goes cold.')
+    gear = play.gear()
+    carried = [item['name'] for item in gear.get('items') or [] if item.get('category') == 'service']
+    if carried:
+        play.flag(f'Services ended up in the pack: {carried}')
+    play.say('I go up to my room and sleep until morning.')
+    play.gear()
+
+
+def grime(play):
+    """How you look: a hard day's work makes the character grimy, washing at the ford takes it down a step, and
+    undressing and dressing move the layers."""
+    play.start('tobin-pell')
+    play.move('timber-yards')
+    play.gear()
+    play.say('I spend the whole day hauling logs and stacking planks at the timber yards for a day wage.')
+    before = play.gear().get('looks') or {}
+    play.move('the-ford')
+    play.say('I take off my coat and shirt and wash in the river.')
+    after = play.gear().get('looks') or {}
+    if before.get('grime') == after.get('grime') and before.get('grime') not in (None, 'clean'):
+        play.flag(f"Washing did not change how grimy the character is: {before.get('cleanliness')}")
+    play.say('I put my shirt and coat back on and walk back into town.')
+    play.gear()
+
+
+def spoils(play):
+    """The fallen: a fight won leaves a body; searching it shows what it carried, and taking the coins is not
+    stolen."""
+    play.start('agna-holt')
+    sqlite3 = __import__('sqlite3')
+    with sqlite3.connect(play.dungeon.data_dir / 'dungeon.sqlite3') as connection:  # the Sawpit fills at night
+        at = connection.execute('SELECT at FROM story_clock WHERE id=1').fetchone()[0]
+        connection.execute('UPDATE story_clock SET at=? WHERE id=1', (at[:11] + '20:30:00' + at[19:],))
+    play.move('the-sawpit')
+    play.write(f"- around: {[str(person) for person in play.story()['scene'].get('around') or []]}\n")
+    play.say('I pick out the loudest logger in the place, call him a coward, and cut at him with my sword.',
+             {'fight': True})
+    for line in ('I cut at him.', 'I drive the point at his chest.', 'I swing again.', 'I press the attack.',
+                 'I keep fighting.', 'I finish him.'):
+        fight = play.story().get('fight') or {}
+        if not fight.get('fight') or fight.get('dead'):
+            break
+        play.say(line)
+    play.gear()
+    play.say('I search the body.')
+    play.say('I take the coins.')
+    gear = play.gear()
+    if any(item.get('stolen') for item in gear.get('items') or []):
+        play.flag('Something taken from a body is marked stolen.')
+
+
+def mending(play):
+    """Wear and repair: a damaged sword mended at the Blackwood smithy for a price, not bought anew."""
+    play.start('agna-holt')
+    sqlite3 = __import__('sqlite3')
+    with sqlite3.connect(play.dungeon.data_dir / 'dungeon.sqlite3') as connection:  # the test's own damage
+        connection.row_factory = sqlite3.Row
+        row = connection.execute("SELECT id, item_id FROM story_inventory WHERE item_id LIKE '%sword%' "
+                                 "OR item_id LIKE '%blade%'").fetchone()
+        if row:
+            connection.execute("UPDATE story_inventory SET condition='damaged' WHERE id=?", (row['id'],))
+    if not row:
+        play.flag('No sword in the pack to damage.')
+        return
+    play.write(f"- damaged {row['item_id']} for the test\n")
+    play.move('blackwood-smithy')
+    before = play.gear()
+    if not (before.get('shop') or {}).get('open'):
+        play.say('I sleep rough by the smithy and wait for the smith to come to work in the morning.')
+        before = play.gear()
+    play.say('I have the smith mend my sword.')
+    after = play.gear()
+    swords = [item for item in after.get('items') or [] if item['item_id'] == row['item_id']]
+    if len(swords) != 1 or sum(item.get('qty', 1) for item in swords) != 1:
+        play.flag(f'Mending bought a sword, or lost one: {swords}')
+    if swords and swords[0].get('condition') != 'sound':
+        play.flag(f"The sword is still {swords[0].get('condition')} after the smith mended it.")
+    if after.get('coins') == before.get('coins'):
+        play.flag('The repair cost nothing.')
+
+
+def town_map(play):
+    """The Town widget: Kingswood's street map, looking at a blank building, and walking to it by name."""
+    play.start('agna-holt')
+    town = play.dungeon.call('GET', '/api/story/town')['town']
+    if not town:
+        play.flag('Kingswood has no street map.')
+        return
+    lots = town.get('lots') or []
+    blank = [lot for lot in lots if not lot.get('place')]
+    play.write(f"- {town.get('name')}: {len(lots)} lots, {len(blank)} blank, here {town.get('here')}, "
+               f"keys {sorted(town)}\n")
+    named = [lot['place']['name'] for lot in lots if lot.get('place')]
+    play.write(f'- on the map: {named[:30]}\n')
+    if not blank:
+        play.flag('No blank building to look at.')
+        return
+    looked = play.dungeon.call('POST', f"/api/story/town/lots/{blank[0]['id']}/look")
+    found = looked.get('found') or {}
+    play.write(f"- looked at {blank[0]['id']}: {json.dumps(found)[:400]}\n")
+    again = play.dungeon.call('POST', f"/api/story/town/lots/{blank[0]['id']}/look")
+    if again.get('found') != found:
+        play.flag('Looking at the same building twice gave a different answer.')
+    name = found.get('name') or (found.get('place') or {}).get('name')
+    if not name:
+        play.flag(f'The looked-at building has no name: {found}')
+        return
+    play.say(f'I walk over to {name}.')
+    scene = play.story()['scene']
+    play.write(f"- scene: {scene['place']['id']} / {scene['place']['name']}\n")
+    if name.lower() not in scene['place']['name'].lower():
+        play.flag(f"Walking to {name} put the scene at {scene['place']['name']}.")
+    play.say('I walk to the Blackwood smithy.')
+    play.write(f"- scene: {play.story()['scene']['place']['id']}\n")
+    if play.story()['scene']['place']['id'] != 'blackwood-smithy':
+        play.flag('Walking to the smithy by name did not move the scene there.')
+
+
 SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl, 'road': road,
              'director': director, 'chapters': chapters, 'ironman': ironman, 'gm_view': gm_view, 'memory': memory,
              'legacy': legacy, 'fivee_checks': fivee_checks, 'fivee_fight': fivee_fight,
@@ -929,4 +1131,6 @@ SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl,
              'editor': editor, 'pictures': pictures, 'havenbrooke': havenbrooke,
              'tone': tone, 'restrained_wounds': restrained_wounds, 'stage': stage, 'babel': babel,
              'fate_made': fate_made, 'fate_premade': fate_premade, 'marvel_start': marvel_start,
-             'hex_vallarith': hex_vallarith, 'hex_woods': hex_woods, 'hamlet': hamlet}
+             'hex_vallarith': hex_vallarith, 'hex_woods': hex_woods, 'hamlet': hamlet, 'fence': fence,
+             'narration_format': narration_format, 'selling': selling, 'wayhouse': wayhouse, 'grime': grime,
+             'spoils': spoils, 'mending': mending, 'town_map': town_map}
