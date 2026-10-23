@@ -448,3 +448,8 @@ export interface TownsfolkMix {
   levels: Record<string, Record<string, number>>; drives: Record<string, Record<string, number>>
   adult_side: boolean; town: MixTown | null
 }
+/** What the story's stage shows (dungeon/art.py stage): the place's picture and portraits of who is here. */
+export interface ArtStage {
+  background: { url: string; width: number | null; height: number | null } | null
+  portraits: { key: string; name: string; url: string; width: number | null; height: number | null }[]
+}

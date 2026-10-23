@@ -565,6 +565,12 @@ def gallery(request: Request):
     return {'art': art.gallery(request.app.state.database)}
 
 
+@router.get('/art/stage')
+def art_stage(request: Request):
+    """The place's picture behind the story and the portraits of who is here (dungeon/art.py stage)."""
+    return art.stage(request.app.state.database)
+
+
 @router.post('/art')
 async def ask_art(request: Request, body: ArtAsk):
     """A picture asked for: a portrait (`subject` 'player' or someone met), the place, the scene, or a passage (its
