@@ -115,7 +115,7 @@ for _kind in ('park', 'garden', 'trail', 'beach'):
 
 # Shift windows by the part of the day a place is open, in minutes after midnight.
 SHIFTS = {'morning': (6 * 60, 14 * 60), 'afternoon': (11 * 60, 19 * 60), 'evening': (16 * 60, 24 * 60),
-          'late': (18 * 60, 24 * 60)}
+          'late': (18 * 60, 24 * 60), 'day': (8 * 60, 18 * 60)}
 VISITS = {'morning': (7 * 60 + 30, 10 * 60 + 30), 'afternoon': (12 * 60 + 30, 15 * 60 + 30), 'evening': (18 * 60, 21 * 60),
           'late': (21 * 60, 23 * 60 + 30)}
 PARTS = (('morning', 5, 12), ('afternoon', 12, 17), ('evening', 17, 21), ('late', 21, 24))
@@ -322,8 +322,9 @@ def _build(data: dict, place_id: str, index: int) -> dict:
             sheet['temperament'] = notable['temperament']
     parts = place.get('day_parts') or ['afternoon']
     if role[2]:
-        off = sorted(generators.pick(seed, f'off-{n}', list(range(7))) for n in range(2))
-        part = generators.pick(seed, 'shift', parts)
+        # A notable who runs a place keeps it all day, six days in seven (unless their entry gives `part` or `days`).
+        off = sorted(generators.pick(seed, f'off-{n}', list(range(7))) for n in range(1 if notable else 2))
+        part = (notable.get('part') or 'day') if notable else generators.pick(seed, 'shift', parts)
         sheet['shifts'] = {'days': (notable or {}).get('days') or [day for day in range(7) if day not in off]
                            or [0, 1, 2], 'part': part, 'window': list(SHIFTS[part])}
     else:
