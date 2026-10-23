@@ -674,6 +674,9 @@ def place_scene(connection, city_id: str, place_id: str, now: str):
                        'updated_at=excluded.updated_at', (city_id, place_id, now))
     # The street outside is seen on arrival (dungeon/townmap.py).
     townmap.pass_by(connection, city_data(connection, city_id), place_id)
+    if story_clock.running(connection):
+        # A town reached mid-campaign begins its own quests (dungeon/quests.py reach).
+        quests.reach(connection, city_id, story_clock.now(connection, None))
 
 
 def pass_time(database, connection, minutes: int):

@@ -46,6 +46,15 @@ def start(connection, city_id: str, at: datetime):
                            (quest['id'], city_id, 'open', int(bool(quest.get('known'))), due))
 
 
+def reach(connection, city_id: str, at: datetime):
+    """A town first reached mid-campaign (a journey's end): its own quests begin then, each deadline counted from the
+    arrival. A town's quests begin only once: one already begun, or ended, stays as it is."""
+    for quest in adventure(city_id)['quests']:
+        due = (at + timedelta(days=quest['days'])).isoformat() if quest.get('days') else None
+        connection.execute('INSERT OR IGNORE INTO story_quests (id, city_id, status, known, due_at) VALUES '
+                           '(?, ?, ?, ?, ?)', (quest['id'], city_id, 'open', int(bool(quest.get('known'))), due))
+
+
 def with_text(row: dict) -> dict:
     if row.get('title'):
         return row | {'ties': decode(row['ties'] or '[]')}

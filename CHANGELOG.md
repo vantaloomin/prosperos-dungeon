@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Quests in every town.** Haven, the Concourse, Hollin and the Gilded Bazaar now each have three quests (one
+  hidden), their own dangerous places with foes to match, and things to find in chests, drawers and pockets.
+  Reaching a new town mid-campaign starts its quests, with deadlines counted from when you arrive.
 - **Vows and stress playtest fixes.** Breaking away to the stairs now buys you a round: the foes you shook off stay
   back until next round, and the fight remembers where you are. "I swear an iron vow to …" now makes a vow with a
   track on your sheet, lines that name it mark progress, and "The vow is done" fulfils it. Oaths sworn to people
