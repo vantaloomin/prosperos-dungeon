@@ -143,11 +143,13 @@ function PanelTabs({ story, panel }: { story: StoryData; panel: Panel }) {
   )
 }
 
-/** Classic or Reader, from the tabs on a wide screen (Settings > General > Appearance keeps it too). */
+/** Reader, or back to the layout with the panel beside the story (Classic or Custom), from the tabs on a wide screen
+ *  (Settings > General > Appearance keeps it too). */
 function LayoutSwitch({ reader }: { reader: boolean }) {
+  const { lastBeside } = useDeviceLook()
   const label = reader ? 'Show the scene panel beside the story' : 'Reader layout: give the story the room'
   return <button type="button" className="icon-button story-layout" aria-label={label} title={label}
-    onClick={() => saveLook({ layout: reader ? 'classic' : 'reader' })}>{reader ? <PanelRight aria-hidden="true" /> : <BookOpenText aria-hidden="true" />}</button>
+    onClick={() => saveLook({ layout: reader ? lastBeside : 'reader' })}>{reader ? <PanelRight aria-hidden="true" /> : <BookOpenText aria-hidden="true" />}</button>
 }
 
 /** Before the first line there is no scene yet; only the ways back into other stories are worth showing. */

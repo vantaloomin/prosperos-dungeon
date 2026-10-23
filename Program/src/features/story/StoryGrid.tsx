@@ -22,8 +22,9 @@ export function StoryGrid({ story, grids, picked, flash, render }: GridProps) {
   useEffect(() => {
     if (flash) document.getElementById(tileId(flash.widget))?.scrollIntoView({ block: 'nearest' })
   }, [flash])
-  const tiles = grid.tiles.filter((tile) => tile.widget === 'scene' || hasWidget(story, tile.widget))
   const own = picked.filter((widget) => !onGrid(grid, widget))
+  // This scene's tile stays out of the way when all it needs is already on the grid, except while arranging.
+  const tiles = grid.tiles.filter((tile) => tile.widget === 'scene' ? own.length || arranging : hasWidget(story, tile.widget))
   const drop = (onto: TileWidget) => { if (dragged) change(dropTile(grid, dragged, onto)); setDragged(null) }
   return (<>
     <GridBar grids={grids} arranging={arranging} onArrange={() => setArranging(!arranging)} />
@@ -44,7 +45,7 @@ function tileId(widget: TileWidget) {
 }
 
 function SceneTile({ own, render }: { own: Widget[]; render: (widget: Widget) => ReactNode }) {
-  if (!own.length) return <p className="subtle">What this scene needs is already on your layout.</p>
+  if (!own.length) return <p className="subtle">Shows what the scene needs when it is not already on your layout.</p>
   return <>{own.map((widget) => <div key={widget}>{render(widget)}</div>)}</>
 }
 
@@ -127,11 +128,11 @@ function TileTools({ tile, first, last, grid, change }: Pick<TileProps, 'tile' |
   return (<>
     <button type="button" className="icon-button" aria-label={`Move ${name} earlier`} disabled={first} onClick={() => change(moveTile(grid, tile.widget, -1))}><ArrowUp aria-hidden="true" /></button>
     <button type="button" className="icon-button" aria-label={`Move ${name} later`} disabled={last} onClick={() => change(moveTile(grid, tile.widget, 1))}><ArrowDown aria-hidden="true" /></button>
-      <label><span className="visually-hidden">Size of {name}</span>
-        <select value={tile.size} onChange={(event) => change(resizeTile(grid, tile.widget, event.target.value as TileSize))}>
-          {SIZES.map((size) => <option key={size.id} value={size.id}>{size.label}</option>)}
-        </select>
-      </label>
-      <button type="button" className="icon-button" aria-label={`Remove ${name}`} onClick={() => change(removeTile(grid, tile.widget))}><X aria-hidden="true" /></button>
+    <label><span className="visually-hidden">Size of {name}</span>
+      <select value={tile.size} onChange={(event) => change(resizeTile(grid, tile.widget, event.target.value as TileSize))}>
+        {SIZES.map((size) => <option key={size.id} value={size.id}>{size.label}</option>)}
+      </select>
+    </label>
+    <button type="button" className="icon-button" aria-label={`Remove ${name}`} onClick={() => change(removeTile(grid, tile.widget))}><X aria-hidden="true" /></button>
   </>)
 }
