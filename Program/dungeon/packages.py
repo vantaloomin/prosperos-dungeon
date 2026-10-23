@@ -42,7 +42,7 @@ SECTIONS = {'lore': 'entries', 'regions': 'regions', 'settlements': 'settlements
 HIDDEN_SECTIONS = ('hidden-truths',)
 HIDDEN_FIELDS = ('secret', 'secrets', 'guise', 'mortal_life', 'truth', 'hidden')
 ENGINE_KINDS = ('adventures', 'arcs', 'art', 'cities', 'factions', 'finds', 'institutions', 'items', 'premades',
-                'tiers', 'travel')
+                'tiers', 'travel', 'hexes')
 ID = re.compile(r'^[a-z0-9]+(?:-[a-z0-9]+)*$')
 # Cross-references that must name an entry of another section: (section, field, the section it names).
 REFERENCES = (('settlements', 'region', 'regions'), ('cast', 'faction', 'factions'), ('cast', 'settlement', 'settlements'),

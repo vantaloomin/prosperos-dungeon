@@ -657,7 +657,7 @@ def clear(database) -> dict:
         for name in ('record_entries', 'record_corrections', 'story_summary', 'story_clock', 'story_quests',
                       'story_inventory', 'story_purse', 'story_stock', 'story_trades', 'story_wounds', 'story_fight',
                       'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
-                      'story_rounds', 'story_map', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
+                      'story_rounds', 'story_map', 'story_hexes', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
                       'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_beats', 'story_word',
                       'story_offpage', 'story_tier', 'story_marks', 'story_dark',
                       'story_director', 'story_arcs', 'story_threads', 'story_nemeses', 'story_seeds',
@@ -933,10 +933,8 @@ def walk(database, connection, planned: dict, rolls: list[dict], message_id: str
     spent, nights, days = travel.minutes(legs, travel_map['hours_a_day'])
     eaten, hungry = travel.eat(connection, travel_map['food'], days)
     pass_time(database, connection, spent)
-    for leg in legs:
-        travel.visit(connection, travel_map, leg['from'])
-        travel.visit(connection, travel_map, leg['to'])
-    end = travel.nodes(travel_map)[legs[-1]['to']]
+    travel.walked(connection, travel_map, planned, legs)
+    end = travel.nodes(travel_map)[travel.end_of(planned, legs)]
     place_scene(connection, end['city'], end['place'], database.now())
     add(connection, database.now(), 'scene', f"You arrive at {end['name']}.", scene_row(connection))
     # Signs warn when the road ends somewhere above the character (dungeon/tiers.py).
@@ -946,7 +944,7 @@ def walk(database, connection, planned: dict, rolls: list[dict], message_id: str
         drawn, minutes = life_card(database, connection, 'road', message_id)
         happened += drawn
         pass_time(database, connection, minutes)
-    return travel.lines_for(travel_map, legs, nights, eaten, hungry) + happened
+    return travel.lines_for(travel_map, planned, legs, nights, eaten, hungry) + happened
 
 
 def life_card(database, connection, kind: str, message_id: str) -> tuple[list[str], int]:

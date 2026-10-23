@@ -62,7 +62,7 @@ def test_a_journey_takes_the_road_its_hours_and_the_food_in_the_pack(client, con
     hours = (clock_at(app) - before).total_seconds() / 3600
     assert hours >= 12 + travel.NIGHT_HOURS
     narrator = provider.requests[-1]['system']
-    assert '## The journey' in narrator and 'from Kingswood to Eriane on foot by the Cyrel road: 12 hours' in narrator
+    assert '## The journey' in narrator and 'from Kingswood to Eriane on foot by the Cyrel road: 13 hours' in narrator
     assert 'black bread' in narrator.split('## The journey')[1] and 'go hungry' in narrator
     seen = {place['id']: place for place in story['map']['places']}
     assert seen['eriane']['here'] and seen['kingswood']['visited']
@@ -85,10 +85,11 @@ def test_a_place_not_on_any_known_road_is_not_reached(client, connected, provide
 def test_bandits_on_the_road_stop_the_journey_where_they_strike(client, connected, provider, app, monkeypatch):
     begin(client)
     monkeypatch.setattr(travel, 'pick', lambda entries, rng: next(entry for entry in entries if 'Bandits' in str(entry)))
-    # The first road turns up an encounter (10 of 15), it is the bandits, and the Luck roll fails.
-    app.state.dice = Road(10, 15)
+    # The first hex of the road turns up an encounter (1 in 100, under its share of the road's 15), it is the bandits,
+    # and the Luck roll fails; the fight is out on the road, and the journey ends at the next place, Eriane.
+    app.state.dice = Road(1, 15)
     reply(provider)
-    tell(client, 'I set out for Cyrel.', 'story-0001')
+    tell(client, 'I set out for Eriane.', 'story-0001')
     story = ok(client.get('/api/story'))
     assert story['scene']['place']['id'] == 'eriane'
     assert {foe['name'] for foe in story['fight']['fight']['foes']} <= {'road bandit 1', 'road bandit 2'}

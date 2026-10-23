@@ -23,7 +23,7 @@ import random
 import re
 from pathlib import Path
 
-from dungeon import inventory, sworn, world_data
+from dungeon import hexes, inventory, sworn, world_data
 from dungeon.database import decode, encode, many, optional
 
 MAPS = Path(__file__).parent / 'world' / 'data' / 'travel'
@@ -62,6 +62,20 @@ def neighbours(travel_map: dict, node_id: str) -> list[tuple[str, dict]]:
             if node_id in (route['from'], route['to'])]
 
 
+def walked(connection, travel_map: dict, plan_: dict, legs: list[dict]):
+    """The places and, on a hex crawl, the hexes the walked legs went through."""
+    visit(connection, travel_map, plan_['from'])
+    if plan_.get('mode') != 'hex':
+        for leg in legs:
+            visit(connection, travel_map, leg['to'])
+        return
+    board = hexes.grid(connection, travel_map)
+    hexes.reveal(connection, board, [board.places[plan_['from']], *(tuple(leg['to']) for leg in legs)])
+    for leg in legs:
+        if leg.get('place'):
+            visit(connection, travel_map, leg['place'])
+
+
 def visit(connection, travel_map: dict, node_id: str):
     """The character has been here, and has heard of every place one road away."""
     connection.execute('INSERT INTO story_map (node_id, visited) VALUES (?, 1) ON CONFLICT(node_id) DO UPDATE SET '
@@ -71,11 +85,17 @@ def visit(connection, travel_map: dict, node_id: str):
 
 
 def known(connection, travel_map: dict, here: str) -> dict[str, bool]:
-    """Each place the character knows of, and whether they have been there; where they are counts as visited."""
+    """Each place the character knows of, and whether they have been there; where they are counts as visited. On a
+    hex crawl, a place in a hex they have seen is known too."""
     rows = {row['node_id']: bool(row['visited']) for row in many(connection, 'SELECT * FROM story_map')}
     rows[here] = True
     for other, _ in neighbours(travel_map, here):
         rows.setdefault(other, False)
+    if hexes.is_hex(travel_map):
+        board = hexes.grid(connection, travel_map)
+        for at in hexes.seen(connection, board, board.places[here]):
+            if at in board.at_place:
+                rows.setdefault(board.at_place[at], False)
     return {node['id']: rows.get(node['id'], False) for node in travel_map['nodes']
             if node['id'] in rows or node.get('famous')}
 
@@ -140,17 +160,28 @@ def plan(connection, city_id: str, place_id: str, text: str, rng=None) -> dict |
     goal = destination(travel_map, here['id'], text)
     if goal is None:
         return None
-    legs = way(travel_map, here['id'], goal['id']) if goal['id'] in known(connection, travel_map, here['id']) else None
-    if legs is None:
+    crawl = hexes.is_hex(travel_map)
+    legs = None
+    if goal['id'] in known(connection, travel_map, here['id']):
+        if crawl:
+            board = hexes.grid(connection, travel_map)
+            legs = board.way(board.places[here['id']], board.places[goal['id']])
+        else:
+            legs = way(travel_map, here['id'], goal['id'])
+    if not legs:
         return {'from': here['id'], 'to': goal['id'], 'unknown': True}
     rng = rng or random.SystemRandom()
     encounter = None
     for index, leg in enumerate(legs):
-        if rng.randint(1, 100) <= travel_map['odds'][leg['danger']]:
-            region = nodes(travel_map)[leg['to']]['region']
-            encounter = {'leg': index, 'entry': pick(travel_map['encounters'][region], rng)}
+        # A road's odds are for a day's walking; a hex's are its share of a day.
+        odds = travel_map['odds'][leg['danger']]
+        if rng.randint(1, 100) <= (odds * leg['hours'] / travel_map['hours_a_day'] if crawl else odds):
+            region = leg['region'] if crawl else nodes(travel_map)[leg['to']]['region']
+            table = travel_map['encounters'].get(region) or travel_map['encounters'][hexes.FRONTIER[0]]
+            encounter = {'leg': index, 'entry': pick(table, rng)}
             break
-    return {'from': here['id'], 'to': goal['id'], 'legs': legs, 'encounter': encounter}
+    return {'from': here['id'], 'to': goal['id'], 'legs': legs, 'encounter': encounter} | (
+        {'mode': 'hex'} if crawl else {})
 
 
 def decide(connection, message_id: str, city_id: str, place_id: str, text: str, rng=None) -> dict | None:
@@ -200,7 +231,10 @@ def travelled(plan_: dict, rolls: list[dict]) -> tuple[list[dict], list[str]]:
         return legs, [f"On {where['terrain']} the character manages to {entry['action']}, and goes on."]
     lines = [f"On {where['terrain']}: {threat_text(entry['threat'])}"]
     if isinstance(entry['threat'], dict) and entry['threat'].get('foe'):
-        return legs[:encounter['leg'] + 1], lines + [f'{STOPPED}, on the road, with a fight on its hands.']
+        # On a hex crawl the fight is out in the wild, and the journey ends at the next place on the way.
+        end = next((index for index in range(encounter['leg'], len(legs)) if legs[index].get('place')),
+                   len(legs) - 1) if plan_.get('mode') == 'hex' else encounter['leg']
+        return legs[:end + 1], lines + [f'{STOPPED}, on the road, with a fight on its hands.']
     return legs, lines
 
 
@@ -240,14 +274,20 @@ def duration(hours: float) -> str:
     return 'an hour' if hours == 1 else f"{hours:g} hours"
 
 
-def lines_for(travel_map: dict, legs: list[dict], nights: int, eaten: list[str], hungry: int) -> list[str]:
+def end_of(plan_: dict, legs: list[dict]) -> str:
+    """The place a journey's walked legs end at."""
+    return legs[-1]['place'] if plan_.get('mode') == 'hex' else legs[-1]['to']
+
+
+def lines_for(travel_map: dict, plan_: dict, legs: list[dict], nights: int, eaten: list[str],
+              hungry: int) -> list[str]:
     places = nodes(travel_map)
     roads = ', then '.join(dict.fromkeys(leg['terrain'] for leg in legs))
     hours = sum(leg['hours'] for leg in legs)
     way = (f"by {travel_map['by']} on {roads}: {duration(hours)} on the road" if travel_map.get('by') else
-           f'on foot by {roads}: {hours} hours of walking')
-    lines = [f"The player's character travels from {places[legs[0]['from']]['name']} to "
-             f"{places[legs[-1]['to']]['name']} {way}"
+           f'on foot by {roads}: {hours:g} hours of walking')
+    lines = [f"The player's character travels from {places[plan_['from']]['name']} to "
+             f"{places[end_of(plan_, legs)]['name']} {way}"
              + (f", {nights} night{'s' if nights > 1 else ''} camped on the road." if nights else '.')]
     if eaten:
         lines.append(f"They eat from their pack on the way: {', '.join(eaten)}.")
@@ -269,7 +309,13 @@ def view(connection, city_id: str, place_id: str) -> dict | None:
     roads = [{'from': route['from'], 'to': route['to'], 'hours': route['hours'], 'danger': route['danger'],
               'terrain': route['terrain']} for route in travel_map['routes']
              if route['from'] in seen and route['to'] in seen]
-    return {'places': places, 'roads': roads}
+    if not hexes.is_hex(travel_map):
+        return {'places': places, 'roads': roads}
+    board = hexes.grid(connection, travel_map)
+    cells = [{'q': cell['q'], 'r': cell['r'], 'terrain': cell['terrain'], 'road': bool(cell['road']),
+              'place': cell['place'], 'visited': cell['visited']}
+             for cell in hexes.view(connection, board, board.places[here['id']])]
+    return {'places': places, 'roads': roads, 'hexes': cells}
 
 
 def prompt_text(lines: list[str]) -> str:

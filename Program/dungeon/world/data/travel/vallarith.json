@@ -1,5 +1,7 @@
 {
- "about": "Vallarith's travel map (dungeon/travel.py, docs/story.md \"Journeys\"): places joined by roads, each road with its hours on foot, terrain and danger, each region's road encounters, and each region's danger and night-camp encounters for resting out in the open (dungeon/rest.py), and the world and region its Life Cards draw from (dungeon/happenings.py). Positions are from the world map (dungeon/world/packages/vallarith/settlements.json). A node is a whole town (its city and arrival place) or a place on the Road (dungeon/world/data/cities/vallarith-road.json).",
+ "about": "Vallarith's travel map (dungeon/travel.py, docs/story.md \"Journeys\"): places joined by roads, each road with its hours on foot, terrain and danger, each region's road encounters, and each region's danger and night-camp encounters for resting out in the open (dungeon/rest.py), and the world and region its Life Cards draw from (dungeon/happenings.py). Positions are from the world map (dungeon/world/packages/vallarith/settlements.json). A node is a whole town (its city and arrival place) or a place on the Road (dungeon/world/data/cities/vallarith-road.json). A hex crawl (dungeon/hexes.py): its hexes are world/data/hexes/vallarith.json, and land off the edge of that map is generated in play, in the wilds.",
+ "travel": "hex",
+ "hexes": "vallarith",
  "hours_a_day": 10,
  "odds": {"none": 0, "low": 15, "medium": 30, "high": 50},
  "food": ["bread", "dried-meat", "cheese"],
@@ -50,10 +52,45 @@
    {"weight": 2, "text": "Trees older than the kingdom, and a silence so deep the character's own breathing sounds rude."},
    {"weight": 2, "text": "A young elf, curious and armed, watches from the branches and asks a single question."},
    {"weight": 3, "action": "keep to the warden path and out of the wardens' sight", "difficulty": "hard", "threat": {"text": "Wardens close in among the trees, unseen, bows drawn.", "foe": {"name": "warden of Brynwyr", "count": 2, "vitality": 12, "resolve": 12, "weapon": 1, "wants": "capture"}}}
+  ],
+  "dwarven-empire": [
+   {"weight": 3, "text": "A dwarven ore train grinds past on iron-shod wheels, its guards counting the character with their eyes."},
+   {"weight": 2, "text": "Cairns on the ridge, each with a name cut into the top stone and a clan mark under it."},
+   {"weight": 2, "action": "find the pass marker before the weather closes in", "difficulty": "hard", "threat": "Cloud comes down over the pass and the cold with it. Fingers stop working; the way down takes half the night."},
+   {"weight": 1, "action": "spot the Rulan Gaan lookouts first", "difficulty": "hard", "threat": {"text": "Rulan Gaan cultists rise out of the scree with hooked spears and painted faces.", "foe": {"name": "Rulan Gaan cultist", "count": 3, "vitality": 11, "resolve": 14, "weapon": 1, "wants": "capture"}}}
+  ],
+  "torogh-highlands": [
+   {"weight": 3, "text": "The loch below, flat and black, and a boat on it that does not seem to move."},
+   {"weight": 2, "text": "A shepherd and her dogs, who point the way and want nothing for it but news."},
+   {"weight": 2, "action": "keep footing on the wet shale", "difficulty": "normal", "threat": "A slide of wet shale takes the character down twenty feet of slope. Bruised all along one side."},
+   {"weight": 1, "action": "hear the snow cat before it springs", "difficulty": "hard", "threat": {"text": "A snow cat drops off a ledge onto the path, ears flat.", "foe": {"name": "snow cat", "count": 1, "vitality": 13, "resolve": 10, "weapon": 1, "wants": "kill"}}}
+  ],
+  "eastern-forests": [
+   {"weight": 3, "text": "Trees so close the light goes green, and a lake through them that nobody has put on a map."},
+   {"weight": 2, "text": "A charcoal burner's clearing, long abandoned, the kiln cold and full of nesting birds."},
+   {"weight": 2, "action": "keep the sun on the right side", "difficulty": "hard", "threat": "The trees all look the same by noon. Half a day lost walking in a wide circle."},
+   {"weight": 2, "action": "smell the bear before walking into its ground", "difficulty": "hard", "threat": {"text": "A bear comes up out of the ferns, standing, close enough to smell.", "foe": {"name": "forest bear", "count": 1, "vitality": 18, "resolve": 12, "weapon": 1, "wants": "kill"}}},
+   {"weight": 1, "action": "notice the snares before stepping in one", "difficulty": "hard", "threat": {"text": "A snare jerks tight and three hunters in green step out of the trees to see what they caught.", "foe": {"name": "forest hunter", "count": 3, "vitality": 10, "resolve": 11, "weapon": 1, "wants": "capture"}}}
+  ],
+  "wilds": [
+   {"weight": 3, "text": "Country nobody in Kingswood has a name for: open, quiet, and older than the maps."},
+   {"weight": 2, "text": "A standing stone with words cut in a script the character has never seen."},
+   {"weight": 2, "action": "find water before the skins run dry", "difficulty": "hard", "threat": "No stream, no spring, no rain. The skins run dry and thirst sets in."},
+   {"weight": 2, "action": "see the pack before it sees the character", "difficulty": "hard", "threat": {"text": "Grey wolves, a whole pack of them, fanning out through the grass.", "foe": {"name": "grey wolf", "count": 4, "vitality": 9, "resolve": 9, "weapon": 1, "wants": "kill"}}},
+   {"weight": 1, "action": "stay clear of the hollow where the ground is wrong", "difficulty": "hard", "threat": {"text": "Something that was a man once crawls out of the hollow on too many joints.", "foe": {"name": "hollow thing", "count": 1, "vitality": 16, "resolve": 20, "weapon": 1, "wants": "kill", "horror": true}}}
   ]
  },
  "world": "vallarith",
- "regions": {"kingdom-of-cyrel": {"danger": "low", "cards": "cyrel", "tier": 1}, "kingdoms-of-man": {"danger": "low", "cards": "asania", "tier": 2}, "badlands": {"danger": "high", "cards": "badlands", "tier": 2}, "brynwyr": {"danger": "high", "cards": "brynwyr", "tier": 3}},
+ "regions": {
+  "kingdom-of-cyrel": {"danger": "low", "cards": "cyrel", "tier": 1},
+  "kingdoms-of-man": {"danger": "low", "cards": "asania", "tier": 2},
+  "badlands": {"danger": "high", "cards": "badlands", "tier": 2},
+  "brynwyr": {"danger": "high", "cards": "brynwyr", "tier": 3},
+  "dwarven-empire": {"danger": "medium", "tier": 2},
+  "torogh-highlands": {"danger": "medium", "tier": 2},
+  "eastern-forests": {"danger": "high", "tier": 3},
+  "wilds": {"danger": "high", "tier": 3}
+ },
  "camp": {
   "kingdom-of-cyrel": [
    {"weight": 3, "text": "A farm dog barks half the night at something past the firelight, and nothing comes of it."},
@@ -75,6 +112,26 @@
    {"weight": 2, "text": "Lights move between the trees all night, silent, never coming closer."},
    {"weight": 1, "action": "find ground the forest does not mind being slept on", "difficulty": "hard", "threat": "Roots, stones and whispering. The forest does not let the character sleep."},
    {"weight": 3, "action": "stay out of the wardens' sight", "difficulty": "hard", "threat": {"text": "Wardens close in among the trees, unseen, bows drawn.", "foe": {"name": "warden of Brynwyr", "count": 2, "vitality": 12, "resolve": 12, "weapon": 1, "wants": "capture"}}}
+  ],
+  "dwarven-empire": [
+   {"weight": 3, "text": "Wind all night, and the stars very close."},
+   {"weight": 2, "action": "build a wall of stones against the wind", "difficulty": "hard", "threat": "The cold gets in under everything. Morning finds the character grey and shaking."},
+   {"weight": 1, "action": "wake before the cultists reach the fire", "difficulty": "hard", "threat": {"text": "Rulan Gaan cultists come out of the dark with nets and hooked spears.", "foe": {"name": "Rulan Gaan cultist", "count": 3, "vitality": 11, "resolve": 14, "weapon": 1, "wants": "capture"}}}
+  ],
+  "torogh-highlands": [
+   {"weight": 3, "text": "Something big moves on the loch in the night, and the water slaps the stones for an hour after."},
+   {"weight": 2, "action": "find a dry spot out of the wind", "difficulty": "normal", "threat": "Rain off the loch soaks everything. Nobody sleeps."},
+   {"weight": 1, "action": "hear the snow cat on the rocks above", "difficulty": "hard", "threat": {"text": "A snow cat comes down to the firelight, hungry enough not to care about it.", "foe": {"name": "snow cat", "count": 1, "vitality": 13, "resolve": 10, "weapon": 1, "wants": "kill"}}}
+  ],
+  "eastern-forests": [
+   {"weight": 3, "text": "Owls, and something else answering them that is not an owl."},
+   {"weight": 2, "action": "hang the food out of reach", "difficulty": "normal", "threat": "Something gets into the pack in the night. A day's food is gone and the rest is torn open."},
+   {"weight": 1, "action": "wake before the bear reaches the camp", "difficulty": "hard", "threat": {"text": "A bear comes into the camp after the food and does not leave when shouted at.", "foe": {"name": "forest bear", "count": 1, "vitality": 18, "resolve": 12, "weapon": 1, "wants": "kill"}}}
+  ],
+  "wilds": [
+   {"weight": 3, "text": "Lights on the horizon that are not a town, moving slowly, then gone."},
+   {"weight": 2, "action": "keep the fire small and hidden", "difficulty": "hard", "threat": "Eyes at the edge of the firelight all night. Nobody sleeps."},
+   {"weight": 1, "action": "hear the pack circling", "difficulty": "hard", "threat": {"text": "The wolves come in low from three sides at once.", "foe": {"name": "grey wolf", "count": 4, "vitality": 9, "resolve": 9, "weapon": 1, "wants": "kill"}}}
   ]
  }
 }

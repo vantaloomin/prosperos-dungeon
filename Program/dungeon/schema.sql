@@ -743,6 +743,16 @@ CREATE TABLE IF NOT EXISTS story_map (
   visited INTEGER NOT NULL DEFAULT 0 CHECK (visited IN (0, 1))
 );
 
+-- The hexes the character has seen on a hex-crawl travel map (dungeon/hexes.py), and whether they have walked them.
+-- Branched with the story (dungeon/timeline.py SAVED); what is in a hex comes from the map and the campaign's seed.
+CREATE TABLE IF NOT EXISTS story_hexes (
+  map TEXT NOT NULL,
+  q INTEGER NOT NULL,
+  r INTEGER NOT NULL,
+  visited INTEGER NOT NULL DEFAULT 0 CHECK (visited IN (0, 1)),
+  PRIMARY KEY (map, q, r)
+);
+
 -- Each line's journey, planned once with its encounter, and what happened on it once walked (dungeon/travel.py).
 CREATE TABLE IF NOT EXISTS story_journeys (
   message_id TEXT PRIMARY KEY,
@@ -824,7 +834,9 @@ CREATE TABLE IF NOT EXISTS story_campaign (
   -- dungeon/tone.py: categories moved off the preset and veiled topics (JSON), and the narrator's voice.
   levels TEXT,
   veils TEXT,
-  voice TEXT
+  voice TEXT,
+  -- The world seed the land past a hex map's authored edge is generated from (dungeon/hexes.py).
+  seed TEXT
 );
 
 -- The persona's sheet under a ruleset other than MARVEL (dungeon/sheet.py), as that ruleset keeps it.

@@ -551,6 +551,30 @@ settlements): a gate, an edge or a ruin to arrive at, until that town is built o
   known (`story_map`) are branched with the story; each line's journey is kept (`story_journeys`), so telling it
   again walks no further.
 
+### The hex crawl
+
+`dungeon/hexes.py` (requirements "### Hex crawl"). A travel map is a hex crawl unless it sets `travel: "roads"`, as
+Havenbrooke's (car or bus) and BABEL's (the Stair) do. Vallarith's is.
+
+- **The hexes.** Flat-topped, axial (q, r). Vallarith's authored hexes are `world/data/hexes/vallarith.json`, painted
+  from the world map by `scripts/world/vallarith_hexes.py`: a row of letters per map row for the terrain (water,
+  plains, forest, hills, mountains, waste, marsh) and another for the region, each place's hex, and the roads drawn
+  as straight hex lines between the places the travel map's routes join. A world package can ship its own
+  (`engine/hexes/<map>.json`). A hex-crawl map with no hexes file is all generated, its places set from their map
+  positions (100 hexes to the map's width).
+- **Past the edge.** A hex nobody authored is generated from the campaign's seed (`story_campaign.seed`, chosen the
+  first time it is needed; a new story gets a new one) and its coordinates alone, with smooth noise for land, height
+  and wet. Within six hexes of the authored map the coast and the regions carry on; further out it is the map's
+  frontier (`generate.frontier`, Vallarith's "wilds", with its own road and camp tables). So the map grows in any
+  direction, and the same campaign always finds the same land.
+- **A journey, hex by hex.** "I set out for Eriane" takes the quickest way over the hexes: a step along a road is an
+  hour, off it the land's own hours (plains 2, forest, hills and waste 3, marsh 4, mountains 5; water can't be
+  walked). Each hex rolls for an encounter at its share of a day's odds (a road hex at the road's danger, the rest at
+  the region's). A fight out on the way ends the journey at the next place on it.
+- **Fog of war.** The hexes seen (`story_hexes`, branched with the story) are those walked and what could be seen
+  from them: the ring around, two from hills, three from mountains, none past the trees in forest or marsh. A place
+  in a hex seen is known. The map in the story view carries the known hexes (`map.hexes`).
+
 ## Rest
 
 `dungeon/rest.py`. A line that beds down ("I sleep", "we make camp", "I rest for three days", "for a week") is a

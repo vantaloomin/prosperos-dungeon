@@ -1,5 +1,6 @@
 {
  "about": "BABEL's travel map (dungeon/travel.py): the tower's floors joined by the Stair, Cobb's lift cage between the Concourse and Varrow, and the broken span above the Foundry; each leg with its hours on foot, terrain and danger, each floor's encounters on the way in and at a camp off the Safe Zones (dungeon/rest.py), and its tier from the floor's beta rank. A node is a whole town (the Concourse, Hollin, the Gilded Bazaar) or a floor landing (dungeon/world/data/cities/babel-floors.json). Positions stack the floors on the map: up is up. Region cards are null: the BABEL deck (dungeon/life/decks/babel.json) draws everywhere.",
+ "travel": "roads",
  "hours_a_day": 10,
  "odds": {
   "none": 0,
