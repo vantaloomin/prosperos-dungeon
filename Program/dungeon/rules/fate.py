@@ -14,8 +14,8 @@
   the action, a Fate point is spent to invoke it for +2 (one invoke a roll). When it fails and the trouble fits the
   action, the trouble was compelled: the failure stands and the character gains a Fate point. A night's sleep
   brings Fate points back up to the refresh (dungeon/rest.py).
-- **Harm** uses the shared wound levels in fights, as Narrative does; stress and consequences are on the sheet for
-  the narrator and grow into their own track later.
+- **Harm** is Fate's own: a blow is absorbed by stress boxes and consequences, or takes the character out
+  (dungeon/combat_fate.py). The shared wound level follows what is marked.
 """
 import random
 import re
@@ -90,7 +90,8 @@ def build(high_concept: str, trouble: str = '', aspects: list[str] | None = None
     lines = lambda items, most: [line for line in (tidy(item) for item in items or []) if line][:most]  # noqa: E731
     return {'high_concept': tidy(high_concept), 'trouble': tidy(trouble), 'aspects': lines(aspects, MOST_ASPECTS),
             'approaches': dict(approaches), 'stunts': lines(stunts, MOST_STUNTS), 'refresh': REFRESH,
-            'fate_points': REFRESH, 'stress': [False] * STRESS, 'consequences': dict.fromkeys(CONSEQUENCES, '')}
+            'fate_points': REFRESH, 'stress': [False] * STRESS, 'consequences': dict.fromkeys(CONSEQUENCES, ''),
+            'healing': {}}
 
 
 def suggested(top: str) -> dict[str, int]:

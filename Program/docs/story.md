@@ -148,7 +148,15 @@ images are non-commercial).
   for (the words after "when"). A premade's trouble comes from its About.
   The dice ride in the roll's `skill` ("…, dice +0−+") for the card, which rolls them flat. A night's sleep brings
   Fate points back to the refresh (3) and clears stress; a milestone raises the weakest approach by one, up to +4.
-  Fights use the shared wound levels for now.
+  A foe's blow is Fate's own (`dungeon/combat_fate.py`): the foe rolls 4dF plus its rating (Average to Good, by
+  how well it fights) against the character's 4dF plus Quick, or Careful when guarding (+1 for the guard, +1 against
+  a shot from far off). The shifts it wins by, plus its weapon, are absorbed as cheaply as code can: one stress box
+  (1, 2 or 3 shifts), else the lightest consequences (mild 2, moderate 4, severe 6) with a box if that covers it.
+  Each consequence is a wound in words ("Badly cut by the bandit") that the narrator reads. What can't be absorbed
+  takes the character out, and the defeat table decides what the winners do. The shared wound level follows what is
+  marked (stress Grazed, mild Hurt, moderate Wounded, severe Maimed), and a wound from outside a fight marks the
+  consequence for its level. Consequences heal with nights of rest: mild 1, moderate 3, severe 7. Foes still take
+  the shared wound levels.
 - **Percentile** (`dungeon/rules/brp.py`, content in `dungeon/rules/packs/brp`: the core of Chaosium's Basic
   Roleplaying from its ORC Content Document, transcribed for a world before firearms). Vanta's call: the app names
   the ruleset "Percentile", and BRP appears only in the ORC notice and credit on the start screen and the sheet. A

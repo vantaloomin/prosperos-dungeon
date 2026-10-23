@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Fate stress and consequences.** Under Fate, a foe's blow is now absorbed by your stress boxes and
+  consequences, such as "Badly cut by the bandit", instead of the shared wound levels. A hit too big to absorb takes
+  you out. Stress clears with a night's sleep, and consequences heal over one, three or seven nights. The sheet and
+  the narrator both show them.
 - **Ironsworn progress tracks.** Every quest and oath is now a vow with its own progress track. Pursuing it by name
   on a roll that lands marks a milestone, once a day. Finishing it rolls the filled boxes against the challenge
   dice: a strong hit gives full experience, a weak hit one less, a miss none. Each bond you forge ticks the bonds

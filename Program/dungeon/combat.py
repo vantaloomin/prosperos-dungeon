@@ -49,7 +49,19 @@ import json
 import random
 import re
 
-from dungeon import allies, combat5e, combat_brp, combat_iron, inventory, ranges, record, referee, sheet, timeline
+from dungeon import (
+    allies,
+    combat5e,
+    combat_brp,
+    combat_fate,
+    combat_iron,
+    inventory,
+    ranges,
+    record,
+    referee,
+    sheet,
+    timeline,
+)
 from dungeon import table as campaign_table
 from dungeon.database import encode, identifier, optional
 from dungeon.rules import ladder, marvel, narrative
@@ -136,6 +148,7 @@ def set_condition(connection, level: int, dead: bool = False, rested: int = 0):
     combat5e.follow_level(connection, max(0, min(DYING, level)))
     combat_iron.follow_level(connection, max(0, min(DYING, level)))
     combat_brp.follow_level(connection, max(0, min(DYING, level)))
+    combat_fate.follow_level(connection, max(0, min(DYING, level)))
 
 
 def word(connection, level: int) -> str:
@@ -157,6 +170,11 @@ def basic(connection) -> bool:
 def points_of(connection) -> tuple[int, int] | None:
     """The character's hit points, under a ruleset that keeps them."""
     return combat5e.hit_points(connection) or combat_brp.hit_points(connection)
+
+
+def fated(connection) -> bool:
+    """Whether a blow on the character is Fate's stress and consequences (dungeon/combat_fate.py)."""
+    return combat_fate.played(connection) is not None
 
 
 def fifth(connection) -> bool:
@@ -184,12 +202,17 @@ def mend(connection, nights: int) -> list[str]:
         lines = combat_iron.rest(connection, nights)
         connection.execute('UPDATE story_wounds SET level=? WHERE id=1', (combat_iron.level_for(combat_iron.health(connection)),))
         return lines
-    # Fate: a night's sleep refreshes Fate points; wounds mend on the shared levels.
-    return sheet.refresh_fate(connection, nights) + mend_wounds(connection, nights, now)
+    if fated(connection) and not now['dead'] and now['level'] < DYING:
+        # Fate: a night's sleep refreshes Fate points and clears stress; consequences heal with nights of rest.
+        lines = sheet.refresh_fate(connection, nights) + combat_fate.rest(connection, nights)
+        connection.execute('UPDATE story_wounds SET level=?, rested=0 WHERE id=1',
+                           (combat_fate.level_for(combat_fate.played(connection)),))
+        return lines
+    return mend_wounds(connection, nights, now)
 
 
 def mend_wounds(connection, nights: int, now: dict) -> list[str]:
-    """The shared wound levels mending with rest (MARVEL, Narrative and Fate)."""
+    """The shared wound levels mending with rest (MARVEL and Narrative)."""
     if nights <= 0 or now['dead'] or not 0 < now['level'] < DYING:
         return []
     level, rested = now['level'], now['rested'] + nights
@@ -535,7 +558,7 @@ def play_round(connection, state: dict, rolls: list[dict], items: list[dict], rn
         lines.append(f"{standing(state)[0]['name'].capitalize()} demands the character's purse: hand it over and the "
                      'robbers go.')
     beaten = level >= DOWN and state['wants'] == 'capture' and not (fifth(connection) or sworn(connection)
-                                                                     or basic(connection))
+                                                                     or basic(connection) or fated(connection))
     return state, lines, 'dying' if level >= DYING or beaten else ''
 
 
@@ -557,11 +580,11 @@ def foes_strike(connection, state: dict, guarded: bool, rng, lines: list[str]) -
     def free(fight_state: dict) -> list[dict]:
         return [foe for foe in standing(fight_state) if foe['id'] not in busy]
 
-    five, iron, percent = fifth(connection), sworn(connection), basic(connection)
-    if not (five or iron or percent):
+    five, iron, percent, fates = fifth(connection), sworn(connection), basic(connection), fated(connection)
+    if not (five or iron or percent or fates):
         return foes_move(connection, state, guarded, rng, lines, free)
-    level = (combat5e if five else combat_brp if percent else combat_iron).foes_attack(connection, state, free,
-                                                                                     guarded, rng, lines)
+    module = combat5e if five else combat_brp if percent else combat_iron if iron else combat_fate
+    level = module.foes_attack(connection, state, free, guarded, rng, lines)
     set_condition(connection, level)
     return level
 
