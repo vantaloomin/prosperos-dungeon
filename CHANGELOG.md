@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Day labour pays.** A day hauling logs or a few hours at the saws pays the town's day wage, so you can earn your
+  keep. An empty tavern stays empty: the narrator no longer fills it with patrons.
 - **Playtest fixes.** "I take a private room" books it. Selling something you don't have, or trading at a shut shop,
   no longer goes through in the story. Mother Mag keeps her front room every evening. You can shoplift (and get
   caught). "I put my shirt and coat back on" dresses you. An attack on someone the narrator brought in always rolls

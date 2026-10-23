@@ -32,6 +32,7 @@ from dungeon import (
     inventory,
     jobs,
     judge,
+    labour,
     library,
     lore,
     pace,
@@ -275,6 +276,12 @@ def life_text(data: dict, sheet: dict) -> str:
     return f" {found['origin'][:1].upper()}{found['origin'][1:]}; {found['likes'][0]}.{story}"
 
 
+# Places that hold their own crowd: empty of townsfolk, they are empty, and the narrator fills them with nobody.
+ROOMS = {'bar', 'cafe', 'inn', 'nightlife', 'restaurant', 'tavern', 'venue'}
+EMPTY_ROOM = ('- Nobody is here now: the room is empty, or near enough. No patrons, no drinkers, no crowd to talk to; '
+              'invent none.')
+
+
 def scene_text(view: dict) -> str:
     data, place = view['data'], view['place']
     moment = datetime.fromisoformat(view['local_time'])
@@ -291,7 +298,7 @@ def scene_text(view: dict) -> str:
     lines.append('Who is here (their names are for you; the user knows only the names of people they have met):')
     lines += [person_line(person, {'id': place['id']}, data, view['known'].get(person['sheet']['key']), moment)
               for person in view['people']] or \
-        ['- Nobody the story knows; only passers-by.']
+        [EMPTY_ROOM if place['kind'] in ROOMS else '- Nobody the story knows; only passers-by.']
     lines += away_lines(view)
     return '## Scene\n' + '\n'.join(lines)
 
@@ -1141,6 +1148,24 @@ def beats_turn(state, user: dict) -> list[str]:
         return lines
 
 
+def labour_turn(state, user: dict) -> list[str]:
+    """A stretch of work for hire in a town, paid the town's day wage (dungeon/labour.py), once for the line."""
+    database = state.database
+    with database.connect(write=True) as connection:
+        kept = optional(connection, "SELECT lines FROM story_cards WHERE message_id=? AND scene='work'", (user['id'],))
+        if kept:
+            return decode(kept['lines'])
+        view = scene(connection, story_clock.now(connection, database.clock))
+        found = happenings.where(view['city']['id'], view['place']['id'])
+        if not found or not found['town'] or combat.fight(connection):
+            return []
+        lines = labour.pay(connection, user['text'], happenings.wage(view['data']), view['data']['currency'])
+        if lines:
+            happenings.keep(connection, user['id'], 'work', datetime.fromisoformat(view['local_time']).date(), None,
+                            lines)
+        return lines
+
+
 def counter_text(lines: list[str]) -> str:
     return '## At the counter (decided by the game)\n' + '\n'.join(f'- {line}' for line in lines) if lines else ''
 
@@ -1377,6 +1402,7 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
     carded = town_turn(state, user) if in_story else []
     meanwhile = beats_turn(state, user) if in_story else []
     noted = director_turn(state, user) + recall_turn(state, rolls) + opening_turn(state, user) if in_story else []
+    noted += [labour.prompt_text(labour_turn(state, user))] if in_story else []
     fought, traded, tended, looked, looks = (in_scene(state, user, rolls, travelled, rested) if in_story
                                              else ([], [], [], [], []))
     noted = noted + looks

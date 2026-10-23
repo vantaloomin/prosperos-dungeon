@@ -845,6 +845,11 @@ own text (`kind` job or oath, with `title`, `hook`, `truth`, `missed`), and for 
   none). Broken or let lapse, it costs that person two points of trust and one of respect, and the record keeps it.
   An oath sworn on a quest the character already knows of, named in the line ("I swear an iron vow the Heartwood
   contract will fail"), is that quest, now a vow: the record keeps what was sworn, and no second oath is filed.
+- **Day labour.** `dungeon/labour.py`. A line in a town that spends a stretch working ("I spend the day hauling
+  logs", "I take an all-day hauling job", "I work the saws for three hours") is paid the town's day wage (the
+  `day-wage` price) pro rata, a day being 10 hours and at least an hour counting. Work on the character's own things
+  or study earns nothing. The clock has already passed the time; the pay goes into the purse once for the line
+  (`story_cards`, scene `work`) and the narrator gets it under "Work for hire".
 
 ## Institutions
 
