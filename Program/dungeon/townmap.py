@@ -234,7 +234,10 @@ class Town:
                        if water['kind'] == 'river']
         # The town's own places, employers and colleges, each to be given a lot or a patch in its neighborhood.
         things = [(place, 'place') for place in data.get('places', []) if 'hamlet' not in place.get('tags', [])]
-        things += [(employer, 'employer') for employer in data.get('employers', [])]
+        # An employer that is also a place (Varro's Mill the workplace and the place) is the one building.
+        named = {place['name'].casefold() for place, _ in things}
+        things += [(employer, 'employer') for employer in data.get('employers', [])
+                   if employer['name'].casefold() not in named]
         things += [(college, 'college') for college in data.get('colleges', [])]
         self.things = sorted(things, key=lambda pair: (pair[1], pair[0]['id']))
         self.wanted = Counter(thing.get('neighborhood') for thing, what in self.things

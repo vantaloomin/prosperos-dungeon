@@ -53,8 +53,11 @@ def test_every_place_in_town_is_on_the_map_in_its_own_neighborhood(city_id):
     # No place is on two lots, and no lot holds two places.
     assert len(on_lots) == sum(1 for lot in board['lots'] if lot['place'])
     assert not on_ground & set(on_lots)
-    assert {employer['id'] for employer in data['employers']} - away <= set(on_lots) | {
-        employer['id'] for employer in data['employers'] if employer['neighborhood'] in away}
+    # Each employer has a building of its own, or shares the place of the same name.
+    names = {place['name'].casefold() for place in data['places']}
+    for employer in data['employers']:
+        if employer['neighborhood'] not in away and employer['name'].casefold() not in names:
+            assert on_lots[employer['id']]['neighborhood'] == employer['neighborhood']
 
 
 def test_no_lot_stands_in_the_river():
