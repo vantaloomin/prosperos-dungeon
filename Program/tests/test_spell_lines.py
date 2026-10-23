@@ -5,7 +5,7 @@ from conftest import tell
 from test_rulesets import reply
 from test_srd52_subclasses import begin
 
-from dungeon import combat, combat_brp, record, referee, sheet
+from dungeon import combat, combat5e, combat_brp, record, referee, sheet
 from dungeon.rules import srd52
 
 
@@ -99,3 +99,23 @@ def test_bedding_down_mid_fight_under_percentile_is_no_feat_either(client, app, 
     narrated(provider)
     tell(client, 'I lie down and sleep until morning.', 'spell-0004')
     assert not last_rolls(client)
+
+
+def test_a_spell_beside_a_blow_is_cast_too(client, app, connected, provider, monkeypatch):
+    # Recheck on 551a56f: "I cast Healing Word on myself and hit the thug with my mace" rolled only the mace.
+    from test_combat5e import Always
+    begin(client, app, 'cleric', 'acolyte', 3)
+    with app.state.database.connect(write=True) as connection:
+        found = sheet.native(connection)
+        sheet.set_native(connection, found | {'hp': found['max_hp'] - 6}, '')
+        thug = combat5e.foes_from({'name': 'the thug'}, 'engaged', Always(20))[0]
+        combat.save_fight(connection, {'round': 0, 'wants': 'drive_off', 'foes': [thug]})
+    client.put('/api/settings', json={'show_odds': True})
+    referee_says(monkeypatch, [{'action': 'hit the thug with my mace', 'stat': 'Vitality', 'difficulty': 'normal'}])
+    narrated(provider)
+    tell(client, 'I cast Healing Word on myself and hit the thug with my mace.', 'spell-0005')
+    skills = [roll['skill'] or '' for roll in last_rolls(client)]
+    assert len(skills) == 2 and skills[1].startswith('Healing Word (heals ')
+    with app.state.database.connect() as connection:
+        healed = sheet.native(connection)
+    assert healed['hp'] > found['max_hp'] - 6 and healed['spells']['used'][0] == 1

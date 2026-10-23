@@ -153,10 +153,11 @@ def caster(connection) -> dict | None:
     return native(connection) if ruleset(connection) == srd52.ID else None
 
 
-def spell_actions(connection, text: str, actions: list[dict], fighting: bool) -> list[dict]:
+def spell_actions(connection, text: str, actions: list[dict]) -> list[dict]:
     """Under 5E, the turn's actions as the spell a line casts by name needs them: a spell the character has not
-    prepared is not cast, so nothing about it is rolled; out of a fight a known spell is cast though the Referee saw
-    nothing uncertain in it ("I cast Cure Wounds on myself"); a slot the line asks for anywhere in it ("I cast Burning
+    prepared is not cast, so nothing about it is rolled; a known spell is cast though the Referee saw nothing uncertain
+    in it ("I cast Cure Wounds on myself") or split the line into the other thing it does ("I cast Healing Word on
+    myself and hit the thug with my mace"); a slot the line asks for anywhere in it ("I cast Burning
     Hands at the nearer one at 2nd level") goes with the action that casts it (dungeon/turn.py store)."""
     found, spell = caster(connection), srd52.cast_named(text)
     if not found or not spell:
@@ -164,7 +165,7 @@ def spell_actions(connection, text: str, actions: list[dict], fighting: bool) ->
     names = lambda action: re.search(rf"\b{re.escape(spell['name'].lower())}\b", action['action'].lower())  # noqa: E731
     if not srd52.knows(found, spell):
         return [action for action in actions if not names(action) and not CASTING.search(action['action'])]
-    if not fighting and not any(names(action) for action in actions):
+    if not any(names(action) for action in actions):
         actions = [*actions, {'action': f"cast {spell['name']}", 'stat': 'Essence', 'difficulty': 'normal'}]
     slot = srd52.upcast(text)
     return [action | {'slot': slot} if slot and names(action) else action for action in actions]

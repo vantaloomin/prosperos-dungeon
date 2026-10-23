@@ -1348,7 +1348,7 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
         if memory := remembering.recall_action(connection, user['text']):
             # The recall roll is the line's Mind roll; the Referee's own is dropped for it.
             actions = [*(action for action in actions if action['stat'] != 'Mind'), memory]
-        actions = spell_actions(connection, user['text'], actions, fighting)
+        actions = spell_actions(connection, user['text'], actions)
         actions = injuries.adjust(connection, combat.adjust(connection, feelings.adjust(connection, actions)), moment)
         # Under Narrative Only a judge gives each action its verdict before it is kept (dungeon/judge.py).
         ask = None if turn.saved(connection, user['id']) else judge.asking(

@@ -3,7 +3,8 @@
 ## Unreleased
 
 - **Magic and towns playtest fixes.** Casting a healing spell on yourself outside a fight now works: it spends the
-  slot and heals you. "At 2nd level" counts wherever it falls in the line. Casting a spell you haven't prepared no
+  slot and heals you, and so does a spell cast beside a blow ("I cast Healing Word on myself and hit the thug").
+  "At 2nd level" counts wherever it falls in the line. Casting a spell you haven't prepared no
   longer rolls a plain check: the story says you don't have it ready.
 - **5E battle map.** Fights under 5E now have a battle map in the fight card: you in the middle of a grid of
   five-foot squares, each foe numbered at its distance (5 ft engaged, 20 ft nearby, 45 ft far off), and companions
