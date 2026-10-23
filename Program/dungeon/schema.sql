@@ -867,6 +867,10 @@ CREATE TABLE IF NOT EXISTS story_campaign (
   levels TEXT,
   veils TEXT,
   voice TEXT,
+  -- The narration format (dungeon/narration/prompt.py Format): point of view, tense and length.
+  pov TEXT CHECK (pov IN ('first', 'second', 'third')),
+  tense TEXT CHECK (tense IN ('past', 'present')),
+  length TEXT CHECK (length IN ('short', 'medium', 'long')),
   -- The world seed the land past a hex map's authored edge is generated from (dungeon/hexes.py).
   seed TEXT
 );

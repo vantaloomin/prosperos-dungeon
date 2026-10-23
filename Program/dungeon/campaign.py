@@ -47,7 +47,7 @@ def premades(city_id: str) -> list[dict]:
 def view(database) -> dict:
     with database.connect() as connection:
         city_id = story.scene_row(connection)['city_id']
-        rules = table.rules(connection)
+        rules = table.starting(connection)
     world = tiers.world_of(city_id)
     return {'premades': premades(city_id), 'points': POINTS, 'range': list(START_RANGE),
             'stat_names': list(marvel.STATS), 'meanings': marvel.MEANINGS,

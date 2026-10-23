@@ -181,7 +181,10 @@ ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"
                  ('story_campaign', 'levels', 'TEXT'), ('story_campaign', 'veils', 'TEXT'),
                  ('story_campaign', 'voice', 'TEXT'), ('story_campaign', 'seed', 'TEXT'), ('story_sites', 'site', 'TEXT'),
                  ('story_rolls', 'ruleset', "TEXT NOT NULL DEFAULT 'marvel'"), ('story_rolls', 'target', 'INTEGER'),
-                 ('story_rolls', 'skill', 'TEXT'))
+                 ('story_rolls', 'skill', 'TEXT'),
+                 ('story_campaign', 'pov', "TEXT CHECK (pov IN ('first', 'second', 'third'))"),
+                 ('story_campaign', 'tense', "TEXT CHECK (tense IN ('past', 'present'))"),
+                 ('story_campaign', 'length', "TEXT CHECK (length IN ('short', 'medium', 'long'))"))
 
 
 # Tables renamed since they were made: (old, new). Renamed before the schema runs, so their rows carry over.

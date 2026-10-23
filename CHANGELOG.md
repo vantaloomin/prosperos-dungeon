@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **How it's written.** Tone and rules (and session zero's Fine-tune) let you choose the narration's point of view
+  (close third, second or first person), tense (past or present) and length (short, medium or long), and change them
+  at any time. New campaigns start in close third person, past tense; stories already under way keep "you" and the
+  present tense until you change them.
 - **Fate.** A new ruleset to pick when a story starts. Your character is a high concept, a trouble and a few more
   aspects in your own words, six approaches (Careful, Clever, Flashy, Forceful, Quick, Sneaky) and a stunt or two.
   Each try rolls four Fate dice against the Fate ladder. When a roll falls short, a fitting aspect is invoked for a

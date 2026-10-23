@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import type { DefeatRule, InjuryPersistence, Ruleset, LegacyCandidate, LegacyRole, StoryArc, StoryHand, StoryIntensity, StoryPace, StoryStart as StartChoices, TablePreset, TableRules } from '../../types'
 import { Field, Toggle } from '../../components/Fields'
+import { NarrationFormat } from './NarrationFormat'
 import { ARC_NAMES, dramaChoices, HAND_NAMES, intensityChoices, LEGACY_ROLES, PACE_NAMES } from './storyText'
 
 type Legacy = { world_id: string; role: LegacyRole }
 type Tone = Pick<TableRules, 'intensity' | 'drama' | 'injury_persistence' | 'defeat'>
 type Taste = Pick<TableRules, 'show_odds' | 'roll_dice'>
+type Format = Pick<TableRules, 'pov' | 'tense' | 'length'>
 
 const INJURIES: [InjuryPersistence, string][] = [['permanent', 'Permanent: they stay'],
   ['temporary', 'Temporary: they fade with time'], ['none', 'None: wounds heal clean']]
@@ -19,7 +21,7 @@ interface Props {
  *  director's hand, the world's own pre-picked so Start is one click away; "Fine-tune" shows every rule it set, and the
  *  rest of what is chosen once for the campaign. */
 export function SessionZero({ choices, intensity, ruleset, who, busy, onStart, onBack }: Props) {
-  const { presets, preset, pick, rules, steer, setTone, setTaste, setHand, campaign, setCampaign, body } = useSession(choices)
+  const { presets, preset, pick, rules, steer, setTone, setTaste, setFormat, setHand, campaign, setCampaign, body } = useSession(choices)
   return (
     <section className="session-zero" aria-labelledby="session-zero-heading">
       <h2 id="session-zero-heading">How this campaign plays</h2>
@@ -29,6 +31,7 @@ export function SessionZero({ choices, intensity, ruleset, who, busy, onStart, o
         <summary>Fine-tune</summary>
         <ToneFields rules={rules} intensity={intensity} onChange={setTone} />
         {ruleset === 'srd52' && <DefeatField value={rules.defeat ?? 'as_written'} onChange={(defeat) => setTone({ defeat })} />}
+        <NarrationFormat rules={rules} onChange={setFormat} />
         {choices.arc && <HandField value={steer} onChange={setHand} />}
         {ruleset === 'narrative' ? <p className="subtle">Narrative has no dice to show: each try is judged No, No but, Yes but or Yes, and the story tells it.</p>
           : <TasteFields rules={rules} onChange={setTaste} />}
@@ -48,11 +51,12 @@ function useSession(choices: StartChoices) {
   const [presetId, setPresetId] = useState(presets[0]?.id ?? '')
   const [tone, setTone] = useState<Partial<Tone>>({})
   const [taste, setTaste] = useState<Partial<Taste>>({})
+  const [format, setFormat] = useState<Format>({})
   const [hand, setHand] = useState<StoryHand | null>(null)
   const [campaign, setCampaign] = useState<Campaign>({ arc: null, pace: null, ironman: false, legacy: null })
   const preset: TablePreset | { id: string; rules?: undefined; hand?: undefined } = presets.find((item) => item.id === presetId) ?? presets[0] ?? { id: '' }
   const pick = (id: string) => { setPresetId(id); setTone({}); setHand(null) }
-  const chosen = { ...preset.rules, ...tone, ...taste }
+  const chosen = { ...preset.rules, ...tone, ...taste, ...format }
   const steer = hand ?? steerOf(preset.hand, choices)
   const { ironman, ...rest } = campaign
   return {
@@ -60,6 +64,7 @@ function useSession(choices: StartChoices) {
     rules: { ...choices.table, ...chosen } as TableRules,
     setTone: (change: Partial<Tone>) => setTone({ ...tone, ...change }),
     setTaste: (change: Partial<Taste>) => setTaste({ ...taste, ...change }),
+    setFormat: (change: Format) => setFormat({ ...format, ...change }),
     body: { table: chosen, ...given({ ...rest, hand: choices.arc && steer }), ironman },
   }
 }

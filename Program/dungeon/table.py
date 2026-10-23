@@ -7,6 +7,9 @@ each world's campaign plays by its own.
 - **Tone** (intensity, drama, injury_persistence, defeat, levels, veils, voice) is the world's at the start of every
   campaign: 'world' for the dials and the voice, no categories moved off the preset, the world's veils, permanent
   injuries, a 5E defeat as written (death saves). Picking a preset clears the categories moved off it.
+- **Narration format** (pov, tense, length) is the player's at any time. A new campaign starts in close third person,
+  past tense (requirements "Narrator prompting": the default for a persona); a story with no campaign start, or a
+  campaign from before the format could be chosen, keeps second person and present tense, as Story mode always had.
 - **Display taste** (show_odds, roll_dice, show_adult_side, gm_view, cutaways) starts where the player last left it,
   which the workspace settings remember.
 
@@ -22,8 +25,12 @@ TONE = {'intensity': 'world', 'drama': 'world', 'injury_persistence': 'permanent
 # Kept as JSON: the categories the player moved off the preset (dungeon/tone.py), and the veiled topics (None: the
 # world's own).
 JSON_RULES = ('levels', 'veils')
+# The narration format (dungeon/narration/prompt.py Format): what a story with no campaign, or an older campaign, is
+# told in, and what a new campaign starts in.
+FORMAT = {'pov': 'second', 'tense': 'present', 'length': 'short'}
+NEW_FORMAT = {'pov': 'third', 'tense': 'past', 'length': 'short'}
 TASTE = ('show_odds', 'roll_dice', 'show_adult_side', 'gm_view', 'cutaways')
-RULES = (*TONE, *TASTE)
+RULES = (*TONE, *FORMAT, *TASTE)
 
 # Session zero's presets: each sets the tone and the director's hand ('world' and None are the world's own). The world's
 # own comes first and is picked unless the player picks another; a world bible may name its own presets later.
@@ -49,7 +56,7 @@ def stored(connection) -> dict:
 def rules(connection) -> dict:
     """Each rule as the campaign sets it; one it has not set yet is the world's tone or the player's last taste."""
     row, last = stored(connection), settings(connection)
-    fallback = TONE | {key: last[key] for key in TASTE}
+    fallback = TONE | FORMAT | {key: last[key] for key in TASTE}
     found = {key: (bool(value) if key in FLAGS else value)
              for key, value in ((key, fallback[key] if row[key] is None else row[key]) for key in RULES)}
     return found | {key: decode(found[key]) if isinstance(found[key], str) else found[key] for key in JSON_RULES}
@@ -83,14 +90,21 @@ def choose(connection, changes: dict, now: str):
         connection.execute(f'UPDATE workspace_settings SET {columns}, updated_at=? WHERE id=1', (*taste.values(), now))
 
 
+def starting(connection) -> dict:
+    """The rules a new campaign would start with, before it begins: the format a new campaign starts in."""
+    unset = {key for key, value in stored(connection).items() if value is None}
+    return {key: NEW_FORMAT[key] if key in unset and key in NEW_FORMAT else value for key, value in rules(connection).items()}
+
+
 def begin(connection):
     """Sets the table for a new campaign: every rule the player did not already set before it began."""
-    change(connection, {key: value for key, value in rules(connection).items() if stored(connection)[key] is None})
+    unset = {key for key, value in stored(connection).items() if value is None}
+    change(connection, {key: value for key, value in (rules(connection) | NEW_FORMAT).items() if key in unset})
 
 
 def adopt(connection):
     """A campaign from before the Table played by the workspace's rules; it keeps them as its own. Plain SQL, as it
     runs while the database is set up (dungeon/database.py initialize), on any connection."""
-    unset = ' AND '.join(f'{key} IS NULL' for key in RULES)
-    kept = ', '.join(f'{key}=(SELECT {key} FROM workspace_settings WHERE id=1)' for key in RULES)
+    unset = ' AND '.join(f'{key} IS NULL' for key in (*TONE, *TASTE))
+    kept = ', '.join(f'{key}=(SELECT {key} FROM workspace_settings WHERE id=1)' for key in (*TONE, *TASTE))
     connection.execute(f'UPDATE story_campaign SET {kept} WHERE id=1 AND {unset}')

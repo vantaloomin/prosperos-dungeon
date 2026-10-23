@@ -400,7 +400,12 @@ export interface TableRules {
   show_odds: boolean; roll_dice: boolean; show_adult_side: boolean; gm_view: boolean; cutaways: boolean; defeat?: DefeatRule
   /** dungeon/tone.py: categories moved off the preset, veiled topics (null: the world's), the narrator's voice. */
   levels?: Partial<Record<ToneCategory, number>> | null; veils?: VeilTopic[] | null; voice?: ToneVoice
+  /** The narration format (dungeon/narration/prompt.py Format): point of view, tense and length. */
+  pov?: NarrationPov; tense?: NarrationTense; length?: NarrationLength
 }
+export type NarrationPov = 'first' | 'second' | 'third'
+export type NarrationTense = 'past' | 'present'
+export type NarrationLength = 'short' | 'medium' | 'long'
 export type ToneCategory = 'violence' | 'sex' | 'horror' | 'cruelty' | 'drugs'
 export type VeilTopic = 'execution' | 'slavery' | 'mutilation' | 'disease' | 'self-harm' | 'addiction' | 'torture' | 'sexual-violence' | 'sacrifice' | 'child-harm'
 export type ToneVoice = 'world' | 'grim' | 'wry' | 'romantic' | 'hopeful' | 'lyrical' | 'plain'

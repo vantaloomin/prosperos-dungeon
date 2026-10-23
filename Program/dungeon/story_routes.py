@@ -200,6 +200,10 @@ class TableUpdate(Input):
     veils: list[Literal['execution', 'slavery', 'mutilation', 'disease', 'self-harm', 'addiction', 'torture',
                         'sexual-violence', 'sacrifice', 'child-harm']] | None = Field(default=None, max_length=10)
     voice: Literal['world', 'grim', 'wry', 'romantic', 'hopeful', 'lyrical', 'plain'] | None = None
+    # The narration format (dungeon/narration/prompt.py Format).
+    pov: Literal['first', 'second', 'third'] | None = None
+    tense: Literal['past', 'present'] | None = None
+    length: Literal['short', 'medium', 'long'] | None = None
 
 
 class IronswornBuild(Input):
