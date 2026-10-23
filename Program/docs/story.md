@@ -584,10 +584,14 @@ Havenbrooke's (car or bus) and BABEL's (the Stair) do. Vallarith's is.
 - **A journey, hex by hex.** "I set out for Eriane" takes the quickest way over the hexes: a step along a road is an
   hour, off it the land's own hours (plains 2, forest, hills and waste 3, marsh 4, mountains 5; water can't be
   walked). Each hex rolls for an encounter at its share of a day's odds (a road hex at the road's danger, the rest at
-  the region's). A fight out on the way ends the journey at the next place on it.
+  the region's). An encounter entry's `where` keeps it to the road (`road`: toll-takers, a carter) or off it
+  (`wild`); entries without one happen anywhere. A fight out on the way ends the journey at the next place on it.
+  A line that sets out on a journey is not read by the Referee: its rolls are the journey's own (danger, bearings,
+  searching), so walking is no feat and "I strike out north-east" no attack.
 - **Striking out.** "I head north-east" (out in the wild, any word for going; from a town it takes a word for
   leaving: set out, strike out, head out, leave, travel) walks up to a day's hours that way, hex by hex; due east and
-  west zigzag between the two hex sides either way. It stops early at open water or at a place. A walk that ends
+  west zigzag between the two hex sides either way. It stops early at open water or at a place, or after as long as
+  the line says ("for an hour or so", "for two hours"; `travel.walking_hours`), with at least one hex walked. A walk that ends
   between places leaves the scene in the map's `wild` place (Vallarith's `the-wilds` on the Road), with the hex kept
   in `story_position`; the narrator gets "## Out in the wild": the land, the region, the day's weather, and the
   nearest place the character knows with how far and which way. A line naming a place walks there from that hex;
@@ -596,11 +600,12 @@ Havenbrooke's (car or bus) and BABEL's (the Stair) do. Vallarith's is.
   a Mind roll; fog, storm and snow make it harder and make open country and hills need one too. A failure drifts the
   rest of the day's walk one side off course (`lost.astray`, planned with the walk); the character believes they
   went straight, the map marks where they think they are (`map.at.lost`) and the narrator is told they are not
-  where they believe. A road or a place puts them right.
+  where they believe. A road or a place puts them right, and so can a Mind roll each time they set out (or search)
+  while lost: easy from hills or mountains, normal in open country or waste, hard under trees or in marsh.
 - **Weather.** One roll a day per region, from the seed and the story clock's date (clear, overcast, rain, fog,
   storm; snow for rain in winter months). Storms and snow make every off-road hex half as slow again. The narrator
   hears the day's weather on the way and out in the wild.
-- **Sites.** About one hex in twenty-five off the roads holds a site, decided by the seed: a ruin, shrine, cave,
+- **Sites.** About one hex in fifteen off the roads (the table's `odds`, 7 in Vallarith and the woods) holds a site, decided by the seed: a ruin, shrine, cave,
   lair, battlefield, camp or hamlet from the travel map's `sites` table (the region's entries and `any`), named from
   its `owners` ("Hatch's Tower", "Little Kettle"). Ruins, battlefields, camps and hamlets show from a distance and are
   found when their hex is seen; shrines, caves and lairs are found only by searching their hex. A walk or a journey
@@ -613,7 +618,8 @@ Havenbrooke's (car or bus) and BABEL's (the Stair) do. Vallarith's is.
   scene there under its own name, with its own people, while the character's hex stays the hamlet's. Places tagged
   `wild` (the wild and hamlets) are reached by travel, never by an across-town "I go to …".
 - **Searching.** Out in the wild, "I search the area" (search, scour, explore, look around, scout) takes the hex's
-  crossing time and a Mind roll; a success finds a hidden site there, if there is one.
+  crossing time and a Mind roll; a success finds a hidden site there, if there is one, and a critical success always
+  turns something up: the nearest site not yet found within three hexes, when the hex itself has none.
 - **Havenbrooke's woods.** Havenbrooke's trips between towns stay on its roads, by car or bus. Its woods are a hex
   crawl of their own (`world/data/travel/havenbrooke-woods.json`): one-mile hexes (crossing times scale with the
   size: half an hour through a mile of woods), all generated from the seed with the map's `hex_map` settings (no

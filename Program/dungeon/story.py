@@ -1128,16 +1128,21 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
         held = combat.captors(connection)
     if rolls:
         return rolls
+    with database.connect(write=True) as connection:
+        travelling = travel.decide(connection, user['id'], user['city_id'], user['place_id'], user['text'],
+                                   getattr(state, 'dice', None))
+        journeying = travel.journey(connection, user['id']) is not None
     since = steps.clock()
     obvious = pace.obvious(user['text']) and not fighting
-    actions = await referee.decide(state, user['text'], None if obvious else splitter, None if obvious else decisions,
-                                   foes)
+    # A journey's dangers and bearings are rolled by the journey (dungeon/travel.py): walking itself is no feat, and
+    # "I strike out north-east" is no attack.
+    actions = [] if journeying else await referee.decide(
+        state, user['text'], None if obvious else splitter, None if obvious else decisions, foes)
     steps.timed('referee', since)
     if not held and (hazard := quests.danger_action(user['city_id'], user['place_id'], getattr(state, 'dice', None))):
         actions = [*actions, hazard]
     with database.connect(write=True) as connection:
-        actions = [*actions, *travel.decide(connection, user['id'], user['city_id'], user['place_id'], user['text'],
-                                            getattr(state, 'dice', None))]
+        actions = [*actions, *travelling]
         if camp := rest.decide(connection, user['id'], user['city_id'], user['place_id'], user['text'],
                                getattr(state, 'dice', None)):
             actions = [*actions, camp]

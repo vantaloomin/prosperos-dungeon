@@ -3,7 +3,7 @@ from conftest import Chunk, tell
 from test_inventory import begin
 from test_travel import Road
 
-from dungeon import hexes, travel
+from dungeon import hexes, travel, turn
 
 
 def ok(response):
@@ -207,7 +207,7 @@ def test_searching_a_hex_turns_up_what_is_hidden_there(client, connected, provid
     board = hexes.Grid(vallarith(), 'fixed')
     at = site_hexes(board, False)[0]
     out_in_the_wild(app, at)
-    app.state.dice = Road(1)
+    app.state.dice = Road()
     provider.replies = [[Chunk('Found it.'), Chunk('', 'stop')]]
     tell(client, 'I search the area carefully.', 'story-0001')
     narrator = provider.requests[-1]['system']
@@ -263,3 +263,68 @@ def test_a_hamlet_found_out_in_the_wild_is_a_place_of_its_own_on_the_road(client
     provider.replies = [[Chunk('Back to Kingswood.'), Chunk('', 'stop')]]
     tell(client, 'I set out for Kingswood.', 'story-0002')
     assert ok(client.get('/api/story'))['scene']['place']['id'] != hexes.hamlet_id(at)
+
+
+def test_a_walk_for_an_hour_stops_after_an_hour_and_a_road_encounter_keeps_to_the_road():
+    assert travel.walking_hours('I keep going north for an hour or so.') == 1
+    assert travel.walking_hours('We walk west for 30 minutes.') == 0.5 and travel.walking_hours('I head north.') is None
+    cyrel = vallarith()['encounters']['kingdom-of-cyrel']
+    off_road = {'danger': 'high', 'hours': 10, 'region': 'kingdom-of-cyrel'}
+    # Road(1): the encounter happens, and the pick takes the first entry that fits.
+    entry = travel.encounter_on(vallarith(), [off_road], True, Road(1))['entry']
+    assert entry.get('where') == 'wild' and entry in cyrel
+    on_road = travel.encounter_on(vallarith(), [off_road | {'road': True}], True, Road(1))['entry']
+    assert on_road.get('where') != 'wild'
+
+
+def test_striking_out_for_an_hour_walks_about_an_hour_and_rolls_nothing_for_the_walking(client, connected, provider,
+                                                                                         app):
+    begin(client)
+    planned = strike(app, 'I set out north for an hour.')
+    assert planned['legs'] and (sum(leg['hours'] for leg in planned['legs'][:-1]) < 1)
+    app.state.dice = Road(99)
+    provider.replies = [[Chunk('North.'), Chunk('', 'stop')]]
+    tell(client, 'I strike out north-east.', 'story-0001')
+    with app.state.database.connect() as connection:
+        user = connection.execute("SELECT id FROM story_messages WHERE role='user' ORDER BY created_at DESC").fetchone()
+        stats = {roll['stat'] for roll in turn.saved(connection, user['id'])}
+    # Striking out is no attack, and walking no feat of strength: only the journey's own rolls.
+    assert 'Vitality' not in stats
+
+
+def test_lost_out_in_the_wild_a_day_s_setting_out_can_bring_the_bearings_back(client, connected, app):
+    begin(client)
+    board = hexes.Grid(vallarith(), 'fixed')
+    at = next(other for other in hexes.ring(board.places['kingswood'], 4) if board.cell(other)['terrain'] == 'hills'
+              and not board.site(other))
+    out_in_the_wild(app, at)
+    with app.state.database.connect(write=True) as connection:
+        connection.execute('UPDATE story_position SET believed_q=believed_q+2 WHERE id=1')
+        planned = travel.plan(connection, 'vallarith-road', 'the-wilds', 'I head south.', Road())
+    # With a view from the hills it is easy.
+    assert planned['regain'] == {'difficulty': 'easy'}
+    legs = [{'from': list(at), 'to': [at[0], at[1] + 1]}]
+    roll = {'threat': travel.STILL_LOST}
+    with app.state.database.connect() as connection:
+        lines = []
+        kept = travel.belief(connection, vallarith(), board, planned, legs, [roll | {'band': 'failure'}], lines)
+        assert kept == (at[0] + 2, at[1] + 1) and not lines
+        found = travel.belief(connection, vallarith(), board, planned, legs, [roll | {'band': 'success'}], lines)
+        assert found == (at[0], at[1] + 1) and 'work out where they really are' in lines[0]
+
+
+def test_a_search_that_goes_as_well_as_it_can_finds_the_nearest_site_close_by(app):
+    board = hexes.Grid(vallarith(), 'fixed')
+    with app.state.database.connect(write=True) as connection:
+        # No story started here: the campaign row may not exist yet, and without it the seed would be a new one.
+        connection.execute("INSERT INTO story_campaign (id, seed) VALUES (1, 'fixed') "
+                           "ON CONFLICT(id) DO UPDATE SET seed='fixed'")
+        levels = hexes.levels(connection)
+        at = next(other for radius in range(3, 20) for other in hexes.ring(board.places['kingswood'], radius)
+                  if board.cell(other)['terrain'] != 'water' and not board.site(other, levels)
+                  and any(board.site(near, levels) for near in hexes.neighbours(*other)))
+        plan_ = {'from': 'the-wilds', 'start': list(at), 'search': {'hours': 2}}
+        _, plain = travel.search(connection, plan_, [{'threat': travel.NOTHING, 'band': 'success'}])
+        assert 'nothing hidden here' in plain[-1]
+        _, great = travel.search(connection, plan_, [{'threat': travel.NOTHING, 'band': 'critical_success'}])
+        assert 'signs of something 1 hex' in great[0] and 'finds' in great[-1]

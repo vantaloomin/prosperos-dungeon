@@ -85,6 +85,8 @@ def test_the_woods_are_a_hex_crawl_of_mile_hexes_and_the_roads_stay_roads():
     from dungeon import hexes
     roads = next(found for found in travel.maps() if any(node['id'] == 'haven' for node in found['nodes']))
     assert not hexes.is_hex(roads) and hexes.is_hex(woods())
+    # Playtest: the woods once walked on the roads map's grid, as both were keyed by the world.
+    assert hexes.key(woods()) != hexes.key(roads) and hexes._grid(hexes.key(woods()), 'seed', None).miles == 1
     board = hexes.Grid(woods(), 'seed')
     around = [board.cell(at) for at in hexes.ring(board.places['ironroot-trailhead'], 15)]
     kinds = {cell['terrain'] for cell in around}

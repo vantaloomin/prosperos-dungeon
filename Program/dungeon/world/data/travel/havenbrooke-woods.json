@@ -2,6 +2,7 @@
  "about": "Havenbrooke's woods on foot (dungeon/hexes.py, requirements \"### Hex crawl\"): a hex crawl of one-mile hexes into the woods and hills west and south of Haven, entered from Ironroot Woods or the Riverwalk. No hexes are authored; the land is generated from the campaign seed and goes on as far as anyone walks. Trips between towns stay on Havenbrooke's roads (travel/havenbrooke.json). Walking eats nothing from the pack, as everywhere in Havenbrooke.",
  "world": "havenbrooke",
  "travel": "hex",
+ "hexes": "havenbrooke-woods",
  "hex_map": {
   "miles": 1,
   "generate": {
@@ -51,7 +52,7 @@
   ]
  },
  "sites": {
-  "odds": 5,
+  "odds": 7,
   "owners": ["Halloran", "Duffy", "Petrie", "Lutz", "Mapes", "Orcutt", "Van Slyke", "Bogardus", "Teeter", "Schoonmaker"],
   "any": [
    {"weight": 3, "kind": "ruin", "visible": true, "names": ["the {owner} farm cellar hole", "{owner}'s barn", "the old {owner} sawmill"], "text": "What is left of a farm the woods took back: a cellar hole, lilacs gone wild, a stone chimney standing on its own."},

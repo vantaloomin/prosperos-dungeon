@@ -402,7 +402,8 @@ def grid(connection, travel_map: dict) -> Grid:
 @functools.lru_cache(maxsize=4)
 def _grid(map_key: str, seed_: str, _version) -> Grid:
     from dungeon import travel
-    travel_map = next(found for found in travel.maps() if key(found) == map_key)
+    # A world's roads map shares its key with nothing that crawls: only a hex crawl has a grid.
+    travel_map = next(found for found in travel.maps() if key(found) == map_key and is_hex(found))
     return Grid(travel_map, seed_)
 
 
