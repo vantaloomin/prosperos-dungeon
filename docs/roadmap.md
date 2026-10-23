@@ -133,6 +133,16 @@ hurt or die, and go back to an earlier turn and try again with new dice.
 - Last, optionally: a free grid with saved layouts as a "Customize layout" mode.
 - Full intensity sliders with veils and table filtering; tone voice setting.
 
+## Hex crawl (added 2026-10-23)
+
+Requirements "### Hex crawl". Small PRs, in order:
+
+1. Hex engine: the grid, terrains, seeded generation past the authored hexes, fog of war per hex,
+   journeys walked hex by hex. Vallarith's authored core painted from its world map.
+2. Directions ("I head north-east"), searching a hex, sites, getting lost, weather.
+3. The map widget draws hexes.
+4. Havenbrooke's on-foot wild regions; BABEL marked `travel: "roads"`.
+
 ## Order and parallel work
 
 Milestone 0 and 1 are sequential and come first. After the slice, Milestones 2 and 3 can run in
