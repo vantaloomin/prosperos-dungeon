@@ -1,4 +1,4 @@
-import type { BandStep, DramaLevel, Gear, HiddenRoll, IntensityPreset, JournalEntry, JournalInstitution, JournalQuest, JournalThread, LegacyRole, Looks, NarrationLength, NarrationPov, NarrationTense, Premade, ReceiptChip, SheetGrowth, Srd52Spells, StoryArc, StoryBranch, StoryChapter, StoryFight, StoryHand, StoryMessage, StoryPace, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryTier, ToneCategory, ToneVoice, TurnAction, TurnEvent, TurnPace, TurnSoFar, VeilTopic, Zone } from '../../types'
+import type { BandStep, DiceLog, DramaLevel, Gear, HiddenRoll, IntensityPreset, JournalEntry, JournalInstitution, JournalQuest, JournalThread, LegacyRole, Looks, NarrationLength, NarrationPov, NarrationTense, Premade, ReceiptChip, SheetGrowth, Srd52Spells, StoryArc, StoryBranch, StoryChapter, StoryFight, StoryHand, StoryMessage, StoryPace, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryTier, ToneCategory, ToneVoice, TurnAction, TurnEvent, TurnPace, TurnSoFar, VeilTopic, Zone } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -285,6 +285,12 @@ export function haggleText(percent: number): string {
 }
 
 const STEP_NAMES: Record<string, string> = { contradiction: 'the contradiction check', rewrite: 'the prose rewrite' }
+
+/** "14 rolls, 9 landed (64%)": the dice log's tally. */
+export function tallyText(tally: NonNullable<DiceLog['tally']>): string {
+  if (!tally.rolls) return 'No rolls yet.'
+  return `${tally.rolls} roll${tally.rolls === 1 ? '' : 's'}, ${tally.landed} landed (${Math.round(100 * tally.landed / tally.rolls)}%)`
+}
 
 /** "Took 12.4 s of 30 · narrator 9.8 s · skipped the prose rewrite for time", under a line with the dice shown. */
 export function paceText(pace: TurnPace): string {

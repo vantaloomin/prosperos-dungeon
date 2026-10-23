@@ -625,8 +625,13 @@ every step is timed.
 - **Over budget, the optional steps give way:** the prose rewrite first, then the contradiction check. Dice, the
   record and the em dash fix are never skipped.
 
-Not in v0: dead and spent items or people elsewhere in the contradiction check (only the dead), a GM view of
-skipped checks, and the dice log.
+- **The dice log** (`dungeon/dice_log.py`, `GET /api/story/dice-log`, the drawer's "Dice log" under More): every
+  roll of the branch being played, turn by turn and newest first (up to 200 turns), each with its line, its rolls
+  as the roll cards give them and how long the turn took, and a tally of how many landed. Only while the dice are
+  shown; hidden, it returns nothing.
+
+Not in v0: dead and spent items or people elsewhere in the contradiction check (only the dead), and a GM view of
+skipped checks.
 
 ## Journeys
 

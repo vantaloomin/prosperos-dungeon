@@ -42,5 +42,7 @@ test('the drawer leaves out what has nothing to show', () => {
   assert.equal(hasWidget(story(), 'chapters'), false)
   assert.equal(hasWidget(story(), 'branches'), false)
   assert.equal(hasWidget(story({ messages: [] }), 'sheet'), false)
+  assert.equal(hasWidget(story(), 'dice'), false)
+  assert.equal(hasWidget(story({ dice_shown: true }), 'dice'), true)
   assert.equal(hasWidget(story(), 'rules'), true)
 })

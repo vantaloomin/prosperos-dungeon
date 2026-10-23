@@ -50,7 +50,7 @@ export function Story({ go }: { go: (view: View) => void }) {
     setError('')
     try { await request() } catch (failure) { setError(failure instanceof Error ? failure.message : 'That did not work. Try again.') }
     finally {
-      await Promise.all([client.invalidateQueries({ queryKey: STORY_KEY }), client.invalidateQueries({ queryKey: ['story-journal'] }), client.invalidateQueries({ queryKey: ['story-gear'] }), client.invalidateQueries({ queryKey: ['story-sheet'] })])
+      await Promise.all([client.invalidateQueries({ queryKey: STORY_KEY }), client.invalidateQueries({ queryKey: ['story-journal'] }), client.invalidateQueries({ queryKey: ['story-gear'] }), client.invalidateQueries({ queryKey: ['story-sheet'] }), client.invalidateQueries({ queryKey: ['story-dice-log'] })])
         .finally(() => setPending(null))
     }
   }

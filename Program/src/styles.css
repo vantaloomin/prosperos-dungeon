@@ -348,6 +348,9 @@ textarea { resize: vertical; line-height: 1.6; }
 .story-gm-axes input { width: 4rem; }
 .story-bookmark { display: inline-flex; gap: 6px; align-items: center; }
 .story-note { font-family: var(--read-font); font-size: 0.875rem; color: var(--muted); font-style: italic; }
+.dice-log { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 10px; }
+.dice-log > li { border-top: 1px solid var(--border); padding-top: 8px; }
+.dice-log ul { margin: 4px 0; padding-left: 16px; }
 .story-fight { padding: 8px 12px; border: 1px solid var(--danger-border); border-radius: 10px; background: var(--danger-tint); color: var(--danger); font-weight: 600; }
 .story-notice, .story-footer { max-width: 760px; width: 100%; margin: 0 auto; padding: 0 32px 10px; }
 .story-notice { padding-top: 12px; }

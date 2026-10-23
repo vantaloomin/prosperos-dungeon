@@ -118,3 +118,16 @@ def test_rolling_dice_is_an_off_by_default_setting(client):
     assert ok(client.get('/api/settings'))['roll_dice'] is False
     assert ok(client.put('/api/settings', json={'roll_dice': True}))['roll_dice'] is True
     assert ok(client.get('/api/settings'))['roll_dice'] is True
+
+
+def test_the_dice_log_keeps_every_roll_while_the_dice_are_shown(client, connected, app):
+    assert ok(client.get('/api/story/dice-log')) == {'shown': False, 'turns': [], 'tally': None}
+    ok(client.put('/api/settings', json={'show_odds': True}))
+    tell(client, 'I attack the man at the bar.', 'turn-0010')
+    tell(client, 'I sit down and look around.', 'turn-0011')
+    log = ok(client.get('/api/story/dice-log'))
+    rolled = [item for item in log['turns'] if item['rolls']]
+    assert rolled[0]['line'] == 'I attack the man at the bar.' and rolled[0]['rolls'][0]['stat'] == 'Vitality'
+    assert all(item['pace'] for item in log['turns'])
+    assert log['tally']['rolls'] == sum(len(item['rolls']) for item in log['turns'])
+    assert sum(log['tally']['bands'].values()) == log['tally']['rolls']

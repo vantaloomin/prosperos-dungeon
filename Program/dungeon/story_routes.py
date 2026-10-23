@@ -12,6 +12,7 @@ from dungeon import (
     book,
     campaign,
     chapters,
+    dice_log,
     director,
     gm,
     growth,
@@ -359,6 +360,14 @@ def change_table(request: Request, body: TableUpdate):
 
 class NotebookNote(Input):
     text: str = Field(min_length=1, max_length=4000)
+
+
+@router.get('/dice-log')
+def dice(request: Request):
+    """Every roll of the branch, turn by turn, with how long each turn took (dungeon/dice_log.py); only while the
+    dice are shown."""
+    with request.app.state.database.connect() as connection:
+        return dice_log.log(connection, story.dice_shown(connection))
 
 
 @router.get('/notebook')
