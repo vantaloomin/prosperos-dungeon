@@ -11,6 +11,7 @@ from dungeon import (
     chapters,
     combat_brp,
     director,
+    hexes,
     institutions,
     inventory,
     legacy,
@@ -206,6 +207,8 @@ def begin(database, premade_id: str | None = None, persona: PersonaInput | None 
         sheet.set_stats(connection, stats, database.now())
         # The ruleset (dungeon/sheet.py): chosen now, for the whole campaign, with its own sheet.
         sheet.set_ruleset(connection, ruleset)
+        # The world seed (dungeon/hexes.py), chosen now so that a read (a town's streets) never has to write it.
+        hexes.seed(connection)
         if native:
             sheet.set_native(connection, native, database.now())
         # Ironman (dungeon/chapters.py): chosen now, for the whole campaign.

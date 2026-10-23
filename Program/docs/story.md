@@ -490,7 +490,8 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
   may also start `zone: far`, like the Heartwood wardens' bows): then it shoots from where it stands. The
   character's blow reaches a near foe (and engages it) but a far one only closes to near; a shot or throw reaches
   any band and leaves the target where it is. A line that backs off ("I fall back to the stairs") and lands breaks
-  away from every engaged foe, who must close again, and moves the fight's named area to the place it names; a
+  away from every engaged foe, who must close again (a foe shaken off loses that round's turn and stays near), and
+  moves the fight's named area to the place it names, kept with the fight (`story_fight.area`); a
   failure can't shake them. Mid-fight such a line always rolls Vitality, even when the Referee lets it pass. "Retreat to …" is such a move, not an escape. The narrator gets where everyone stands
   under the round; the fight card shows the area and each foe's range.
 - **Fight on my plan.** A line that sets a plan and says to keep at it ("I hold the door and cut down whoever comes,
@@ -623,12 +624,17 @@ The same fight on BRP's rules (`dungeon/combat_brp.py`):
   one, shown on the roll card ("+2 supply").
 - **Spirit** follows the stress track: 5 while steady, down to 0 at its top. Resisting stress is Endure Stress on
   heart.
+- **Swear an Iron Vow.** A line that swears one in so many words ("I swear an iron vow to find whoever is breaking
+  the saws") makes it an oath to no one but the character, titled "Vow: …", with no deadline; an oath sworn to
+  someone (found by the Continuity model) is a vow too. Either shows on the sheet as an empty track from the start.
 - **Vows** are progress tracks of ten boxes, four ticks a box. A line that names an open vow (at least half of its
-  title's longer words, as for an oath) and lands a roll is Reach a Milestone: it marks ticks by the vow's rank
+  title's longer words, as for an oath, or for a sworn vow any one of them: "the saws") and lands a roll is Reach a
+  Milestone: it marks ticks by the vow's rank
   (troublesome 12, dangerous 8, formidable 4, extreme 2, epic 1), once a story day per vow. The narrator hears it
   under "## Vows (decided by the game)". The rank comes from the quest's tier (tier 1 dangerous, 2 formidable,
   3 extreme, higher epic; an oath is dangerous).
-- **Fulfill Your Vow.** A quest or an oath done is a progress roll: the deed that ends it marks a last milestone,
+- **Fulfill Your Vow.** A quest or an oath done, or a vow the player calls kept ("The vow is done", the vow it
+  names or the only one sworn), is a progress roll: the deed that ends it marks a last milestone,
   then the filled boxes go against the two challenge dice, with no action die and no momentum. A strong hit gives
   experience as written, 1 for troublesome to 5 for epic; a weak hit one less; a miss none (the story already says
   it ended, but the vow is not what was sworn). Code spends it: 2 upgrades an asset (its next ability), else 3 buys
@@ -841,8 +847,8 @@ rest, decided before the narrator writes it. A journey line is not; a rest with 
 `dungeon/injuries.py`, with the lasting-injury table in `dungeon/rules/injuries.json`. All of it follows the
 **Lasting injuries** setting beside the story (`injury_persistence`): Permanent (the default), Temporary or None.
 
-- **Lasting injuries are rolled.** A foe's hit that leaves the character Maimed (or worse), or a foe's critical hit,
-  rolls on the table once that round, but only from foes who would kill: a brawl to drive the character off leaves
+- **Lasting injuries are rolled.** A foe's hit that leaves the character Maimed (or worse), or a foe's critical hit
+  that leaves them Wounded or worse (a Hurt blow never maims; under 5E, the critical hit as written), rolls on the table once that round, but only from foes who would kill: a brawl to drive the character off leaves
   bruises, not a lost eye (`combat.maimed_by`). The table: a lost eye, a limp, a ruined hand, two lost fingers, a disfiguring scar,
   ribs that knit wrong, a deaf ear, a tremor in the sword hand. The same one never twice. It goes in the record
   as a wound, shows as "Lasting: …" under the character's condition, and the narrator is told what people see.

@@ -1,4 +1,5 @@
 // Color schemes and the custom palette, from prosperos-study src/features/settings/palette.ts.
+import type { CSSProperties } from 'react'
 import type { WorkspaceSettings } from '../../types'
 
 export interface Palette { accent: string; background: string; surface: string; text: string }
@@ -56,6 +57,11 @@ export function paletteReadability(value: Palette) {
 function lightOrDark(p: Palette): Record<string, string> {
   if (luminance(p.background) <= .45) return { 'color-scheme': 'dark', '--scheme': 'dark' }
   return { 'color-scheme': 'light', '--scheme': 'light', '--input-border': readableMix(p.surface, p.text, 3), '--shadow': '#2a20101f' }
+}
+/** A palette as a React style: the variables, and color-scheme by React's name for it. */
+export function paletteStyle(palette?: Palette | null): CSSProperties {
+  const { 'color-scheme': scheme, ...variables } = paletteStyles(palette)
+  return { ...variables, colorScheme: scheme } as CSSProperties
 }
 /** The CSS variables a custom palette sets; the rest are worked out from the four colors so they stay readable. */
 export function paletteStyles(palette?: Palette | null): Record<string, string> {

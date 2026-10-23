@@ -285,3 +285,34 @@ def test_a_vow_milestone_reaches_the_narrator(client, connected, provider, app):
     tell(client, 'I climb the mill wall to look for Tamsin\'s brother.', 'story-0001')
     assert any('## Vows (decided by the game)\n- Reach a Milestone on the vow An oath to Tamsin: progress 2 of 10.'
                in request['system'] for request in provider.requests)
+
+def test_a_line_swears_an_iron_vow_pursues_it_by_its_words_and_calls_it_kept(client, connected, provider, app):
+    # E2E vows pass: an iron vow sworn in so many words made no quest, and "The vow is done" did nothing.
+    sworn(client)
+    provider.respond = lambda system, messages: reply('{"facts": []}') if system.startswith(record.EXTRACT) \
+        else reply('The mill is quiet.')
+    app.state.dice = Always(6)
+    tell(client, 'I swear an iron vow to find whoever is breaking the saws at the mill, whatever it costs.',
+         'story-0001')
+    with app.state.database.connect() as connection:
+        vow = next(quest for quest in quests.rows(connection, 'open') if quest['kind'] == 'oath')
+        assert vow['title'] == 'Vow: find whoever is breaking the saws at the mill' and vow['due_at'] is None
+        assert ironsworn.view(sheet.native(connection))['progress'][0] == {
+            'name': vow['title'], 'rank': 'dangerous', 'ticks': 0, 'boxes': 0, 'of': 10}
+    tell(client, 'I climb into the saw pit and look for tool marks.', 'story-0003')
+    assert any('Reach a Milestone on the vow Vow: find whoever is breaking the saws at the mill: progress 2 of 10.'
+               in request['system'] for request in provider.requests)
+    tell(client, 'The vow is done.', 'story-0005')
+    assert any('Fulfill Your Vow, dangerous (Vow: find whoever is breaking the saws at the mill)' in request['system']
+               for request in provider.requests)
+    with app.state.database.connect() as connection:
+        assert not [quest for quest in quests.rows(connection, 'open') if quest['kind'] == 'oath']
+        assert [track['name'] for track in ironsworn.view(sheet.native(connection))['progress']] == ['Bonds']
+
+
+def test_an_oath_sworn_to_someone_is_a_vow_track_on_the_sheet(client, app):
+    sworn(client)
+    with app.state.database.connect(write=True) as connection:
+        quests.swear(connection, 'kingswood', {'to': 'Corin', 'text': 'Stand by Corin.', 'days': 7},
+                     quests.datetime(2026, 10, 1))
+        assert ironsworn.view(sheet.native(connection))['progress'][0]['name'] == 'An oath to Corin'

@@ -11,11 +11,19 @@
 - **Bonds** is a progress track too: each bond forged (dungeon/bonds.py) marks a tick.
 """
 import math
+import re
 
 from dungeon import sheet
 from dungeon.rules import ironsworn
 
 LANDED = ('success_cost', 'success', 'critical_success')
+# "I swear an iron vow to find whoever is breaking the saws": the line swears it, with no model needed.
+IRON_VOW = re.compile(r"\b(?:swear\w*|swore|sworn|make|made)\s+(?:an?\s+)?iron\s+vow\b[^.!?]*?\b(?:to|that)\s+"
+                      r"(?:I\s+will\s+|I'll\s+)?([^.!?,;\n]+)", re.I)
+# "The vow is done", "I fulfil my vow": Fulfill Your Vow, which the player calls when they judge it kept.
+DONE = re.compile(r"\b(?:the|my|this|that)\s+vow\s+is\s+(?:done|fulfill?ed|kept|complete|met)\b|"
+                  r"\bI\s+(?:have\s+)?(?:fulfill?|fulfill?ed|kept|keep)\s+(?:my|the|this)\s+(?:iron\s+)?vow\b", re.I)
+MOST_TITLE = 60
 
 
 def played(connection) -> dict | None:
@@ -61,6 +69,24 @@ def follow_stress(connection, points: int, top: int):
 
 def rank(quest: dict) -> str:
     return 'dangerous' if quest.get('kind') == 'oath' else ironsworn.rank_of(quest.get('tier'))
+
+
+def swore(connection, quest: dict):
+    """Swear an Iron Vow: the vow's progress track, empty, on the sheet from the start."""
+    found = played(connection)
+    if found is not None and quest['id'] not in found.setdefault('vows', {}):
+        found['vows'][quest['id']] = {'title': quest['title'], 'rank': rank(quest), 'ticks': 0, 'day': ''}
+        sheet.set_native(connection, found, '')
+
+
+def iron_vow(text: str) -> dict | None:
+    """The vow a line swears in so many words, as an oath to no one but the character (dungeon/quests.py vow)."""
+    found = IRON_VOW.search(text)
+    if not found:
+        return None
+    sworn = found.group(1).strip().rstrip(',;:')
+    title = sworn if len(sworn) <= MOST_TITLE else sworn[:MOST_TITLE].rsplit(' ', 1)[0] + '…'
+    return {'to': '', 'text': sworn[0].upper() + sworn[1:], 'days': None, 'title': f'Vow: {title}'}
 
 
 def milestone(connection, quest: dict, day: str) -> str:
@@ -116,12 +142,44 @@ def bonds_line(connection) -> str:
     return f"Forge a Bond: the bonds track has {found['bonds']} tick{plural}."
 
 
+def sworn_to(connection, text: str, only: bool = False) -> dict | None:
+    """The open quest a line names (dungeon/quests.py named), else the one sworn vow that a word of its title names
+    ("the saws"), else, when `only`, the one sworn vow there is."""
+    from dungeon import quests
+    if quest := quests.named(connection, text):
+        return quest
+    tracked = (played(connection) or {}).get('vows') or {}
+    open_vows = [quest for quest in quests.rows(connection, 'open') if quest['id'] in tracked]
+    hinted = [quest for quest in open_vows if quests.says(text, quests.stems(quest['title']))]
+    if len(hinted) == 1:
+        return hinted[0]
+    return open_vows[0] if only and len(open_vows) == 1 else None
+
+
+def declared(connection, city_id: str, text: str, rolls: list[dict], day: str, now) -> list[str]:
+    """A line's own vow moves under Ironsworn: fulfilling a vow the player calls kept, a milestone on one it pursues,
+    then swearing a new one it names."""
+    from dungeon import quests
+    if played(connection) is None:
+        return []
+    lines = []
+    if DONE.search(text) and (quest := sworn_to(connection, text, only=True)):
+        lines += [line for line in quests.end(connection, quest['id'], 'done', text, now.isoformat())
+                  if line.startswith('Fulfill Your Vow')]
+    else:
+        lines += pursued(connection, text, rolls, day)
+    if oath := iron_vow(text):
+        quest_id = quests.vow(connection, city_id, text, oath, now)
+        title = next((quest['title'] for quest in quests.rows(connection, 'open') if quest['id'] == quest_id), '')
+        lines.append(f'Swear an Iron Vow: {title}.')
+    return lines
+
+
 def pursued(connection, text: str, rolls: list[dict], day: str) -> list[str]:
     """A line that pursues an open vow by name and lands a roll reaches a milestone on it."""
-    from dungeon import quests
     if played(connection) is None or not any(roll.get('band') in LANDED for roll in rolls):
         return []
-    quest = quests.named(connection, text)
+    quest = sworn_to(connection, text)
     line = milestone(connection, quest, day) if quest else ''
     return [line] if line else []
 

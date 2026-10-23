@@ -49,9 +49,19 @@ def test_injury_persistence_keeps_fades_or_rules_them_out(client, app):
         assert injuries.view(connection, later) == ['a lost eye']
 
 
+def test_a_critical_hit_that_only_hurts_leaves_no_lasting_injury(app):
+    # E2E vows pass: a warden archer's critical hit left the character Hurt, and a lost eye with it.
+    with app.state.database.connect(write=True) as connection:
+        state = {'round': 0, 'wants': 'kill', 'foes': [foe(weapon=0)]}
+        assert combat.foes_move(connection, state, False, Dice(95, 'low'), []) == 2
+        assert 'hurt_by' not in state
+
+
 def test_a_critical_hit_in_a_fight_leaves_a_lasting_injury(client, connected, provider, app):
     begin(client)
     with app.state.database.connect(write=True) as connection:
+        # Already grazed, the critical hit leaves the character Wounded.
+        combat.set_condition(connection, 1)
         combat.save_fight(connection, {'round': 0, 'wants': 'kill', 'foes': [foe(weapon=0)]})
     app.state.dice = Dice(95, 'low')
     reply(provider, 'The blade finds bone.')

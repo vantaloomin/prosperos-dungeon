@@ -1,6 +1,6 @@
-import { useId, useState, type CSSProperties } from 'react'
+import { useId, useState } from 'react'
 import type { WorkspaceSettings } from '../../types'
-import { COLOR_SCHEMES, PALETTE_KEYS, defaultPalette, paletteReadability, paletteStyles, paperPalette, validHex, validPalette, type ColorScheme, type Palette } from './palette'
+import { COLOR_SCHEMES, PALETTE_KEYS, defaultPalette, paletteReadability, paletteStyle, paperPalette, validHex, validPalette, type ColorScheme, type Palette } from './palette'
 
 type Theme = NonNullable<WorkspaceSettings['theme']>
 type Save = (change: { color_scheme?: ColorScheme; custom_palette?: Palette; theme?: Theme }) => Promise<void>
@@ -52,7 +52,7 @@ function CustomPalette({ saved, apply }: { saved: Palette | null; apply: (palett
       <summary>Custom palette</summary>
       <div className="form-stack">
         {PALETTE_KEYS.map((key) => <ColorControl key={key} name={key} value={draft[key]} onChange={(value) => update(key, value)} />)}
-        <div className="palette-preview" style={paletteStyles(validPalette(draft) ? draft : defaultPalette) as CSSProperties}>
+        <div className="palette-preview" style={paletteStyle(validPalette(draft) ? draft : defaultPalette)}>
           <p>There was still a little light at the end of the hall.</p>
           <button type="button" className="button primary">Sample action</button>
           <p className="subtle">Supporting text</p>

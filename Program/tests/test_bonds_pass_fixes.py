@@ -38,6 +38,11 @@ def test_sleep_from_the_small_hours_wakes_in_the_morning():
     assert rest.UNTIL_MORNING.search('I sleep until morning.')
     assert rest.first_night(datetime(2026, 10, 1, 22)) == 9 * 60
     assert rest.first_night(datetime(2026, 10, 1, 12)) == rest.NIGHT_MINUTES
+    # Real-time pass: "until morning" at 14:59 slept to 22:59. It runs to the next morning from any hour, and at
+    # 06:59 or mid-morning it is morning already.
+    assert rest.first_night(datetime(2026, 10, 1, 14, 59), morning=True) == 16 * 60 + 1
+    assert rest.awake(datetime(2026, 10, 1, 6, 59)) and rest.awake(datetime(2026, 10, 1, 9))
+    assert not rest.awake(datetime(2026, 10, 1, 14, 59)) and not rest.awake(datetime(2026, 10, 1, 3, 59))
 
 
 def test_spending_the_day_somewhere_goes_there(client, connected, provider, app):
