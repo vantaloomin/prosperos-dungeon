@@ -623,6 +623,10 @@ def move(database, city_id: str, place_id: str | None) -> dict:
 GOING = re.compile(r'\b(?:go|goes|going|head|heads|heading|walk|walks|walking|make (?:my|our) way|wander|wanders|'
                    r'stroll|strolls|hurry|hurries|return|returns|cross|crosses)\b(?:\s+(?:back|over|down|up|across|'
                    r'out|on|off|straight))*\s+(?:to|towards?|into|in at|onto|through)\s+(?P<where>[^.!?;,]+)', re.I)
+# A stretch spent somewhere by name: "I spend the day at the Crossroads market", "pass the afternoon on the green".
+SPENDING = re.compile(r'\b(?:spend|spends|spending|pass|passes|passing|while away)\s+(?:the|all|a|an|some|my)?\s*'
+                      r'(?:whole\s+)?(?:day|morning|afternoon|evening|hours?|time|while)\s+(?:\w+\s+){0,3}?'
+                      r'(?:at|on|in|around|by|down at|out at|over at)\s+(?P<where>[^.!?;,]+)', re.I)
 # Where a rest is taken: "I sleep at the bunkhouses".
 SLEEPING_AT = re.compile(r'\b(?:at|in)\s+(?P<where>[^.!?;,]+)', re.I)
 PLACE_FILLER = {'the', 'of', 'a', 'an', 's', 'old', 'and'}
@@ -640,7 +644,7 @@ def walked_to(connection, text: str, clock=None) -> dict | None:
         return None
     row = scene_row(connection)
     data = city_data(connection, row['city_id'])
-    spans = [found.group('where') for found in GOING.finditer(text)]
+    spans = [found.group('where') for found in (*GOING.finditer(text), *SPENDING.finditer(text))]
     if rest.resting(text):
         spans += [found.group('where') for found in SLEEPING_AT.finditer(text)]
     for where in spans:
@@ -1007,7 +1011,7 @@ def slept(database, connection, resting: dict, rolls: list[dict], message_id: st
     nights_of = [local.date()] + ([local.date() - timedelta(days=1)] if local.hour < rest.WAKE_HOUR else [])
     paid = next((found for day in nights_of
                  if (found := inventory.bed(connection, row['city_id'], row['place_id'], day.isoformat()))), None)
-    pass_time(database, connection, rest.minutes(nights, cut_short, local))
+    pass_time(database, connection, rest.minutes(nights, cut_short, local, resting.get('morning', False)))
     lines = [rest.opening(resting), *happened]
     if paid:
         lines.append(f"They sleep in what they paid for: {paid['name']}.")
@@ -1175,7 +1179,8 @@ def labour_turn(state, user: dict) -> list[str]:
         found = happenings.where(view['city']['id'], view['place']['id'])
         if not found or not found['town'] or combat.fight(connection):
             return []
-        lines = labour.pay(connection, user['text'], happenings.wage(view['data']), view['data']['currency'])
+        lines = labour.pay(connection, user['text'], happenings.wage(view['data']), view['data']['currency'],
+                           line_minutes(connection, user['id']))
         if lines:
             happenings.keep(connection, user['id'], 'work', datetime.fromisoformat(view['local_time']).date(), None,
                             lines)
@@ -1515,22 +1520,35 @@ def received(database, text: str, client_id: str) -> tuple[dict, dict | None]:
             # The time the line takes passes as it is sent: the narrator writes the scene after it.
             if not in_character.out_of_character(text):
                 sit_through(database, connection, user, text)
-                if walked:
-                    # "I go to the shrine": the story moves there before the narrator writes, as "Go somewhere
-                    # else" would.
-                    place_scene(connection, walked['city_id'], walked['id'], database.now())
-                    pass_time(database, connection, story_clock.ACROSS_TOWN_MINUTES)
-                    arrive(connection, database.now())
-                # A rest passes its own nights (dungeon/rest.py), and a journey its own hours (dungeon/travel.py).
-                elif not rest.resting(text) and not travel.setting_out(connection, user['city_id'],
-                                                                       user['place_id'], text):
-                    local = local_moment(city_data(connection, user['city_id']),
-                                         story_clock.now(connection, database.clock))
-                    pass_time(database, connection, story_clock.minutes_for(text, bool(referee.by_keywords(text)),
-                                                                            local))
+                line_time(database, connection, user, text, walked)
         reply = optional(connection, "SELECT * FROM story_messages WHERE reply_to=? AND status='complete'",
                          (user['id'],))
         return user, reply
+
+
+def line_time(database, connection, user: dict, text: str, walked: dict | None):
+    """The time a line takes, passed as it is sent; the minutes kept with it (story_cards scene 'clock') for the work
+    it pays (dungeon/labour.py). A rest passes its own nights (dungeon/rest.py), and a journey its own hours
+    (dungeon/travel.py)."""
+    local = local_moment(city_data(connection, user['city_id']), story_clock.now(connection, database.clock))
+    if walked:
+        # "I go to the shrine": the story moves there before the narrator writes, as "Go somewhere else" would;
+        # "I spend the day at the market" spends it there too.
+        place_scene(connection, walked['city_id'], walked['id'], database.now())
+        minutes = story_clock.ACROSS_TOWN_MINUTES + story_clock.spent(text, local)
+        pass_time(database, connection, minutes)
+        arrive(connection, database.now())
+    elif rest.resting(text) or travel.setting_out(connection, user['city_id'], user['place_id'], text):
+        return
+    else:
+        minutes = story_clock.minutes_for(text, bool(referee.by_keywords(text)), local)
+        pass_time(database, connection, minutes)
+    happenings.keep(connection, user['id'], 'clock', local.date(), None, [minutes])
+
+
+def line_minutes(connection, message_id: str) -> int | None:
+    kept = optional(connection, "SELECT lines FROM story_cards WHERE message_id=? AND scene='clock'", (message_id,))
+    return decode(kept['lines'])[0] if kept else None
 
 
 def sit_through(database, connection, user: dict, text: str):

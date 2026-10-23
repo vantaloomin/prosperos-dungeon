@@ -72,6 +72,10 @@ ARMED = re.compile(r'\b(sword|blade|axe|hatchet|knife|dagger|cudgel|club|crowbar
                    r'weapon|draws?|stab|slash|shoot)\w*', re.I)
 # Who an attack is aimed at when it names nobody in the scene: someone the narrator brought in ("punch him", "the big
 # logger"). An attack on a thing ("hack at the roots") names neither.
+# A friendly contest of strength or speed, not a fight: it never starts one.
+CONTEST = re.compile(r"\b(arm[- ]?wrestl\w*|thumb[- ]?wrestl\w*|race|races|racing|footrace|contest|tug[- ]of[- ]war|"
+                     r"wager\w*|bet|bets|betting|spar|spars|sparring|for (a|the) (round|drinks?|pints?|bet|prize|coin)|"
+                     r"drinking (game|match)|test of strength|out-?(lift|run|drink)\w*)\b", re.I)
 SOMEONE = re.compile(r'\b(him|her|them|man|woman|men|women|fellow|lad|boy|girl|stranger|drunk|thug|brute|logger|'
                      r'cutter|guard|bandit|thief|sailor|soldier|bully|foreman|sawyer|teamster|bargeman|smith|keeper|'
                      r'barkeep|clerk|watchman|warden|sergeant|cook|worker|labou?rer|merchant|trader|priest|elf|dwarf|'
@@ -283,7 +287,7 @@ def stand_in(rolls: list[dict]) -> dict | None:
     """A foe for an attack on someone the scene does not hold (the narrator's own extra), named as the action names
     them ("the big logger"), else 'their opponent'."""
     for roll in rolls:
-        if roll['stat'] == 'Vitality' and ATTACK.search(roll['action']) and (who := SOMEONE.search(roll['action'])):
+        if roll['stat'] == 'Vitality' and fighting_words(roll['action']) and (who := SOMEONE.search(roll['action'])):
             named = re.search(rf'\b(?:the|that|this)\s+((?:[a-z-]+\s+){{0,2}}?{who.group(1)})\b', roll['action'], re.I)
             return {'name': f'the {named.group(1).lower()}' if named else OPPONENT, 'vitality': 10, 'resolve': 10,
                     'weapon': 0, 'wants': 'drive_off'}
@@ -302,10 +306,15 @@ def aimed(person: dict, action: str) -> bool:
                for name in names)
 
 
+def fighting_words(action: str) -> bool:
+    """Whether an action outside a fight attacks someone: a blow, not a friendly contest (an arm-wrestle, a race)."""
+    return bool(ATTACK.search(action)) and not CONTEST.search(action)
+
+
 def attack_on(people: list[dict], rolls: list[dict]) -> dict | None:
     """The person in the scene the player's attack is aimed at, if any."""
     for roll in rolls:
-        if roll['stat'] == 'Vitality' and ATTACK.search(roll['action']):
+        if roll['stat'] == 'Vitality' and fighting_words(roll['action']):
             if person := next((person for person in people if aimed(person, roll['action'])), None):
                 return person
     return None
