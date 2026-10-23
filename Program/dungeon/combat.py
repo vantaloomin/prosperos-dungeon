@@ -49,7 +49,7 @@ import json
 import random
 import re
 
-from dungeon import combat5e, combat_brp, combat_iron, inventory, ranges, record, referee, sheet, timeline
+from dungeon import allies, combat5e, combat_brp, combat_iron, inventory, ranges, record, referee, sheet, timeline
 from dungeon import table as campaign_table
 from dungeon.database import encode, identifier, optional
 from dungeon.rules import ladder, marvel, narrative
@@ -64,7 +64,8 @@ DAMAGE = {'success_cost': 1, 'success': 2, 'critical_success': 3}
 WEAPONS = {'sword': 1, 'felling-axe': 1, 'hatchet': 0, 'knife': 0, 'cudgel': 0, 'crowbar': 0}
 BARE_HANDS = -1
 ATTACK = re.compile(r'\b(attack|hit|punch|strike|fight|swing|stab|slash|shoot|kick|tackle|wrestle|club|cut|kill|hack|'
-                    r'lunge|thrust|smash|bash|bite|headbutt|throttle|strangle|go(?:es)? for|sword|axe|knife|blade)\w*',
+                    r'lunge|thrust|smash|bash|bite|headbutt|throttle|strangle|charg|rush|ram|barrel|go(?:es)? for|sword|axe|knife|'
+                    r'blade)\w*',
                     re.I)
 # A line that takes up a weapon (dungeon/combat.py hands).
 ARMED = re.compile(r'\b(sword|blade|axe|hatchet|knife|dagger|cudgel|club|crowbar|mace|spear|bow|staff|hammer|sling|'
@@ -362,30 +363,42 @@ def foe_word(foe: dict) -> str:
 def player_moves(connection, state: dict, rolls: list[dict], items: list[dict], rng,
                  lines: list[str]) -> tuple[bool, bool]:
     """The player's rolled actions against the foes: (got away, guarded this round). Under 5E a dodge needs no roll
-    and an attack is made against the target's AC."""
-    guarded, five, percent = False, fifth(connection), basic(connection)
+    and an attack is made against the target's AC. A roll that changes nothing in the fight (other than a guard)
+    still gets its line."""
+    guarded = False
     for roll in rolls:
-        landed = roll['band'] in SUCCESS
-        if five and (spell := combat5e.spell_in(connection, roll)):
-            combat5e.cast(connection, roll, spell, standing(state), rng, lines)
-        elif ranges.backing(roll['action']):
-            # "I fall back to the stairs": a move within the fight, not an escape (dungeon/ranges.py).
-            ranges.break_away(state, roll['action'], landed, lines)
-            if roll['stat'] == 'Vitality' and attacks(roll['action']) and (targets := standing(state)):
-                attack(connection, state, roll, targets, hands(state, roll['action'], items), rng, lines)
-        elif FLEE.search(roll['action']):
-            if landed:
-                lines.append("The player's character gets away.")
-                return True, guarded
-            lines.append("The player's character tries to get away and cannot.")
-        else:
-            if GUARD.search(roll['action']):
-                # Under 5E a dodge needs no roll; under BRP a line that defends dodges every attack this round.
-                guarded = guarded or landed or five or percent
-            # "I dodge his swing and cut at him" defends and attacks.
-            if roll['stat'] == 'Vitality' and attacks(roll['action']) and (targets := standing(state)):
-                attack(connection, state, roll, targets, hands(state, roll['action'], items), rng, lines)
+        before = len(lines)
+        escaped, guarding = player_move(connection, state, roll, items, rng, lines)
+        if escaped:
+            return True, guarded
+        guarded = guarded or guarding
+        if len(lines) == before and not GUARD.search(roll['action']):
+            lines.append(f"The player's character tries this ({roll['action']}): "
+                         + ('it works, but strikes no foe.' if roll['band'] in SUCCESS else 'it fails.'))
     return False, guarded
+
+
+def player_move(connection, state: dict, roll: dict, items: list[dict], rng, lines: list[str]) -> tuple[bool, bool]:
+    """One rolled action in the fight: (got away, guards this round)."""
+    landed, five, percent = roll['band'] in SUCCESS, fifth(connection), basic(connection)
+    if five and (spell := combat5e.spell_in(connection, roll)):
+        combat5e.cast(connection, roll, spell, standing(state), rng, lines)
+        return False, False
+    if ranges.backing(roll['action']):
+        # "I fall back to the stairs": a move within the fight, not an escape (dungeon/ranges.py).
+        ranges.break_away(state, roll['action'], landed, lines)
+    elif FLEE.search(roll['action']):
+        if landed:
+            lines.append("The player's character gets away.")
+            return True, False
+        lines.append("The player's character tries to get away and cannot.")
+        return False, False
+    # Under 5E a dodge needs no roll; under BRP a line that defends dodges every attack this round.
+    guarding = bool(GUARD.search(roll['action'])) and (landed or five or percent)
+    # "I dodge his swing and cut at him" defends and attacks.
+    if roll['stat'] == 'Vitality' and attacks(roll['action']) and (targets := standing(state)):
+        attack(connection, state, roll, targets, hands(state, roll['action'], items), rng, lines)
+    return False, guarding and not ranges.backing(roll['action'])
 
 
 def attacks(action: str) -> bool:
@@ -459,13 +472,16 @@ def morale(state: dict, rng, lines: list[str]):
             lines.append(f"{foe['name'].capitalize()} breaks: they flee or give up.")
 
 
-def foes_move(connection, state: dict, guarded: bool, rng, lines: list[str]) -> int:
-    """Each foe still standing closes in or attacks; returns the character's wound level after."""
+def foes_move(connection, state: dict, guarded: bool, rng, lines: list[str], free=None) -> int:
+    """Each foe still standing (and not busy with an ally, `free`) closes in or attacks; returns the character's
+    wound level after."""
     level = condition(connection)['level']
-    for foe in standing(state):
+    for foe in (free or standing)(state):
         if ranges.close(foe, lines):
             continue
-        band = marvel.roll(foe['vitality'], 'hard' if guarded else 'normal', rng)['band']
+        # Guarding makes a blow a step harder; so does a shot from far off.
+        steps = int(guarded) + int(foe.get('zone') == 'far')
+        band = marvel.roll(foe['vitality'], ('normal', 'hard', 'very_hard')[steps], rng)['band']
         if band in SUCCESS:
             # Captors want the character whole: their blows stop at Maimed.
             worst = DOWN if state['wants'] == 'capture' else DYING
@@ -493,13 +509,11 @@ def play_round(connection, state: dict, rolls: list[dict], items: list[dict], rn
         escaped, guarded = player_moves(connection, state, rolls, items, rng, lines)
     if escaped:
         return state, lines, 'escaped'
-    five, iron, percent = fifth(connection), sworn(connection), basic(connection)
-    if five:
-        combat5e.morale(state, standing, rng, lines)
-    elif percent:
-        combat_brp.morale(state, standing, rng, lines)
-    elif not iron:
-        morale(state, rng, lines)
+    # The character's companions fight beside them, on their own (dungeon/allies.py).
+    allies.join(connection, state)
+    if caught != 'player':
+        allies.strike(state, standing, down, rng, lines)
+    morale_rolls(connection, state, rng, lines)
     if not standing(state):
         lines.append('No foe is left standing: the fight is won.')
         return state, lines, 'won'
@@ -507,17 +521,40 @@ def play_round(connection, state: dict, rolls: list[dict], items: list[dict], rn
         lines.append('Taken unawares, the foes do nothing this round.')
         return state, lines, ''
     hurt = condition(connection)['level']
-    if five or iron or percent:
-        level = (combat5e if five else combat_brp if percent else combat_iron).foes_attack(connection, state, standing,
-                                                                                         guarded, rng, lines)
-        set_condition(connection, level)
-    else:
-        level = foes_move(connection, state, guarded, rng, lines)
+    level = foes_strike(connection, state, guarded, rng, lines)
     if state['wants'] == 'rob' and hurt < DEMAND <= level < DYING:
         lines.append(f"{standing(state)[0]['name'].capitalize()} demands the character's purse: hand it over and the "
                      'robbers go.')
-    beaten = level >= DOWN and state['wants'] == 'capture' and not (five or iron or percent)
+    beaten = level >= DOWN and state['wants'] == 'capture' and not (fifth(connection) or sworn(connection)
+                                                                     or basic(connection))
     return state, lines, 'dying' if level >= DYING or beaten else ''
+
+
+def morale_rolls(connection, state: dict, rng, lines: list[str]):
+    """The foes' morale, by the campaign's ruleset (Ironsworn foes have none)."""
+    if fifth(connection):
+        combat5e.morale(state, standing, rng, lines)
+    elif basic(connection):
+        combat_brp.morale(state, standing, rng, lines)
+    elif not sworn(connection):
+        morale(state, rng, lines)
+
+
+def foes_strike(connection, state: dict, guarded: bool, rng, lines: list[str]) -> int:
+    """The foes' turn: those that turn on an ally fight them (dungeon/allies.py), the rest the character. Returns the
+    character's wound level after."""
+    busy = allies.draw_fire(state, standing, rng, lines)
+
+    def free(fight_state: dict) -> list[dict]:
+        return [foe for foe in standing(fight_state) if foe['id'] not in busy]
+
+    five, iron, percent = fifth(connection), sworn(connection), basic(connection)
+    if not (five or iron or percent):
+        return foes_move(connection, state, guarded, rng, lines, free)
+    level = (combat5e if five else combat_brp if percent else combat_iron).foes_attack(connection, state, free,
+                                                                                     guarded, rng, lines)
+    set_condition(connection, level)
+    return level
 
 
 def defeat(connection, state: dict, rng, now: str, saved: bool | None = None) -> tuple[str, str]:
@@ -626,6 +663,8 @@ def settle(connection, message_id: str, state: dict, ending: str, lines: list[st
         lines += spoils([foe for foe in state['foes'] if down(foe)], state.get('wants', ''))
     if cause := maimed_by(state):
         events.append(('maimed', cause))
+    if ending:
+        allies.aftermath(connection, state, now)
     for card in state.pop('cards', []):
         card_for(connection, message_id, card, now)
     return ending
@@ -832,5 +871,5 @@ def view(connection, shown: bool) -> dict:
                                 'foes': [{'name': foe['name'], 'state': foe_word(foe), 'zone': foe.get('zone'),
                                           'wound': foe['wound'] if shown else None}
                                          | ({'hp': foe['hp'], 'max_hp': foe['max_hp']} if shown and 'hp' in foe else {})
-                                         for foe in state['foes']]}} \
+                                         for foe in state['foes']], 'allies': allies.view(state)}} \
         | ({'hp': max(0, points[0]), 'max_hp': points[1]} if points else {})

@@ -9,7 +9,8 @@ writes the lie with no tell, and the record keeps the lie as the world's truth o
 Something to hide is a notable's `secret`, wants that keep something hidden ("nobody asking questions", "without
 ever saying why"), or the hidden truth of an open job they gave. Someone who trusts the character (feelings trust
 TRUSTING or more) tells them the truth. Each person is read once a story day: the rest of the day they keep to the
-lie the character believed, or are known to be lying (story_cards, scene 'lie', card_id the person's key).
+lie the character believed, or are known to be lying (story_cards, scene 'lie', card_id the person's key). A near
+miss (failure with an upside) leaves the character uneasy: the narrator shows a small wrong note, no more.
 """
 import re
 
@@ -23,6 +24,8 @@ HIDING = re.compile(r"\b(without|nobody|no one|never (saying|telling)|unseen|not
                     r"secret\w*|hid\w*|cover\w*)\b", re.I)
 TRUSTING = 3
 SUCCESS = ('success_cost', 'success', 'critical_success')
+# A near miss: the character is not fooled outright, only uneasy.
+UNEASY = ('failure_upside',)
 
 
 def target(people: list[dict], text: str) -> dict | None:
@@ -73,6 +76,12 @@ def turn(connection, message_id: str, view: dict, text: str, day: str, now: str,
                      f"The player's character sees through it: show the tell plainly (a look away, a story that "
                      f"doesn't hold). {name} sticks to the lie unless pressed hard."]
             record.add(connection, 'fact', name, f"The player's character caught {name} in a lie.", now)
+        elif result['band'] in UNEASY:
+            lines = [f"{name} lies to keep hidden {what}.",
+                     "The player's character can't say what, but something in it doesn't sit right: show a small "
+                     'wrong note (a pause, a too-easy answer) without giving the lie away.']
+            record.add(connection, 'fact', name, f"Something {name} said didn't sit right with the player's "
+                       'character.', now)
         else:
             lines = [f"{name} lies to keep hidden {what}.",
                      "The player's character believes it: write the lie as told, smooth and natural, with no tell "

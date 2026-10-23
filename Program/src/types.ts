@@ -398,7 +398,9 @@ export interface StoryFight {
   /** Hit points, under 5E. */
   hp?: number; max_hp?: number
   /** `area`: where the character fights from ("the stairs"); each foe's `zone` is its range band. */
-  fight: { round: number; area?: string | null; foes: { name: string; state: string; wound: number | null; zone?: Zone | null; hp?: number; max_hp?: number }[] } | null
+  fight: { round: number; area?: string | null; foes: { name: string; state: string; wound: number | null; zone?: Zone | null; hp?: number; max_hp?: number }[]
+    /** Companions fighting beside the character (dungeon/allies.py). */
+    allies?: { name: string; state: 'unhurt' | 'hurt' | 'down' }[] } | null
 }
 export type IntensityPreset = 'world' | 'restrained' | 'mature' | 'unflinching'
 /** How far the story goes: `preset` in play, the player's `chosen` one ('world' follows the world), the world's own. */

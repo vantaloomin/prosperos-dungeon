@@ -16,8 +16,8 @@ TALK_MINUTES = 5
 # Moving within a city, and to another one, until the travel map decides journeys.
 ACROSS_TOWN_MINUTES = 20
 ANOTHER_CITY_MINUTES = 6 * 60
-WORDS = {'one': 1, 'an': 1, 'a': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'eight': 8, 'ten': 10,
-         'twelve': 12, 'few': 3, 'couple of': 2}
+WORDS = {'one': 1, 'an': 1, 'a': 1, 'another': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7,
+         'eight': 8, 'nine': 9, 'ten': 10, 'eleven': 11, 'twelve': 12, 'few': 3, 'couple of': 2}
 # (pattern, minutes), first match wins.
 SPANS = (
     (r'\b(sleep|go to bed|turn in|rest for the night|bed down|camp for the night)\b', 8 * 60),
@@ -55,9 +55,11 @@ def advance(connection, minutes: int):
 
 
 def waited(text: str) -> int | None:
-    """'I wait two hours', 'wait 20 minutes' or 'I work the saws for three hours', in minutes."""
+    """'I wait two hours', 'wait 20 minutes', 'I work the saws for three hours' or 'for three more hours', in
+    minutes."""
     numbers = '|'.join(sorted(WORDS, key=len, reverse=True))
-    match = re.search(rf'\b(?:wait\w*\b.*?|for\s+)\b(\d+|{numbers})\s+(hour|minute)s?\b', text, re.I)
+    match = re.search(rf'\b(?:wait\w*\b.*?|for\s+)(?:another\s+|an?\s+extra\s+)?\b(\d+|{numbers})\s+'
+                      rf'(?:more\s+|extra\s+|further\s+)?(hour|minute)s?\b', text, re.I)
     if not match:
         return None
     amount = int(match.group(1)) if match.group(1).isdigit() else WORDS[match.group(1).lower()]

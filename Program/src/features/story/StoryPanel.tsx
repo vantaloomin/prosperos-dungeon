@@ -263,6 +263,11 @@ function FightCard({ fight }: { fight: StoryFight }) {
           <p><strong>{foe.name}</strong> <span className="subtle">{foe.state}{foeNumbers(foe)}{zoneText(foe.zone)}</span></p>
         </li>)}
       </ul>
+      {!!fight.fight.allies?.length && <ul aria-label="Beside you">
+        {fight.fight.allies.map((ally) => <li key={ally.name}>
+          <p><strong>{ally.name}</strong> <span className="subtle">beside you, {ally.state}</span></p>
+        </li>)}
+      </ul>}
     </details>
   )
 }

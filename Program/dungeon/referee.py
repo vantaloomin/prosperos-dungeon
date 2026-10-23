@@ -207,7 +207,8 @@ VIOLENT = re.compile(r'\b(stab\w*|slash\w*|punch\w*|kick\w*|shoot\w*|attack\w*|k
 # A line that gives in to the foes (dungeon/combat.py terms decides it): no roll.
 GIVING_IN = re.compile(r"\b(hand\w* (it |them |him |her )?over|give (it|them) (up|over)|surrender\w*|yield\w*|"
                        r"give up|beg\w* for (mercy|my life)|hands up|drop\w* my (weapon|sword|axe|knife|blade)|pay "
-                       r"(them|him|her) off)\b", re.I)
+                       r"(them|him|her) off|(toss|throw|giv|hand|pass|fling|drop)\w*( \w+){0,3}? (purse|money|"
+                       r"coins?|silver|valuables))\b", re.I)
 
 
 def armed(text: str, actions: list[dict], fight: str | None = None) -> list[dict]:

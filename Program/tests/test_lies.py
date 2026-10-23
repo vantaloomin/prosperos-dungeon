@@ -85,3 +85,11 @@ def test_the_narrator_hears_the_lie(client, connected, provider, app, monkeypatc
     assert asked == ['Who is buying the Heartwood timber?']
     assert '## A lie (decided by the game; never say outright that it is a lie)\n- Corin Ashby lies' in \
         provider.requests[-1]['system']
+
+
+def test_a_near_miss_leaves_the_character_uneasy(app, client):
+    begin(client)
+    with app.state.database.connect(write=True) as connection:
+        lines = lies.turn(connection, 'm1', view([MARR]), 'Who pays for the crews, Aldous?', DAY, NOW, Dice(45))
+        assert "doesn't sit right" in lines[1] and 'without giving the lie away' in lines[1]
+        assert any("didn't sit right" in text for text in entries(connection, 'fact'))

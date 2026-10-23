@@ -469,6 +469,15 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
 - Each round is decided once and kept with the player's line (`story_rounds`): "Tell it again" retells the same
   round. Wounds and the fight branch with the story.
 
+### Allies
+
+`dungeon/allies.py`. The character's companions (see "Your party") fight beside them on their own, in any ruleset:
+each round, after the character's move, each ally on their feet goes for the foe worst hurt already, rolling their
+own d100 skill (60 for someone whose work is fighting, 35 otherwise); a hit hurts the foe in the campaign's terms.
+Each foe still standing turns on an ally instead of the character one time in (allies + 1), and lands half the time;
+an ally hit twice is down and out of the fight, and the record keeps that they were badly hurt. The fight card lists
+them under the foes.
+
 ### Fights under 5E
 
 The same fight, on 5E's numbers from the SRD 5.2.1 pack (`dungeon/combat5e.py`):

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Combat-extras playtest fixes.** Tossing or throwing your purse to robbers no longer rolls. "For three more
+  hours" and "another hour" now pass the time, and work pays for it. A charge counts as an attack, and every move you
+  roll in a fight now gets a line. A near miss when someone lies to you leaves you uneasy, so you get a small tell.
+  Notables keep their post from 8 to 6, six days a week. Shots from far off are a step harder to land.
+- **Companions fight beside you.** In a fight, each companion goes for the foe worst hurt, and some foes turn on
+  them instead of you. A companion hit twice is down for the rest of the fight. The fight card shows who is beside
+  you.
 - **Companions.** Ask someone along ("come with me, Hesk") and they decide for themselves: friends and bonds come,
   the wary refuse, and anyone in between needs your Allure. Companions travel with you everywhere, act on their own,
   and leave when you send them home, when you sour them, or when the world takes them. The drawer has a Party widget.
