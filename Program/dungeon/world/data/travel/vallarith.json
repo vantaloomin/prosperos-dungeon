@@ -32,16 +32,20 @@
  ],
  "encounters": {
   "kingdom-of-cyrel": [
-   {"weight": 3, "text": "A carter going the other way, with news from Cyrel, a sore back and a jug he is willing to share."},
-   {"weight": 2, "text": "A royal patrol stops the character, asks their business, and looks hard at what they carry."},
-   {"weight": 1, "text": "Deserters from the Asanian front, hanged at a crossroads with signs round their necks."},
-   {"weight": 2, "action": "slip past the toll-takers on the road without paying twice", "difficulty": "normal", "threat": "Road wardens who are not wardens stop the character for a crown's toll and a long look into the purse."},
-   {"weight": 2, "action": "spot the bandits' ambush before it springs", "difficulty": "normal", "threat": {"text": "Bandits come out of the ditch on both sides of the road, cudgels up.", "foe": {"name": "road bandit", "count": 2, "vitality": 10, "resolve": 8, "weapon": 0, "wants": "rob"}}}
+   {"where": "road", "weight": 3, "text": "A carter going the other way, with news from Cyrel, a sore back and a jug he is willing to share."},
+   {"where": "road", "weight": 2, "text": "A royal patrol stops the character, asks their business, and looks hard at what they carry."},
+   {"where": "road", "weight": 1, "text": "Deserters from the Asanian front, hanged at a crossroads with signs round their necks."},
+   {"where": "road", "weight": 2, "action": "slip past the toll-takers on the road without paying twice", "difficulty": "normal", "threat": "Road wardens who are not wardens stop the character for a crown's toll and a long look into the purse."},
+   {"where": "road", "weight": 2, "action": "spot the bandits' ambush before it springs", "difficulty": "normal", "threat": {"text": "Bandits come out of the ditch on both sides of the road, cudgels up.", "foe": {"name": "road bandit", "count": 2, "vitality": 10, "resolve": 8, "weapon": 0, "wants": "rob"}}},
+   {"where": "wild", "weight": 2, "text": "A poacher's fire in a coppice, still warm, and a brace of rabbits left hanging where they were dropped."},
+   {"where": "wild", "weight": 2, "action": "spot the king's foresters before they spot a stranger in the king's game", "difficulty": "normal", "threat": "Two of the king's foresters with crossbows step out of the trees and want to know what a stranger is doing off the road."}
   ],
   "kingdoms-of-man": [
-   {"weight": 3, "text": "A licensed mage's coach thunders past, its brooch-wearing guards watching the ditches."},
+   {"where": "road", "weight": 3, "text": "A licensed mage's coach thunders past, its brooch-wearing guards watching the ditches."},
    {"weight": 2, "text": "A village with half its lamps dark: the crystal allocation was cut and nobody says by whom."},
-   {"weight": 2, "action": "keep clear of the press gang working the road for the Asanian army", "difficulty": "normal", "threat": {"text": "An Asanian press gang closes in with a rope and a recruiting sergeant's smile.", "foe": {"name": "press-gang man", "count": 3, "vitality": 10, "resolve": 10, "weapon": 0, "wants": "capture"}}}
+   {"where": "road", "weight": 2, "action": "keep clear of the press gang working the road for the Asanian army", "difficulty": "normal", "threat": {"text": "An Asanian press gang closes in with a rope and a recruiting sergeant's smile.", "foe": {"name": "press-gang man", "count": 3, "vitality": 10, "resolve": 10, "weapon": 0, "wants": "capture"}}},
+   {"where": "wild", "weight": 2, "text": "A shepherd's hut on the downs, and a shepherd who has not seen a stranger come across the fields in years."},
+   {"where": "wild", "weight": 2, "action": "keep out of sight of the manor's riders", "difficulty": "normal", "threat": "Riders from a manor house come across the field at a canter to see who is trespassing on their lord's land."}
   ],
   "badlands": [
    {"weight": 2, "text": "Old bones and older weapons where the horde came through, picked clean and bleached."},
@@ -55,10 +59,11 @@
    {"weight": 3, "action": "keep to the warden path and out of the wardens' sight", "difficulty": "hard", "threat": {"text": "Wardens close in among the trees, unseen, bows drawn.", "foe": {"name": "warden of Brynwyr", "count": 2, "vitality": 12, "resolve": 12, "weapon": 1, "wants": "capture"}}}
   ],
   "dwarven-empire": [
-   {"weight": 3, "text": "A dwarven ore train grinds past on iron-shod wheels, its guards counting the character with their eyes."},
+   {"where": "road", "weight": 3, "text": "A dwarven ore train grinds past on iron-shod wheels, its guards counting the character with their eyes."},
    {"weight": 2, "text": "Cairns on the ridge, each with a name cut into the top stone and a clan mark under it."},
    {"weight": 2, "action": "find the pass marker before the weather closes in", "difficulty": "hard", "threat": "Cloud comes down over the pass and the cold with it. Fingers stop working; the way down takes half the night."},
-   {"weight": 1, "action": "spot the Rulan Gaan lookouts first", "difficulty": "hard", "threat": {"text": "Rulan Gaan cultists rise out of the scree with hooked spears and painted faces.", "foe": {"name": "Rulan Gaan cultist", "count": 3, "vitality": 11, "resolve": 14, "weapon": 1, "wants": "capture"}}}
+   {"weight": 1, "action": "spot the Rulan Gaan lookouts first", "difficulty": "hard", "threat": {"text": "Rulan Gaan cultists rise out of the scree with hooked spears and painted faces.", "foe": {"name": "Rulan Gaan cultist", "count": 3, "vitality": 11, "resolve": 14, "weapon": 1, "wants": "capture"}}},
+   {"where": "wild", "weight": 2, "text": "A shaft head in the heather, long abandoned, the winch rusted solid and cold air breathing up out of the dark."}
   ],
   "torogh-highlands": [
    {"weight": 3, "text": "The loch below, flat and black, and a boat on it that does not seem to move."},
@@ -136,7 +141,7 @@
   ]
  },
  "sites": {
-  "odds": 4,
+  "odds": 7,
   "owners": ["Hob", "Dunstan", "Wat", "Agnes", "Brill", "Tull", "Hatch", "Gammer", "Pike", "Orme", "Sallow", "Kettle", "Merrow", "Fenn", "Crake", "Dobbin"],
   "any": [
    {"weight": 3, "kind": "ruin", "visible": true, "names": ["{owner}'s Tower", "the old keep at {owner}'s Rise", "the burnt hall of {owner}"], "text": "A ruin from before the Reform: fallen walls, a stair going up to nothing, and cellars that go further down than they should."},
