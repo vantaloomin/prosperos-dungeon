@@ -1122,14 +1122,15 @@ def town_map(play):
         play.flag('Walking to the smithy by name did not move the scene there.')
 
 
-def set_fight(play, spec: dict):
+def set_fight(play, spec: dict, zone: str = 'near'):
     """Put a fight with these foes on, as a road encounter would (the test's own setup, so it doesn't hang on the
     encounter dice)."""
     from dungeon import combat  # the harness runs beside the app's code
+    foes = [foe | ({'ranged': True} if spec.get('ranged') else {}) for foe in combat.foes_from(spec, zone)]
     sqlite3 = __import__('sqlite3')
     with sqlite3.connect(play.dungeon.data_dir / 'dungeon.sqlite3') as connection:
         connection.execute('INSERT INTO story_fight (id, round, wants, foes, initiative, bare) VALUES (1, 1, ?, ?, '
-                           'NULL, 0)', (spec['wants'], json.dumps(combat.foes_from(spec))))
+                           'NULL, 0)', (spec['wants'], json.dumps(foes)))
     play.write(f"- fight set: {spec['count']} × {spec['name']}, wants {spec['wants']}\n")
 
 
@@ -1219,6 +1220,100 @@ def ambush(play):
         play.say('I go deeper into the Heartwood, sword ready.')
 
 
+def set_clock(play, hour: str):
+    """Set the story clock to this hour today (the test's own setup, e.g. '20:30')."""
+    sqlite3 = __import__('sqlite3')
+    with sqlite3.connect(play.dungeon.data_dir / 'dungeon.sqlite3') as connection:
+        at = connection.execute('SELECT at FROM story_clock WHERE id=1').fetchone()[0]
+        connection.execute('UPDATE story_clock SET at=? WHERE id=1', (at[:11] + hour + ':00' + at[19:],))
+    play.clock = None  # the test turned it back, not the story
+    play.write(f'- clock set to {hour}\n')
+
+
+def lie_cards(play):
+    """The secret insight rolls on lies so far (no roll card shows them)."""
+    with play.dungeon.database() as connection:
+        for card_id, lines in connection.execute("SELECT card_id, lines FROM story_cards WHERE scene='lie'"):
+            play.write(f'- lie read ({card_id}): {lines[:400]}\n')
+
+
+def lies(play):
+    """Secrets and lies: questioning someone with something to hide makes them lie, and the character's insight is
+    rolled in secret; asked again that day they keep to the same story."""
+    play.start('agna-holt')
+    for hour, place, line in (('09:00', 'reeves-hall', 'I ask Aldous Marr why he wants the first crews past the '
+                               'border stones so fast.'),
+                              ('14:00', 'reeves-hall', 'I ask Aldous Marr what he is hiding about the Heartwood.'),
+                              ('08:00', 'shrine-of-tidum', 'I ask Ilse Rook why she wants the felling stopped.'),
+                              ('17:00', 'shrine-of-tidum', 'I ask Ilse Rook what she knows about the Heartwood.'),
+                              ('20:30', 'mother-mags', 'I ask Mag Hollin whether the watch ever looks in on what '
+                               'she buys.'),
+                              ('21:00', 'mother-mags', 'I ask Mag Hollin again who she pays to look the other way.')):
+        set_clock(play, hour)
+        play.move(place)
+        around = [str(person) for person in play.story()['scene'].get('around') or []]
+        play.write(f'- around: {around}\n')
+        play.say(line)
+    lie_cards(play)
+
+
+def labour(play):
+    """Day labour pays the town's wage pro rata; an empty tavern stays empty."""
+    play.start('tobin-pell')
+    set_clock(play, '07:00')
+    play.move('timber-yards')
+    before = play.gear().get('coins')
+    play.say('I take an all-day hauling job at the timber yards.')
+    after = play.gear().get('coins')
+    if after == before:
+        play.flag('A day of hauling paid nothing.')
+    play.say('I work the saws for three more hours.')
+    more = play.gear().get('coins')
+    if more == after:
+        play.flag('Three hours at the saws paid nothing.')
+    set_clock(play, '15:00')
+    play.move('the-sawpit')
+    play.write(f"- around at the Sawpit: {[str(person) for person in play.story()['scene'].get('around') or []]}\n")
+    play.say('I look around the room for someone to drink with.')
+
+
+def ranges(play):
+    """Range bands: an archer shoots from far off and a charge only closes to near; then, against men at arm's
+    length, falling back to the stairs breaks away and moves the fight's area."""
+    play.start('agna-holt')
+    play.move('the-wayhouse')
+    set_fight(play, {'name': 'warden archer', 'count': 1, 'vitality': 9, 'resolve': 9, 'weapon': 0, 'wants': 'kill',
+                     'ranged': True}, zone='far')
+    play.say('An archer has come in at the far end of the common room, bow drawn. I charge him.')
+    play.write(f"- fight: {json.dumps(fight_on(play).get('fight'))}\n")
+    if fight_on(play).get('fight'):
+        play.say('I throw my belt knife at the archer.')
+        play.write(f"- fight: {json.dumps(fight_on(play).get('fight'))}\n")
+    play.say('I catch my breath.')
+    if fight_on(play).get('fight') or fight_on(play).get('dead'):
+        return
+    set_fight(play, {'name': 'drunk brawler', 'count': 2, 'vitality': 9, 'resolve': 9, 'weapon': 0, 'wants': 'kill'},
+              zone='engaged')
+    play.say('Two drunks come at me with knives. I fall back to the stairs.')
+    state = fight_on(play).get('fight') or {}
+    play.write(f'- fight: {json.dumps(state)}\n')
+    if state and 'stair' not in (state.get('area') or ''):
+        play.flag(f"Falling back to the stairs left the fight's area at {state.get('area')}.")
+
+
+def shut_shop(play):
+    """A shut counter: at night, buying or selling at Pell's is told the shop is shut, and no money moves."""
+    play.start('tobin-pell')
+    play.move('pell-provisions')
+    set_clock(play, '22:30')
+    before = play.gear()
+    play.say('I buy a hooded lantern.')
+    play.say('I sell my ledger book over the counter.')
+    after = play.gear()
+    if after.get('coins') != before.get('coins'):
+        play.flag(f"Money moved at a shut shop: {before.get('coins')} to {after.get('coins')}.")
+
+
 SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl, 'road': road,
              'director': director, 'chapters': chapters, 'ironman': ironman, 'gm_view': gm_view, 'memory': memory,
              'legacy': legacy, 'fivee_checks': fivee_checks, 'fivee_fight': fivee_fight,
@@ -1231,4 +1326,5 @@ SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl,
              'hex_vallarith': hex_vallarith, 'hex_woods': hex_woods, 'hamlet': hamlet, 'fence': fence,
              'narration_format': narration_format, 'selling': selling, 'wayhouse': wayhouse, 'grime': grime,
              'spoils': spoils, 'mending': mending, 'town_map': town_map,
-             'robbers': robbers, 'captors': captors, 'brawler': brawler, 'ambush': ambush}
+             'robbers': robbers, 'captors': captors, 'brawler': brawler, 'ambush': ambush,
+             'lies': lies, 'labour': labour, 'ranges': ranges, 'shut_shop': shut_shop}
