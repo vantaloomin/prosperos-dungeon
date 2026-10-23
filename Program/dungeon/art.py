@@ -90,15 +90,18 @@ def player_prompt(connection, view: dict) -> str:
 
 def person_prompt(connection, view: dict, key: str) -> str:
     row = optional(connection, 'SELECT * FROM story_people WHERE key=?', (key,))
-    require(row is not None, "You haven't met them in your story.", 404)
-    data = story.city_data(connection, row['city_id'])
-    sheet = townsfolk.find(data, key) or {}
+    # Someone here in the scene counts too, though the record has not met them yet (playtest m6a).
+    here = next((person['sheet'] for person in view['people'] if person['sheet'].get('key') == key), None)
+    require(row is not None or here is not None, "You haven't met them in your story.", 404)
+    data = story.city_data(connection, row['city_id'] if row else view['city']['id'])
+    sheet = townsfolk.find(data, key) or here or {}
+    name = row['name'] if row else sheet.get('name', 'someone')
     who = ', '.join(str(part) for part in (sheet.get('pronouns'), sheet.get('age') and f"{sheet['age']} years old",
                                            sheet.get('occupation') or sheet.get('role')) if part)
     looks = townsfolk.first_impression(sheet) if sheet.get('seed') else ''
-    notes = ' '.join(decode(row['notes'])[-2:])
+    notes = ' '.join(decode(row['notes'])[-2:]) if row else ''
     return ' '.join(part for part in (
-        f"Portrait of {row['name']}" + (f' ({who})' if who else '') + f", in {data['name']}.",
+        f"Portrait of {name}" + (f' ({who})' if who else '') + f", in {data['name']}.",
         f'{looks[:1].upper()}{looks[1:]}.' if looks else '', notes, f'With {mood(row)}.') if part)
 
 

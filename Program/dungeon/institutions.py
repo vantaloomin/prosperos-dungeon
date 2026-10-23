@@ -21,6 +21,7 @@ Each world's institutions are in world/data/institutions/<world>.json (or its pa
 
 Enrolment, attendance and grades are game state, branched with the story (dungeon/timeline.py SAVED).
 """
+import re
 from datetime import date, datetime, timedelta
 
 from dungeon import factions, record, world_data
@@ -241,6 +242,29 @@ def today(institution: dict, chosen: list[str], now: datetime) -> list[dict]:
     return [{'id': item['id'], 'name': item['name'], 'at': at.strftime('%H:%M'), 'place_id': item.get('place_id'),
              'soon': (at - now) <= timedelta(hours=SOON_HOURS)}
             for item, at in class_times(institution, chosen, now - timedelta(minutes=1), end)]
+
+
+# A line that heads to class: "I head to my first class", "off to the lecture".
+TO_CLASS = re.compile(r'\b(?:class|classes|lecture|seminar|lesson|tutorial|lab)\b', re.I)
+# A class still counts as the one to go to this long after it starts (a late arrival).
+LATE = timedelta(minutes=30)
+
+
+def class_place(connection, city_id: str, text: str, now: datetime) -> str | None:
+    """The room of the character's next class today in this city, for a line that heads to class; none when the
+    line names no class or none is left today."""
+    if not TO_CLASS.search(text):
+        return None
+    end = datetime.combine(now.date(), datetime.max.time())
+    for row in enrolled(connection):
+        institution = find(row['world'], row['institution_id'])
+        if institution is None or institution.get('city_id', city_id) != city_id:
+            continue
+        coming = [(item, at) for item, at in class_times(institution, row['classes'], now - LATE, end)
+                  if item.get('place_id')]
+        if coming:
+            return coming[0][0]['place_id']
+    return None
 
 
 def view(connection, now: datetime) -> list[dict]:
