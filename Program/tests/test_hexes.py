@@ -201,6 +201,9 @@ def out_in_the_wild(app, at: tuple[int, int]):
         # The campaign row may not exist yet when no story was started, and the seed would then be a new one.
         connection.execute("INSERT INTO story_campaign (id, seed) VALUES (1, 'fixed') "
                            "ON CONFLICT(id) DO UPDATE SET seed='fixed'")
+        # Likewise the story clock: without it, the walk's daylight would come from the wall clock.
+        connection.execute("INSERT INTO story_clock (id, at) VALUES (1, '2026-10-05T09:00:00') "
+                           "ON CONFLICT(id) DO NOTHING")
         connection.execute("UPDATE story_scene SET city_id='vallarith-road', place_id='the-wilds' WHERE id=1")
         connection.execute("INSERT INTO story_position (id, map, q, r, believed_q, believed_r) "
                            "VALUES (1, 'vallarith', ?, ?, ?, ?)", (*at, *at))
