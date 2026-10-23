@@ -383,6 +383,16 @@
    "rarity": "common",
    "legal": true,
    "service": "mending"
+  },
+  {
+   "id": "repair",
+   "name": "Repair, a blade or tool mended at the forge",
+   "category": "service",
+   "price": 0.5,
+   "slots": 0,
+   "rarity": "common",
+   "legal": true,
+   "service": "repair"
   }
  ],
  "shops": [
@@ -443,6 +453,25 @@
    "stock": {
     "plum-spirit": 6,
     "poultice": 2
+   }
+  },
+  {
+   "place": "blackwood-smithy",
+   "buys": [
+    "weapon",
+    "tool"
+   ],
+   "sell_rate": 0.4,
+   "cash": 12,
+   "restock_days": 7,
+   "stock": {
+    "knife": 3,
+    "hatchet": 2,
+    "felling-axe": 3,
+    "sword": 1,
+    "crowbar": 1,
+    "whetstone": 2,
+    "repair": 4
    }
   },
   {

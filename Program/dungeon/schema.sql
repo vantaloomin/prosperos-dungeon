@@ -381,7 +381,8 @@ CREATE TABLE IF NOT EXISTS story_inventory (
   city_id TEXT NOT NULL,
   item_id TEXT NOT NULL,
   qty INTEGER NOT NULL CHECK (qty >= 0),
-  stolen INTEGER NOT NULL DEFAULT 0 CHECK (stolen IN (0, 1))
+  stolen INTEGER NOT NULL DEFAULT 0 CHECK (stolen IN (0, 1)),
+  condition TEXT NOT NULL DEFAULT 'sound' CHECK (condition IN ('sound', 'damaged', 'broken'))
 );
 
 CREATE TABLE IF NOT EXISTS story_purse (

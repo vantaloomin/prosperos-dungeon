@@ -12,6 +12,10 @@ before anyone looked.
   a pocket always, anything else at a place someone owns. Only a body, or a place out in the open (UNOWNED), gives
   what it holds freely. Honest shops won't buy stolen goods; a fence will (dungeon/inventory.py).
 
+- A fight won leaves the fallen where they fell (spoils): their bodies hold what they carried, decided as they fall
+  and unseen until searched: a person's coins (more on a robber), and their weapon when the town sells its like; a
+  beast, the dead or a fiend, nothing. Every town knows a body, with or without a finds table.
+
 All of it is game state, branched with the story (dungeon/timeline.py SAVED).
 """
 import random
@@ -31,12 +35,21 @@ MISSED = ('failure', 'failure_upside', 'critical_failure')
 # Places nobody owns, where what is found is free to take.
 UNOWNED = ('trail', 'garden', 'park')
 ALWAYS_STOLEN, NEVER_STOLEN = 'purse', 'body'
+# A body where the town's finds table names none: nothing on it but what a fight left (spoils).
+BODY = {'words': ['body', 'bodies', 'corpse', 'corpses', 'dead man', 'dead woman', 'the dead'], 'draws': 0, 'table': []}
+BEASTLY = re.compile(r'\b(wol(f|ves)|bears?|boars?|hounds?|beasts?|spiders?|rats?|dead|fiends?|ghouls?|wights?|'
+                     r'skeletons?|zombies?|crawlers?|serpents?|snakes?)\b', re.I)
+# A fallen foe's purse, in the currency, by what they were after; their weapon by how hard it hit (dungeon/combat.py).
+PURSES = {'rob': (0.5, 3.0), 'capture': (0.2, 1.5)}
+PURSE = (0.1, 1.0)
+ARMS = {1: ('sword', 'felling-axe', 'hatchet'), 0: ('knife', 'cudgel', 'hatchet')}
 MONEY = re.compile(r'\b(coins?|money|crowns?|silver|everything|all of it|the lot|what\w*|it|them)\b', re.I)
 
 
 def tables(city_id: str) -> dict:
     found = world_data.read('finds', city_id)
-    return found['containers'] if found else {}
+    containers = found['containers'] if found else {}
+    return containers if NEVER_STOLEN in containers else {**containers, NEVER_STOLEN: BODY}
 
 
 def container(city_id: str, text: str) -> tuple[str, str] | None:
@@ -101,6 +114,8 @@ def look(connection, city: dict, place: dict, text: str, rolls: list[dict], rng,
     if found is None:
         return []
     kind, word = found
+    # One body (or heap of them) a place: "the corpse" is the body the fight left.
+    word = NEVER_STOLEN if kind == NEVER_STOLEN else word
     key = f"{city['id']}:{place['id']}:{word.lower()}"
     where = f"the {word.lower()} at {place['name']}"
     row = stored(connection, key)
@@ -142,6 +157,37 @@ def take(connection, city: dict, place: dict, text: str, now: str) -> list[str]:
             record.add(connection, 'item', "the player's character", f"{'Stole' if stolen else 'Took'} "
                        f"{'; '.join(moved)} from the {row['word']} at {place['name']}.", now)
     return lines
+
+
+def spoils(connection, city: dict, place: dict, foes: list[dict], wants: str, rng, now: str) -> list[str]:
+    """The bodies a fight won leaves here, with what the fallen carried, unseen until searched."""
+    if not foes:
+        return []
+    rng = rng or random.SystemRandom()
+    carried = [thing for foe in foes if not foe.get('beast') and not BEASTLY.search(foe['name'])
+               for thing in on_body(city['id'], foe, wants, rng)]
+    key = f"{city['id']}:{place['id']}:{NEVER_STOLEN}"
+    row = stored(connection, key)
+    contents = (row['contents'] if row else []) + carried
+    connection.execute('INSERT INTO story_finds (key, city_id, place_id, word, contents, seen, created_at) '
+                       'VALUES (?, ?, ?, ?, ?, 0, ?) ON CONFLICT(key) DO UPDATE SET contents=excluded.contents, '
+                       'seen=0', (key, city['id'], place['id'], NEVER_STOLEN, encode(contents), now))
+    names = ', '.join(foe['name'] for foe in foes)
+    return [f"The fallen lie where they fell ({names}). What they carried is on them, for the player's character to "
+            'search; nothing is found until they look.']
+
+
+def on_body(city_id: str, foe: dict, wants: str, rng) -> list[dict]:
+    """What one fallen foe carried: what their spec names, else a purse by what they were after and their weapon."""
+    if 'carries' in foe:
+        return [{'item_id': item_id, 'qty': 1} for item_id in foe['carries'] if inventory.item(city_id, item_id)]
+    low, high = (inventory.cents(amount) for amount in PURSES.get(wants, PURSE))
+    things: list[dict] = [{'coins': rng.randint(low, high)}]
+    arms = [item_id for item_id in ARMS.get(min(1, max(0, foe.get('weapon', 0))), ())
+            if inventory.item(city_id, item_id)]
+    if arms:
+        things.append({'item_id': rng.choice(arms), 'qty': 1})
+    return things
 
 
 def mentioned(city_id: str, row: dict, text: str) -> bool:

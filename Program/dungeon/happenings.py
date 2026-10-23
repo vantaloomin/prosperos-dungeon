@@ -40,7 +40,10 @@ DEFAULT_WAGE = 100
 # Vitality, Resolve, weapon and what they want; the dreadful ones are horror (dungeon/stress.py).
 FOE_FIELDS = ('name', 'group', 'count', 'vitality', 'resolve', 'weapon', 'wants')
 HORRORS = ('undead', 'fiend', 'fey')
-FOES = {kind: dict(zip(FOE_FIELDS, row)) | ({'horror': True} if kind in HORRORS else {}) for kind, row in {
+# Foes whose bodies carry nothing worth taking (dungeon/finds.py spoils).
+BEASTS = ('beasts', 'undead', 'fiend')
+FOES = {kind: dict(zip(FOE_FIELDS, row)) | ({'horror': True} if kind in HORRORS else {}) |
+        ({'beast': True} if kind in BEASTS else {}) for kind, row in {
     'bandits': ('bandit', 'bandits', 2, 10, 8, 0, 'rob'),
     'deserters': ('deserter', 'deserters', 2, 11, 7, 1, 'rob'),
     'gnolls': ('gnoll', 'gnolls', 2, 12, 10, 1, 'kill'),

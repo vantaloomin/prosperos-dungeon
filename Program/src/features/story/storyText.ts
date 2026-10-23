@@ -175,8 +175,9 @@ export function moneyText(hundredths: number, currency: Gear['currency']): strin
 }
 
 /** "Rope, fifty feet × 2". */
-export function gearLine(item: { name: string; qty: number; stolen?: boolean }): string {
-  return (item.qty > 1 ? `${item.name} × ${item.qty}` : item.name) + (item.stolen ? ' (stolen)' : '')
+export function gearLine(item: { name: string; qty: number; stolen?: boolean; condition?: string }): string {
+  const tags = [item.stolen && 'stolen', item.condition && item.condition !== 'sound' && item.condition].filter(Boolean)
+  return (item.qty > 1 ? `${item.name} × ${item.qty}` : item.name) + (tags.length ? ` (${tags.join(', ')})` : '')
 }
 
 /** How the character looks, in a line: "Grimy (blood); clothes torn; outer clothing off (the Felled Oak)". */

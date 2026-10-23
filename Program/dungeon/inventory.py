@@ -24,6 +24,10 @@ starting stock, and the kit each premade starts with.
   from finite stock that comes back each day (an inn's `restock_days` of 1: so many rooms a night). A service is not
   carried: it is kept as paid for that story day (story_services) and the narrator is told, so it quotes the tier's
   real price and plays the room the character paid for.
+- Gear wears (story_inventory.condition): sound, damaged, broken. An attack that fails critically damages the weapon
+  swung (dungeon/combat.py): a damaged weapon hits a step softer, a broken one is no weapon at all. Damaged goods sell
+  for half, broken ones for a fifth (CONDITION_VALUE). A smith's repair (a service of kind 'repair') mends the worst
+  thing carried one step, broken to damaged, damaged to sound.
 - Life Cards move markets (dungeon/happenings.py): a shortage or a glut changes a kind of goods' prices in a town for
   some days (story_markets), both what the shops charge and what they pay.
 - Haggling is a roll: an Allure action aimed at a better price, in an open shop, moves the shop's prices for the
@@ -48,6 +52,10 @@ HAGGLE = re.compile(r'\b(haggl\w*|barter\w*|bargain\w*|discount|cheaper|better (
 BUY = re.compile(r"\b(buy|buys|buying|purchase|pay for|i'?ll take|i'?ll have|rent\w*|hire|order\w*|book\w*|"
                  r"take an? (room|bed|bunk|bath|pallet|meal))\b", re.I)
 SERVICE = 'service'
+REPAIR = re.compile(r'\b(repair\w*|mend\w*|fix\w*)\b', re.I)
+CONDITIONS = ('sound', 'damaged', 'broken')
+# What a shop pays for a thing in this condition, in percent of its offer.
+CONDITION_VALUE = {'sound': 100, 'damaged': 50, 'broken': 20}
 SELL = re.compile(r'\b(sell|sells|selling|pawn\w*|fence|offload\w*|trade in|get rid of)\b', re.I)
 RESTOCK_DAYS = 7
 # A shop's cash when its file names none: this share of what its starting stock is worth.
@@ -119,15 +127,45 @@ def used(rows: list[dict]) -> float:
     return sum(row['slots'] * row['qty'] for row in rows)
 
 
-def add_item(connection, city_id: str, item_id: str, qty: int = 1, stolen: bool = False):
-    """Into the pack; stolen goods are kept apart from the same thing come by honestly."""
-    row = optional(connection, 'SELECT id FROM story_inventory WHERE item_id=? AND city_id=? AND stolen=?',
-                   (item_id, city_id, int(stolen)))
+def add_item(connection, city_id: str, item_id: str, qty: int = 1, stolen: bool = False, condition: str = 'sound'):
+    """Into the pack; stolen goods, and worn ones, are kept apart from the same thing come by honestly and sound."""
+    row = optional(connection, 'SELECT id FROM story_inventory WHERE item_id=? AND city_id=? AND stolen=? AND '
+                   'condition=?', (item_id, city_id, int(stolen), condition))
     if row:
         connection.execute('UPDATE story_inventory SET qty=qty+? WHERE id=?', (qty, row['id']))
     else:
-        connection.execute('INSERT INTO story_inventory (id, city_id, item_id, qty, stolen) VALUES (?, ?, ?, ?, ?)',
-                           (identifier(), city_id, item_id, qty, int(stolen)))
+        connection.execute('INSERT INTO story_inventory (id, city_id, item_id, qty, stolen, condition) '
+                           'VALUES (?, ?, ?, ?, ?, ?)', (identifier(), city_id, item_id, qty, int(stolen), condition))
+
+
+def wear(connection, inventory_id: str, steps: int = 1) -> str | None:
+    """One of a carried thing worn this many steps worse (or better, when negative): it leaves its stack for the stack
+    of its new condition. Returns the new condition, or None when it can go no further."""
+    row = optional(connection, 'SELECT * FROM story_inventory WHERE id=? AND qty > 0', (inventory_id,))
+    if row is None:
+        return None
+    after = max(0, min(len(CONDITIONS) - 1, CONDITIONS.index(row['condition']) + steps))
+    if CONDITIONS[after] == row['condition']:
+        return None
+    connection.execute('UPDATE story_inventory SET qty=qty-1 WHERE id=?', (inventory_id,))
+    add_item(connection, row['city_id'], row['item_id'], 1, bool(row['stolen']), CONDITIONS[after])
+    return CONDITIONS[after]
+
+
+def worst(connection, city_id: str) -> dict | None:
+    """The carried thing most in need of repair: broken before damaged, the dearest first."""
+    rows = [row for row in carried(connection, city_id) if row['condition'] != 'sound']
+    return max(rows, key=lambda row: (CONDITIONS.index(row['condition']), row['price']), default=None)
+
+
+def repair(connection, city_id: str, qty: int) -> list[str]:
+    """A smith's repairs: the worst thing carried one step better, once for each repair paid for."""
+    mended = []
+    for _ in range(qty):
+        if (row := worst(connection, city_id)) is None:
+            break
+        mended.append(f"{row['name']} ({wear(connection, row['id'], -1)} now)")
+    return mended
 
 
 def give_kit(connection, city_id: str, premade_id: str | None):
@@ -147,7 +185,8 @@ def prompt_text(connection, city_id: str, currency: dict, day: str = '') -> str:
     if not rows and not purse(connection):
         return paid
     things = ', '.join(f"{row['name']}" + (f" (x{row['qty']})" if row['qty'] > 1 else '') +
-                       (' (stolen)' if row['stolen'] else '') for row in rows)
+                       (' (stolen)' if row['stolen'] else '') +
+                       (f" ({row['condition']})" if row['condition'] != 'sound' else '') for row in rows)
     return (f"Carrying (kept by the game; nothing else, and nothing appears or goes without the game): "
             f"{things or 'nothing'}. Purse: {money_text(purse(connection), currency)}. {money_words(currency)}".rstrip()
             + (f'\n{paid}' if paid else ''))
@@ -271,7 +310,8 @@ def offer(shop: dict, entry: dict, percent: int = 0) -> int | None:
         return None
     if entry['category'] not in shop['buys'] and not shop.get('fence'):
         return None
-    return max(1, (cents(entry['price'] * shop['sell_rate']) * (100 + percent) + 50) // 100)
+    paid = (cents(entry['price'] * shop['sell_rate']) * (100 + percent) + 50) // 100
+    return max(1, paid * CONDITION_VALUE[entry.get('condition', 'sound')] // 100)
 
 
 def refusal(shop: dict, entry: dict) -> str:
@@ -353,6 +393,10 @@ def nouns(entry: dict) -> set[str]:
 
 def wanted(text: str, stock_rows: list[dict]) -> list[tuple[str, int]]:
     """The stock a player's line buys ("I buy two loaves and a candle"): (item id, quantity), or nothing."""
+    # At a smith's, "I have her mend my sword" pays for a repair; it does not buy a sword.
+    repairs = [row for row in stock_rows if 'repair' in nouns(row)]
+    if repairs and REPAIR.search(text):
+        return [(repairs[0]['item_id'], 1)]
     if not BUY.search(text):
         return []
     found = []
@@ -380,6 +424,8 @@ def buy_in_story(connection, city_id: str, shop: dict, text: str, stock_rows: li
             continue
         what = done['name'] if done['qty'] == 1 else f"{done['qty']} × {done['name']}"
         kept = ('it is theirs today' if item(city_id, item_id)['category'] == SERVICE else 'it is in their pack')
+        if done.get('mended'):
+            kept = f"the smith mends {'; '.join(done['mended'])}"
         lines.append(f"The player's character buys {what} for {money_text(done['amount'], currency)}; "
                      f'{kept} and the money is paid.')
     return lines
@@ -470,19 +516,21 @@ def buy(connection, city_id: str, shop: dict, item_id: str, qty: int, now: str, 
     require(cost <= purse(connection), "You can't afford that.", 409)
     pack = carried(connection, city_id)
     service = entry['category'] == SERVICE
+    require(entry.get('service') != 'repair' or worst(connection, city_id), 'Nothing you carry needs repair.', 409)
     require(service or used(pack) + entry['slots'] * qty <= capacity(connection), "You can't carry that much more.",
             409)
     connection.execute('UPDATE story_stock SET qty=qty-? WHERE city_id=? AND place_id=? AND item_id=?',
                        (qty, city_id, shop['place'], item_id))
     set_purse(connection, purse(connection) - cost)
     pay(connection, city_id, shop, cost)
+    mended = repair(connection, city_id, qty) if entry.get('service') == 'repair' else []
     if service:
         connection.execute('INSERT INTO story_services (id, city_id, place_id, item_id, qty, day, created_at) '
                            'VALUES (?, ?, ?, ?, ?, ?, ?)', (identifier(), city_id, shop['place'], item_id, qty, day, now))
     else:
         add_item(connection, city_id, item_id, qty)
     log(connection, now, 'buy', city_id, item_id, qty, cost)
-    return {'name': entry['name'], 'qty': qty, 'amount': cost}
+    return {'name': entry['name'], 'qty': qty, 'amount': cost} | ({'mended': mended} if mended else {})
 
 
 def sell(connection, city_id: str, shop: dict, inventory_id: str, qty: int, now: str, day: str = '') -> dict:
@@ -490,7 +538,7 @@ def sell(connection, city_id: str, shop: dict, inventory_id: str, qty: int, now:
     require(row is not None, "You don't have that.", 404)
     require(qty <= row['qty'], f"You have only {row['qty']}.", 409)
     entry = item(row['city_id'], row['item_id'])
-    entry = entry and entry | {'stolen': bool(row['stolen'])}
+    entry = entry and entry | {'stolen': bool(row['stolen']), 'condition': row['condition']}
     price = offer(shop, entry, market(connection, city_id, entry, day)) if entry else None
     require(price is not None, refusal(shop, entry or {}), 409)
     stock(connection, city_id, shop, day)

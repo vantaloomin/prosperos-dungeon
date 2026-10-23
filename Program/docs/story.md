@@ -373,10 +373,15 @@ its shops with their starting stock, and each premade's starting kit (plus a def
   room", "I order the stew", "I hire a guide") is not carried: it is kept for that story day (`story_services`) and the
   narrator is told "Paid for today". A rest where a bed was paid for that night is told so, and a private room eases
   one more point of stress. A data test keeps a common-room night and a meal within an unskilled day's wage.
+- **Wear and repair.** Gear has a condition (`story_inventory.condition`): sound, damaged or broken, shown in the pack
+  and told to the narrator. An attack that fails critically damages the weapon swung, one step (`dungeon/combat.py`
+  worn: the weapon the line names, else the best carried). A damaged weapon hits a step softer; a broken one is left
+  out of the fight. Damaged goods sell for half, broken ones for a fifth. Kingswood's Blackwood smithy sells blades
+  and tools, buys them, and repairs (a `repair` service: the worst thing carried, one step a repair, broken before
+  damaged). "I have the smith mend my sword" pays for a repair there; it doesn't buy a sword.
 - Everything branches with the story and is cleared by a new story.
 
-Not yet: an opposed roll against the keeper's Resolve, hirelings who travel and fight beside the character, wear,
-loot from bodies.
+Not yet: an opposed roll against the keeper's Resolve, hirelings who travel and fight beside the character.
 
 ## How you look
 
@@ -558,10 +563,15 @@ narrator gets "What is there" and describes only that.
 - **Taking it.** A line that takes what was found ("I take the coins", "I pocket the knife", "I take everything in
   the chest") moves coins to the purse and items to the pack while they fit; notes and what does not fit stay.
   "I take a seat" takes nothing: the line has to name the money, an item, the container or "it/them/everything".
+- **The fallen.** A fight won leaves the bodies of the foes who went down (not those who fled) where it was fought
+  (`finds.spoils`): the narrator is told they lie there, and what they carried is decided then and kept unseen until
+  the character searches the body. A person carries a purse (more on a robber) and, where the town sells its like,
+  their weapon; a beast, the dead or a fiend carries nothing. A foe spec can name what it `carries` instead. Every
+  town knows a body, finds table or not, and what a body gives is never stolen.
 - What a line looked into and took is decided once (`story_looks`), so "Tell it again" keeps it; finds branch with
   the story.
 
-Not in v0: doors and what is behind them, finds tied to a particular person or body, traps that do harm by
+Not in v0: doors and what is behind them, traps that do harm by
 themselves, and other towns' tables.
 
 ## Turn speed

@@ -385,7 +385,7 @@ def gear(database) -> dict:
                           inventory.UNLIMITED else inventory.capacity(connection)},
                 'looks': appearance.summary(connection, city, view['data'].get('appearance', 'full')),
                 'items': [{key: row[key] for key in ('id', 'item_id', 'name', 'category', 'qty', 'slots')} |
-                          {'stolen': bool(row['stolen'])}
+                          {'stolen': bool(row['stolen']), 'condition': row['condition']}
                           for row in rows],
                 'shop': shop_view(connection, view)}
 
@@ -403,8 +403,9 @@ def trade(database, kind: str, key: str, qty: int) -> dict:
         what = done['name'] if done['qty'] == 1 else f"{done['qty']} × {done['name']}"
         verb = 'buy' if kind == 'buy' else 'sell'
         price = inventory.money_text(done['amount'], view['data']['currency'])
-        add(connection, database.now(), 'scene', f"You {verb} {what} for {price}" + ('' if price.endswith('.') else '.'),
-            scene_row(connection))
+        mended = f" The smith mends {'; '.join(done['mended'])}." if done.get('mended') else ''
+        add(connection, database.now(), 'scene', f"You {verb} {what} for {price}" + ('' if price.endswith('.') else '.')
+            + mended, scene_row(connection))
     return gear(database)
 
 
@@ -1151,9 +1152,14 @@ def fight_round(state, user: dict, rolls: list[dict]) -> list[str]:
             director.history(connection, events, moment, database.now(), getattr(state, 'dice', None))
             return stress.aftermath(connection, moment, events, getattr(state, 'dice', None), database.now())
 
-        fought = combat.turn(connection, user['id'], view['people'], rolls, foe,
-                             inventory.carried(connection, view['city']['id']), getattr(state, 'dice', None),
-                             database.now(), aftermath)
+        def spoils(fallen, wants):
+            # The bodies a fight won leaves, with what they carried (dungeon/finds.py).
+            return finds.spoils(connection, view['city'], view['place'], fallen, wants, getattr(state, 'dice', None),
+                                database.now())
+
+        usable = [row for row in inventory.carried(connection, view['city']['id']) if row['condition'] != 'broken']
+        fought = combat.turn(connection, user['id'], view['people'], rolls, foe, usable, getattr(state, 'dice', None),
+                             database.now(), aftermath, spoils)
         return ([sent] if sent else []) + fought
 
 

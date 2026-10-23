@@ -186,7 +186,10 @@ ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"
                  ('story_campaign', 'tense', "TEXT CHECK (tense IN ('past', 'present'))"),
                  ('story_campaign', 'length', "TEXT CHECK (length IN ('short', 'medium', 'long'))"),
                  ('story_campaign', 'shop_cash', "TEXT CHECK (shop_cash IN ('finite', 'unlimited'))"),
-                 ('story_campaign', 'carry_limit', "TEXT CHECK (carry_limit IN ('slots', 'off'))"))
+                 ('story_campaign', 'carry_limit', "TEXT CHECK (carry_limit IN ('slots', 'off'))"),
+                 ('story_inventory', 'stolen', 'INTEGER NOT NULL DEFAULT 0 CHECK (stolen IN (0, 1))'),
+                 ('story_inventory', 'condition',
+                  "TEXT NOT NULL DEFAULT 'sound' CHECK (condition IN ('sound', 'damaged', 'broken'))"))
 
 
 # Tables renamed since they were made: (old, new). Renamed before the schema runs, so their rows carry over.
