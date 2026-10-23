@@ -363,7 +363,7 @@ def test_a_day_s_walk_ends_at_dusk_unless_the_line_walks_on_in_the_dark(client, 
     with app.state.database.connect(write=True) as connection:
         connection.execute("UPDATE story_clock SET at='2026-10-05T17:00:00' WHERE id=1")
     late = strike(app, 'I set out west.')
-    assert sum(leg['hours'] for leg in late['legs'][:-1]) < 4
+    assert len(late['legs']) == 1 or sum(leg['hours'] for leg in late['legs']) <= 4
     assert late['stop'] in ('dusk', 'water', 'place', 'site')
     through = strike(app, 'I set out west and walk through the night.')
     assert sum(leg['hours'] for leg in through['legs']) > sum(leg['hours'] for leg in late['legs'])
