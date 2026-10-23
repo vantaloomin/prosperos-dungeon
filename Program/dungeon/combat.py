@@ -51,6 +51,7 @@ import re
 
 from dungeon import (
     allies,
+    battlemap,
     combat5e,
     combat_brp,
     combat_fate,
@@ -903,6 +904,9 @@ def prompt_text(lines: list[str], connection) -> str:
     state = fight(connection)
     foes = '; '.join(f"{foe['name']}: {foe_word(foe)}" for foe in state['foes']) if state else ''
     where = ranges.positions(state, standing(state)) if state else ''
+    if state and (grid := battlemap.positions(connection, state, standing(state))):
+        # Under 5E, the distances on the battle map (dungeon/battlemap.py).
+        where = f'{where} {grid}'.strip()
     return ('## The fight (decided by the game; write this round exactly as it went, nothing more)\n'
             + '\n'.join(f'- {line}' for line in lines)
             + (f'\nStill fighting: {foes}.' if foes else '\nThe fight is over.') + (f'\n{where}' if where else ''))
@@ -917,5 +921,7 @@ def view(connection, shown: bool) -> dict:
                                 'foes': [{'name': foe['name'], 'state': foe_word(foe), 'zone': foe.get('zone'),
                                           'wound': foe['wound'] if shown else None}
                                          | ({'hp': foe['hp'], 'max_hp': foe['max_hp']} if shown and 'hp' in foe else {})
-                                         for foe in state['foes']], 'allies': allies.view(state)}} \
+                                         for foe in state['foes']], 'allies': allies.view(state),
+                                # Under 5E, the fight on a grid of five-foot squares (dungeon/battlemap.py).
+                                'grid': battlemap.view(connection, state, standing, allies.view(state))}} \
         | ({'hp': max(0, points[0]), 'max_hp': points[1]} if points else {})

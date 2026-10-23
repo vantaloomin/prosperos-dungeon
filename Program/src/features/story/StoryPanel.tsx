@@ -23,6 +23,7 @@ import { StorySheet } from './StorySheet'
 import { loadGrids, onGrid, useGrids, type Flash } from './grid'
 import { StoryGrid } from './StoryGrid'
 import { foeNumbers, zoneText } from './storyText'
+import { BattleMap } from './BattleMap'
 import { ASK_EVENT, hasWidget, loadPins, MORE, partyOf, peopleHere, savePins, sceneWidgets, TABS, takeAsked, WIDGET_NAMES, type Widget } from './scene'
 import { STORY_KEY } from './table'
 
@@ -268,6 +269,7 @@ function FightCard({ fight }: { fight: StoryFight }) {
           <p><strong>{ally.name}</strong> <span className="subtle">beside you, {ally.state}</span></p>
         </li>)}
       </ul>}
+      {fight.fight.grid && <BattleMap grid={fight.fight.grid} />}
     </details>
   )
 }

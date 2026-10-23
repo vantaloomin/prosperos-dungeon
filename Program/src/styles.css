@@ -371,6 +371,16 @@ textarea { resize: vertical; line-height: 1.6; }
 .dice-log { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 10px; }
 .dice-log > li { border-top: 1px solid var(--border); padding-top: 8px; }
 .dice-log ul { margin: 4px 0; padding-left: 16px; }
+.story-battle-map { margin-top: 8px; }
+.story-battle-map svg { display: block; width: 100%; max-width: 360px; max-height: 50dvh; margin-top: 8px; }
+.story-battle-map .square { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+.story-battle-map .mark circle { stroke-width: 1.5; }
+.story-battle-map .mark text { font-size: 9px; font-weight: 700; fill: var(--text); }
+.story-battle-map .you circle { fill: var(--accent-tint); stroke: var(--accent); }
+.story-battle-map .foe circle { fill: var(--danger-tint); stroke: var(--danger); }
+.story-battle-map .ally circle { fill: var(--raised); stroke: var(--muted); }
+.story-battle-map .down { opacity: 0.4; }
+.story-battle-legend { margin: 6px 0 0; padding-left: 0; list-style: none; font-size: 0.8125rem; color: var(--muted); }
 .story-fight { padding: 8px 12px; border: 1px solid var(--danger-border); border-radius: 10px; background: var(--danger-tint); color: var(--danger); font-weight: 600; }
 .story-notice, .story-footer { max-width: 760px; width: 100%; margin: 0 auto; padding: 0 32px 10px; }
 .story-notice { padding-top: 12px; }
