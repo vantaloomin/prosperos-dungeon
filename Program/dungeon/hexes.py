@@ -24,18 +24,29 @@ from dungeon import world_data
 from dungeon.database import many, optional
 
 # Hours to walk across a hex off the road, how many rings around one sees from it, and how it reads to the narrator.
+# And how hard it is to keep one's bearings in it off the road (None: one can't get lost there in fair weather).
 TERRAINS = {
-    'water': {'hours': None, 'sight': 1, 'text': 'open water'},
-    'plains': {'hours': 2, 'sight': 1, 'text': 'open country'},
-    'forest': {'hours': 3, 'sight': 0, 'text': 'the forest'},
-    'hills': {'hours': 3, 'sight': 2, 'text': 'the hills'},
-    'mountains': {'hours': 5, 'sight': 3, 'text': 'the mountains'},
-    'waste': {'hours': 3, 'sight': 1, 'text': 'the waste'},
-    'marsh': {'hours': 4, 'sight': 0, 'text': 'the marsh'},
+    'water': {'hours': None, 'sight': 1, 'text': 'open water', 'lost': None},
+    'plains': {'hours': 2, 'sight': 1, 'text': 'open country', 'lost': None},
+    'forest': {'hours': 3, 'sight': 0, 'text': 'the forest', 'lost': 'normal'},
+    'hills': {'hours': 3, 'sight': 2, 'text': 'the hills', 'lost': None},
+    'mountains': {'hours': 5, 'sight': 3, 'text': 'the mountains', 'lost': 'hard'},
+    'waste': {'hours': 3, 'sight': 1, 'text': 'the waste', 'lost': 'normal'},
+    'marsh': {'hours': 4, 'sight': 0, 'text': 'the marsh', 'lost': 'hard'},
 }
 ROAD_HOURS = 1
 DIRECTIONS = {'north': (0, -1), 'north-east': (1, -1), 'south-east': (1, 0), 'south': (0, 1), 'south-west': (-1, 1),
               'north-west': (-1, 0)}
+# Due east and west run along no side of a flat-topped hex: the way zigzags between the two either side.
+ZIGZAG = {'east': ('north-east', 'south-east'), 'west': ('north-west', 'south-west')}
+TURNS = ('north', 'north-east', 'south-east', 'south', 'south-west', 'north-west')
+# The day's weather in a region, by weight; in winter rain falls as snow. Bad weather slows walking off the road and
+# makes the way harder to keep.
+WEATHER = (('clear', 40), ('overcast', 22), ('rain', 18), ('fog', 9), ('storm', 11))
+SLOW = {'storm': 1.5, 'snow': 1.5}
+MURK = ('fog', 'storm', 'snow')
+HARDER = {None: 'normal', 'easy': 'normal', 'normal': 'hard', 'hard': 'very_hard', 'very_hard': 'extreme',
+          'extreme': 'extreme'}
 # How far past the authored hexes the land, coast and regions still carry on from them.
 REACH = 6
 # Hexes across a map's unit square, for a map with no authored hexes (its places' x and y run from 0 to 1).
@@ -126,6 +137,7 @@ class Grid:
         self.map, self.seed = travel_map, seed
         data = world_data.read('hexes', key(travel_map)) or {}
         self.generate = data.get('generate', {})
+        self.miles = data.get('miles', 6)
         self.authored: dict[tuple[int, int], tuple[str, str]] = {}
         legend, regions = data.get('legend', {}), data.get('region_legend', {})
         for row, (terrain_row, region_row) in enumerate(zip(data.get('terrain', []), data.get('regions', []))):
@@ -227,7 +239,7 @@ class Grid:
     def text(self, cell: dict, road: bool) -> str:
         return cell['road']['name'] if road else TERRAINS[cell['terrain']]['text']
 
-    def way(self, start: tuple[int, int], goal: tuple[int, int]) -> list[dict] | None:
+    def way(self, start: tuple[int, int], goal: tuple[int, int], weather_: str = 'clear') -> list[dict] | None:
         """The quickest way from one hex to another, each step as {from, to, hours, terrain, danger, region}."""
         low_q, high_q = min(start[0], goal[0]) - MARGIN, max(start[0], goal[0]) + MARGIN
         low_r, high_r = min(start[1], goal[1]) - MARGIN, max(start[1], goal[1]) + MARGIN
@@ -254,18 +266,59 @@ class Grid:
         while cells[-1] != start:
             cells.append(came[cells[-1]])
         cells.reverse()
-        return [self.step(here, there) for here, there in zip(cells, cells[1:])]
+        return [self.step(here, there, weather_) for here, there in zip(cells, cells[1:])]
 
-    def step(self, here: tuple[int, int], there: tuple[int, int]) -> dict:
+    def step(self, here: tuple[int, int], there: tuple[int, int], weather_: str = 'clear') -> dict:
         cell, road = self.cell(there), self.on_road(here, there)
-        leg = {'from': list(here), 'to': list(there), 'hours': self.hours(cell, road), 'terrain': self.text(cell, road),
+        hours = self.hours(cell, road)
+        if hours is not None and not road:
+            hours *= SLOW.get(weather_, 1)
+        leg = {'from': list(here), 'to': list(there), 'hours': hours, 'terrain': self.text(cell, road),
                'danger': self.danger(cell, road), 'region': cell['region']}
-        return leg | ({'place': cell['place']} if cell['place'] else {})
+        return leg | ({'place': cell['place']} if cell['place'] else {}) | ({'road': True} if road else {})
 
     def sight(self, at: tuple[int, int]) -> list[tuple[int, int]]:
         cell = self.cell(at)
         return ring(at, TERRAINS[cell['terrain']]['sight'] if not cell['road'] else max(
             1, TERRAINS[cell['terrain']]['sight']))
+
+
+    def heading(self, start: tuple[int, int], direction: str, budget: float, weather: str) -> tuple[list[dict], str]:
+        """A day's walk in one direction from a hex: the steps, and why it stopped ('day', 'place' or 'water')."""
+        turns = ZIGZAG.get(direction, (direction,))
+        legs, at, spent = [], start, 0.0
+        while True:
+            dq, dr = DIRECTIONS[turns[len(legs) % len(turns)]]
+            there = (at[0] + dq, at[1] + dr)
+            leg = self.step(at, there, weather)
+            if leg['hours'] is None:
+                return legs, 'water'
+            if legs and spent + leg['hours'] > budget:
+                return legs, 'day'
+            legs.append(leg)
+            spent += leg['hours']
+            at = there
+            if leg.get('place'):
+                return legs, 'place'
+
+    def lost_odds(self, leg: dict, weather: str) -> str | None:
+        """How hard keeping one's bearings is in a step's hex, or None where it can't be lost."""
+        if leg.get('road'):
+            return None
+        difficulty = TERRAINS[self.cell(tuple(leg['to']))['terrain']]['lost']
+        return HARDER[difficulty] if weather in MURK else difficulty
+
+
+# The weather -------------------------------------------------------------------------------------------
+
+def weather(seed_: str, day: str, region: str | None, month: int) -> str:
+    """The day's weather in a region, the same for the whole day and decided by the seed alone."""
+    roll, at = unit(seed_, 'weather', day, region) * sum(weight for _, weight in WEATHER), 0
+    for kind, weight in WEATHER:
+        at += weight
+        if roll <= at:
+            return 'snow' if kind in ('rain', 'storm') and month in (12, 1, 2) else kind
+    return 'clear'
 
 
 # The campaign's seed and what the character has seen -----------------------------------------------
@@ -319,3 +372,32 @@ def seen(connection, board: Grid, here: tuple[int, int] | None = None) -> dict[t
 def view(connection, board: Grid, here: tuple[int, int]) -> list[dict]:
     """The hexes the character knows, for the map on screen."""
     return [board.cell(at) | {'visited': visited} for at, visited in sorted(seen(connection, board, here).items())]
+
+
+# Out in the wild --------------------------------------------------------------------------------------
+
+def position(connection, board: Grid) -> dict | None:
+    """Where the character is when out in the wild on this map: the hex, and the hex they believe they are in."""
+    row = optional(connection, 'SELECT * FROM story_position WHERE id=1 AND map=?', (key(board.map),))
+    if row is None:
+        return None
+    return {'at': (row['q'], row['r']), 'believed': (row['believed_q'], row['believed_r'])}
+
+
+def place_at(connection, board: Grid, at: tuple[int, int], believed: tuple[int, int] | None = None):
+    """The character stops out in the wild in this hex (believing they are in another, when lost); at a place
+    there is no position kept, the place is where they are."""
+    connection.execute('DELETE FROM story_position')
+    if at in board.at_place and (believed is None or believed == at):
+        return
+    believed = believed or at
+    connection.execute('INSERT INTO story_position (id, map, q, r, believed_q, believed_r) VALUES (1, ?, ?, ?, ?, ?)',
+                       (key(board.map), *at, *believed))
+
+
+def bearing(start: tuple[int, int], end: tuple[int, int]) -> str:
+    """Which way one hex lies from another, as a compass word."""
+    (x1, y1), (x2, y2) = point(*start), point(*end)
+    angle = math.degrees(math.atan2(x2 - x1, y1 - y2)) % 360
+    return ('north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west')[
+        round(angle / 45) % 8]

@@ -2,6 +2,7 @@
  "about": "Vallarith's travel map (dungeon/travel.py, docs/story.md \"Journeys\"): places joined by roads, each road with its hours on foot, terrain and danger, each region's road encounters, and each region's danger and night-camp encounters for resting out in the open (dungeon/rest.py), and the world and region its Life Cards draw from (dungeon/happenings.py). Positions are from the world map (dungeon/world/packages/vallarith/settlements.json). A node is a whole town (its city and arrival place) or a place on the Road (dungeon/world/data/cities/vallarith-road.json). A hex crawl (dungeon/hexes.py): its hexes are world/data/hexes/vallarith.json, and land off the edge of that map is generated in play, in the wilds.",
  "travel": "hex",
  "hexes": "vallarith",
+ "wild": {"id": "the-wilds", "name": "the wilds", "region": "wilds", "city": "vallarith-road", "place": "the-wilds", "safe": false},
  "hours_a_day": 10,
  "odds": {"none": 0, "low": 15, "medium": 30, "high": 50},
  "food": ["bread", "dried-meat", "cheese"],
@@ -82,14 +83,14 @@
  },
  "world": "vallarith",
  "regions": {
-  "kingdom-of-cyrel": {"danger": "low", "cards": "cyrel", "tier": 1},
-  "kingdoms-of-man": {"danger": "low", "cards": "asania", "tier": 2},
-  "badlands": {"danger": "high", "cards": "badlands", "tier": 2},
-  "brynwyr": {"danger": "high", "cards": "brynwyr", "tier": 3},
-  "dwarven-empire": {"danger": "medium", "tier": 2},
-  "torogh-highlands": {"danger": "medium", "tier": 2},
-  "eastern-forests": {"danger": "high", "tier": 3},
-  "wilds": {"danger": "high", "tier": 3}
+  "kingdom-of-cyrel": {"name": "the Kingdom of Cyrel", "danger": "low", "cards": "cyrel", "tier": 1},
+  "kingdoms-of-man": {"name": "the Kingdoms of Man", "danger": "low", "cards": "asania", "tier": 2},
+  "badlands": {"name": "the Badlands", "danger": "high", "cards": "badlands", "tier": 2},
+  "brynwyr": {"name": "the forest of Brynwyr", "danger": "high", "cards": "brynwyr", "tier": 3},
+  "dwarven-empire": {"name": "the Dwarven Empire", "danger": "medium", "tier": 2},
+  "torogh-highlands": {"name": "the Torogh Highlands", "danger": "medium", "tier": 2},
+  "eastern-forests": {"name": "the eastern forests", "danger": "high", "tier": 3},
+  "wilds": {"name": "the wilds past the maps", "danger": "high", "tier": 3}
  },
  "camp": {
   "kingdom-of-cyrel": [

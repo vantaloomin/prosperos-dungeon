@@ -753,6 +753,17 @@ CREATE TABLE IF NOT EXISTS story_hexes (
   PRIMARY KEY (map, q, r)
 );
 
+-- Where the character is when a hex crawl leaves them out in the wild, between places (dungeon/hexes.py): the hex,
+-- and the hex they believe they are in when they have lost their way. Branched with the story.
+CREATE TABLE IF NOT EXISTS story_position (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  map TEXT NOT NULL,
+  q INTEGER NOT NULL,
+  r INTEGER NOT NULL,
+  believed_q INTEGER NOT NULL,
+  believed_r INTEGER NOT NULL
+);
+
 -- Each line's journey, planned once with its encounter, and what happened on it once walked (dungeon/travel.py).
 CREATE TABLE IF NOT EXISTS story_journeys (
   message_id TEXT PRIMARY KEY,

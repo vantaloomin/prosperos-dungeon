@@ -21,6 +21,7 @@ import heapq
 import math
 import random
 import re
+from datetime import datetime
 from pathlib import Path
 
 from dungeon import hexes, inventory, sworn, world_data
@@ -31,6 +32,12 @@ STAT = 'Luck'
 BITES = ('critical_failure', 'failure', 'failure_upside')
 NIGHT_HOURS = 14
 STOPPED = 'The journey stops here'
+LOST_STAT = 'Mind'
+# Striking out across country in a direction (a hex crawl): from a town it takes a word for leaving; out in the wild
+# any word for going will do.
+COMPASS = re.compile(r'\b(?:(north|south)[- ]?(east|west)?|(east|west))(?:wards?|ward)?\b', re.I)
+LEAVING = re.compile(r'\b(set(s|ting)? (out|off)|strike|strikes|striking|struck|head\w* out|leave|leaves|leaving|'
+                     r'cross(es|ing)? country|travel\w*|journey\w*|march\w*|out of (town|the town|the city))\b', re.I)
 # Setting out, on foot or (in a modern world such as Havenbrooke) by car, bus or train.
 GOING = re.compile(r'\b(travel\w*|set(s|ting)? (out|off)|head\w*|ride|rides|riding|walk\w*|journey\w*|march\w*|'
                    r'make (my|our|their) way|go|goes|going|leave|leaves|leaving|return\w*|drive|drives|driving|'
@@ -43,12 +50,22 @@ def maps() -> tuple[dict, ...]:
 
 
 def nodes(travel_map: dict) -> dict[str, dict]:
-    return {node['id']: node for node in travel_map['nodes']}
+    """The map's places, and its stand-in for out in the wild (`wild`) if it has one."""
+    found = {node['id']: node for node in travel_map['nodes']}
+    return found | ({travel_map['wild']['id']: travel_map['wild']} if travel_map.get('wild') else {})
+
+
+def is_wild(travel_map: dict, node_id: str) -> bool:
+    return bool(travel_map.get('wild')) and travel_map['wild']['id'] == node_id
 
 
 def node_at(city_id: str, place_id: str) -> tuple[dict, dict] | None:
-    """The travel map and the place on it where the scene is: the place itself on the Road, or the whole town."""
+    """The travel map and the place on it where the scene is: the place itself on the Road, the whole town, or out
+    in the wild."""
     for travel_map in maps():
+        wild = travel_map.get('wild')
+        if wild and wild['city'] == city_id and wild['place'] == place_id:
+            return travel_map, wild
         found = next((node for node in travel_map['nodes'] if node['city'] == city_id and node['place'] == place_id),
                      None) or next((node for node in travel_map['nodes'] if node['city'] == city_id
                                     and node['city'] != 'vallarith-road'), None)
@@ -62,15 +79,32 @@ def neighbours(travel_map: dict, node_id: str) -> list[tuple[str, dict]]:
             if node_id in (route['from'], route['to'])]
 
 
+def here_hex(connection, travel_map: dict, board: hexes.Grid, node_id: str) -> tuple[int, int]:
+    """The hex the character is in: their place's, or where they stopped out in the wild."""
+    if is_wild(travel_map, node_id) and (where := hexes.position(connection, board)):
+        return where['at']
+    return board.places.get(node_id) or next(iter(board.places.values()))
+
+
+def region_of(connection, travel_map: dict, node: dict) -> str:
+    """The region the character is in: their place's, or out in the wild the region of their hex."""
+    if is_wild(travel_map, node['id']) and hexes.is_hex(travel_map):
+        board = hexes.grid(connection, travel_map)
+        if (where := hexes.position(connection, board)) and (region := board.cell(where['at'])['region']):
+            return region
+    return node['region']
+
+
 def walked(connection, travel_map: dict, plan_: dict, legs: list[dict]):
     """The places and, on a hex crawl, the hexes the walked legs went through."""
-    visit(connection, travel_map, plan_['from'])
+    if not is_wild(travel_map, plan_['from']):
+        visit(connection, travel_map, plan_['from'])
     if plan_.get('mode') != 'hex':
         for leg in legs:
             visit(connection, travel_map, leg['to'])
         return
     board = hexes.grid(connection, travel_map)
-    hexes.reveal(connection, board, [board.places[plan_['from']], *(tuple(leg['to']) for leg in legs)])
+    hexes.reveal(connection, board, [tuple(plan_['start']), *(tuple(leg['to']) for leg in legs)])
     for leg in legs:
         if leg.get('place'):
             visit(connection, travel_map, leg['place'])
@@ -93,7 +127,7 @@ def known(connection, travel_map: dict, here: str) -> dict[str, bool]:
         rows.setdefault(other, False)
     if hexes.is_hex(travel_map):
         board = hexes.grid(connection, travel_map)
-        for at in hexes.seen(connection, board, board.places[here]):
+        for at in hexes.seen(connection, board, here_hex(connection, travel_map, board, here)):
             if at in board.at_place:
                 rows.setdefault(board.at_place[at], False)
     return {node['id']: rows.get(node['id'], False) for node in travel_map['nodes']
@@ -101,7 +135,8 @@ def known(connection, travel_map: dict, here: str) -> dict[str, bool]:
 
 
 def find(node_id: str) -> tuple[dict, dict]:
-    return next((travel_map, node) for travel_map in maps() for node in travel_map['nodes'] if node['id'] == node_id)
+    return next((travel_map, node) for travel_map in maps() for node in nodes(travel_map).values()
+                if node['id'] == node_id)
 
 
 def bare(name: str) -> str:
@@ -147,6 +182,61 @@ def threat_text(threat: str | dict) -> str:
     return threat if isinstance(threat, str) else threat['text']
 
 
+def heading(text: str, wild: bool) -> str | None:
+    """The direction a line strikes out in ("I head north-east", "we leave town and walk west"), if it names one; from
+    a town it takes a word for leaving, so walking north along a street goes nowhere."""
+    if not (LEAVING if not wild else GOING).search(text):
+        return None
+    found = COMPASS.search(text)
+    if not found:
+        return None
+    if found.group(3):
+        return found.group(3).lower()
+    return found.group(1).lower() + (f'-{found.group(2).lower()}' if found.group(2) else '')
+
+
+def encounter_on(travel_map: dict, legs: list[dict], crawl: bool, rng) -> dict | None:
+    """The first leg that turns something up, and what: a road's odds are for a day's walking, a hex's are its share
+    of a day."""
+    for index, leg in enumerate(legs):
+        odds = travel_map['odds'][leg['danger']]
+        if rng.randint(1, 100) <= (odds * leg['hours'] / travel_map['hours_a_day'] if crawl else odds):
+            region = leg['region'] if crawl else nodes(travel_map)[leg['to']]['region']
+            table = travel_map['encounters'].get(region) or travel_map['encounters'][hexes.FRONTIER[0]]
+            return {'leg': index, 'entry': pick(table, rng)}
+    return None
+
+
+def today(connection, board: hexes.Grid, at: tuple[int, int]) -> str:
+    """The weather where the character sets out, on the story clock's day."""
+    row = optional(connection, 'SELECT at FROM story_clock WHERE id=1')
+    moment = datetime.fromisoformat(row['at']) if row else datetime.now()
+    return hexes.weather(board.seed, moment.date().isoformat(), board.cell(at)['region'], moment.month)
+
+
+def strike_out(connection, travel_map: dict, here: dict, direction: str, rng) -> dict:
+    """A day's walk across country in one direction, rolled for encounters and for keeping the way: if the character
+    loses it, the walk drifts off to one side from there (`astray`), while they believe it went straight."""
+    board = hexes.grid(connection, travel_map)
+    start = here_hex(connection, travel_map, board, here['id'])
+    weather = today(connection, board, start)
+    legs, stop = board.heading(start, direction, travel_map['hours_a_day'], weather)
+    plan_ = {'from': here['id'], 'start': list(start), 'mode': 'hex', 'direction': direction, 'weather': weather,
+             'legs': legs, 'stop': stop, 'encounter': encounter_on(travel_map, legs, True, rng)}
+    lost = next(((index, difficulty) for index, leg in enumerate(legs)
+                 if (difficulty := board.lost_odds(leg, weather))), None)
+    if lost:
+        index, difficulty = lost
+        turns = hexes.ZIGZAG.get(direction) or (
+            hexes.TURNS[(hexes.TURNS.index(direction) - 1) % 6], hexes.TURNS[(hexes.TURNS.index(direction) + 1) % 6])
+        veer = turns[rng.randint(0, 1)]
+        left = travel_map['hours_a_day'] - sum(leg['hours'] for leg in legs[:index + 1])
+        drift, drift_stop = board.heading(tuple(legs[index]['to']), veer, left, weather) if left > 0 else ([], 'day')
+        plan_['lost'] = {'leg': index, 'difficulty': difficulty, 'terrain': legs[index]['terrain'],
+                         'astray': legs[:index + 1] + drift, 'stop': drift_stop}
+    return plan_
+
+
 def plan(connection, city_id: str, place_id: str, text: str, rng=None) -> dict | None:
     """The journey a line sets out on, its roads rolled for encounters: None when it goes nowhere on the map, or the
     character is held prisoner (dungeon/combat.py captors)."""
@@ -157,46 +247,48 @@ def plan(connection, city_id: str, place_id: str, text: str, rng=None) -> dict |
     if found is None:
         return None
     travel_map, here = found
+    crawl = hexes.is_hex(travel_map)
+    rng = rng or random.SystemRandom()
     goal = destination(travel_map, here['id'], text)
     if goal is None:
-        return None
-    crawl = hexes.is_hex(travel_map)
-    legs = None
+        direction = heading(text, is_wild(travel_map, here['id'])) if crawl and travel_map.get('wild') else None
+        return strike_out(connection, travel_map, here, direction, rng) if direction else None
+    legs, start = None, None
     if goal['id'] in known(connection, travel_map, here['id']):
         if crawl:
             board = hexes.grid(connection, travel_map)
-            legs = board.way(board.places[here['id']], board.places[goal['id']])
+            start = here_hex(connection, travel_map, board, here['id'])
+            legs = board.way(start, board.places[goal['id']], today(connection, board, start))
         else:
             legs = way(travel_map, here['id'], goal['id'])
     if not legs:
         return {'from': here['id'], 'to': goal['id'], 'unknown': True}
-    rng = rng or random.SystemRandom()
-    encounter = None
-    for index, leg in enumerate(legs):
-        # A road's odds are for a day's walking; a hex's are its share of a day.
-        odds = travel_map['odds'][leg['danger']]
-        if rng.randint(1, 100) <= (odds * leg['hours'] / travel_map['hours_a_day'] if crawl else odds):
-            region = leg['region'] if crawl else nodes(travel_map)[leg['to']]['region']
-            table = travel_map['encounters'].get(region) or travel_map['encounters'][hexes.FRONTIER[0]]
-            encounter = {'leg': index, 'entry': pick(table, rng)}
-            break
-    return {'from': here['id'], 'to': goal['id'], 'legs': legs, 'encounter': encounter} | (
-        {'mode': 'hex'} if crawl else {})
+    return {'from': here['id'], 'to': goal['id'], 'legs': legs, 'encounter': encounter_on(travel_map, legs, crawl, rng)} | (
+        {'mode': 'hex', 'start': list(start)} if crawl else {})
 
 
-def decide(connection, message_id: str, city_id: str, place_id: str, text: str, rng=None) -> dict | None:
-    """The line's journey, planned once, and the roll its danger calls for, if any (for the turn's rolls)."""
+def lost_threat(lost: dict) -> str:
+    return f"The character loses their bearings in {lost['terrain']} and drifts off course without knowing it."
+
+
+def decide(connection, message_id: str, city_id: str, place_id: str, text: str, rng=None) -> list[dict]:
+    """The line's journey, planned once, and the rolls it calls for (for the turn's rolls): its danger's, and keeping
+    the way across country."""
     row = optional(connection, 'SELECT plan FROM story_journeys WHERE message_id=?', (message_id,))
     journey = decode(row['plan']) if row else plan(connection, city_id, place_id, text, rng)
     if journey is None:
-        return None
+        return []
     if row is None:
         connection.execute('INSERT INTO story_journeys (message_id, plan) VALUES (?, ?)', (message_id, encode(journey)))
+    actions = []
     entry = (journey.get('encounter') or {}).get('entry') or {}
-    if 'action' not in entry:
-        return None
-    return {'action': entry['action'], 'stat': STAT, 'difficulty': entry['difficulty'],
-            'threat': threat_text(entry['threat'])}
+    if 'action' in entry:
+        actions.append({'action': entry['action'], 'stat': STAT, 'difficulty': entry['difficulty'],
+                        'threat': threat_text(entry['threat'])})
+    if lost := journey.get('lost'):
+        actions.append({'action': f"keep their bearings in {lost['terrain']}", 'stat': LOST_STAT,
+                        'difficulty': lost['difficulty'], 'threat': lost_threat(lost)})
+    return actions
 
 
 def journey(connection, message_id: str) -> dict | None:
@@ -219,9 +311,17 @@ def bitten(rolls: list[dict], entry: dict) -> bool:
     return any(roll.get('threat') == threat_text(entry['threat']) and roll['band'] in BITES for roll in rolls)
 
 
+def strayed(plan_: dict, rolls: list[dict]) -> bool:
+    lost = plan_.get('lost')
+    return bool(lost) and any(roll.get('threat') == lost_threat(lost) and roll['band'] in BITES for roll in rolls)
+
+
 def travelled(plan_: dict, rolls: list[dict]) -> tuple[list[dict], list[str]]:
     """The roads actually walked (a fight on the road ends the journey where it happens), and what happened on them."""
     legs, encounter = plan_['legs'], plan_.get('encounter')
+    if strayed(plan_, rolls):
+        legs = plan_['lost']['astray']
+        encounter = encounter if encounter and encounter['leg'] < len(legs) else None
     if not encounter:
         return legs, []
     entry, where = encounter['entry'], legs[encounter['leg']]
@@ -231,11 +331,54 @@ def travelled(plan_: dict, rolls: list[dict]) -> tuple[list[dict], list[str]]:
         return legs, [f"On {where['terrain']} the character manages to {entry['action']}, and goes on."]
     lines = [f"On {where['terrain']}: {threat_text(entry['threat'])}"]
     if isinstance(entry['threat'], dict) and entry['threat'].get('foe'):
-        # On a hex crawl the fight is out in the wild, and the journey ends at the next place on the way.
-        end = next((index for index in range(encounter['leg'], len(legs)) if legs[index].get('place')),
-                   len(legs) - 1) if plan_.get('mode') == 'hex' else encounter['leg']
+        # On a hex crawl the fight is out in the wild: a journey ends at the next place on the way, a walk across
+        # country where the fight is.
+        end = encounter['leg'] if plan_.get('mode') != 'hex' or plan_.get('direction') else next(
+            (index for index in range(encounter['leg'], len(legs)) if legs[index].get('place')), len(legs) - 1)
         return legs[:end + 1], lines + [f'{STOPPED}, on the road, with a fight on its hands.']
     return legs, lines
+
+
+def ending(connection, travel_map: dict, plan_: dict, legs: list[dict], rolls: list[dict]) -> tuple[dict, str,
+                                                                                                    list[str]]:
+    """Where the walked legs leave the character, the line that opens the scene there, and what the narrator is told
+    of how the walk ended: at a place, or out in the wild (believing they are elsewhere, if they lost their way)."""
+    end = end_of(plan_, legs)
+    if plan_.get('mode') != 'hex':
+        return nodes(travel_map)[end], f"You arrive at {nodes(travel_map)[end]['name']}.", []
+    board = hexes.grid(connection, travel_map)
+    actual = tuple(legs[-1]['to'])
+    lines = [f"The weather on the way: {plan_['weather']}."] if plan_.get('weather') else []
+    if end:
+        hexes.place_at(connection, board, actual)
+        return nodes(travel_map)[end], f"You arrive at {nodes(travel_map)[end]['name']}.", lines
+    before = hexes.position(connection, board) if is_wild(travel_map, plan_['from']) else None
+    believed = actual
+    if strayed(plan_, rolls) or (before and before['believed'] != before['at']):
+        meant = tuple(plan_['legs'][-1]['to']) if strayed(plan_, rolls) else actual
+        drift = (before['believed'][0] - before['at'][0], before['believed'][1] - before['at'][1]) if before else (0, 0)
+        believed = (meant[0] + drift[0], meant[1] + drift[1])
+        # A road or a place they know puts them right.
+        if board.cell(actual)['road'] or legs[-1].get('road'):
+            believed = actual
+    hexes.place_at(connection, board, actual, believed)
+    cell = board.cell(actual)
+    region = (travel_map['regions'].get(cell['region']) or {}).get('name', 'country nobody has named')
+    stop = (plan_.get('lost') or {}).get('stop') if strayed(plan_, rolls) else plan_.get('stop')
+    if stop == 'water':
+        lines.append(f"Open water stops them: there is no walking further {plan_.get('direction', 'that way')}.")
+    elif stop == 'day':
+        lines.append(f"The day's walking ends in {hexes.TERRAINS[cell['terrain']]['text']} in {region}, with no road "
+                     'or roof in sight.')
+    if believed != actual:
+        lines.append(f"Somewhere in {plan_['lost']['terrain']} they lost their bearings and drifted off course; they "
+                     'believe they are somewhere they are not.')
+    wild = travel_map['wild']
+    return wild, f"You stop in {hexes.TERRAINS[cell['terrain']]['text']}, in {region}.", lines
+
+
+def blocked(plan_: dict) -> list[str]:
+    return [f"Open water lies {plan_['direction']} of the character: there is no walking that way."]
 
 
 def minutes(legs: list[dict], hours_a_day: int) -> tuple[int, int, int]:
@@ -274,9 +417,9 @@ def duration(hours: float) -> str:
     return 'an hour' if hours == 1 else f"{hours:g} hours"
 
 
-def end_of(plan_: dict, legs: list[dict]) -> str:
-    """The place a journey's walked legs end at."""
-    return legs[-1]['place'] if plan_.get('mode') == 'hex' else legs[-1]['to']
+def end_of(plan_: dict, legs: list[dict]) -> str | None:
+    """The place a journey's walked legs end at; None out in the wild."""
+    return legs[-1].get('place') if plan_.get('mode') == 'hex' else legs[-1]['to']
 
 
 def lines_for(travel_map: dict, plan_: dict, legs: list[dict], nights: int, eaten: list[str],
@@ -286,9 +429,13 @@ def lines_for(travel_map: dict, plan_: dict, legs: list[dict], nights: int, eate
     hours = sum(leg['hours'] for leg in legs)
     way = (f"by {travel_map['by']} on {roads}: {duration(hours)} on the road" if travel_map.get('by') else
            f'on foot by {roads}: {hours:g} hours of walking')
-    lines = [f"The player's character travels from {places[plan_['from']]['name']} to "
-             f"{places[end_of(plan_, legs)]['name']} {way}"
-             + (f", {nights} night{'s' if nights > 1 else ''} camped on the road." if nights else '.')]
+    if plan_.get('direction'):
+        lines = [f"The player's character strikes out {plan_['direction']} from {places[plan_['from']]['name']} "
+                 f"{way}."]
+    else:
+        lines = [f"The player's character travels from {places[plan_['from']]['name']} to "
+                 f"{places[end_of(plan_, legs)]['name']} {way}"
+                 + (f", {nights} night{'s' if nights > 1 else ''} camped on the road." if nights else '.')]
     if eaten:
         lines.append(f"They eat from their pack on the way: {', '.join(eaten)}.")
     if hungry:
@@ -312,10 +459,45 @@ def view(connection, city_id: str, place_id: str) -> dict | None:
     if not hexes.is_hex(travel_map):
         return {'places': places, 'roads': roads}
     board = hexes.grid(connection, travel_map)
+    at = here_hex(connection, travel_map, board, here['id'])
     cells = [{'q': cell['q'], 'r': cell['r'], 'terrain': cell['terrain'], 'road': bool(cell['road']),
               'place': cell['place'], 'visited': cell['visited']}
-             for cell in hexes.view(connection, board, board.places[here['id']])]
-    return {'places': places, 'roads': roads, 'hexes': cells}
+             for cell in hexes.view(connection, board, at)]
+    # Lost, the map shows where the character believes they are.
+    where = hexes.position(connection, board) if is_wild(travel_map, here['id']) else None
+    believed = where['believed'] if where else at
+    return {'places': places, 'roads': roads, 'hexes': cells,
+            'at': {'q': believed[0], 'r': believed[1], 'lost': bool(where) and where['believed'] != where['at']}}
+
+
+def wild_text(connection, city_id: str, place_id: str) -> str:
+    """Out in the wild, for the narrator: the land the character is in, the day's weather, and the nearest place
+    they know of."""
+    found = node_at(city_id, place_id)
+    if found is None:
+        return ''
+    travel_map, here = found
+    if not is_wild(travel_map, here['id']) or not hexes.is_hex(travel_map):
+        return ''
+    board = hexes.grid(connection, travel_map)
+    where = hexes.position(connection, board)
+    if where is None:
+        return ''
+    cell = board.cell(where['at'])
+    region = (travel_map['regions'].get(cell['region']) or {}).get('name', 'country nobody has named')
+    lines = [f"The player's character is out in the wild, off the roads, in {hexes.TERRAINS[cell['terrain']]['text']} "
+             f"in {region}.", f"Today's weather: {today(connection, board, where['at'])}."]
+    seen = known(connection, travel_map, here['id'])
+    nearby = sorted((hexes.distance(where['believed'], board.places[node]), node) for node in seen
+                    if node in board.places)
+    if nearby:
+        hexes_away, node = nearby[0]
+        lines.append(f"The nearest place they know of is {nodes(travel_map)[node]['name']}, about {hexes_away} "
+                     f"hex{'es' if hexes_away != 1 else ''} ({hexes_away * board.miles} miles) to the "
+                     f"{hexes.bearing(where['believed'], board.places[node])}, as far as they can tell.")
+    if where['believed'] != where['at']:
+        lines.append('They have lost their way: they are not where they believe they are, and do not know it.')
+    return '## Out in the wild (decided by the game)\n' + '\n'.join(f'- {line}' for line in lines)
 
 
 def prompt_text(lines: list[str]) -> str:

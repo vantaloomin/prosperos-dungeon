@@ -583,6 +583,21 @@ Havenbrooke's (car or bus) and BABEL's (the Stair) do. Vallarith's is.
   hour, off it the land's own hours (plains 2, forest, hills and waste 3, marsh 4, mountains 5; water can't be
   walked). Each hex rolls for an encounter at its share of a day's odds (a road hex at the road's danger, the rest at
   the region's). A fight out on the way ends the journey at the next place on it.
+- **Striking out.** "I head north-east" (out in the wild, any word for going; from a town it takes a word for
+  leaving: set out, strike out, head out, leave, travel) walks up to a day's hours that way, hex by hex; due east and
+  west zigzag between the two hex sides either way. It stops early at open water or at a place. A walk that ends
+  between places leaves the scene in the map's `wild` place (Vallarith's `the-wilds` on the Road), with the hex kept
+  in `story_position`; the narrator gets "## Out in the wild": the land, the region, the day's weather, and the
+  nearest place the character knows with how far and which way. A line naming a place walks there from that hex;
+  resting there draws on the hex's region for the danger and the camp table.
+- **Getting lost.** The first off-road hex of a walk in forest or waste (normal), marsh or mountains (hard) asks for
+  a Mind roll; fog, storm and snow make it harder and make open country and hills need one too. A failure drifts the
+  rest of the day's walk one side off course (`lost.astray`, planned with the walk); the character believes they
+  went straight, the map marks where they think they are (`map.at.lost`) and the narrator is told they are not
+  where they believe. A road or a place puts them right.
+- **Weather.** One roll a day per region, from the seed and the story clock's date (clear, overcast, rain, fog,
+  storm; snow for rain in winter months). Storms and snow make every off-road hex half as slow again. The narrator
+  hears the day's weather on the way and out in the wild.
 - **Fog of war.** The hexes seen (`story_hexes`, branched with the story) are those walked and what could be seen
   from them: the ring around, two from hills, three from mountains, none past the trees in forest or marsh. A place
   in a hex seen is known. The map in the story view carries the known hexes (`map.hexes`).
