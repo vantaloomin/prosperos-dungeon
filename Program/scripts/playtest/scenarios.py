@@ -886,6 +886,40 @@ def hex_woods(play):
     hex_view(play, 'the bus to Ithaca')
 
 
+def hamlet(play):
+    """Hex crawl: walking toward the nearest hamlet the campaign's seed put near Kingswood, coming upon it, and the
+    found hamlet being a place of its own on the Road with its own name and people."""
+    from dungeon import hexes, travel  # the harness runs beside the app's code
+    play.start('agna-holt')
+    play.say('I set out for Convila.')  # a first journey sets the campaign's seed
+    with play.dungeon.database() as connection:
+        connection.row_factory = __import__('sqlite3').Row
+        seed = connection.execute('SELECT seed FROM story_campaign').fetchone()['seed']
+    board = hexes.Grid(next(item for item in travel.maps() if hexes.is_hex(item) and hexes.key(item) == 'vallarith'),
+                       seed)
+    here = tuple((play.story().get('map') or {}).get('at', {}).get(axis) for axis in 'qr')
+    near = sorted(((cell, site) for radius in range(1, 12) for cell in hexes.ring(here, radius)
+                   if (site := board.site(cell)) and site['kind'] == 'hamlet' and site['visible']),
+                  key=lambda pair: hexes.distance(here, pair[0]))
+    if not near:
+        play.flag('No hamlet within eleven hexes to walk to.')
+        return
+    cell, site = near[0]
+    play.write(f"- nearest hamlet: {site['name']} at {cell}, {hexes.distance(here, cell)} hexes "
+               f"{hexes.bearing(here, cell)}\n")
+    for _ in range(4):
+        at = tuple((play.story().get('map') or {}).get('at', {}).get(axis) for axis in 'qr')
+        if at == cell or play.story()['scene']['place']['id'].startswith('hamlet-'):
+            break
+        play.say(f'I strike out {hexes.bearing(at, cell)}.')
+    scene = play.story()['scene']
+    play.write(f"- scene: {scene['place']['id']} / {scene['place']['name']}, around: "
+               f"{[str(person) for person in scene.get('around') or []]}\n")
+    if not scene['place']['id'].startswith('hamlet-'):
+        play.flag(f"Reaching {site['name']} did not make it a place of its own (scene {scene['place']['id']}).")
+    play.say('I look for whoever is in charge here and ask what news there is.')
+
+
 SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl, 'road': road,
              'director': director, 'chapters': chapters, 'ironman': ironman, 'gm_view': gm_view, 'memory': memory,
              'legacy': legacy, 'fivee_checks': fivee_checks, 'fivee_fight': fivee_fight,
@@ -895,4 +929,4 @@ SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl,
              'editor': editor, 'pictures': pictures, 'havenbrooke': havenbrooke,
              'tone': tone, 'restrained_wounds': restrained_wounds, 'stage': stage, 'babel': babel,
              'fate_made': fate_made, 'fate_premade': fate_premade, 'marvel_start': marvel_start,
-             'hex_vallarith': hex_vallarith, 'hex_woods': hex_woods}
+             'hex_vallarith': hex_vallarith, 'hex_woods': hex_woods, 'hamlet': hamlet}
