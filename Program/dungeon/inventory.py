@@ -43,6 +43,7 @@ from pathlib import Path
 from dungeon import table, world_data
 from dungeon.database import identifier, many, optional
 from dungeon.errors import DomainError, require
+from dungeon.rules import ladder, marvel
 from dungeon.sheet import stats as sheet_stats
 
 ITEMS = Path(__file__).parent / 'world' / 'data' / 'items'
@@ -366,10 +367,26 @@ def haggled(connection, city_id: str, shop: dict, day: str) -> int:
     return row['percent'] if row else 0
 
 
+# The keeper's Resolve when the shop's file names none (requirements "Persuasion vs Resolve").
+KEEPER_RESOLVE = 10
+
+
+def opposed(shop: dict, band: str, rng=None) -> tuple[str, str]:
+    """A haggle is a contest: the keeper rolls Resolve (the shop's `resolve`, else KEEPER_RESOLVE), and when they do
+    better than the character, the character's result lands a step worse. Returns the band and the keeper's."""
+    keeper = marvel.roll(shop.get('resolve', KEEPER_RESOLVE), 'normal', rng)['band']
+    rank = ladder.BANDS.index
+    return (ladder.BANDS[max(0, rank(band) - 1)] if rank(keeper) > rank(band) else band), keeper
+
+
+def haggled_today(connection, city_id: str, shop: dict, day: str) -> bool:
+    return bool(optional(connection, 'SELECT 1 FROM story_haggles WHERE city_id=? AND place_id=? AND day=?',
+                         (city_id, shop['place'], day)))
+
+
 def haggle(connection, city_id: str, shop: dict, band: str, day: str) -> int | None:
     """Settle a haggle by how the roll landed; None when the shop was already haggled with today."""
-    if optional(connection, 'SELECT 1 FROM story_haggles WHERE city_id=? AND place_id=? AND day=?',
-                (city_id, shop['place'], day)):
+    if haggled_today(connection, city_id, shop, day):
         return None
     connection.execute('INSERT INTO story_haggles (city_id, place_id, day, percent) VALUES (?, ?, ?, ?) '
                        'ON CONFLICT(city_id, place_id) DO UPDATE SET day=excluded.day, percent=excluded.percent',

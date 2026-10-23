@@ -346,7 +346,10 @@ its shops with their starting stock, and each premade's starting kit (plus a def
   the shop's prices for the rest of the story day by how it landed. A critical gets a quarter off, a success 15%,
   a success at a cost 10% (and the keeper likes the character less), a failure with an upside 5%; a failure changes
   nothing and a critical failure makes everything 20% dearer. One haggle a shop a day; asking again gets nowhere.
-  Cold feelings make it harder, like any persuasion. Haggles are kept in `story_haggles`, and what happened at the
+  Cold feelings make it harder, like any persuasion. It is a contest: the keeper rolls Resolve (the shop's
+  `resolve`, else 10), and a keeper who lands better than the character knocks their result down a step (the
+  narrator is told they held firm); under Narrative Only the judge's verdict stands alone. Haggles are kept in
+  `story_haggles`, and what happened at the
   counter on a line in `story_counter`, so "Tell it again" retells it the same.
 - **Selling in the story.** A line that sells something ("I sell the blanket", "I fence the ring", "all my candles")
   sells it at what the shop pays today before the narrator writes; a refusal (it doesn't buy that, stolen goods, no
@@ -820,7 +823,15 @@ story, with the deck and region from the travel map (`world`, `regions.*.cards`)
   belief when it is not the whole truth. The narrator gets "## What the world brings": what the character sees,
   the choice it puts to them, and what code applied: stress (against Resolve), a wound, coin in day wages (the
   town's `day-wage` price), food gained or lost, time, the feelings of someone there, a fight (`FOES`), and the
-  town's market (see "Gear and the shop"). Rumor, quest, faction, fate and pursuer effects wait for their systems.
+  town's market (see "Gear and the shop"), a faction's clock and standing, and:
+  - **fate**: the person there it names is marked so (`story_fates`, as off-page beats do); dead, the record
+    holds them dead; turned, they lose trust and affection.
+  - **rumor**: word goes round town. About the character, the narrator is told people may have heard it; a false
+    rumor is kept as the world's lie.
+  - **quest**: someone asks something of the character, a job in the journal due in the card's days, its giver
+    the person there (or the faction), its hidden truth the card's.
+  - **pursuer**: someone is on the character's trail; a nemesis (`story_nemeses`) comes due for the director in
+    the card's days.
 - Each draw is kept (`story_cards`, branched with the story), so telling a turn again draws nothing new, and a
   card is not drawn again within the deck's `repeat_days`.
 
