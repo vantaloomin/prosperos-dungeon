@@ -85,3 +85,13 @@ def test_waiting_until_a_time_of_day_waits_that_long():
     assert story_clock.minutes_for('I wait outside until she opens for the evening.', False, at) == 30
     assert story_clock.minutes_for('I wait till dawn.', False, datetime(2026, 10, 5, 22, 0)) == 8 * 60
     assert story_clock.minutes_for('I wait for him.', False, at) == story_clock.TALK_MINUTES
+
+
+def test_an_empty_tavern_gets_no_invented_patrons():
+    from dungeon import story
+    view = {'data': {'name': 'Kingswood', 'summary': 'A logging town.', 'era': 'Post-Reform'},
+            'place': {'id': 'sawpit', 'name': 'the Sawpit', 'kind': 'tavern', 'neighborhood': 'the yards',
+                      'summary': 'A tavern.'},
+            'local_time': '2026-10-01T16:11:00', 'weather': '', 'people': [], 'known': {}}
+    assert story.EMPTY_ROOM in story.scene_text(view)
+    assert 'only passers-by' in story.scene_text(view | {'place': view['place'] | {'kind': 'square'}})
