@@ -417,6 +417,9 @@ def player_move(connection, state: dict, roll: dict, items: list[dict], rng, lin
     if five and (spell := combat5e.spell_in(connection, roll)):
         combat5e.cast(connection, roll, spell, standing(state), rng, lines)
         return False, False
+    if percent and (cast := combat_brp.spell_in(connection, roll)):
+        combat_brp.cast(connection, state, roll, cast, standing(state), rng, lines)
+        return False, False
     if ranges.backing(roll['action']):
         # "I fall back to the stairs": a move within the fight, not an escape (dungeon/ranges.py).
         ranges.break_away(state, roll['action'], landed, lines)
@@ -456,7 +459,7 @@ def struck(connection, state: dict, roll: dict, targets: list[dict], items: list
     if fifth(connection):
         combat5e.strike(connection, roll, aimed_at(roll, targets), items, rng, lines)
     elif basic(connection):
-        combat_brp.strike(connection, roll, aimed_at(roll, targets), items, rng, lines)
+        combat_brp.strike(connection, roll, aimed_at(roll, targets), items, rng, lines, state)
     elif 'npc' in targets[0]:
         combat_iron.strike(connection, state, roll, aimed_at(roll, targets), items, rng, lines)
     else:

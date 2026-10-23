@@ -21,9 +21,9 @@ The app shows the attribution wherever the pack's content is credited. `pack.jso
 | File | Contents |
 |---|---|
 | `pack.json` | Manifest: source document and hash, license, outcome mapping, what was changed |
-| `brp.json` | Characteristics, skills and base chances, weapons, armour, damage modifiers, professions, personality types, foes (sample characters, animals, undead), the major wound table |
+| `brp.json` | Characteristics, skills and base chances, weapons, armour, damage modifiers, professions, personality types, foes (sample characters, animals, undead), the major wound table, magic spells (name, range, duration, cost per level, a one-line summary in our words, the effect code plays) and the professions that begin as magicians |
 
 ## What is left out
 
-Powers (magic, sorcery, psychic abilities, mutations, superpowers), hit locations, fatigue, sanity, firearms and
+Powers other than magic (sorcery, psychic abilities, mutations, superpowers), hit locations, fatigue, sanity, firearms and
 modern or futuristic equipment, vehicles. The skill list keeps the skills a pre-modern world uses.

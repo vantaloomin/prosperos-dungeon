@@ -196,8 +196,30 @@ images are non-commercial).
   1D3 hit points once a wound; a hurt character's line that binds or dresses a wound rolls it even when the Referee
   saw nothing uncertain in it (`injuries.first_aid`). The roll card reads "Climb 75%" and lands the two percentile dice.
 
-Not yet: powers (magic, sorcery, psychic abilities), hit locations, fatigue, sanity, parrying with a weapon or a
-shield, training and research.
+### Magic under BRP
+
+Chapter 4's magic (`brp.cast`, `combat_brp.cast`; the pack's `magic`, each spell's name, range, duration and cost per
+level with a one-line summary in our words):
+
+- **Magicians.** A wizard or a priest begins as a magician at the Normal power level: four spells code picks (a
+  wizard Blast, Protection, Light and Perception; a priest Heal, Protection, Light and Dispel), each a skill starting
+  at INT x1 that the profession's and personal points also go to. The sheet lists them with their cost a level.
+- **Casting.** A line that casts a known spell ("I cast Blast 2 at the thug", "I cast a Light spell") rolls it like a
+  skill. Its level is the one the line names, else 1, at most half INT, and as many as the power points pay for:
+  each level costs the spell's cost. A failure costs 1 power point, anything else (a fumble too) the full cost. The
+  character never spends their last power point (at 0 they would fall unconscious); with too few, the card says so
+  and nothing is rolled. A spell that succeeds gets an experience check like a skill.
+- **In a fight.** Blast, Fire and Frost do 1D6 a level that armour absorbs; Lightning and Wounding 1D6 a level
+  straight to hit points. The target may dodge any but a touch. A special rolls the dice twice and keeps the
+  better, a critical does the most and ignores armour. Protection adds a point of armour a level for the rest of
+  the fight, Sharpen 5% and a point of damage a level to the character's blows, Dull takes as much off the foes'.
+  Control pits the character's POW against the foe's on the resistance table: won, the foe stands idle. Heal heals
+  the character 1D6 a level (the most on a critical), in a fight or out. The other spells are the narrator's to
+  tell.
+- **Power points** come back with sleep: 8 a night (1 an hour).
+
+Not yet: sorcery, psychic abilities, mutations and superpowers; hit locations, fatigue, sanity, parrying with a
+weapon or a shield, training and research.
 
 ## The turn loop
 

@@ -16,6 +16,13 @@ Content Document, under the ORC License).
   special and success success, failure failure, fumble critical_failure.
 - **Experience.** A skill that succeeds when it mattered (not an Easy roll) gets an experience check. After a
   night's rest code makes the experience roll for each: d100 plus the experience bonus over the skill raises it 1D6.
+- **Magic** (Chapter 4: Powers; docs/story.md "Magic under BRP"). A wizard or a priest begins as a magician at the
+  Normal power level: four spells code picks (the pack's `magicians`), each a skill starting at INT x1 that the
+  profession's and personal points also go to. A line that casts a known spell ("I cast Blast 2 at the thug") rolls
+  it: the level the line names (else 1, at most half INT), each level costing the spell's power points; a failure
+  costs 1, a fumble the full cost. The character never spends their last power point (at 0 they would fall
+  unconscious). A night's sleep brings back 8 power points (1 an hour). Sorcery, psychic abilities, mutations and
+  superpowers are not in.
 """
 import json
 import math
@@ -180,15 +187,20 @@ def build(characteristics: dict[str, int], profession_id: str, personality_id: s
     profession, personality = by_id('professions')[profession_id], by_id('personalities')[personality_id]
     rules = pack()['creation']
     values = {skill_id: base(skill, chars) for skill_id, skill in skills().items()}
+    # A magician's spells start at INT x1 and take their share of the points (Chapter 4: Initial Spells).
+    values |= dict.fromkeys(magician(profession_id), chars['int'])
+    targets = [*profession['skills'], *magician(profession_id)]
     for skill in personality_skills(personality, profession):
         values[skill] += rules['personality_points']
-    left = spend(values, profession['skills'], rules['professional_points'], rules['professional_cap'])
-    left = spend(values, profession['skills'], left + chars['int'] * rules['personal_per_int'], rules['professional_cap'])
+    left = spend(values, targets, rules['professional_points'], rules['professional_cap'])
+    left = spend(values, targets, left + chars['int'] * rules['personal_per_int'], rules['professional_cap'])
     spend(values, list(SPREAD_AFTER), left, rules['professional_cap'])
     hp = hit_points(chars)
+    known = {spell: values.pop(spell) for spell in magician(profession_id)}
     return {'characteristics': chars, 'skills': values, 'profession': profession_id, 'personality': personality_id,
             'hp': hp, 'max_hp': hp, 'pp': chars['pow'], 'max_pp': chars['pow'], 'armor': profession['armor'],
-            'weapons': list(profession['weapons']), 'checks': [], 'major_wounds': []}
+            'weapons': list(profession['weapons']), 'checks': [], 'major_wounds': []} \
+        | ({'spells': known} if known else {})
 
 
 def suggested(top: str) -> dict:
@@ -221,6 +233,11 @@ def view(sheet: dict) -> dict:
             'armor_value': armor['av'] if armor else 0,
             'skill_list': [{'id': skill, 'name': skills()[skill]['name'], 'value': value,
                             'checked': skill in sheet.get('checks', [])} for skill, value in top],
+            'spell_list': [{'id': spell, 'name': spells()[spell]['name'], 'value': value,
+                            'cost': spells()[spell]['cost'], 'summary': spells()[spell]['summary'],
+                            'checked': spell in sheet.get('checks', [])}
+                           for spell, value in (sheet.get('spells') or {}).items()],
+            'most_level': most_level(sheet),
             'attribution': attribution()}
 
 
@@ -232,7 +249,9 @@ def described(sheet: dict) -> str:
     return (f"A {by_id('professions')[sheet['profession']]['name'].lower()}, "
             f"{by_id('personalities')[sheet['personality']]['name'].lower()} by nature: "
             + ', '.join(f'{NAMES[stat]} {chars[stat]}' for stat in CHARACTERISTICS)
-            + f"; best at {', '.join(best)}. Hit points {sheet['hp']} of {sheet['max_hp']}.")
+            + f"; best at {', '.join(best)}. Hit points {sheet['hp']} of {sheet['max_hp']}."
+            + (f" A magician: {', '.join(spells()[spell]['name'] for spell in sheet['spells'])}; power points "
+               f"{sheet['pp']} of {sheet['max_pp']}." if sheet.get('spells') else ''))
 
 
 # The roll ---------------------------------------------------------------------------------------------------
@@ -289,8 +308,11 @@ def read(sheet: dict, approach: str, text: str, save: bool = False) -> tuple[str
 
 def check(sheet: dict, approach: str, difficulty: str, text: str = '', rng: random.Random | None = None,
           save: bool = False) -> dict:
-    """A skill roll (or a characteristic roll) under the chance for the difficulty."""
+    """A skill roll (or a characteristic roll) under the chance for the difficulty; a known spell the line casts is
+    its spell roll."""
     rng = rng or random.SystemRandom()
+    if not save and (spell := known_spell(sheet, text)):
+        return cast(sheet, spell, text, difficulty, rng)
     skill, stat, label, value = read(sheet, approach, text, save)
     chance = chance_for(value, difficulty)
     natural = rng.randint(1, 100)
@@ -306,8 +328,8 @@ def check(sheet: dict, approach: str, difficulty: str, text: str = '', rng: rand
 # Experience -------------------------------------------------------------------------------------------------
 
 def check_skill(sheet: dict, roll: dict) -> bool:
-    """An experience check for a skill that succeeded (not an Easy roll); True when it is new."""
-    skill = roll.get('brp_skill')
+    """An experience check for a skill (or a spell) that succeeded (not an Easy roll); True when it is new."""
+    skill = roll.get('brp_skill') or roll.get('brp_spell')
     if not skill or roll.get('easy') or roll['band'] not in ('success', 'critical_success') or \
             skill in sheet.setdefault('checks', []):
         return False
@@ -321,11 +343,87 @@ def improve(sheet: dict, rng: random.Random | None = None) -> list[str]:
     rng = rng or random.SystemRandom()
     lines = []
     for skill in sheet.get('checks', []):
-        value = sheet['skills'][skill]
+        values, names = (sheet['spells'], spells()) if skill in sheet.get('spells', {}) else (sheet['skills'], skills())
+        value = values[skill]
         if rng.randint(1, 100) + xp_bonus(sheet) > value:
             gained = rng.randint(1, 6)
-            sheet['skills'][skill] = value + gained
-            lines.append(f"What the character has been through has taught them: {skills()[skill]['name']} grows from "
+            values[skill] = value + gained
+            lines.append(f"What the character has been through has taught them: {names[skill]['name']} grows from "
                          f'{value}% to {value + gained}%.')
     sheet['checks'] = []
     return lines
+
+
+# Magic ------------------------------------------------------------------------------------------------------
+
+CASTING = re.compile(r'\b(cast\w*|invok\w*|chant\w*|spell|conjur\w*|weav\w*|work\w* (a|the|my) magic)\b', re.I)
+LEVEL = re.compile(r'\blevel\s*(\d+)\b|\b(\d+)(?:st|nd|rd|th)?[- ]level\b', re.I)
+# Power points a night's sleep brings back (1 an hour sleeping).
+NIGHT_PP = 8
+
+
+@cache
+def spells() -> dict[str, dict]:
+    return by_id('magic')
+
+
+def magician(profession_id: str) -> list[str]:
+    """The spells a profession begins with as a magician, none for the rest."""
+    return list(pack()['magicians'].get(profession_id, []))
+
+
+def most_level(sheet: dict) -> int:
+    """The most levels a spell can have: half INT, rounded up."""
+    return math.ceil(sheet['characteristics']['int'] / 2)
+
+
+def known_spell(sheet: dict, text: str) -> str | None:
+    """A known spell the line casts: it says it casts (or names a level: "Blast 2") and names the spell."""
+    for spell in sheet.get('spells') or {}:
+        name = re.escape(spells()[spell]['name'])
+        if re.search(rf'\b{name}\b', text, re.I) and (CASTING.search(text) or re.search(rf'\b{name}\s+\d', text, re.I)):
+            return spell
+    return None
+
+
+def asked_level(spell: str, text: str) -> int:
+    match = LEVEL.search(text) or re.search(rf"\b{re.escape(spells()[spell]['name'])}\s+(\d+)\b", text, re.I)
+    return int(next(group for group in match.groups() if group)) if match else 1
+
+
+def cast(sheet: dict, spell: str, text: str, difficulty: str, rng: random.Random) -> dict:
+    """A spell roll: the levels asked for, as many as INT allows and the power points pay for (the last point
+    kept); a failure costs 1 power point, anything else the full cost. Changes `sheet`."""
+    found = spells()[spell]
+    levels = max(0, min(asked_level(spell, text), most_level(sheet), (sheet['pp'] - 1) // found['cost']))
+    if levels < 1:
+        # No dice: the power is not there (the card shows no roll).
+        return {'natural': 0, 'die': 100, 'bonus': 0, 'shift': 0, 'total': 0, 'target': 0, 'rolls': [],
+                'skill': f"{found['name']} (not enough power points)", 'ability': spell, 'band': 'failure',
+                'degree': 'failure', 'brp_skill': None, 'easy': difficulty == 'easy'}
+    chance = chance_for(sheet['spells'][spell], difficulty)
+    natural = rng.randint(1, 100)
+    degree = level(natural, chance)
+    spent = 1 if degree == 'failure' else found['cost'] * levels
+    sheet['pp'] -= spent
+    shown_degree = f' ({degree})' if degree in ('critical', 'special', 'fumble') else ''
+    return {'natural': natural, 'die': 100, 'bonus': 0, 'shift': 0, 'total': natural, 'target': chance,
+            'skill': f"{found['name']} {levels} {shown(chance)}%{shown_degree}, {spent} power point"
+                     f"{'s' if spent != 1 else ''}",
+            'ability': spell, 'rolls': [natural], 'band': BANDS[degree], 'degree': degree, 'brp_skill': None,
+            'brp_spell': spell, 'spell_level': levels, 'easy': difficulty == 'easy'}
+
+
+def spell_of(skill: str | None) -> tuple[dict, int] | None:
+    """(the spell, its level) a roll's card says was cast."""
+    for found in spells().values():
+        if match := re.match(rf"{re.escape(found['name'])} (\d+) ", skill or ''):
+            return found, int(match.group(1))
+    return None
+
+
+def recover(sheet: dict, nights: int) -> int:
+    """Power points back after nights of sleep; returns how many. Changes `sheet`."""
+    before = sheet['pp']
+    sheet['pp'] = min(sheet['max_pp'], sheet['pp'] + nights * NIGHT_PP)
+    return sheet['pp'] - before
