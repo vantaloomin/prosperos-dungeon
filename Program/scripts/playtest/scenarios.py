@@ -1122,6 +1122,99 @@ def town_map(play):
         play.flag('Walking to the smithy by name did not move the scene there.')
 
 
+def set_fight(play, spec: dict):
+    """Put a fight with these foes on, as a road encounter would (the test's own setup, so it doesn't hang on the
+    encounter dice)."""
+    from dungeon import combat  # the harness runs beside the app's code
+    sqlite3 = __import__('sqlite3')
+    with sqlite3.connect(play.dungeon.data_dir / 'dungeon.sqlite3') as connection:
+        connection.execute('INSERT INTO story_fight (id, round, wants, foes, initiative, bare) VALUES (1, 1, ?, ?, '
+                           'NULL, 0)', (spec['wants'], json.dumps(combat.foes_from(spec))))
+    play.write(f"- fight set: {spec['count']} × {spec['name']}, wants {spec['wants']}\n")
+
+
+def fight_on(play) -> dict:
+    return (play.story().get('fight') or {})
+
+
+def robbers(play):
+    """What the foes want: robbers who have hurt the character demand the purse, and handing it over ends the fight
+    with the purse gone."""
+    play.start('agna-holt')
+    play.move('the-ford')
+    set_fight(play, {'name': 'road bandit', 'count': 2, 'vitality': 10, 'resolve': 8, 'weapon': 0, 'wants': 'rob'})
+    play.say('Two bandits have come out of the reeds by the ford with cudgels. I draw my sword and go for the nearer '
+             'one.')
+    for _ in range(5):
+        state = fight_on(play)
+        if not state.get('fight') or state.get('dead') or state.get('condition') not in ('unhurt', 'scratched'):
+            break
+        play.say('I keep swinging at the nearer bandit.')
+    play.gear()
+    if fight_on(play).get('fight'):
+        play.say('"Fine. Take it." I toss him my purse.')
+        gear = play.gear()
+        if fight_on(play).get('fight'):
+            play.flag('Handing the purse over to robbers did not end the fight.')
+        if gear.get('coins'):
+            play.flag(f"The purse is still {gear.get('coins')} after handing it to the robbers.")
+
+
+def captors(play):
+    """Captors fight to take the character whole: their blows stop at Maimed, and a surrender makes the character
+    their prisoner. The first line fights on a plan until they break or a turning point."""
+    play.start('lirien-of-the-ford')
+    play.move('the-ford')
+    set_fight(play, {'name': 'press-gang man', 'count': 3, 'vitality': 10, 'resolve': 10, 'weapon': 0,
+                     'wants': 'capture'})
+    play.say('A press gang has come down to the ford with a rope. I put my back to the water, hold my ground and '
+             'cut down whoever comes, and fight on until they break.')
+    state = fight_on(play)
+    if state.get('fight') and not state.get('captors'):
+        play.say('I drop my sword and surrender.')
+        state = fight_on(play)
+        play.write(f'- after surrendering: {json.dumps(state)}\n')
+        if not state.get('captors'):
+            play.flag('Surrendering to captors did not make the character their prisoner.')
+    if state.get('dead'):
+        play.flag('Captors killed the character.')
+
+
+def brawler(play):
+    """A brawl in the Sawpit at night: attacking a man the narrator brings in rolls and starts a fight, and backing
+    off ends it."""
+    play.start('tobin-pell')
+    sqlite3 = __import__('sqlite3')
+    with sqlite3.connect(play.dungeon.data_dir / 'dungeon.sqlite3') as connection:  # the Sawpit fills at night
+        at = connection.execute('SELECT at FROM story_clock WHERE id=1').fetchone()[0]
+        connection.execute('UPDATE story_clock SET at=? WHERE id=1', (at[:11] + '20:30:00' + at[19:],))
+    play.move('the-sawpit')
+    play.say('I throw my drink in the face of the biggest logger in the place and punch him.', {'fight': True})
+    if fight_on(play).get('fight'):
+        play.say('I put my hands up and back off toward the door. "All right, all right, I\'m going."')
+        if fight_on(play).get('fight'):
+            play.flag('Backing off from a brawler did not end the fight.')
+
+
+def ambush(play):
+    """Surprise: a stealthy first blow rolls Sneak up unseen, and a danger's foes roll to take the character
+    unawares (Spot the ambush)."""
+    play.start('agna-holt')
+    sqlite3 = __import__('sqlite3')
+    with sqlite3.connect(play.dungeon.data_dir / 'dungeon.sqlite3') as connection:
+        at = connection.execute('SELECT at FROM story_clock WHERE id=1').fetchone()[0]
+        connection.execute('UPDATE story_clock SET at=? WHERE id=1', (at[:11] + '20:30:00' + at[19:],))
+    play.move('the-sawpit')
+    play.say('I creep up behind the loudest drunk in the place and hit him over the head with my sword hilt.')
+    play.move('the-heartwood')
+    for _ in range(6):
+        if fight_on(play).get('fight'):
+            break
+        play.say('I go deeper into the Heartwood, sword ready.')
+    if fight_on(play).get('fight'):
+        play.say('I fight it out, cutting at whatever comes at me.')
+
+
 SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl, 'road': road,
              'director': director, 'chapters': chapters, 'ironman': ironman, 'gm_view': gm_view, 'memory': memory,
              'legacy': legacy, 'fivee_checks': fivee_checks, 'fivee_fight': fivee_fight,
@@ -1133,4 +1226,5 @@ SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl,
              'fate_made': fate_made, 'fate_premade': fate_premade, 'marvel_start': marvel_start,
              'hex_vallarith': hex_vallarith, 'hex_woods': hex_woods, 'hamlet': hamlet, 'fence': fence,
              'narration_format': narration_format, 'selling': selling, 'wayhouse': wayhouse, 'grime': grime,
-             'spoils': spoils, 'mending': mending, 'town_map': town_map}
+             'spoils': spoils, 'mending': mending, 'town_map': town_map,
+             'robbers': robbers, 'captors': captors, 'brawler': brawler, 'ambush': ambush}
