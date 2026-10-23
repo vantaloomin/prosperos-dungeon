@@ -200,6 +200,15 @@
     "drama": "uneasy",
     "note": "Character-first, wry and honest. See canon/tone-and-house-rules.md."
   },
+  "theme": {
+    "name": "Autumn quad",
+    "palette": {
+      "accent": "#9b3f1c",
+      "background": "#f2ebdf",
+      "surface": "#faf6ef",
+      "text": "#2b221c"
+    }
+  },
   "personas": {
     "custom_allowed": true,
     "file": "personas.json"

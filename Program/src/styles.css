@@ -111,6 +111,8 @@ textarea { resize: vertical; line-height: 1.6; }
 
 /* Story mode (src/features/story): one reading column of narration, the user's lines set apart. */
 .story { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+/* The world's own colors (worldTheme.ts) are set on the story screen alone, so it paints its own ground. */
+.story.world-colors { background: var(--canvas); color: var(--text); }
 /* A fixed layout (requirements "Play screen and widgets"): the story column, and the scene panel with the drawer's tabs
    beside it on a wide screen. On a narrow one the tabs sit under the story and open the panel as a sheet above them. */
 .story-main { display: contents; }

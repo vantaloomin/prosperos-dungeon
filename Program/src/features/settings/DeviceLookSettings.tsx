@@ -29,6 +29,10 @@ export function DeviceLookSettings() {
         <input type="checkbox" checked={look.stageArt} onChange={(event) => saveLook({ stageArt: event.target.checked })} />
         Show pictures on the story: the place behind it and portraits of who is here, once they are made
       </label>
+      <label className="checkbox-row">
+        <input type="checkbox" checked={look.worldColors} onChange={(event) => saveLook({ worldColors: event.target.checked })} />
+        Use the world's colors on the story, when its world has its own (the rest of the app keeps yours)
+      </label>
     </div>
   )
 }

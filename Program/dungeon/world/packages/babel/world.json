@@ -118,6 +118,15 @@
     "drama": "eventful",
     "note": "An 80s fantasy register in a modern frame: omens and weather, mythic similes on mundane things, a cosmic register when the world breaks, grounded in modern texture (Slack, kerning, Topo Chico). See canon/tone-and-house-rules.md."
   },
+  "theme": {
+    "name": "Tower glass",
+    "palette": {
+      "accent": "#5cc8d8",
+      "background": "#0f121b",
+      "surface": "#161a26",
+      "text": "#dde4f0"
+    }
+  },
   "house_rules": {
     "origin": "source",
     "rolls": "hidden",

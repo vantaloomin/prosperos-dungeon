@@ -27,6 +27,7 @@ from dungeon import (
     table,
     tiers,
     townmap,
+    world_theme,
 )
 from dungeon.errors import DomainError, require
 from dungeon.models import Input, PersonaInput
@@ -611,6 +612,12 @@ def leave(request: Request, institution_id: str):
 def gallery(request: Request):
     """The pictures made in the story (dungeon/art.py), the newest of each subject, marked when out of date."""
     return {'art': art.gallery(request.app.state.database)}
+
+
+@router.get('/theme')
+def theme(request: Request):
+    """The colors of the world the story is in, when its package ships some (dungeon/world_theme.py)."""
+    return world_theme.current(request.app.state.database)
 
 
 @router.get('/art/stage')
