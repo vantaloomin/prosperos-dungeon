@@ -227,7 +227,8 @@ class Play:
             return []
         with self.dungeon.database() as connection:
             rows = connection.execute('SELECT scene, lines FROM story_cards WHERE message_id=?', (message_id,))
-            return [(scene, ' / '.join(json.loads(lines or '[]'))) for scene, lines in rows if lines and lines != '[]']
+            return [(scene, ' / '.join(str(line) for line in json.loads(lines or '[]'))) for scene, lines in rows
+                    if lines and lines != '[]']
 
     def check(self, text: str, narration: str, view: dict, user: dict, expect: dict):
         if '—' in narration:
