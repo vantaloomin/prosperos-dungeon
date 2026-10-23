@@ -109,8 +109,12 @@ def test_from_ironroot_a_walk_goes_into_the_woods_and_a_drive_still_takes_the_ro
     begin(client, place='ironroot-woods')
     app.state.dice = Road(99)
     reply(provider)
+    before = clock_at(app)
     tell(client, 'I set out west into the trees.', 'story-0001')
     story = ok(client.get('/api/story'))
+    # A ramble into the woods, not a day's march, and the line's own time is the walk's (playtest).
+    walked = provider.requests[-1]['system'].split('on foot by ')[1].split(' hours of walking')[0].split(': ')[-1]
+    assert (clock_at(app) - before).total_seconds() / 3600 <= float(walked) + 0.6 <= 3
     assert story['scene']['place']['id'] == 'the-back-woods' and story['map']['hexes']
     narrator = provider.requests[-1]['system']
     assert 'strikes out west from Ironroot Woods' in narrator and '## Out in the wild' in narrator

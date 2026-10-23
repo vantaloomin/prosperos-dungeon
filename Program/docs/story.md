@@ -591,7 +591,12 @@ Havenbrooke's (car or bus) and BABEL's (the Stair) do. Vallarith's is.
 - **Striking out.** "I head north-east" (out in the wild, any word for going; from a town it takes a word for
   leaving: set out, strike out, head out, leave, travel) walks up to a day's hours that way, hex by hex; due east and
   west zigzag between the two hex sides either way. It stops early at open water or at a place, or after as long as
-  the line says ("for an hour or so", "for two hours"; `travel.walking_hours`), with at least one hex walked. A walk that ends
+  the line says ("for an hour or so", "for two hours"; `travel.walking_hours`, taking the hex that comes closest),
+  with at least one hex walked. With no length said it walks the map's `walk_hours` (Havenbrooke's woods: 2), else a
+  day. It stops at a hamlet the character knows of, as at a place. Out in the wild any word for going or leaving
+  will do ("I strike out north-east"). At night (21:00 to 06:00) it waits for first light first, unless the line
+  means to walk in the dark ("through the night", "by moonlight"). A line that sets out on a journey passes no
+  time of its own: its time is the journey's (`travel.setting_out`). A walk that ends
   between places leaves the scene in the map's `wild` place (Vallarith's `the-wilds` on the Road), with the hex kept
   in `story_position`; the narrator gets "## Out in the wild": the land, the region, the day's weather, and the
   nearest place the character knows with how far and which way. A line naming a place walks there from that hex;
@@ -615,8 +620,9 @@ Havenbrooke's (car or bus) and BABEL's (the Stair) do. Vallarith's is.
   it out when the levels in play are lower (dungeon/tone.py), and a found site is kept as it was found (its `site`
   JSON), so lowering the levels later never changes it. A found hamlet is a place of its own in the wild's Road city
   (`hamlet-<q>-<r>`, added by story.py `city_for` from the found sites, so it is branched too): reaching it puts the
-  scene there under its own name, with its own people, while the character's hex stays the hamlet's. Places tagged
-  `wild` (the wild and hamlets) are reached by travel, never by an across-town "I go to …".
+  scene there under its own name (kind `hamlet`), with its own people, who are at home there when not working, while
+  the character's hex stays the hamlet's. Places tagged `wild` or `hamlet` are reached by travel, never by an
+  across-town "I go to …".
 - **Searching.** Out in the wild, "I search the area" (search, scour, explore, look around, scout) takes the hex's
   crossing time and a Mind roll; a success finds a hidden site there, if there is one, and a critical success always
   turns something up: the nearest site not yet found within three hexes, when the hex itself has none.
