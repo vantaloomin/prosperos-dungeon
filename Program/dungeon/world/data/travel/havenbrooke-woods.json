@@ -15,6 +15,7 @@
  },
  "wild": {"id": "the-back-woods", "name": "the back woods", "region": "haven-woods", "city": "haven", "place": "the-back-woods", "safe": false},
  "hours_a_day": 5,
+ "walk_hours": 2,
  "odds": {"none": 0, "low": 10, "medium": 25, "high": 45},
  "food": [],
  "nodes": [

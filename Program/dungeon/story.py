@@ -620,7 +620,7 @@ def walked_to(connection, text: str, clock=None) -> dict | None:
         # A place's words: its name, its kind and its id ("the-gate-arch" is "the east gate" to the player too).
         # Out in the wild and the hamlets found there are reached by travel (dungeon/travel.py), not across town.
         scored = [(len(words & (place_words(place['name']) | place_words(place['id']) | {place['kind']})), place)
-                  for place in data['places'] if 'wild' not in place.get('tags', ())]
+                  for place in data['places'] if not {'wild', 'hamlet'} & set(place.get('tags', ()))]
         best = max((hits for hits, _ in scored), default=0)
         top = [place for hits, place in scored if hits == best]
         if best and len(top) == 1:
@@ -953,7 +953,14 @@ def walk(database, connection, planned: dict, rolls: list[dict], message_id: str
         return found
     if not planned['legs']:
         return travel.blocked(planned)
-    legs, happened = travel.travelled(planned, rolls)
+    happened = []
+    if planned.get('mode') == 'hex' and (waited := travel.till_light(story_clock.now(connection, database.clock),
+                                                                     planned)):
+        # Nobody walks off the road in the dark unless they say so: they wait for first light, then set out.
+        pass_time(database, connection, waited)
+        happened.append('It is dark: the character waits out the night and sets out at first light.')
+    legs, travelled = travel.travelled(planned, rolls)
+    happened += travelled
     spent, nights, days = travel.minutes(legs, travel_map['hours_a_day'])
     eaten, hungry = travel.eat(connection, travel_map['food'], days)
     pass_time(database, connection, spent)
@@ -1357,8 +1364,9 @@ def received(database, text: str, client_id: str) -> tuple[dict, dict | None]:
                     place_scene(connection, walked['city_id'], walked['id'], database.now())
                     pass_time(database, connection, story_clock.ACROSS_TOWN_MINUTES)
                     arrive(connection, database.now())
-                # A rest passes its own nights (dungeon/rest.py).
-                elif not rest.resting(text):
+                # A rest passes its own nights (dungeon/rest.py), and a journey its own hours (dungeon/travel.py).
+                elif not rest.resting(text) and not travel.setting_out(connection, user['city_id'],
+                                                                       user['place_id'], text):
                     pass_time(database, connection, story_clock.minutes_for(text, bool(referee.by_keywords(text))))
         reply = optional(connection, "SELECT * FROM story_messages WHERE reply_to=? AND status='complete'",
                          (user['id'],))

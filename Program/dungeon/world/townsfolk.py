@@ -54,6 +54,8 @@ ROLES = {
     'guildhall': (('clerk', 'guild clerk', True), REGULAR),
     'square': (('street vendor', 'hawker', True), ('street musician', 'street musician', False), REGULAR),
     'vet': (('veterinarian', 'animal doctor', True), ('vet tech', "animal doctor's assistant", True), REGULAR),
+    # A hamlet found out in the wild (dungeon/hexes.py hamlets): the people who live there.
+    'hamlet': (('farmer', 'cottar', True), ('village elder', 'headman', True), REGULAR),
 }
 # An era's own titles where the period ones above don't fit it, by modern role: the 1920s have soda jerks and
 # bandleaders rather than counter hands and fiddlers.
@@ -648,7 +650,9 @@ def whereabouts(sheet: dict, data: dict, moment: datetime) -> dict:
         return resident_whereabouts(sheet, data, moment)
     minute, weekday, day = moment.hour * 60 + moment.minute, moment.weekday(), moment.date()
     here = {'place': sheet['place'], 'at_place': True}
-    home = {'place': None, 'at_place': False, 'neighborhood': sheet['home']}
+    # A hamlet out in the wild (dungeon/hexes.py hamlets) is where its people live: at home is there.
+    home = {**here, 'neighborhood': sheet['home']} if sheet['place']['kind'] == 'hamlet' else \
+        {'place': None, 'at_place': False, 'neighborhood': sheet['home']}
     shifts, visits = sheet.get('shifts'), sheet.get('visits')
     state = story(sheet, data, day)
     mood = mood_for(sheet, state)

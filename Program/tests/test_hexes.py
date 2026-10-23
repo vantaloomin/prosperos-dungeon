@@ -1,4 +1,6 @@
 """The hex crawl (dungeon/hexes.py): authored hexes, land generated past them from the seed, roads, fog of war."""
+from datetime import datetime
+
 from conftest import Chunk, tell
 from test_inventory import begin
 from test_travel import Road
@@ -259,6 +261,8 @@ def test_a_hamlet_found_out_in_the_wild_is_a_place_of_its_own_on_the_road(client
     assert place['id'] == hexes.hamlet_id(at) and place['name'] == hamlet['name']
     assert (story['map']['at']['q'], story['map']['at']['r']) == at
     assert f"Here: {hamlet['name']}" in provider.requests[-1]['system']
+    # Playtest: somebody lives there.
+    assert story['scene']['around']
     # It is somewhere one can leave again by road or across country.
     provider.replies = [[Chunk('Back to Kingswood.'), Chunk('', 'stop')]]
     tell(client, 'I set out for Kingswood.', 'story-0002')
@@ -328,3 +332,24 @@ def test_a_search_that_goes_as_well_as_it_can_finds_the_nearest_site_close_by(ap
         assert 'nothing hidden here' in plain[-1]
         _, great = travel.search(connection, plan_, [{'threat': travel.NOTHING, 'band': 'critical_success'}])
         assert 'signs of something 1 hex' in great[0] and 'finds' in great[-1]
+
+
+def test_a_walk_stops_at_a_hamlet_it_knows_on_the_way_and_waits_for_light_at_night(app):
+    board = hexes.Grid(vallarith(), 'fixed')
+    at = next(at for radius in range(2, 30) for at in hexes.ring(board.places['kingswood'], radius)
+              if (site := board.site(at)) and site['kind'] == 'hamlet')
+    # Two hexes short of it, walking its way.
+    way, (dq, dr) = next((way, step) for way, step in hexes.DIRECTIONS.items()
+                         if all(board.cell((at[0] - dq_ * n, at[1] - dr_ * n))['terrain'] != 'water'
+                                and not board.cell((at[0] - dq_ * n, at[1] - dr_ * n))['place']
+                                for dq_, dr_ in [step] for n in (1, 2)))
+    start = (at[0] - 2 * dq, at[1] - 2 * dr)
+    out_in_the_wild(app, start)
+    with app.state.database.connect(write=True) as connection:
+        hexes.find_site(connection, board, at, board.site(at))
+        planned = travel.plan(connection, 'vallarith-road', 'the-wilds', f'I strike out {way}.', Road())
+    assert tuple(planned['legs'][-1]['to']) == at and planned['stop'] == 'site'
+    late = datetime(2026, 10, 5, 22, 28)
+    assert travel.till_light(late, planned) == 7 * 60 + 32
+    assert travel.till_light(late.replace(hour=9), planned) == 0
+    assert travel.till_light(late, planned | {'dark': True}) == 0

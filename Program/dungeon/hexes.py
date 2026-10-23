@@ -298,8 +298,10 @@ class Grid:
             1, TERRAINS[cell['terrain']]['sight']))
 
 
-    def heading(self, start: tuple[int, int], direction: str, budget: float, weather: str) -> tuple[list[dict], str]:
-        """A day's walk in one direction from a hex: the steps, and why it stopped ('day', 'place' or 'water')."""
+    def heading(self, start: tuple[int, int], direction: str, budget: float, weather: str,
+                about: bool = False) -> tuple[list[dict], str]:
+        """A day's walk in one direction from a hex: the steps, and why it stopped ('day', 'place' or 'water'). `about`:
+        the budget is a rough length ("for an hour or so"), so the step that comes closest to it is taken too."""
         turns = ZIGZAG.get(direction, (direction,))
         legs, at, spent = [], start, 0.0
         while True:
@@ -308,7 +310,7 @@ class Grid:
             leg = self.step(at, there, weather)
             if leg['hours'] is None:
                 return legs, 'water'
-            if legs and spent + leg['hours'] > budget:
+            if legs and spent + leg['hours'] > budget and (not about or spent + leg['hours'] - budget > budget - spent):
                 return legs, 'day'
             legs.append(leg)
             spent += leg['hours']
@@ -457,8 +459,8 @@ def hamlets(connection, travel_map: dict) -> list[dict]:
     if not wild or not is_hex(travel_map):
         return []
     board = grid(connection, travel_map)
-    return [{'id': hamlet_id(at), 'name': found['name'], 'kind': 'landmark', 'summary': found['text'],
-             'tags': ['travel', 'wild', 'hamlet'], 'q': at[0], 'r': at[1]}
+    return [{'id': hamlet_id(at), 'name': found['name'], 'kind': 'hamlet', 'summary': found['text'],
+             'tags': ['travel', 'hamlet'], 'q': at[0], 'r': at[1]}
             for at, found in sorted(found_sites(connection, board).items()) if found['kind'] == 'hamlet']
 
 

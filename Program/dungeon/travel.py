@@ -21,7 +21,7 @@ import heapq
 import math
 import random
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from dungeon import hexes, inventory, sworn, world_data
@@ -38,6 +38,10 @@ SEARCHING = re.compile(r'\b(search\w*|scour\w*|explor\w*|look(s|ing)? around|pok
 NOTHING = 'The search turns up nothing the character can find.'
 # How far a search that goes as well as it can ranges for a site, in hexes.
 SEARCH_REACH = 3
+# Walking across country waits for first light at night, unless the line means to walk in the dark.
+DAWN, DUSK = 6, 21
+DARK = re.compile(r'\b(through the night|in the dark|by night|by moonlight|by torchlight|at night|tonight)\b',
+                  re.I)
 STILL_LOST = 'The character still cannot work out where they are.'
 # How hard it is to get one's bearings back when lost, by the land one is in: easy with a view, hard under trees.
 BEARINGS = {'hills': 'easy', 'mountains': 'easy', 'plains': 'normal', 'waste': 'normal', 'forest': 'hard',
@@ -207,7 +211,7 @@ def threat_text(threat: str | dict) -> str:
 def heading(text: str, wild: bool) -> str | None:
     """The direction a line strikes out in ("I head north-east", "we leave town and walk west"), if it names one; from
     a town it takes a word for leaving, so walking north along a street goes nowhere."""
-    if not (LEAVING if not wild else GOING).search(text):
+    if not LEAVING.search(text) and not (wild and GOING.search(text)):
         return None
     found = COMPASS.search(text)
     if not found:
@@ -258,12 +262,17 @@ def strike_out(connection, travel_map: dict, here: dict, direction: str, rng, ho
     board = hexes.grid(connection, travel_map)
     start = here_hex(connection, travel_map, board, here['id'])
     weather = today(connection, board, start)
-    found = set(hexes.found_sites(connection, board))
-    budget = min(travel_map['hours_a_day'], hours or travel_map['hours_a_day'])
-    legs, stop = board.heading(start, direction, budget, weather)
+    found = hexes.found_sites(connection, board)
+    # A walk with no length said goes on for the map's `walk_hours` (a ramble in Havenbrooke's woods), else a day.
+    budget = min(travel_map['hours_a_day'], hours or travel_map.get('walk_hours') or travel_map['hours_a_day'])
+    legs, stop = board.heading(start, direction, budget, weather, about=budget < travel_map['hours_a_day'])
     stop = 'enough' if stop == 'day' and budget < travel_map['hours_a_day'] else stop
-    legs, site = board.came_upon(legs, found, hexes.levels(connection))
+    legs, site = board.came_upon(legs, set(found), hexes.levels(connection))
     stop = 'site' if site else stop
+    # A hamlet they know of on the way is somewhere to stop, as a place on the way is.
+    if (hamlet := next((index for index, leg in enumerate(legs) if (kept := found.get(tuple(leg['to'])))
+                        and kept['kind'] == 'hamlet'), None)) is not None:
+        legs, stop = legs[:hamlet + 1], 'site'
     plan_ = {'from': here['id'], 'start': list(start), 'mode': 'hex', 'direction': direction, 'weather': weather,
              'legs': legs, 'stop': stop, 'encounter': encounter_on(travel_map, legs, True, rng)}
     lost = next(((index, difficulty) for index, leg in enumerate(legs)
@@ -275,7 +284,7 @@ def strike_out(connection, travel_map: dict, here: dict, direction: str, rng, ho
         veer = turns[rng.randint(0, 1)]
         left = budget - sum(leg['hours'] for leg in legs[:index + 1])
         drift, drift_stop = board.heading(tuple(legs[index]['to']), veer, left, weather) if left > 0 else ([], 'day')
-        astray, strayed_upon = board.came_upon(legs[:index + 1] + drift, found)
+        astray, strayed_upon = board.came_upon(legs[:index + 1] + drift, set(found))
         plan_['lost'] = {'leg': index, 'difficulty': difficulty, 'terrain': legs[index]['terrain'],
                          'astray': astray, 'stop': 'site' if strayed_upon else drift_stop}
     return plan_
@@ -291,8 +300,34 @@ def plan(connection, city_id: str, place_id: str, text: str, rng=None) -> dict |
     # At a trailhead into Havenbrooke's woods, a drive to Ithaca still goes by the roads.
     for travel_map, here in nodes_at(city_id, place_id):
         if (planned := plan_on(connection, travel_map, here, text, rng)) is not None:
-            return planned | regaining(connection, travel_map, here)
+            return planned | regaining(connection, travel_map, here) | ({'dark': True} if DARK.search(text) else {})
     return None
+
+
+def setting_out(connection, city_id: str, place_id: str, text: str) -> bool:
+    """Whether a line sets out on a journey from here (as `plan` would read it, without planning or rolling it): its
+    time is the journey's, not a line's (dungeon/story.py received)."""
+    for travel_map, here in nodes_at(city_id, place_id):
+        if destination(travel_map, here['id'], text) is not None:
+            return True
+        if not hexes.is_hex(travel_map) or not travel_map.get('wild'):
+            continue
+        wild = is_wild(travel_map, here['id'])
+        if heading(text, wild) or (wild and SEARCHING.search(text)):
+            return True
+        board = hexes.grid(connection, travel_map)
+        if site_named(connection, board, text, here_hex(connection, travel_map, board, here['id'])):
+            return True
+    return False
+
+
+def till_light(now: datetime, plan_: dict) -> int:
+    """The minutes to wait for first light before walking off across country at night, unless the line set out to
+    walk in the dark ("through the night", `plan_['dark']`); 0 by day."""
+    if plan_.get('dark') or DAWN <= now.hour < DUSK:
+        return 0
+    light = now.replace(hour=DAWN, minute=0, second=0, microsecond=0)
+    return round(((light if now.hour < DAWN else light + timedelta(days=1)) - now).total_seconds() / 60)
 
 
 def regaining(connection, travel_map: dict, here: dict) -> dict:
