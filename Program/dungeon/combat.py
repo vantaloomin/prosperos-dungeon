@@ -72,7 +72,9 @@ ARMED = re.compile(r'\b(sword|blade|axe|hatchet|knife|dagger|cudgel|club|crowbar
 # Who an attack is aimed at when it names nobody in the scene: someone the narrator brought in ("punch him", "the big
 # logger"). An attack on a thing ("hack at the roots") names neither.
 SOMEONE = re.compile(r'\b(him|her|them|man|woman|men|women|fellow|lad|boy|girl|stranger|drunk|thug|brute|logger|'
-                     r'cutter|guard|bandit|thief|sailor|soldier|bully)\b', re.I)
+                     r'cutter|guard|bandit|thief|sailor|soldier|bully|foreman|sawyer|teamster|bargeman|smith|keeper|'
+                     r'barkeep|clerk|watchman|warden|sergeant|cook|worker|labou?rer|merchant|trader|priest|elf|dwarf|'
+                     r'orc|goblin|brigand|cultist|stranger)\b', re.I)
 OPPONENT = 'their opponent'
 SNEAK = re.compile(r"\b(sneak\w*|snuck|creep\w*|crept|from behind|unseen|unawares|ambush\w*|by surprise|quietly|"
                    r"silently|stealthily|stalk\w*|in (his|her|their) sleep|while (he|she|they)('s|'re| is| are) "

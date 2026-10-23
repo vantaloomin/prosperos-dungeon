@@ -373,6 +373,10 @@ its shops with their starting stock, and each premade's starting kit (plus a def
   room", "I order the stew", "I hire a guide") is not carried: it is kept for that story day (`story_services`) and the
   narrator is told "Paid for today". A rest where a bed was paid for that night is told so, and a private room eases
   one more point of stress. A data test keeps a common-room night and a meal within an unskilled day's wage.
+- **Shoplifting and a shut counter.** A line that pockets something from the stock ("I pocket a candle") takes it by
+  its roll: got away with, it is in the pack, stolen, and gone from the stock; caught, nothing is taken and the keeper
+  saw. At a shop with nobody behind the counter, a line that buys, sells or haggles is told the shop is shut, and
+  selling what the character doesn't carry is no sale.
 - **Wear and repair.** Gear has a condition (`story_inventory.condition`): sound, damaged or broken, shown in the pack
   and told to the narrator. An attack that fails critically damages the weapon swung, one step (`dungeon/combat.py`
   worn: the weapon the line names, else the best carried). A damaged weapon hits a step softer; a broken one is left

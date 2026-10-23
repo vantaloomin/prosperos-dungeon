@@ -324,8 +324,8 @@ def _build(data: dict, place_id: str, index: int) -> dict:
     if role[2]:
         off = sorted(generators.pick(seed, f'off-{n}', list(range(7))) for n in range(2))
         part = generators.pick(seed, 'shift', parts)
-        sheet['shifts'] = {'days': [day for day in range(7) if day not in off] or [0, 1, 2], 'part': part,
-                           'window': list(SHIFTS[part])}
+        sheet['shifts'] = {'days': (notable or {}).get('days') or [day for day in range(7) if day not in off]
+                           or [0, 1, 2], 'part': part, 'window': list(SHIFTS[part])}
     else:
         days = sorted({generators.pick(seed, f'visit-{n}', list(range(7))) for n in range(3)})
         part = generators.pick(seed, 'visit', parts)

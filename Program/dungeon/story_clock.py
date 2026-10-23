@@ -63,9 +63,31 @@ def waited(text: str) -> int | None:
     return min(amount * (60 if match.group(2).lower() == 'hour' else 1), 24 * 60)
 
 
-def minutes_for(text: str, rolled: bool) -> int:
-    """How long a line of the player's takes: talk is quick, a risky action takes a while, rest takes the night."""
+# "I wait until evening": the hour a time of day starts.
+HOURS = {'dawn': 6, 'sunrise': 6, 'first light': 6, 'morning': 7, 'noon': 12, 'midday': 12, 'afternoon': 13,
+         'evening': 17, 'dusk': 18, 'sunset': 18, 'nightfall': 20, 'dark': 20, 'night': 20, 'midnight': 0}
+
+
+def until(text: str, local: datetime) -> int | None:
+    """'I wait until evening', 'wait till dusk', 'wait until she opens for the evening': the minutes from the local
+    time to the next such hour."""
+    names = '|'.join(sorted(HOURS, key=len, reverse=True))
+    match = re.search(rf'\b(?:wait\w*|sit\w*|stay\w*|linger\w*|loiter\w*)\b.*?\b(?:until|till|til)\b\s+'
+                      rf'(?:[\w\']+\s+){{0,5}}?(?:the\s+)?({names})\b', text, re.I)
+    if not match:
+        return None
+    target = local.replace(hour=HOURS[match.group(1).lower()], minute=0, second=0, microsecond=0)
+    if target <= local:
+        target += timedelta(days=1)
+    return int((target - local).total_seconds() // 60)
+
+
+def minutes_for(text: str, rolled: bool, local: datetime | None = None) -> int:
+    """How long a line of the player's takes: talk is quick, a risky action takes a while, rest takes the night, and
+    waiting until a time of day takes until then (from `local`, the city's time now)."""
     if (minutes := waited(text)) is not None:
+        return minutes
+    if local is not None and (minutes := until(text, local)) is not None:
         return minutes
     for pattern, minutes in SPANS:
         if re.search(pattern, text, re.I):

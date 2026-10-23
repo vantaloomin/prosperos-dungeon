@@ -50,8 +50,11 @@ BASE_SLOTS = 5
 HAGGLE = re.compile(r'\b(haggl\w*|barter\w*|bargain\w*|discount|cheaper|better (price|deal)|lower (the )?price|'
                     r'knock\w* (it |that |something |a bit )?(down|off))', re.I)
 BUY = re.compile(r"\b(buy|buys|buying|purchase|pay for|i'?ll take|i'?ll have|rent\w*|hire|order\w*|book\w*|"
-                 r"take an? (room|bed|bunk|bath|pallet|meal))\b", re.I)
+                 r"take an? (\w+ )?(room|bed|bunk|bath|pallet|meal))\b", re.I)
 SERVICE = 'service'
+STEAL = re.compile(r'\b(pocket\w*|palm\w*|pinch\w*|swip\w*|nick\w*|pilfer\w*|shoplift\w*|steal\w*|stole|'
+                   r'slip\w* (\w+ ){0,3}(into|up) my|tuck\w* (\w+ ){0,3}(into|under|in) my)\b', re.I)
+CAUGHT = ('critical_failure', 'failure', 'failure_upside')
 REPAIR = re.compile(r'\b(repair\w*|mend\w*|fix\w*)\b', re.I)
 CONDITIONS = ('sound', 'damaged', 'broken')
 # What a shop pays for a thing in this condition, in percent of its offer.
@@ -386,9 +389,13 @@ def haggle_text(percent: int) -> str:
 # Buying in the story -----------------------------------------------------------------------------
 
 def nouns(entry: dict) -> set[str]:
-    """What a player might call an item: its name before any comma, and that name's last word ("rope", "sword")."""
+    """What a player might call an item: its name before any comma, and that name's last word ("rope", "sword"), also
+    in the singular."""
     name = entry['name'].split(',')[0].strip().lower()
-    return {name, name.split(' ')[-1]}
+    last = name.split(' ')[-1]
+    # "Tallow candles": "a candle" names them too.
+    single = {last[:-1]} if last.endswith('s') and not last.endswith('ss') and len(last) > 3 else set()
+    return {name, last} | single
 
 
 def wanted(text: str, stock_rows: list[dict]) -> list[tuple[str, int]]:
@@ -397,8 +404,11 @@ def wanted(text: str, stock_rows: list[dict]) -> list[tuple[str, int]]:
     repairs = [row for row in stock_rows if 'repair' in nouns(row)]
     if repairs and REPAIR.search(text):
         return [(repairs[0]['item_id'], 1)]
-    if not BUY.search(text):
-        return []
+    return named(text, stock_rows) if BUY.search(text) else []
+
+
+def named(text: str, stock_rows: list[dict]) -> list[tuple[str, int]]:
+    """The stock a line names, with how many: (item id, quantity)."""
     found = []
     for row in stock_rows:
         for noun in sorted(nouns(row), key=len, reverse=True):
@@ -410,6 +420,34 @@ def wanted(text: str, stock_rows: list[dict]) -> list[tuple[str, int]]:
                     (count or 'one').lower(), 1)))
                 break
     return found
+
+
+def lift(connection, city_id: str, shop: dict, text: str, rolls: list[dict], stock_rows: list[dict]) -> list[str]:
+    """Shoplifting: what a line pockets from the shop's stock, by its roll. Got away with, it is in the pack, stolen,
+    and gone from the stock; caught, nothing is taken and the keeper saw it."""
+    roll = next((roll for roll in rolls if STEAL.search(roll['action'])), None)
+    taken = named(text, stock_rows) if STEAL.search(text) and roll else []
+    if not taken:
+        return []
+    names = ', '.join(item(city_id, item_id)['name'] for item_id, _ in taken)
+    if roll['band'] in CAUGHT:
+        return [f"The keeper sees the player's character try to pocket {names}: caught in the act, and nothing is "
+                'taken.']
+    have = {row['item_id']: row['qty'] for row in stock_rows}
+    room = capacity(connection) - used(carried(connection, city_id))
+    lines = []
+    for item_id, qty in taken:
+        entry, qty = item(city_id, item_id), min(qty, have.get(item_id, 0))
+        if not qty or entry['slots'] * qty > room:
+            continue
+        room -= entry['slots'] * qty
+        connection.execute('UPDATE story_stock SET qty=qty-? WHERE city_id=? AND place_id=? AND item_id=?',
+                           (qty, city_id, shop['place'], item_id))
+        add_item(connection, city_id, item_id, qty, stolen=True)
+        what = entry['name'] if qty == 1 else f"{qty} × {entry['name']}"
+        lines.append(f"The player's character pockets {what} unseen; it is in their pack, stolen, and nothing is "
+                     f"paid{'' if roll['band'] != 'success_cost' else ' (though the keeper may have noticed something)'}.")
+    return lines
 
 
 def buy_in_story(connection, city_id: str, shop: dict, text: str, stock_rows: list[dict], day: str, now: str,
@@ -436,7 +474,11 @@ def sell_in_story(connection, city_id: str, shop: dict, text: str, day: str, now
     if not SELL.search(text):
         return []
     lines = []
-    for row, qty in offered(text, carried(connection, city_id)):
+    found = offered(text, carried(connection, city_id))
+    if not found:
+        return ["No sale: the player's character carries no such thing, so nothing is sold and no money changes "
+                'hands.']
+    for row, qty in found:
         try:
             done = sell(connection, city_id, shop, row['id'], qty, now, day)
         except DomainError as refused:
