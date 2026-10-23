@@ -7,11 +7,13 @@ own sheet (story_sheet, branched with the story), and `check` rolls the persona'
 approach (a MARVEL stat) and the action's words decide what the ruleset tests. Everyone else keeps MARVEL stats.
 """
 import random
+import re
 
 from dungeon.database import decode, encode, many, optional
 from dungeon.errors import require
 from dungeon.rules import brp, fate, ironsworn, marvel, narrative, srd52
 
+CASTING = re.compile(r'\b(cast\w*|spell)\b', re.I)
 RULESETS = {marvel.ID: marvel.NAME, srd52.ID: srd52.NAME, ironsworn.ID: ironsworn.NAME, brp.ID: brp.NAME,
             narrative.ID: narrative.NAME, fate.ID: fate.NAME}
 WORLD_RULESETS: dict[str, str] = {}
@@ -144,6 +146,37 @@ def cast(connection, found: dict, result: dict, rng, text: str = '') -> dict:
         return result | {'band': 'success', 'skill': f"{spell['name']}{upcast} (heals {healed})"}
     set_native(connection, found, '')
     return result | ({'skill': f"{result['skill']}{upcast}"} if upcast else {})
+
+
+def caster(connection) -> dict | None:
+    """The persona's 5E sheet, when the campaign plays 5E."""
+    return native(connection) if ruleset(connection) == srd52.ID else None
+
+
+def spell_actions(connection, text: str, actions: list[dict], fighting: bool) -> list[dict]:
+    """Under 5E, the turn's actions as the spell a line casts by name needs them: a spell the character has not
+    prepared is not cast, so nothing about it is rolled; out of a fight a known spell is cast though the Referee saw
+    nothing uncertain in it ("I cast Cure Wounds on myself"); a slot the line asks for anywhere in it ("I cast Burning
+    Hands at the nearer one at 2nd level") goes with the action that casts it (dungeon/turn.py store)."""
+    found, spell = caster(connection), srd52.cast_named(text)
+    if not found or not spell:
+        return actions
+    names = lambda action: re.search(rf"\b{re.escape(spell['name'].lower())}\b", action['action'].lower())  # noqa: E731
+    if not srd52.knows(found, spell):
+        return [action for action in actions if not names(action) and not CASTING.search(action['action'])]
+    if not fighting and not any(names(action) for action in actions):
+        actions = [*actions, {'action': f"cast {spell['name']}", 'stat': 'Essence', 'difficulty': 'normal'}]
+    slot = srd52.upcast(text)
+    return [action | {'slot': slot} if slot and names(action) else action for action in actions]
+
+
+def unprepared(connection, text: str) -> list[str]:
+    """What the narrator is told of a 5E spell the line casts that the character has not got ready."""
+    found, spell = caster(connection), srd52.cast_named(text)
+    if not found or not spell or srd52.knows(found, spell):
+        return []
+    had = 'know' if spell['level'] == 0 else 'have prepared'
+    return [f"The character does not {had} {spell['name']}: it is not cast, and nothing is rolled for it."]
 
 
 def full_view(connection) -> dict:

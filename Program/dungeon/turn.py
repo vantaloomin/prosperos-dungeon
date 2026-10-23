@@ -5,7 +5,7 @@ import random
 
 from dungeon import quests, sheet
 from dungeon.database import identifier, many
-from dungeon.rules import ladder, marvel, narrative
+from dungeon.rules import ladder, marvel, narrative, srd52
 
 ACTOR_NAME = {sheet.PERSONA: 'The player\'s character'}
 
@@ -17,7 +17,10 @@ def saved(connection, message_id: str) -> list[dict]:
 def store(connection, message_id: str, actions: list[dict], now: str, rng: random.Random | None = None) -> list[dict]:
     for position, action in enumerate(actions):
         # The campaign's ruleset rolls it (dungeon/sheet.py check): MARVEL on the stat, 5E on a skill and a DC.
-        result = sheet.check(connection, action['stat'], action['difficulty'], action['action'], rng,
+        # A 5E spell's slot the line asked for away from the action's words (dungeon/sheet.py spell_actions).
+        said = f"{action['action']} with a {srd52.ordinal(action['slot'])}-level slot" if action.get('slot') else \
+            action['action']
+        result = sheet.check(connection, action['stat'], action['difficulty'], said, rng,
                              judged=action.get('judged'))
         connection.execute(
             'INSERT INTO story_rolls (id, message_id, position, actor, action, said, stat, difficulty, die, natural, '

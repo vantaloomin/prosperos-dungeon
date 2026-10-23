@@ -71,7 +71,7 @@ from dungeon.narration import prose
 from dungeon.providers.chat import INCOMPLETE
 from dungeon.providers.scheduling import CONVERSATION
 from dungeon.rules import brp, fate, ironsworn, marvel, narrative, srd52
-from dungeon.sheet import compel_line
+from dungeon.sheet import compel_line, spell_actions, unprepared
 from dungeon.sheet import native as native_sheet
 from dungeon.sheet import ruleset as ruleset_of
 from dungeon.sheet import stats as sheet_stats
@@ -1038,7 +1038,7 @@ def treat_turn(state, user: dict, rolls: list[dict]) -> list[str]:
             return decode(kept['lines'])
         view = scene(connection, story_clock.now(connection, database.clock))
         lines = injuries.treat(connection, user['text'], view['people'], rolls, view['data']['currency'],
-                               getattr(state, 'dice', None))
+                               getattr(state, 'dice', None)) + unprepared(connection, user['text'])
         if lines:
             connection.execute('INSERT INTO story_treatments (message_id, lines) VALUES (?, ?)',
                                (user['id'], encode(lines)))
@@ -1348,6 +1348,7 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
         if memory := remembering.recall_action(connection, user['text']):
             # The recall roll is the line's Mind roll; the Referee's own is dropped for it.
             actions = [*(action for action in actions if action['stat'] != 'Mind'), memory]
+        actions = spell_actions(connection, user['text'], actions, fighting)
         actions = injuries.adjust(connection, combat.adjust(connection, feelings.adjust(connection, actions)), moment)
         # Under Narrative Only a judge gives each action its verdict before it is kept (dungeon/judge.py).
         ask = None if turn.saved(connection, user['id']) else judge.asking(

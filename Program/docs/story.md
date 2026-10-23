@@ -123,6 +123,10 @@ healers, townsfolk) keeps MARVEL stats for now.
   3rd-level slot") spends that slot when it is free, and the card says so; damage and healing grow as the spell's
   higher-level text says (Burning Hands +1d6 a level). Magic Missile's darts always hit, 1d4 + 1 each, one more a
   slot level.
+- **Spells cast by name** (`sheet.spell_actions`, `srd52.cast_named`). A line that casts a spell by name ("I cast
+  Cure Wounds on myself") is cast out of a fight even when the Referee saw nothing to roll, and the slot it asks for
+  counts wherever the line says it ("at the nearer one at 2nd level"). A spell the character has not prepared (or a
+  cantrip they don't know) is not cast: nothing is rolled and the narrator is told (`sheet.unprepared`).
 - **Conditions** (`combat5e.lay`). A spell that lays a condition on a failed save (Hold Person, Sleep, Charm Person,
   Entangle…) does so in a fight: paralyzed, unconscious or incapacitated foes lose their turns (saving again each
   round when the spell says so) and a hit on the paralyzed or unconscious is a critical hit; charmed foes stop
