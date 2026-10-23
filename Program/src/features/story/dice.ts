@@ -56,7 +56,8 @@ export function useTumble(roll: StoryRoll, rolling: boolean): Tumble {
   const faces = diceFaces(roll)
   const end = landsAt(faces.length - 1)
   const [elapsed, setElapsed] = useState(() => (rolling && !calm() ? 0 : end))
-  const [flat, setFlat] = useState(() => !rolling || !webgl())
+  // Fate dice have no 3D model: they always roll flat.
+  const [flat, setFlat] = useState(() => !rolling || !webgl() || roll.ruleset === 'fate')
   const [picks, setPicks] = useState<number[]>(() => faces.map(() => 0))
   const done = elapsed >= end
   use3d(faces, !done && !flat, () => setElapsed(end), () => setFlat(true))

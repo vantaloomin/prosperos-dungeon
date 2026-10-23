@@ -10,10 +10,10 @@ import random
 
 from dungeon.database import decode, encode, many, optional
 from dungeon.errors import require
-from dungeon.rules import brp, ironsworn, marvel, narrative, srd52
+from dungeon.rules import brp, fate, ironsworn, marvel, narrative, srd52
 
 RULESETS = {marvel.ID: marvel.NAME, srd52.ID: srd52.NAME, ironsworn.ID: ironsworn.NAME, brp.ID: brp.NAME,
-            narrative.ID: narrative.NAME}
+            narrative.ID: narrative.NAME, fate.ID: fate.NAME}
 WORLD_RULESETS: dict[str, str] = {}
 
 PERSONA = 'persona'
@@ -98,6 +98,12 @@ def check(connection, approach: str, difficulty: str = 'normal', text: str = '',
             from dungeon import combat, combat5e
             combat.set_condition(connection, combat5e.level_for(found['hp'], found['max_hp']))
         return result
+    if found and played == fate.ID:
+        # A Fate point spent on an invoke, or gained from a compel (dungeon/rules/fate.py roll).
+        result = fate.roll(found, approach, difficulty, text, rng) | {'ruleset': fate.ID}
+        if result['fate_points'] != found['fate_points']:
+            set_native(connection, found | {'fate_points': result['fate_points']}, '')
+        return result
     if found and played == ironsworn.ID:
         # Resisting is a suffer move: Endure Harm on iron for the body, Endure Stress on heart for the mind.
         move, stat = (('endure_harm', 'iron') if approach == 'Vitality' else ('endure_stress', 'heart')) if save \
@@ -140,5 +146,16 @@ def full_view(connection) -> dict:
     found = native(connection) if played != marvel.ID else None
     if found:
         return srd52.view(found) if played == srd52.ID else brp.view(found) if played == brp.ID else \
-            narrative.view(found) if played == narrative.ID else ironsworn.view(found)
+            narrative.view(found) if played == narrative.ID else fate.view(found) if played == fate.ID else \
+            ironsworn.view(found)
     return view(connection) | {'ruleset': marvel.ID, 'ruleset_name': marvel.NAME}
+
+
+def refresh_fate(connection, nights: int) -> list[str]:
+    """Under Fate, a night's sleep brings Fate points back up to the refresh and clears stress."""
+    found = native(connection) if nights > 0 and ruleset(connection) == fate.ID else None
+    if not found:
+        return []
+    fresh = fate.refreshed(found)
+    set_native(connection, fresh, '')
+    return [f"Rested: {fresh['fate_points']} Fate points."] if fresh['fate_points'] > found['fate_points'] else []

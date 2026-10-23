@@ -27,7 +27,7 @@ def made(scores=None, skills=('perception', 'survival')):
 
 def test_a_new_campaign_offers_the_rulesets_and_marvel_stays_the_default(client):
     choices = ok(client.get('/api/story/start'))
-    assert [item['id'] for item in choices['rulesets']] == ['marvel', 'srd52', 'ironsworn', 'brp', 'narrative'] and choices['ruleset'] == 'marvel'
+    assert [item['id'] for item in choices['rulesets']] == ['marvel', 'srd52', 'ironsworn', 'brp', 'narrative', 'fate'] and choices['ruleset'] == 'marvel'
     assert {'fighter', 'wizard'} <= {item['id'] for item in choices['srd52']['classes']}
     assert choices['srd52']['array'] == [15, 14, 13, 12, 10, 8] and 'SRD 5.2.1' in choices['srd52']['attribution']
     ok(start(client, premade_id='agna-holt'))

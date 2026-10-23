@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
 import type { BrpChoices, IronswornChoices, PersonaGender, Ruleset, Srd52Choices, Story as StoryData, StoryIntensity, StoryStart as StartChoices } from '../../types'
@@ -9,6 +9,7 @@ import { GENDERS } from '../worlds/worldsText'
 import { WORLDS_KEY } from '../worlds/useWorlds'
 import { arrayPlaced, brpCost, skillChoices, skillId, pointsLeft, pointsText, premadeLine, startingStats } from './storyText'
 import { SessionZero } from './SessionZero'
+import { FateBuild, type FateDraft } from './FateBuild'
 
 /** Campaign start (dungeon/campaign.py): play a premade character from this town, or make your own; then session zero
  * (./SessionZero.tsx) sets how the campaign plays. The ruleset is picked first, as it decides how a character is made. */
@@ -73,7 +74,8 @@ function MakeYourOwn({ choices, ruleset, busy, onBegin, onBack }: MakeProps) {
   const years = age ? Number(age) : null
   const kind = rulesKind(ruleset, choices)
   const [narrated, setNarrated] = useState({ good_at: '', bad_at: '' })
-  const native = { srd52: build, ironsworn: iron, brp: percentReady(percent, choices.brp), narrative: listed(narrated), marvel: true }[kind]
+  const [fate, setFate] = useState<FateDraft | null>(null)
+  const native = { srd52: build, ironsworn: iron, brp: percentReady(percent, choices.brp), narrative: listed(narrated), fate, marvel: true }[kind]
   const valid = !!name.trim() && builtFor(native, pointsLeft(stats, choices.points)) && adultAge(years)
   const sheetPart = kind === 'marvel' ? { stats } : { [BODY_KEYS[kind]]: native }
   const submit = () => onBegin({ persona: { name: name.trim(), gender, age: years, about: about.trim() }, ...sheetPart }, name.trim())
@@ -88,7 +90,7 @@ function MakeYourOwn({ choices, ruleset, busy, onBegin, onBack }: MakeProps) {
       <TextInput label="Age" type="number" value={age} onChange={setAge} min={18} max={120} />
       <TextArea label="About you" hint="Who they are, what they want, what they're running from. The narrator only knows what you write here."
         value={about} onChange={setAbout} rows={4} maxLength={2000} />
-      <RulesBuild choices={choices} kind={kind} stats={stats} percent={percent} narrated={narrated} onStats={setStats} onBuild={setBuild} onIron={setIron} onPercent={setPercent} onNarrated={setNarrated} />
+      <RulesBuild choices={choices} kind={kind} stats={stats} percent={percent} narrated={narrated} onStats={setStats} onBuild={setBuild} onIron={setIron} onPercent={setPercent} onNarrated={setNarrated} onFate={setFate} />
       <div className="form-actions">
         <button type="submit" className="button primary" disabled={busy || !valid}>Next: how it plays</button>
         {onBack && <button type="button" className="button" onClick={onBack}>Back</button>}
@@ -102,9 +104,9 @@ function builtFor(build: unknown, left: number): boolean {
   return build === true ? left >= 0 : !!build
 }
 
-type RulesKind = 'marvel' | 'srd52' | 'ironsworn' | 'brp' | 'narrative'
+type RulesKind = 'marvel' | 'srd52' | 'ironsworn' | 'brp' | 'narrative' | 'fate'
 /** Where each ruleset's build goes in the start request (dungeon/story_routes.py StoryStart). */
-const BODY_KEYS: Record<Exclude<RulesKind, 'marvel'>, string> = { srd52: 'build', ironsworn: 'ironsworn', brp: 'brp', narrative: 'narrative' }
+const BODY_KEYS: Record<Exclude<RulesKind, 'marvel'>, string> = { srd52: 'build', ironsworn: 'ironsworn', brp: 'brp', narrative: 'narrative', fate: 'fate' }
 type Narrated = { good_at: string; bad_at: string }
 
 /** A Narrative Only build: the two optional lists, typed as comma-separated words. */
@@ -121,16 +123,19 @@ function rulesKind(ruleset: Ruleset | undefined, choices: StartChoices): RulesKi
 interface RulesBuildProps {
   choices: StartChoices; kind: RulesKind; stats: Record<string, number>; percent: PercentBuild | null; narrated: Narrated
   onStats: (stats: Record<string, number>) => void; onBuild: (build: Build | null) => void; onIron: (build: IronBuild | null) => void
-  onPercent: (build: PercentBuild) => void; onNarrated: (narrated: Narrated) => void
+  onPercent: (build: PercentBuild) => void; onNarrated: (narrated: Narrated) => void; onFate: (build: FateDraft | null) => void
 }
 
 /** The character's sheet in the campaign's ruleset. */
-function RulesBuild({ choices, kind, stats, percent, narrated, onStats, onBuild, onIron, onPercent, onNarrated }: RulesBuildProps) {
-  if (kind === 'narrative' && choices.narrative) return <NarrativeBuild narrated={narrated} onChange={onNarrated} />
-  if (kind === 'srd52' && choices.srd52) return <Srd52Build choices={choices.srd52} onChange={onBuild} />
-  if (kind === 'ironsworn' && choices.ironsworn) return <IronswornBuild choices={choices.ironsworn} onChange={onIron} />
-  if (kind === 'brp' && choices.brp && percent) return <PercentileBuild choices={choices.brp} build={percent} onChange={onPercent} />
-  return <MarvelStats choices={choices} stats={stats} onChange={onStats} />
+function RulesBuild({ choices, kind, stats, percent, narrated, onStats, onBuild, onIron, onPercent, onNarrated, onFate }: RulesBuildProps) {
+  const own: Partial<Record<RulesKind, () => ReactNode>> = {
+    fate: () => choices.fate && <FateBuild choices={choices.fate} onChange={onFate} />,
+    narrative: () => choices.narrative && <NarrativeBuild narrated={narrated} onChange={onNarrated} />,
+    srd52: () => choices.srd52 && <Srd52Build choices={choices.srd52} onChange={onBuild} />,
+    ironsworn: () => choices.ironsworn && <IronswornBuild choices={choices.ironsworn} onChange={onIron} />,
+    brp: () => choices.brp && percent && <PercentileBuild choices={choices.brp} build={percent} onChange={onPercent} />,
+  }
+  return own[kind]?.() || <MarvelStats choices={choices} stats={stats} onChange={onStats} />
 }
 
 /** Narrative Only (dungeon/rules/narrative.py): no stats to buy; About you is the sheet, and two optional lists sharpen it.
@@ -240,6 +245,7 @@ function RulesetPick({ choices, value, onChange }: { choices: StartChoices; valu
       </select>}
     </Field>
     {current === 'narrative' && choices.narrative && <p className="subtle">{choices.narrative.hint}</p>}
+    {current === 'fate' && choices.fate && <p className="subtle">{choices.fate.hint}</p>}
   </>)
 }
 

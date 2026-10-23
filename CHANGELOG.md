@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Fate.** A new ruleset to pick when a story starts. Your character is a high concept, a trouble and a few more
+  aspects in your own words, six approaches (Careful, Clever, Flashy, Forceful, Quick, Sneaky) and a stunt or two.
+  Each try rolls four Fate dice against the Fate ladder. When a roll falls short, a fitting aspect is invoked for a
+  Fate point; when your trouble gets you into it, you earn one back. Sleep refreshes them.
+- **Custom layout.** Settings > Appearance > Story layout > Custom turns the scene panel into tiles you arrange:
+  press Arrange to move them, size them small, wide or tall, add or remove them, and save layouts by name.
 - **Decision models for the Referee.** Settings > Models has a Decisions section and a Referee decisions job. A
   decision model gives the odds of each answer instead of writing: whether an action needs a roll, which stat and
   how hard. Choose Jev through OpenRouter, OpenAI Decisions, or a small model on your computer (Qwen3.5 4B, say);

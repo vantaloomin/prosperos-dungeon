@@ -23,7 +23,7 @@ from pathlib import Path
 from dungeon import record, sheet
 from dungeon.database import decode, encode, many, optional
 from dungeon.life import cards
-from dungeon.rules import brp, ironsworn, ladder, marvel, narrative
+from dungeon.rules import brp, fate, ironsworn, ladder, marvel, narrative
 
 DARK = Path(__file__).parent / 'rules' / 'dark.json'
 GROW = 3
@@ -92,6 +92,12 @@ def milestone(connection, why: str, now: str) -> str:
         # Ironsworn grows by its vows' experience (dungeon/sworn.py fulfil), BRP by its experience checks, Narrative
         # Only by what the character is known for (the record), which the judge reads.
         return ''
+    if sheet.ruleset(connection) == fate.ID:
+        # Fate's significant milestone: one approach a step better (dungeon/rules/fate.py grow).
+        found = sheet.native(connection)
+        line = fate.grow(found)
+        sheet.set_native(connection, found, now)
+        return line
     if sheet.ruleset(connection) != marvel.ID:
         # 5E grows by XP: a milestone is worth the level's high encounter budget (dungeon/combat5e.py).
         from dungeon import combat5e

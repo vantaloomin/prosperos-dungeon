@@ -129,6 +129,18 @@ images are non-commercial).
   answer, the difficulty decides in code: easy Yes, normal Yes, but, hard No, but, harder No. There is no roll card:
   `dice_shown` is off under Narrative whatever the Table says, except in the GM view. No stat growth; milestones give
   nothing (what the character is known for is in the record). Fights use the shared wound levels.
+- **Fate** (`dungeon/rules/fate.py`; requirements "Fate"; Fate Accelerated and Condensed under CC-BY-3.0, the
+  Evil Hat attribution on the start screen and the sheet). A character is a high concept, a trouble, up to three
+  more aspects and up to three stunts, all in the player's words, and the six approaches (Careful, Clever, Flashy,
+  Forceful, Quick, Sneaky) at +3, +2, +2, +1, +1, +0. A premade's high concept is the first sentence of its About,
+  its best approach from its strongest MARVEL stat. Each action rolls 4dF plus the approach its words name (else the
+  Referee's stat's equivalent), plus 2 for a stunt that shares a word with the action, against the difficulty on the
+  ladder (easy Average +1, normal Fair +2, hard Good +3, very hard Great +4, extreme Fantastic +6). Fail is failure,
+  a tie success at a cost, success success, three or more shifts critical success. Code spends a Fate point to
+  invoke a fitting aspect (+2) when the roll falls short, and a failure the trouble fits is a compel (+1 Fate point).
+  The dice ride in the roll's `skill` ("…, dice +0−+") for the card, which rolls them flat. A night's sleep brings
+  Fate points back to the refresh (3) and clears stress; a milestone raises the weakest approach by one, up to +4.
+  Fights use the shared wound levels for now.
 - **Percentile** (`dungeon/rules/brp.py`, content in `dungeon/rules/packs/brp`: the core of Chaosium's Basic
   Roleplaying from its ORC Content Document, transcribed for a world before firearms). Vanta's call: the app names
   the ruleset "Percentile", and BRP appears only in the ORC notice and credit on the start screen and the sheet. A

@@ -144,6 +144,12 @@ def mend(connection, nights: int) -> list[str]:
         lines = combat_iron.rest(connection, nights)
         connection.execute('UPDATE story_wounds SET level=? WHERE id=1', (combat_iron.level_for(combat_iron.health(connection)),))
         return lines
+    # Fate: a night's sleep refreshes Fate points; wounds mend on the shared levels.
+    return sheet.refresh_fate(connection, nights) + mend_wounds(connection, nights, now)
+
+
+def mend_wounds(connection, nights: int, now: dict) -> list[str]:
+    """The shared wound levels mending with rest (MARVEL, Narrative and Fate)."""
     if nights <= 0 or now['dead'] or not 0 < now['level'] < DYING:
         return []
     level, rested = now['level'], now['rested'] + nights
