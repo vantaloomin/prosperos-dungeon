@@ -4,6 +4,10 @@ Once a campaign starts, the story keeps its own time: each line the player sends
 few minutes of talk, a walk across town, a night's sleep) and the scene, the townsfolk and deadlines follow it. A
 story begun before the clock existed, or with no campaign start, lives on the app clock as Companion did.
 
+A world can live in real time instead (the tier file's `clock`, Havenbrooke's; the Table's `clock` overrides it):
+then the real time since the last line also passes before the next one, so the world keeps moving while the app is
+closed, up to MOST_AWAY at once, and the narrator hears how long the character was away (AWAY or more).
+
 The time is game state, branched with the story (dungeon/timeline.py SAVED).
 """
 import re
@@ -18,6 +22,9 @@ ACROSS_TOWN_MINUTES = 20
 ANOTHER_CITY_MINUTES = 6 * 60
 WORDS = {'one': 1, 'an': 1, 'a': 1, 'another': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7,
          'eight': 8, 'nine': 9, 'ten': 10, 'eleven': 11, 'twelve': 12, 'few': 3, 'couple of': 2}
+# Real time: the most that passes at once however long the app was closed (30 days), and the gap the narrator is told
+# about (an hour).
+MOST_AWAY, AWAY = 30 * 24 * 60, 60
 # "The day" runs until DAY_END local, at most DAY_SPAN; begun in the evening, the day is done: LATE_DAY passes.
 DAY_SPAN, DAY_END, LATE_DAY = 10 * 60, 19, 60
 # (pattern, minutes), first match wins.
@@ -54,6 +61,18 @@ def advance(connection, minutes: int):
     row = optional(connection, 'SELECT at FROM story_clock WHERE id=1')
     if row and minutes > 0:
         start(connection, datetime.fromisoformat(row['at']) + timedelta(minutes=minutes))
+
+
+def caught_up(connection, wall: datetime, living: bool) -> int:
+    """Real time (a world that keeps moving while the app is closed): the minutes since the story last caught up,
+    at most MOST_AWAY, when the world lives in real time, else 0. The mark moves to `wall` either way, so turning
+    real time on later starts from then."""
+    row = optional(connection, 'SELECT at FROM story_real WHERE id=1')
+    connection.execute('INSERT INTO story_real (id, at) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET at=excluded.at',
+                       (wall.isoformat(),))
+    if not row or not living or not running(connection):
+        return 0
+    return max(0, min(MOST_AWAY, int((wall - datetime.fromisoformat(row['at'])).total_seconds() // 60)))
 
 
 def waited(text: str) -> int | None:

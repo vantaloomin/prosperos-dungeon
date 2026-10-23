@@ -433,6 +433,8 @@ export interface TableRules {
   shop_cash?: 'finite' | 'unlimited'
   /** Whether carrying is limited by slots (dungeon/inventory.py). */
   carry_limit?: 'slots' | 'off'
+  /** Story time, or real time while the app is closed too ('world': the world's own; dungeon/story_clock.py). */
+  clock?: 'world' | 'story' | 'real_time'
 }
 export type NarrationPov = 'first' | 'second' | 'third'
 export type NarrationTense = 'past' | 'present'

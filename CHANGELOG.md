@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Real-time worlds.** Havenbrooke now keeps living while the app is closed: come back tomorrow and a day has
+  passed, with deadlines, factions and classes moving on, and the story opens on what changed. Any campaign can pick
+  story time or real time with the new World clock setting in Tone and rules.
 - **Party playtest fixes.** "I fall back to the stairs" in a fight now always rolls, so you can break away. "The
   day" begun in the evening passes an hour instead of running into the night. A drunk's fists or a knife can no
   longer take you from fresh to dying in one round: you go down first. Under Fate, consequences no longer make

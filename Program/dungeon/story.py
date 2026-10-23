@@ -711,7 +711,7 @@ def clear(database) -> dict:
                       'story_inventory', 'story_purse', 'story_stock', 'story_shops', 'story_markets', 'story_services', 'story_appearance', 'story_appearance_turns', 'story_trades', 'story_wounds', 'story_fight',
                       'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
                       'story_rounds', 'story_map', 'story_hexes', 'story_sites', 'story_lots', 'story_position', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
-                      'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_bonds', 'story_party', 'story_beats', 'story_word',
+                      'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_bonds', 'story_party', 'story_real', 'story_beats', 'story_word',
                       'story_offpage', 'story_tier', 'story_marks', 'story_dark',
                       'story_director', 'story_arcs', 'story_threads', 'story_nemeses', 'story_seeds',
                       'story_arc_beats', 'story_sheet', 'story_enrollment', 'story_attendance', 'story_grades', 'story_art'):
@@ -1477,6 +1477,8 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
     carded = town_turn(state, user) if in_story else []
     meanwhile = beats_turn(state, user) if in_story else []
     noted = director_turn(state, user) + recall_turn(state, rolls) + opening_turn(state, user) if in_story else []
+    with database.connect() as connection:
+        noted += [away_text(connection, user['id'])] if in_story else []
     noted += [labour.prompt_text(labour_turn(state, user)), lies.prompt_text(lie_turn(state, user)),
               bonds.prompt_text(bond_turn(state, user)), party.prompt_text(party_turn(state, user)),
               sworn.prompt_text(vow_turn(state, user, rolls))] if in_story else []
@@ -1527,6 +1529,8 @@ def received(database, text: str, client_id: str) -> tuple[dict, dict | None]:
             require(not combat.condition(connection)['dead'], 'Your character is dead.' + after, 409)
             require(not growth.lost(connection), f'Your character is lost to {growth.lost(connection)}.' + after, 409)
             user = add(connection, database.now(), 'user', text, scene_row(connection), client_id=client_id)
+            # A world in real time went on while the player was away (dungeon/story_clock.py caught_up).
+            real_time(database, connection, user)
             timeline.save(connection, user['id'])
             walked = None if in_character.out_of_character(text) else walked_to(connection, text, database.clock)
             if walked and (walked['city_id'], walked['id']) != (user['city_id'], user['place_id']):
@@ -1561,6 +1565,36 @@ def line_time(database, connection, user: dict, text: str, walked: dict | None):
         minutes = story_clock.minutes_for(text, bool(referee.by_keywords(text)), local)
         pass_time(database, connection, minutes)
     happenings.keep(connection, user['id'], 'clock', local.date(), None, [minutes])
+
+
+def living(connection, city_id: str) -> bool:
+    """Whether the campaign's world keeps real time: the Table's clock, else the world's own (dungeon/tiers.py)."""
+    chosen = table.rule(connection, 'clock')
+    return (tiers.clock(tiers.world_of(city_id)) if chosen in (None, 'world') else chosen) == 'real_time'
+
+
+def real_time(database, connection, user: dict):
+    """The real time since the last line passes before this one, in a world that lives in real time; a long gap is
+    kept with the line for the narrator (story_cards scene 'away')."""
+    minutes = story_clock.caught_up(connection, database.clock.now(), living(connection, user['city_id']))
+    if minutes:
+        pass_time(database, connection, minutes)
+    if minutes >= story_clock.AWAY:
+        happenings.keep(connection, user['id'], 'away', story_clock.now(connection, database.clock).date(), None,
+                        [minutes])
+
+
+def away_text(connection, message_id: str) -> str:
+    kept = optional(connection, "SELECT lines FROM story_cards WHERE message_id=? AND scene='away'", (message_id,))
+    if not kept:
+        return ''
+    minutes = decode(kept['lines'])[0]
+    days, hours = divmod(minutes // 60, 24)
+    gap = ' and '.join(part for part in (f"{days} day{'s' if days != 1 else ''}" if days else '',
+                                         f"{hours} hour{'s' if hours != 1 else ''}" if hours else '') if part)
+    return ('## While the player was away (decided by the game)\n'
+            f"- {gap or 'An hour'} passed in the world since the character's last moment: people went on with their "
+            'lives. Open on where the character is now, with what changed showing, not told.')
 
 
 def line_minutes(connection, message_id: str) -> int | None:

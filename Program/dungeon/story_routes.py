@@ -210,6 +210,8 @@ class TableUpdate(Input):
     shop_cash: Literal['finite', 'unlimited'] | None = None
     # Whether carrying is limited by slots (dungeon/inventory.py).
     carry_limit: Literal['slots', 'off'] | None = None
+    # Whether the world keeps moving in real time while the app is closed (dungeon/story_clock.py).
+    clock: Literal['world', 'story', 'real_time'] | None = None
 
 
 class IronswornBuild(Input):

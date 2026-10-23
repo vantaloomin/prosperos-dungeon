@@ -216,6 +216,7 @@ def begin(database, premade_id: str | None = None, persona: PersonaInput | None 
         # The story clock starts at the world's own date when it has one (Havenbrooke's 2009), else today.
         began = tiers.start(tiers.world_of(city_id)) or database.clock.now()
         story_clock.start(connection, began)
+        story_clock.caught_up(connection, database.clock.now(), False)
         quests.start(connection, city_id, began)
         inventory.give_kit(connection, city_id, premade_id)
         # A made Percentile character carries their profession's weapons (dungeon/combat_brp.py).

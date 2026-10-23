@@ -187,6 +187,7 @@ ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"
                  ('story_campaign', 'length', "TEXT CHECK (length IN ('short', 'medium', 'long'))"),
                  ('story_campaign', 'shop_cash', "TEXT CHECK (shop_cash IN ('finite', 'unlimited'))"),
                  ('story_campaign', 'carry_limit', "TEXT CHECK (carry_limit IN ('slots', 'off'))"),
+                 ('story_campaign', 'clock', "TEXT CHECK (clock IN ('world', 'story', 'real_time'))"),
                  ('story_inventory', 'stolen', 'INTEGER NOT NULL DEFAULT 0 CHECK (stolen IN (0, 1))'),
                  ('story_inventory', 'condition',
                   "TEXT NOT NULL DEFAULT 'sound' CHECK (condition IN ('sound', 'damaged', 'broken'))"))

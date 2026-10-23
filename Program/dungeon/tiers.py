@@ -48,6 +48,12 @@ def start(world: str | None) -> datetime | None:
     return datetime.fromisoformat(found) if found else None
 
 
+def clock(world: str | None) -> str:
+    """How the world keeps time (the tier file's `clock`): 'story', or 'real_time' for a world that keeps moving
+    while the app is closed."""
+    return (track(world).get('clock') if world else None) or 'story'
+
+
 def name(tier: int) -> str:
     return LADDER[tier - 1]
 
