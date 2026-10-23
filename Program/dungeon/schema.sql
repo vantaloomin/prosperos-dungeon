@@ -753,6 +753,15 @@ CREATE TABLE IF NOT EXISTS story_hexes (
   PRIMARY KEY (map, q, r)
 );
 
+-- The sites the character has found on a hex crawl (dungeon/hexes.py): ruins, lairs, shrines and the like, seen from
+-- afar, walked into or searched out. What a site is comes from the map and the seed. Branched with the story.
+CREATE TABLE IF NOT EXISTS story_sites (
+  map TEXT NOT NULL,
+  q INTEGER NOT NULL,
+  r INTEGER NOT NULL,
+  PRIMARY KEY (map, q, r)
+);
+
 -- Where the character is when a hex crawl leaves them out in the wild, between places (dungeon/hexes.py): the hex,
 -- and the hex they believe they are in when they have lost their way. Branched with the story.
 CREATE TABLE IF NOT EXISTS story_position (

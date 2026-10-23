@@ -33,6 +33,9 @@ BITES = ('critical_failure', 'failure', 'failure_upside')
 NIGHT_HOURS = 14
 STOPPED = 'The journey stops here'
 LOST_STAT = 'Mind'
+SEARCHING = re.compile(r'\b(search\w*|scour\w*|explor\w*|look(s|ing)? around|poke around|scout\w*|comb(s|ing)? the)\b',
+                       re.I)
+NOTHING = 'The search turns up nothing the character can find.'
 # Striking out across country in a direction (a hex crawl): from a town it takes a word for leaving; out in the wild
 # any word for going will do.
 COMPASS = re.compile(r'\b(?:(north|south)[- ]?(east|west)?|(east|west))(?:wards?|ward)?\b', re.I)
@@ -220,7 +223,10 @@ def strike_out(connection, travel_map: dict, here: dict, direction: str, rng) ->
     board = hexes.grid(connection, travel_map)
     start = here_hex(connection, travel_map, board, here['id'])
     weather = today(connection, board, start)
+    found = set(hexes.found_sites(connection, board))
     legs, stop = board.heading(start, direction, travel_map['hours_a_day'], weather)
+    legs, site = board.came_upon(legs, found)
+    stop = 'site' if site else stop
     plan_ = {'from': here['id'], 'start': list(start), 'mode': 'hex', 'direction': direction, 'weather': weather,
              'legs': legs, 'stop': stop, 'encounter': encounter_on(travel_map, legs, True, rng)}
     lost = next(((index, difficulty) for index, leg in enumerate(legs)
@@ -232,8 +238,9 @@ def strike_out(connection, travel_map: dict, here: dict, direction: str, rng) ->
         veer = turns[rng.randint(0, 1)]
         left = travel_map['hours_a_day'] - sum(leg['hours'] for leg in legs[:index + 1])
         drift, drift_stop = board.heading(tuple(legs[index]['to']), veer, left, weather) if left > 0 else ([], 'day')
+        astray, strayed_upon = board.came_upon(legs[:index + 1] + drift, found)
         plan_['lost'] = {'leg': index, 'difficulty': difficulty, 'terrain': legs[index]['terrain'],
-                         'astray': legs[:index + 1] + drift, 'stop': drift_stop}
+                         'astray': astray, 'stop': 'site' if strayed_upon else drift_stop}
     return plan_
 
 
@@ -247,12 +254,11 @@ def plan(connection, city_id: str, place_id: str, text: str, rng=None) -> dict |
     if found is None:
         return None
     travel_map, here = found
-    crawl = hexes.is_hex(travel_map)
     rng = rng or random.SystemRandom()
     goal = destination(travel_map, here['id'], text)
     if goal is None:
-        direction = heading(text, is_wild(travel_map, here['id'])) if crawl and travel_map.get('wild') else None
-        return strike_out(connection, travel_map, here, direction, rng) if direction else None
+        return off_the_map(connection, travel_map, here, text, rng)
+    crawl = hexes.is_hex(travel_map)
     legs, start = None, None
     if goal['id'] in known(connection, travel_map, here['id']):
         if crawl:
@@ -263,8 +269,48 @@ def plan(connection, city_id: str, place_id: str, text: str, rng=None) -> dict |
             legs = way(travel_map, here['id'], goal['id'])
     if not legs:
         return {'from': here['id'], 'to': goal['id'], 'unknown': True}
+    site = None
+    if crawl:
+        legs, site = board.came_upon(legs, set(hexes.found_sites(connection, board)))
     return {'from': here['id'], 'to': goal['id'], 'legs': legs, 'encounter': encounter_on(travel_map, legs, crawl, rng)} | (
-        {'mode': 'hex', 'start': list(start)} if crawl else {})
+        {'mode': 'hex', 'start': list(start)} if crawl else {}) | ({'stop': 'site'} if site else {})
+
+
+def off_the_map(connection, travel_map: dict, here: dict, text: str, rng) -> dict | None:
+    """A line on a hex crawl that names no place on the map: searching the hex the character is in, setting out for
+    a site they have found, or striking out in a direction; None for anything else."""
+    if not hexes.is_hex(travel_map) or not travel_map.get('wild'):
+        return None
+    board = hexes.grid(connection, travel_map)
+    start = here_hex(connection, travel_map, board, here['id'])
+    wild = is_wild(travel_map, here['id'])
+    if wild and SEARCHING.search(text) and not GOING.search(text) and not COMPASS.search(text):
+        return {'from': here['id'], 'start': list(start), 'mode': 'hex', 'legs': [],
+                'search': {'hours': board.hours(board.cell(start), False) or 1, 'difficulty': 'normal'}}
+    if site := site_named(connection, board, text, start):
+        return journey_to(connection, travel_map, board, here, start, site, rng)
+    direction = heading(text, wild)
+    return strike_out(connection, travel_map, here, direction, rng) if direction else None
+
+
+def site_named(connection, board: hexes.Grid, text: str, start: tuple[int, int]) -> dict | None:
+    """A site the character has found that a line sets out for ("I head back to Hob's Tower")."""
+    going = GOING.search(text)
+    if not going:
+        return None
+    after = text[going.end():]
+    found = [(match.start(), site) for at, site in hexes.found_sites(connection, board).items() if at != start
+             if (match := re.search(rf'(?<![\w-]){re.escape(bare(site["name"]))}(?![\w-])', after, re.I))]
+    return min(found, key=lambda pair: pair[0])[1] if found else None
+
+
+def journey_to(connection, travel_map: dict, board: hexes.Grid, here: dict, start: tuple[int, int], site: dict,
+               rng) -> dict:
+    """The way to a site the character knows, across country, ending out in the wild at it."""
+    legs = board.way(start, (site['q'], site['r']), today(connection, board, start)) or []
+    legs, _ = board.came_upon(legs, set(hexes.found_sites(connection, board)))
+    return {'from': here['id'], 'start': list(start), 'mode': 'hex', 'site': site['name'], 'legs': legs,
+            'encounter': encounter_on(travel_map, legs, True, rng), 'stop': 'arrived'}
 
 
 def lost_threat(lost: dict) -> str:
@@ -285,6 +331,9 @@ def decide(connection, message_id: str, city_id: str, place_id: str, text: str, 
     if 'action' in entry:
         actions.append({'action': entry['action'], 'stat': STAT, 'difficulty': entry['difficulty'],
                         'threat': threat_text(entry['threat'])})
+    if journey.get('search'):
+        actions.append({'action': 'search the area for anything hidden', 'stat': LOST_STAT,
+                        'difficulty': journey['search']['difficulty'], 'threat': NOTHING})
     if lost := journey.get('lost'):
         actions.append({'action': f"keep their bearings in {lost['terrain']}", 'stat': LOST_STAT,
                         'difficulty': lost['difficulty'], 'threat': lost_threat(lost)})
@@ -365,6 +414,11 @@ def ending(connection, travel_map: dict, plan_: dict, legs: list[dict], rolls: l
     cell = board.cell(actual)
     region = (travel_map['regions'].get(cell['region']) or {}).get('name', 'country nobody has named')
     stop = (plan_.get('lost') or {}).get('stop') if strayed(plan_, rolls) else plan_.get('stop')
+    site = board.site(actual)
+    if stop in ('site', 'arrived') and site:
+        hexes.find_site(connection, board, actual)
+        lines.append(f"They {'reach' if stop == 'arrived' else 'come upon'} {site['name']}: {site['text']}")
+        return travel_map['wild'], f"You {'reach' if stop == 'arrived' else 'come upon'} {site['name']}.", lines
     if stop == 'water':
         lines.append(f"Open water stops them: there is no walking further {plan_.get('direction', 'that way')}.")
     elif stop == 'day':
@@ -375,6 +429,24 @@ def ending(connection, travel_map: dict, plan_: dict, legs: list[dict], rolls: l
                      'believe they are somewhere they are not.')
     wild = travel_map['wild']
     return wild, f"You stop in {hexes.TERRAINS[cell['terrain']]['text']}, in {region}.", lines
+
+
+def search(connection, plan_: dict, rolls: list[dict]) -> tuple[int, list[str]]:
+    """A search of the hex the character is in: the minutes it takes, and what it turns up, if the roll holds and
+    there is anything hidden there."""
+    travel_map, _ = find(plan_['from'])
+    board = hexes.grid(connection, travel_map)
+    at = tuple(plan_['start'])
+    minutes_ = round(plan_['search']['hours'] * 60)
+    if any(roll.get('threat') == NOTHING and roll['band'] in BITES for roll in rolls):
+        return minutes_, [f"The character searches the area for {duration(plan_['search']['hours'])} and finds "
+                          'nothing worth the trouble.']
+    site = board.site(at)
+    if site is None or at in hexes.found_sites(connection, board):
+        return minutes_, [f"The character searches the area for {duration(plan_['search']['hours'])}: there is "
+                          'nothing hidden here to find.']
+    hexes.find_site(connection, board, at)
+    return minutes_, [f"Searching the area, the character finds {site['name']}: {site['text']}"]
 
 
 def blocked(plan_: dict) -> list[str]:
@@ -461,7 +533,7 @@ def view(connection, city_id: str, place_id: str) -> dict | None:
     board = hexes.grid(connection, travel_map)
     at = here_hex(connection, travel_map, board, here['id'])
     cells = [{'q': cell['q'], 'r': cell['r'], 'terrain': cell['terrain'], 'road': bool(cell['road']),
-              'place': cell['place'], 'visited': cell['visited']}
+              'place': cell['place'], 'site': cell['site'], 'visited': cell['visited']}
              for cell in hexes.view(connection, board, at)]
     # Lost, the map shows where the character believes they are.
     where = hexes.position(connection, board) if is_wild(travel_map, here['id']) else None
@@ -495,6 +567,8 @@ def wild_text(connection, city_id: str, place_id: str) -> str:
         lines.append(f"The nearest place they know of is {nodes(travel_map)[node]['name']}, about {hexes_away} "
                      f"hex{'es' if hexes_away != 1 else ''} ({hexes_away * board.miles} miles) to the "
                      f"{hexes.bearing(where['believed'], board.places[node])}, as far as they can tell.")
+    if (site := hexes.found_sites(connection, board).get(where['at'])):
+        lines.append(f"Here: {site['name']}. {site['text']}")
     if where['believed'] != where['at']:
         lines.append('They have lost their way: they are not where they believe they are, and do not know it.')
     return '## Out in the wild (decided by the game)\n' + '\n'.join(f'- {line}' for line in lines)

@@ -598,6 +598,16 @@ Havenbrooke's (car or bus) and BABEL's (the Stair) do. Vallarith's is.
 - **Weather.** One roll a day per region, from the seed and the story clock's date (clear, overcast, rain, fog,
   storm; snow for rain in winter months). Storms and snow make every off-road hex half as slow again. The narrator
   hears the day's weather on the way and out in the wild.
+- **Sites.** About one hex in twenty-five off the roads holds a site, decided by the seed: a ruin, shrine, cave,
+  lair, battlefield, camp or hamlet from the travel map's `sites` table (the region's entries and `any`), named from
+  its `owners` ("Hatch's Tower", "Little Kettle"). Ruins, battlefields, camps and hamlets show from a distance and are
+  found when their hex is seen; shrines, caves and lairs are found only by searching their hex. A walk or a journey
+  that walks into a hex with a site the character did not know of stops there ("You come upon …"). Found sites
+  (`story_sites`, branched with the story) show on the map and are somewhere to set out for ("I head back to Hatch's
+  Tower"), which ends out in the wild at the site. Not yet: the intensity filter on site tables, and a hamlet built
+  out as a place on the Road.
+- **Searching.** Out in the wild, "I search the area" (search, scour, explore, look around, scout) takes the hex's
+  crossing time and a Mind roll; a success finds a hidden site there, if there is one.
 - **Fog of war.** The hexes seen (`story_hexes`, branched with the story) are those walked and what could be seen
   from them: the ring around, two from hills, three from mountains, none past the trees in forest or marsh. A place
   in a hex seen is known. The map in the story view carries the known hexes (`map.hexes`).

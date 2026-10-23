@@ -160,3 +160,60 @@ def test_losing_the_way_drifts_off_course_and_the_map_shows_where_they_think_the
     story = ok(client.get('/api/story'))
     assert story['map']['at']['lost']
     assert 'lost their bearings' in provider.requests[-1]['system']
+
+
+def site_hexes(board: hexes.Grid, visible: bool) -> list[tuple[int, int]]:
+    return [at for at in hexes.ring(board.places['kingswood'], 12)
+            if (site := board.site(at)) and site['visible'] == visible]
+
+
+def test_sites_come_from_the_seed_and_keep_off_roads_places_and_water():
+    board = hexes.Grid(vallarith(), 'fixed')
+    around = hexes.ring(board.places['kingswood'], 20)
+    sites = {at: board.site(at) for at in around if board.site(at)}
+    assert sites and len(sites) < len(around) * 0.1
+    assert sites == {at: hexes.Grid(vallarith(), 'fixed').site(at) for at in sites}
+    for at in sites:
+        cell = board.cell(at)
+        assert cell['terrain'] != 'water' and not cell['road'] and not cell['place']
+    assert {site['kind'] for site in sites.values()} <= {'ruin', 'shrine', 'cave', 'lair', 'battlefield', 'camp',
+                                                         'hamlet'}
+
+
+def test_a_walk_stops_at_a_site_it_comes_upon_but_not_at_one_it_knows():
+    board = hexes.Grid(vallarith(), 'fixed')
+    at = site_hexes(board, True)[0]
+    legs = [{'from': [0, 0], 'to': [1, 0]}, {'from': [1, 0], 'to': list(at)}, {'from': list(at), 'to': [9, 9]}]
+    cut, site = board.came_upon(legs, set())
+    assert cut == legs[:2] and site['name'] == board.site(at)['name']
+    assert board.came_upon(legs, {at}) == (legs, None)
+
+
+def out_in_the_wild(app, at: tuple[int, int]):
+    with app.state.database.connect(write=True) as connection:
+        connection.execute("UPDATE story_campaign SET seed='fixed' WHERE id=1")
+        connection.execute("UPDATE story_scene SET city_id='vallarith-road', place_id='the-wilds' WHERE id=1")
+        connection.execute("INSERT INTO story_position (id, map, q, r, believed_q, believed_r) "
+                           "VALUES (1, 'vallarith', ?, ?, ?, ?)", (*at, *at))
+
+
+def test_searching_a_hex_turns_up_what_is_hidden_there(client, connected, provider, app):
+    begin(client)
+    board = hexes.Grid(vallarith(), 'fixed')
+    at = site_hexes(board, False)[0]
+    out_in_the_wild(app, at)
+    app.state.dice = Road(1)
+    provider.replies = [[Chunk('Found it.'), Chunk('', 'stop')]]
+    tell(client, 'I search the area carefully.', 'story-0001')
+    narrator = provider.requests[-1]['system']
+    assert f"finds {board.site(at)['name']}" in narrator
+    cells = {(cell['q'], cell['r']): cell for cell in ok(client.get('/api/story'))['map']['hexes']}
+    assert cells[at]['site'] == board.site(at)['name']
+    # And a site found is somewhere to set out for.
+    provider.replies = [[Chunk('Back to Kingswood.'), Chunk('', 'stop')]]
+    tell(client, 'I set out for Kingswood.', 'story-0002')
+    provider.replies = [[Chunk('Back to it.'), Chunk('', 'stop')]]
+    tell(client, f"I head back to {board.site(at)['name']}.", 'story-0003')
+    story = ok(client.get('/api/story'))
+    assert story['scene']['place']['id'] == 'the-wilds' and (story['map']['at']['q'], story['map']['at']['r']) == at
+    assert f"Here: {board.site(at)['name']}" in provider.requests[-1]['system']
