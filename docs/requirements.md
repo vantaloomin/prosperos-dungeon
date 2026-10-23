@@ -265,6 +265,8 @@ Decided 2026-10-21.
   widget shows it with fog of war, so unexplored places stay hidden until found. Every step costs
   in-game time and supplies (or Ironsworn Supply) and rolls weather and events. Vallarith's maps
   are the first candidates to digitize.
+- **Hex crawl by default (Vanta, 2026-10-23).** Travel between towns is a hex crawl in every world unless
+  the world's travel map opts out. See "### Hex crawl" below.
 - **Road encounters: region danger plus Life Cards.** Each region has a danger level and its own
   encounter tables: monsters, bandits, patrols, travellers, merchants, strange sights. Life Cards
   and world events shift them (a war brings patrols and deserters, a plague empties the roads).
@@ -273,6 +275,51 @@ Decided 2026-10-21.
   roll weighted by region danger and precautions taken (watches, hidden camp, wards). While the
   player rests, time passes: NPCs act, deadlines tick, rumors spread, shops restock, and wounds
   and stress recover under the Injuries rules.
+
+### Hex crawl
+
+Decided 2026-10-23 (Vanta: "Hex default, worlds can opt out"; maps extend "Minecraft style"). Code owns the
+map; the narrator describes what code says is there.
+
+- **Per world.** A travel map sets `travel: "hex"` (the default) or `"roads"` (opt out: the node graph and
+  one-turn journeys as before). Vallarith is a full hex crawl. Havenbrooke keeps roads by car or bus between
+  towns, plus small on-foot hex regions for the wild places around Haven (the woods, the reservation land),
+  entered from a place in town. BABEL keeps the Stair as roads (floors and landings).
+- **The grid.** Flat-topped axial hexes, six miles across by default (a map's `hex_miles` changes it;
+  Havenbrooke's woods are one mile). Each hex has a terrain, a region, and may have a road, a river, a town
+  (a place on the travel map) or a site. Each terrain has its hours to cross on foot, how far one sees from it
+  and how easy it is to get lost in it (a road always halves the hours and never gets you lost). Water and
+  sheer peaks can't be walked.
+- **Authored core, generated beyond.** A world's authored hexes are canon (Vallarith's are painted from its
+  world map). Any hex not authored is generated the first time it comes into sight, from the campaign's world
+  seed and its coordinates, so the same campaign always gets the same land. Generation follows the
+  neighbours: terrain spreads (forests grow in patches, hills run into mountain ranges, coasts stay coasts),
+  a region carries on past the map's edge until a roll drifts into one of the map's frontier regions, and roads
+  and rivers that reach the edge carry on. The map can grow in any direction without end. A generated hex is
+  stored with the campaign and branched with the story, so going back to an earlier turn forgets land seen
+  after it, and seeing it again generates it again exactly as before.
+- **Sites.** Hexes can hold sites: ruins, lairs, camps, shrines, caves, battlefields, hamlets. Authored sites
+  come from the world package; generated hexes roll on their region's site table (filtered by intensity, like
+  every table). Some sites can be seen from a distance (a tower, smoke), others are hidden and are only found
+  by searching their hex. A found site becomes a place on the map one can travel to, and a generated hamlet
+  becomes a place on the Road with a generated name until it is built out.
+- **Moving.** "I set out for Eriane" plans the fastest way over known hexes (roads first) and walks it hex by
+  hex. "I head north-east" or "I strike out east into the hills" walks one day in that direction ("north" or
+  "south" picks the nearer flat-top direction). "I search the area" spends the hex's crossing time to look for
+  hidden sites (a Mind roll). Clicking a known hex on the map puts the line in the box.
+- **Each hex entered.** It is revealed with the ring around it (two rings from hills, three from a mountain,
+  only itself in forest or marsh), rolls an encounter against its region's danger (one step safer on a road),
+  and sees any visible site. A journey stops when foes attack, when it comes upon a site it didn't know about
+  (the player decides whether to go in), or when the character gets lost.
+- **Getting lost.** Each day off road in terrain one can get lost in, a Mind roll whose difficulty comes from
+  the terrain and the weather. A failure veers one hex off course without the character knowing; the map shows
+  where they think they are until they reach a road, a town or a known landmark.
+- **Weather.** Rolled once a day per region and season (clear, rain, storm, snow, fog). Bad weather slows
+  crossing, makes getting lost likelier and is passed to the narrator.
+- **Time, food, rest.** As before: ten walking hours a day, nights camped by the Rest rules, a food (or a point
+  of Ironsworn supply) per day, and the story clock moves by all of it.
+- **The map widget.** Draws the known hexes with their terrain, roads, rivers, towns and found sites; the rest
+  stays dark. Where the character thinks they are is marked when they are lost.
 
 ## Inventory and equipment
 
