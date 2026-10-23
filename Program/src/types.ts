@@ -412,7 +412,13 @@ export type InjuryPersistence = 'permanent' | 'temporary' | 'none'
 export interface StoryMap {
   places: { id: string; name: string; x: number; y: number; visited: boolean; here: boolean }[]
   roads: { from: string; to: string; hours: number; danger: 'none' | 'low' | 'medium' | 'high'; terrain: string }[]
+  /** On a hex crawl (dungeon/hexes.py): the hexes the character has seen, and the hex they believe they are in. */
+  hexes?: MapHex[]
+  at?: { q: number; r: number; lost: boolean }
 }
+export type HexTerrain = 'water' | 'plains' | 'forest' | 'hills' | 'mountains' | 'waste' | 'marsh'
+/** A seen hex in axial coordinates: its land, whether a road runs through it, the place or found site on it. */
+export interface MapHex { q: number; r: number; terrain: HexTerrain; road: boolean; place: string | null; site: string | null; visited: boolean }
 /** The story after going back, with the line that was taken back to send again. */
 export interface StoryBack extends Story { draft: string }
 

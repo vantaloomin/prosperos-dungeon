@@ -610,7 +610,11 @@ Havenbrooke's (car or bus) and BABEL's (the Stair) do. Vallarith's is.
   crossing time and a Mind roll; a success finds a hidden site there, if there is one.
 - **Fog of war.** The hexes seen (`story_hexes`, branched with the story) are those walked and what could be seen
   from them: the ring around, two from hills, three from mountains, none past the trees in forest or marsh. A place
-  in a hex seen is known. The map in the story view carries the known hexes (`map.hexes`).
+  in a hex seen is known. The map in the story view carries the known hexes (`map.hexes`) and where the character
+  believes they are (`map.at`); the Map widget (`src/features/story/StoryMap.tsx`) draws the hexes within nine of
+  there, coloured by their land, with roads, places and found sites marked and named. Clicking a place or a site
+  puts "I set out for …" in the box; clicking any other hex puts "I head …" its way. Lost, the ring round where they
+  believe they are is dashed.
 
 ## Rest
 
