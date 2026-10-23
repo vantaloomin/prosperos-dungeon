@@ -823,6 +823,69 @@ def marvel_start(play):
     play.say('I ask the keeper for a room and climb the stairs to it.')
 
 
+def hex_view(play, label: str) -> dict:
+    """Where the map has the character and the hexes known, written to the transcript."""
+    found = play.story().get('map') or {}
+    hexes = found.get('hexes') or []
+    play.write(f"- map after {label}: at {json.dumps(found.get('at'))}, {len(hexes)} hexes known, "
+               f"sites {[cell['site'] for cell in hexes if isinstance(cell, dict) and cell.get('site')]}\n")
+    return found
+
+
+def terrain_of(found: dict) -> dict:
+    return {(cell.get('q'), cell.get('r')): cell.get('land') or cell.get('terrain') for cell in found.get('hexes') or []
+            if isinstance(cell, dict)}
+
+
+def hex_vallarith(play):
+    """Hex crawl: a journey hex by hex, striking out into the wild past the authored map's edge, searching, sites,
+    getting lost, and the same generated land on coming back."""
+    play.start('lirien-of-the-ford')
+    play.say('I set out for Eriane.')
+    hex_view(play, 'the journey to Eriane')
+    play.say('I strike out north-east, off the road.')
+    first = hex_view(play, 'striking out north-east')
+    for day in range(4):
+        if (play.story().get('fight') or {}).get('fight') or (play.story().get('fight') or {}).get('dead'):
+            break
+        play.say('I keep heading north-east, as far as I can get by dark.')
+        hex_view(play, f'day {day + 2} north-east')
+        play.say('I make camp for the night, no fire.')
+    play.say('I search the area for anything worth finding.', {'roll': True})
+    far = hex_view(play, 'searching')
+    play.say('I set out for Kingswood.')
+    hex_view(play, 'heading home')
+    # The same land, generated past the edge, should be the same on the way back out.
+    before = terrain_of(far)
+    play.say('I strike out north-east again, the way I went before.')
+    again = terrain_of(hex_view(play, 'going back out'))
+    changed = [cell for cell, land in again.items() if cell in before and before[cell] != land]
+    if changed:
+        play.flag(f'Hexes changed their land on returning: {changed[:5]}')
+    walked = terrain_of(first)
+    same = all(walked[cell] == land for cell, land in again.items() if cell in walked)
+    play.write(f"- first walk's hexes still the same: {same}\n")
+    play.journal()
+
+
+def hex_woods(play):
+    """Havenbrooke's woods: an on-foot crawl of one-mile hexes from Ironroot Woods, a search, back to Haven, and the
+    car road still a road from the trailhead."""
+    play.dungeon.call('PUT', '/api/story/scene', {'city_id': 'haven', 'place_id': 'ironroot-woods'})
+    play.dungeon.call('DELETE', '/api/story')
+    play.start('piper-marsh')
+    play.say('I head out north into the woods, off the trail.')
+    hex_view(play, 'heading into the woods')
+    play.say('I keep going north for an hour or so.')
+    hex_view(play, 'deeper in')
+    play.say('I search the area for anything odd.', {'roll': True})
+    hex_view(play, 'searching the woods')
+    play.say('I head back to the Riverwalk.')
+    hex_view(play, 'back to the Riverwalk')
+    play.say('I take the bus to Ithaca.')
+    hex_view(play, 'the bus to Ithaca')
+
+
 SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl, 'road': road,
              'director': director, 'chapters': chapters, 'ironman': ironman, 'gm_view': gm_view, 'memory': memory,
              'legacy': legacy, 'fivee_checks': fivee_checks, 'fivee_fight': fivee_fight,
@@ -831,4 +894,5 @@ SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl,
              'fivee_defeat_written': fivee_defeat_written, 'importer': importer,
              'editor': editor, 'pictures': pictures, 'havenbrooke': havenbrooke,
              'tone': tone, 'restrained_wounds': restrained_wounds, 'stage': stage, 'babel': babel,
-             'fate_made': fate_made, 'fate_premade': fate_premade, 'marvel_start': marvel_start}
+             'fate_made': fate_made, 'fate_premade': fate_premade, 'marvel_start': marvel_start,
+             'hex_vallarith': hex_vallarith, 'hex_woods': hex_woods}
