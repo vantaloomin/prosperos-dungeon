@@ -250,13 +250,19 @@ class Play:
 
     def gear(self):
         gear = self.dungeon.call('GET', '/api/story/gear')
-        items = ', '.join(f"{i.get('name')} x{i.get('qty', 1)}" for i in gear.get('items') or [])
+        items = ', '.join(f"{i.get('name')} x{i.get('qty', 1)}"
+                          + (' (stolen)' if i.get('stolen') else '')
+                          + (f" ({i['condition']})" if i.get('condition') not in (None, 'sound') else '')
+                          for i in gear.get('items') or [])
         self.write(f"- purse {gear.get('coins')} {gear.get('currency')}, slots {json.dumps(gear.get('slots'))}, "
                    f"pack: {items}")
+        if gear.get('looks'):
+            self.write(f"- looks: {json.dumps(gear['looks'])}")
         if gear.get('shop'):
             shop = gear['shop']
             stock = ', '.join(f"{s.get('name')} {s.get('price')}" for s in (shop.get('stock') or [])[:12])
-            self.write(f"- shop open={shop.get('open')} keeper={shop.get('keeper')}: {stock}")
+            cash = f" cash={shop['cash']}" if 'cash' in shop else ''
+            self.write(f"- shop open={shop.get('open')} keeper={shop.get('keeper')}{cash}: {stock}")
         self.write()
         return gear
 
