@@ -301,6 +301,37 @@ class Grid:
             if leg.get('place'):
                 return legs, 'place'
 
+    def site(self, at: tuple[int, int]) -> dict | None:
+        """The site in a hex, if it has one, decided by the seed alone: never on water, a road or a place."""
+        table = self.map.get('sites')
+        cell = self.cell(at)
+        if not table or cell['terrain'] == 'water' or cell['road'] or cell['place']:
+            return None
+        if unit(self.seed, 'site', *at) * 100 >= table.get('odds', 4):
+            return None
+        entries = [*table.get(cell['region'], []), *table.get('any', [])]
+        roll, running = unit(self.seed, 'site-kind', *at) * sum(entry['weight'] for entry in entries), 0
+        entry = entries[-1]
+        for candidate in entries:
+            running += candidate['weight']
+            if roll <= running:
+                entry = candidate
+                break
+        owners = table.get('owners') or ['Hob']
+        template = entry['names'][int(unit(self.seed, 'site-name', *at) * len(entry['names']))]
+        name = template.format(owner=owners[int(unit(self.seed, 'site-owner', *at) * len(owners))])
+        return {'q': at[0], 'r': at[1], 'kind': entry['kind'], 'name': name, 'text': entry['text'],
+                'visible': entry['visible']}
+
+    def came_upon(self, legs: list[dict], found: set) -> tuple[list[dict], dict | None]:
+        """The legs up to the first hex with a site the character did not know of, that they would notice walking in
+        (a hidden one is only found by searching), and the site."""
+        for index, leg in enumerate(legs):
+            site = self.site(tuple(leg['to']))
+            if site and site['visible'] and (site['q'], site['r']) not in found:
+                return legs[:index + 1], site
+        return legs, None
+
     def lost_odds(self, leg: dict, weather: str) -> str | None:
         """How hard keeping one's bearings is in a step's hex, or None where it can't be lost."""
         if leg.get('road'):
@@ -346,15 +377,28 @@ def _grid(map_key: str, seed_: str, _version) -> Grid:
 
 
 def reveal(connection, board: Grid, cells: list[tuple[int, int]], walked: bool = True):
-    """The character walks into these hexes: each is visited, and seen with what can be seen from it."""
+    """The character walks into these hexes: each is visited, and seen with what can be seen from it, sites that
+    show from a distance among it."""
     name = key(board.map)
     for at in cells:
         for other in board.sight(at):
             connection.execute('INSERT OR IGNORE INTO story_hexes (map, q, r, visited) VALUES (?, ?, ?, 0)',
                                (name, *other))
+            if (site := board.site(other)) and site['visible']:
+                find_site(connection, board, other)
         if walked:
             connection.execute('INSERT INTO story_hexes (map, q, r, visited) VALUES (?, ?, ?, 1) '
                                'ON CONFLICT(map, q, r) DO UPDATE SET visited=1', (name, *at))
+
+
+def find_site(connection, board: Grid, at: tuple[int, int]):
+    connection.execute('INSERT OR IGNORE INTO story_sites (map, q, r) VALUES (?, ?, ?)', (key(board.map), *at))
+
+
+def found_sites(connection, board: Grid) -> dict[tuple[int, int], dict]:
+    """The sites the character has found on this map, by hex."""
+    return {(row['q'], row['r']): board.site((row['q'], row['r'])) for row in many(
+        connection, 'SELECT q, r FROM story_sites WHERE map=?', (key(board.map),)) if board.site((row['q'], row['r']))}
 
 
 def seen(connection, board: Grid, here: tuple[int, int] | None = None) -> dict[tuple[int, int], bool]:
@@ -370,8 +414,10 @@ def seen(connection, board: Grid, here: tuple[int, int] | None = None) -> dict[t
 
 
 def view(connection, board: Grid, here: tuple[int, int]) -> list[dict]:
-    """The hexes the character knows, for the map on screen."""
-    return [board.cell(at) | {'visited': visited} for at, visited in sorted(seen(connection, board, here).items())]
+    """The hexes the character knows, for the map on screen, with the sites found in them."""
+    sites = found_sites(connection, board)
+    return [board.cell(at) | {'visited': visited, 'site': sites[at]['name'] if at in sites else None}
+            for at, visited in sorted(seen(connection, board, here).items())]
 
 
 # Out in the wild --------------------------------------------------------------------------------------
