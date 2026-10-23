@@ -118,7 +118,7 @@ def word(track: dict, points: int) -> str:
     return track['words'][sum(points >= threshold for threshold in track['thresholds'])]
 
 
-def darken(connection, track_id: str, shift: int, preset: str, now: str, rng=None) -> list[str]:
+def darken(connection, track_id: str, shift: int, levels: dict | None, now: str, rng=None) -> list[str]:
     """A dark track moves: power and a lasting change at each threshold it crosses going up, the end at its top."""
     track = tracks().get(track_id)
     if track is None or not shift:
@@ -134,7 +134,7 @@ def darken(connection, track_id: str, shift: int, preset: str, now: str, rng=Non
             old, new = raise_stat(connection, stat, boost, now)
             lines.append(f"{track['name']} gives as it takes: the character's {stat} grows from {old} to {new}.")
             allowed = [item for item in track['changes'] if item['text'] not in changes
-                       and cards.allowed(item, cards.PRESETS[preset])]
+                       and cards.allowed(item, levels or {})]
             if allowed:
                 change = rng.choice(allowed)
                 changes.append(change['text'])

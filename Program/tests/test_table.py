@@ -18,7 +18,8 @@ def test_a_new_campaign_takes_the_worlds_tone_and_the_players_last_taste(client)
     rules = ok(client.get('/api/story/table'))
     assert rules == {'intensity': 'world', 'drama': 'world', 'injury_persistence': 'permanent', 'defeat': 'as_written',
                      'show_odds': False,
-                     'roll_dice': False, 'show_adult_side': False, 'gm_view': False, 'cutaways': False}
+                     'roll_dice': False, 'show_adult_side': False, 'gm_view': False, 'cutaways': False,
+                     'levels': None, 'veils': None, 'voice': 'world'}
     begin(client)
     rules = ok(client.put('/api/story/table', json={'intensity': 'restrained', 'show_odds': True, 'roll_dice': True}))
     assert (rules['intensity'], rules['show_odds'], rules['roll_dice']) == ('restrained', True, True)

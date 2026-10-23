@@ -1,4 +1,4 @@
-import type { ReceiptChip, StoryMessage, Srd52Spells, BandStep, HiddenRoll, TurnAction, TurnEvent, TurnSoFar, Gear, JournalEntry, JournalQuest, JournalInstitution, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace, StoryArc, StoryPace, StoryTier, SheetGrowth, StoryHand, JournalThread, StoryChapter, LegacyRole } from '../../types'
+import type { ReceiptChip, StoryMessage, Srd52Spells, BandStep, HiddenRoll, TurnAction, TurnEvent, TurnSoFar, Gear, JournalEntry, JournalQuest, JournalInstitution, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace, StoryArc, StoryPace, StoryTier, SheetGrowth, StoryHand, JournalThread, StoryChapter, LegacyRole, ToneCategory, ToneVoice, VeilTopic } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -220,6 +220,23 @@ const DRAMA_NAMES: Record<Exclude<DramaLevel, 'world'>, string> = {
 export function dramaChoices(world: Exclude<DramaLevel, 'world'>): [DramaLevel, string][] {
   return [['world', `The world's own (${DRAMA_NAMES[world].split(':')[0]})`],
     ...(Object.entries(DRAMA_NAMES) as [DramaLevel, string][])]
+}
+
+export const TONE_CATEGORIES: [ToneCategory, string][] = [['violence', 'Violence and gore'], ['sex', 'Sex'], ['horror', 'Horror'],
+  ['cruelty', 'Cruelty and abuse'], ['drugs', 'Drugs']]
+export const LEVEL_NAMES = ['Off the page', 'Restrained', 'Mature', 'Unflinching']
+export const VEIL_TOPICS: [VeilTopic, string][] = [['torture', 'Torture'], ['sexual-violence', 'Sexual violence'], ['child-harm', 'Harm to children'],
+  ['self-harm', 'Self-harm'], ['mutilation', 'Mutilation'], ['execution', 'Executions'], ['slavery', 'Slavery'], ['sacrifice', 'Sacrifice'],
+  ['addiction', 'Addiction'], ['disease', 'Disease']]
+export const VOICES: [ToneVoice, string][] = [['grim', 'Grim'], ['wry', 'Wry'], ['romantic', 'Romantic'], ['hopeful', 'Hopeful'],
+  ['lyrical', 'Lyrical'], ['plain', 'Plain']]
+
+/** The veils with one topic added or taken away, in the list's own order. */
+export function toggledVeil(veils: VeilTopic[], topic: VeilTopic, on: boolean): VeilTopic[] {
+  const chosen = new Set(veils)
+  if (on) chosen.add(topic)
+  else chosen.delete(topic)
+  return VEIL_TOPICS.map(([id]) => id).filter((id) => chosen.has(id))
 }
 
 /** "15% off today" or "20% dearer today" after a haggle; '' without one. */

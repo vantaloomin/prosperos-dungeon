@@ -6,6 +6,7 @@ from test_inventory import begin
 from test_travel import Road, ok, reply
 
 from dungeon import growth, quests, record, sheet, tiers
+from dungeon.life import cards
 
 WON = {'actor': sheet.PERSONA, 'stat': 'Vitality', 'band': 'success'}
 
@@ -61,17 +62,17 @@ def test_a_dark_track_grants_power_changes_the_character_and_can_take_them(clien
     begin(client)
     with app.state.database.connect(write=True) as connection:
         essence = sheet.stats(connection)['Essence']
-        assert growth.darken(connection, 'corruption', 2, 'unflinching', 'x', Road()) == []
-        lines = growth.darken(connection, 'corruption', 1, 'restrained', 'x', Road())
+        assert growth.darken(connection, 'corruption', 2, cards.PRESETS['unflinching'], 'x', Road()) == []
+        lines = growth.darken(connection, 'corruption', 1, cards.PRESETS['restrained'], 'x', Road())
         assert lines[0] == f"Corruption gives as it takes: the character's Essence grows from {essence} to {essence + 2}."
         assert lines[1] == 'A lasting change (corruption): Their shadow lags a moment behind them, and dogs will not ' \
                            'come near.'
         assert lines[2] == "The character's corruption: now tainted."
         # Restrained allows no change past the first level of horror.
-        assert growth.darken(connection, 'corruption', 3, 'restrained', 'x', Road())[1] == \
+        assert growth.darken(connection, 'corruption', 3, cards.PRESETS['restrained'], 'x', Road())[1] == \
             'A lasting change (corruption): They hear a patient voice when they are alone, and it is often right.'
         assert 'Corruption: marked. Lasting: Their shadow lags' in growth.prompt_text(connection)
-        growth.darken(connection, 'corruption', 9, 'unflinching', 'x', Road())
+        growth.darken(connection, 'corruption', 9, cards.PRESETS['unflinching'], 'x', Road())
         assert growth.lost(connection) == 'Corruption'
     assert ok(client.get('/api/story/sheet'))['growth']['dark'][0]['word'] == 'lost'
     response = client.post('/api/story/messages', json={'text': 'I go on.', 'client_id': 'story-0009'})

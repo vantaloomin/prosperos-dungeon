@@ -100,7 +100,7 @@ def test_every_card_the_game_can_draw_has_every_name_filled(app):
             for scene, place in (('town', ('kingswood', 'felled-oak')), ('road', ('vallarith-road', 'eriane')),
                                  ('rest', ('vallarith-road', 'adlmyr'))):
                 drawn = happenings.draw(connection, scene, f'seed-{n}', *place, {'intensity': {'drama': 'merciless'}},
-                                        'unflinching', date(1290, 5, 1))
+                                        {'levels': cards.PRESETS['unflinching'], 'veils': []}, date(1290, 5, 1))
                 if drawn:
                     for field in ('title', 'truth', 'seen', 'pressure'):
                         assert not re.search(r'\{\w+\}', happenings.fill(drawn['card'][field] or '', names))

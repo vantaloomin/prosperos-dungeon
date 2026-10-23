@@ -371,6 +371,8 @@ export type IntensityPreset = 'world' | 'restrained' | 'mature' | 'unflinching'
 /** How far the story goes: `preset` in play, the player's `chosen` one ('world' follows the world), the world's own. */
 export interface StoryIntensity {
   preset: Exclude<IntensityPreset, 'world'>; chosen: IntensityPreset; world: Exclude<IntensityPreset, 'world'>; voice: string
+  /** Each category's level in play (0 off the page to 3 unflinching), whether any moved off the preset, the veils. */
+  levels?: Record<ToneCategory, number>; custom?: boolean; veils?: VeilTopic[]; voice_chosen?: ToneVoice; voice_world?: string
   /** How eventful the story is (dungeon/happenings.py): the level in play, the player's choice, the world's own. */
   drama: Exclude<DramaLevel, 'world'>; drama_chosen: DramaLevel; drama_world: Exclude<DramaLevel, 'world'>
   /** "Meanwhile" cutaways of off-page beats (dungeon/beats.py). */
@@ -386,7 +388,12 @@ export interface TablePreset { id: string; name: string; about: string; hand: St
 export interface TableRules {
   intensity: IntensityPreset; drama: DramaLevel; injury_persistence: InjuryPersistence
   show_odds: boolean; roll_dice: boolean; show_adult_side: boolean; gm_view: boolean; cutaways: boolean; defeat?: DefeatRule
+  /** dungeon/tone.py: categories moved off the preset, veiled topics (null: the world's), the narrator's voice. */
+  levels?: Partial<Record<ToneCategory, number>> | null; veils?: VeilTopic[] | null; voice?: ToneVoice
 }
+export type ToneCategory = 'violence' | 'sex' | 'horror' | 'cruelty' | 'drugs'
+export type VeilTopic = 'execution' | 'slavery' | 'mutilation' | 'disease' | 'self-harm' | 'addiction' | 'torture' | 'sexual-violence' | 'sacrifice' | 'child-harm'
+export type ToneVoice = 'world' | 'grim' | 'wry' | 'romantic' | 'hopeful' | 'lyrical' | 'plain'
 export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; bands?: BandStep[] | null; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null; injury_persistence: InjuryPersistence; table?: TableRules; factions?: StoryFaction[]; tier?: StoryTier | null; campaign?: StoryCampaign; message_id?: string }
 /** A faction the character knows of (dungeon/factions.py): standing in words, with the number when the dice are shown. */
 export interface StoryFaction { id: string; name: string; summary: string; standing: string }

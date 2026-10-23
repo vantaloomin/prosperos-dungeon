@@ -9,6 +9,8 @@ from test_travel import Road, ok, reply
 from dungeon import beats, happenings, record, story, story_clock
 from dungeon.life import cards
 
+UNFLINCHING = {'levels': cards.PRESETS['unflinching'], 'veils': []}
+
 
 @pytest.fixture
 def dealt(monkeypatch):
@@ -36,7 +38,7 @@ def know(connection, key='corin', name='Corin Ashby', meetings=2, trust=0):
 
 def fire(app, connection, message_id, later=timedelta(0), pressure=None):
     now = story_clock.now(connection, app.state.database.clock) + later
-    return beats.fire(connection, message_id, story.scene(connection, now), 'unflinching', now, 'logged', Road(),
+    return beats.fire(connection, message_id, story.scene(connection, now), UNFLINCHING, now, 'logged', Road(),
                       pressure), now
 
 

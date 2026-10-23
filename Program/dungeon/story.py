@@ -49,6 +49,7 @@ from dungeon import (
     table,
     tiers,
     timeline,
+    tone,
     travel,
     turn,
 )
@@ -106,16 +107,8 @@ def map_text(connection, view: dict) -> str:
 
 
 def intensity(connection, data: dict) -> dict:
-    """How far the story goes on the page: the player's preset, or the world's (requirements "Intensity and tone").
-    v0 has one preset for every category; per-category sliders and veils come later."""
-    world = data.get('intensity') or {}
-    chosen = table.rule(connection, 'intensity')
-    world_preset = world.get('preset') or narration_prompt.DEFAULT_PRESET
-    drama, world_drama = table.rule(connection, 'drama'), world.get('drama') or happenings.DEFAULT_DRAMA
-    return {'preset': world_preset if chosen == 'world' else chosen, 'chosen': chosen, 'world': world_preset,
-            'voice': world.get('voice') or '', 'drama': world_drama if drama == 'world' else drama,
-            'drama_chosen': drama, 'drama_world': world_drama, 'cutaways': table.rule(connection, 'cutaways'),
-            'defeat': table.rule(connection, 'defeat'), 'ruleset': ruleset_of(connection)}
+    """How far the story goes on the page, per category, with veils and the voice (dungeon/tone.py)."""
+    return tone.of(connection, data)
 
 
 def no_model() -> DomainError:
@@ -728,7 +721,7 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
                              if part)
         system = narration_prompt.system(prompt_library.text(connection, 'story-narrator'), craft, scene=place_text,
                                          persona=who_text, persona_name=name, memory=memory, narration=NARRATION,
-                                         intensity=narration_prompt.Intensity.preset(level['preset'], level['voice']),
+                                         intensity=tone.narration(level),
                                          outcomes=outcomes, rolls_shown=dice_shown(connection))
         if len(system) <= (window - config['max_output_tokens']) * CHARS_PER_TOKEN // 2:
             break
@@ -947,12 +940,12 @@ def life_card(database, connection, kind: str, message_id: str) -> tuple[list[st
     view = scene(connection, story_clock.now(connection, database.clock))
     data, day = view['data'], datetime.fromisoformat(view['local_time']).date()
     drawn = happenings.draw(connection, kind, f'{message_id}:{kind}', view['city']['id'], view['place']['id'], data,
-                            intensity(connection, data)['preset'], day)
+                            intensity(connection, data), day)
     persona = optional(connection, 'SELECT name FROM persona WHERE id=1')
     lines, minutes = happenings.play(connection, drawn, {
         'people': view['people'], 'name': persona and persona['name'], 'data': data, 'map': drawn['map'],
         'now': story_clock.now(connection, database.clock), 'logged': database.now(),
-        'rng': None, 'preset': intensity(connection, data)['preset']}) if drawn else ([], 0)
+        'rng': None, 'levels': intensity(connection, data)['levels']}) if drawn else ([], 0)
     happenings.keep(connection, message_id, kind, day, drawn and drawn['card']['id'], lines)
     return lines, minutes
 
@@ -1025,7 +1018,7 @@ def beats_turn(state, user: dict) -> list[str]:
             return kept
         now = story_clock.now(connection, database.clock)
         view = scene(connection, now)
-        lines = beats.fire(connection, user['id'], view, intensity(connection, view['data'])['preset'], now,
+        lines = beats.fire(connection, user['id'], view, intensity(connection, view['data']), now,
                            database.now(), getattr(state, 'dice', None))
         beats.keep(connection, user['id'], datetime.fromisoformat(view['local_time']).date(), lines)
         return lines
@@ -1189,7 +1182,7 @@ async def afterwards(state, user: dict, reply: dict, packet: dict, steps: pace.S
             # What the character did that feeds a dark track (dungeon/growth.py).
             for track in growth.darkened(answered):
                 view = scene(connection, story_clock.now(connection, database.clock))
-                growth.darken(connection, track, 1, intensity(connection, view['data'])['preset'], database.now(),
+                growth.darken(connection, track, 1, intensity(connection, view['data'])['levels'], database.now(),
                               getattr(state, 'dice', None))
             # An oath the character swore is an obligation, with its deadline, or a vow on a quest they already have
             # (dungeon/quests.py).
