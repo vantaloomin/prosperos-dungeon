@@ -95,3 +95,29 @@ def test_an_empty_tavern_gets_no_invented_patrons():
             'local_time': '2026-10-01T16:11:00', 'weather': '', 'people': [], 'known': {}}
     assert story.EMPTY_ROOM in story.scene_text(view)
     assert 'only passers-by' in story.scene_text(view | {'place': view['place'] | {'kind': 'square'}})
+
+
+def test_a_blow_the_referee_called_luck_or_skipped_still_rolls_vitality():
+    assert referee.armed("I pick out the loudest logger in the place, call him a coward, and cut at him with my "
+                         'sword.', [])[0]['stat'] == 'Vitality'
+    luck = [{'action': 'I creep up behind the loudest drunk and hit him over the head with my sword hilt', 'roll': True,
+             'stat': 'Luck', 'difficulty': 'normal'}]
+    assert referee.armed(luck[0]['action'], luck) == [luck[0] | {'stat': 'Vitality'}]
+
+
+def test_giving_in_to_foes_rolls_nothing():
+    handing = [{'action': 'I hand over my purse', 'roll': True, 'stat': 'Vitality', 'difficulty': 'normal'}]
+    assert referee.armed('I hand over my purse.', handing, 'the bandit (unhurt)') == []
+    assert referee.armed('I hand over my purse.', handing) == handing
+
+
+def test_selling_everything_i_can_spare():
+    pack = [{'item_id': 'knife', 'name': 'Belt knife', 'category': 'weapon', 'qty': 2, 'stolen': 0},
+            {'item_id': 'candle', 'name': 'Tallow candles', 'category': 'gear', 'qty': 1, 'stolen': 1},
+            {'item_id': 'bread', 'name': 'Bread', 'category': 'food', 'qty': 3, 'stolen': 0},
+            {'item_id': 'cloak', 'name': 'Wool cloak', 'category': 'clothing', 'qty': 1, 'stolen': 0}]
+    spare = inventory.offered('I sell Mother Mag everything I can spare.', pack)
+    assert [(row['item_id'], qty) for row, qty in spare] == [('candle', 1), ('knife', 1)]
+    everything = inventory.offered('I sell her everything.', pack)
+    assert [(row['item_id'], qty) for row, qty in everything] == [('candle', 1), ('knife', 2), ('bread', 3)]
+    assert [(row['item_id'], qty) for row, qty in inventory.offered('I sell the knife.', pack)] == [('knife', 1)]

@@ -34,6 +34,7 @@ from dungeon import (
     judge,
     labour,
     library,
+    lies,
     lore,
     pace,
     passages,
@@ -1166,6 +1167,18 @@ def labour_turn(state, user: dict) -> list[str]:
         return lines
 
 
+def lie_turn(state, user: dict) -> list[str]:
+    """Someone the line questions who has something to hide lies, and the character's insight is rolled
+    (dungeon/lies.py), once for the line."""
+    database = state.database
+    with database.connect(write=True) as connection:
+        view = scene(connection, story_clock.now(connection, database.clock))
+        if combat.fight(connection):
+            return []
+        return lies.turn(connection, user['id'], view, user['text'], view['local_time'][:10], database.now(),
+                         getattr(state, 'dice', None))
+
+
 def counter_text(lines: list[str]) -> str:
     return '## At the counter (decided by the game)\n' + '\n'.join(f'- {line}' for line in lines) if lines else ''
 
@@ -1402,7 +1415,7 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
     carded = town_turn(state, user) if in_story else []
     meanwhile = beats_turn(state, user) if in_story else []
     noted = director_turn(state, user) + recall_turn(state, rolls) + opening_turn(state, user) if in_story else []
-    noted += [labour.prompt_text(labour_turn(state, user))] if in_story else []
+    noted += [labour.prompt_text(labour_turn(state, user)), lies.prompt_text(lie_turn(state, user))] if in_story else []
     fought, traded, tended, looked, looks = (in_scene(state, user, rolls, travelled, rested) if in_story
                                              else ([], [], [], [], []))
     noted = noted + looks

@@ -350,7 +350,8 @@ its shops with their starting stock, and each premade's starting kit (plus a def
   counter on a line in `story_counter`, so "Tell it again" retells it the same.
 - **Selling in the story.** A line that sells something ("I sell the blanket", "I fence the ring", "all my candles")
   sells it at what the shop pays today before the narrator writes; a refusal (it doesn't buy that, stolen goods, no
-  money left) goes to the narrator too.
+  money left) goes to the narrator too. "Everything I can spare" offers all stolen goods and curios and every spare
+  copy, keeping food, clothes and one of each other thing; "everything" offers all but the clothes.
 - **Restocking.** Every `restock_days` of story time (7 unless the shop says), what was sold comes back up to the file's
   stock (`story_shops.restocked`); what the player sold the shop stays on its shelves to be sold again.
 - **Shopkeeper cash.** Each shop has a till (`story_shops.cash`): its file's `cash`, else half its starting stock's
@@ -1158,6 +1159,22 @@ the barista").
 Under "People you've met" each person shows how often the user has met them and what their rules have them doing
 now. "Go to …" moves the story to where they are (refused while they are at home, at work elsewhere or on their
 street). Starting a new story clears the people met too.
+
+### Secrets and lies
+
+`dungeon/lies.py` (requirements "NPCs keep secrets and lie, and detection is rolled"). When the player's line
+questions someone in the scene (a question, "ask", "press", "tell me"; the person named, else the only one there)
+who has something to hide, they lie. Something to hide is a notable's `secret`, wants that keep something hidden
+("nobody asking questions", "without ever saying why", "looking the other way"), or the hidden truth of an open job
+they gave. Someone who trusts the character (trust 3 or more) tells the truth. The character's insight is rolled
+in secret, no roll card: Mind in any ruleset, hard against a notable and normal against anyone else.
+
+- **Caught.** The narrator shows the tell; they stick to the lie unless pressed. The record keeps "caught X in a
+  lie".
+- **Believed.** The narrator writes the lie smooth, with no tell. The record keeps the lie as the world's truth
+  only; what the character was told goes in as their belief through fact extraction.
+- Each person is read once a story day (`story_cards`, scene `lie`); asked again that day they keep to the same
+  story, caught or not. Nothing happens during a fight.
 
 ### How they feel about you
 

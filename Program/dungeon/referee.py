@@ -200,14 +200,28 @@ async def decide(state, text: str, config: dict | None, decisions: dict | None =
 
 # A blow that is plainly an attack whatever the Referee says, so a fight always starts (dungeon/combat.py stand_in).
 VIOLENT = re.compile(r'\b(stab\w*|slash\w*|punch\w*|kick\w*|shoot\w*|attack\w*|kill\w*|hack\w* at|run\w* \w+ '
-                     r'through|lunge\w* at|strike\w* at|swing\w* at|cut\w* (him|her|them|down)|headbutt\w*|'
-                     r'strangl\w*|throttl\w*)', re.I)
+                     r'through|lunge\w* at|strike\w* at|swing\w* at|cut\w* (at|him|her|them|down)|headbutt\w*|'
+                     r'strangl\w*|throttl\w*|hit\w* (him|her|them|the \w+)|club\w* (him|her|them)|smash\w* (him|her|'
+                     r'them|the \w+ over)|bash\w* (him|her|them)|brain\w* (him|her|them)|knock\w* (him|her|them) '
+                     r'(down|out|cold|senseless))', re.I)
+# A line that gives in to the foes (dungeon/combat.py terms decides it): no roll.
+GIVING_IN = re.compile(r"\b(hand\w* (it |them |him |her )?over|give (it|them) (up|over)|surrender\w*|yield\w*|"
+                       r"give up|beg\w* for (mercy|my life)|hands up|drop\w* my (weapon|sword|axe|knife|blade)|pay "
+                       r"(them|him|her) off)\b", re.I)
 
 
 def armed(text: str, actions: list[dict], fight: str | None = None) -> list[dict]:
     """The rolled actions, with an attack the Referee let pass unrolled added back: a line that attacks someone
-    ("I draw my sword and cut down the foreman") always rolls Vitality, so the fight starts."""
+    ("I draw my sword and cut down the foreman") always rolls Vitality, so the fight starts, even when the Referee
+    called the blow Luck. Giving in to foes (handing over the purse, surrendering) is no feat and rolls nothing."""
     from dungeon import combat
+    if fight:
+        actions = [action for action in actions if not GIVING_IN.search(action['action'])]
+    violent = [index for index, action in enumerate(actions)
+               if VIOLENT.search(action['action']) and (fight or combat.SOMEONE.search(action['action']))]
+    if violent and not any(action.get('stat') == 'Vitality' for action in actions):
+        actions = [action | {'stat': 'Vitality'} if index == violent[0] else action
+                   for index, action in enumerate(actions)]
     if any(action.get('stat') == 'Vitality' for action in actions) or len(actions) >= MOST_ACTIONS:
         return actions
     for part in sentences(text):
