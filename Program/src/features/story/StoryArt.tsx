@@ -3,11 +3,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Image, MapPin, RefreshCw, User, Users } from 'lucide-react'
 import { api } from '../../api'
 import { Notice } from '../../components/Feedback'
-import type { ArtKind, StoryArt as Picture, StoryPerson } from '../../types'
+import type { ArtKind, ArtStage, StoryArt as Picture, StoryPerson } from '../../types'
+import { useDeviceLook } from '../settings/deviceLook'
 import { artLabel, artStatus, making } from './artText'
 import { askForDrawer } from './scene'
 
 const ART_KEY = ['story-art']
+// Passive art finishes after the turn, so the stage looks again now and then.
+const STAGE_REFRESH = 20_000
 
 /** Pictures on request (dungeon/art.py): you, someone you met, this place, or the whole scene. Each is built from what
  *  the game tracks and made by the image backends in Settings; one goes out of date when what it shows changes. */
@@ -70,4 +73,25 @@ export function IllustrateButton({ messageId }: { messageId: string }) {
   }
   return <button type="button" className="text-button story-back" disabled={busy} onClick={() => void illustrate()}
     title="Make a picture of this passage with your image backend."><Image aria-hidden="true" />{busy ? 'Picturing…' : 'Picture this'}</button>
+}
+
+/** The stage over the story (VN style): the place's picture behind, the portraits of who is here in front. Shown
+ *  only once pictures are made, and only when this device has "Show pictures on the story" on. */
+export function StoryStage({ turn }: { turn: string }) {
+  const look = useDeviceLook()
+  const stage = useQuery({ queryKey: [...ART_KEY, 'stage', turn], queryFn: () => api<ArtStage>('/story/art/stage'),
+    enabled: look.stageArt, refetchInterval: STAGE_REFRESH })
+  const shown = look.stageArt ? stage.data : undefined
+  if (!shown || (!shown.background && !shown.portraits.length)) return null
+  return (
+    <figure className="story-stage" style={shown.background ? { backgroundImage: `url(${shown.background.url})` } : undefined}>
+      <ul className="stage-portraits" aria-label="Who is here">
+        {shown.portraits.map((item) => <li key={item.key}>
+          <img src={item.url} alt={`Portrait of ${item.name}`} width={item.width ?? undefined} height={item.height ?? undefined} />
+          <span>{item.name}</span>
+        </li>)}
+      </ul>
+      {shown.background && <figcaption className="visually-hidden">A picture of this place</figcaption>}
+    </figure>
+  )
 }

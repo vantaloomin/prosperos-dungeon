@@ -25,6 +25,10 @@ export function DeviceLookSettings() {
       <ReadingFonts font={look.font} everywhere={look.fontEverywhere} />
       <MotionChoice motion={look.motion} />
       <LayoutChoice layout={look.layout} />
+      <label className="checkbox-row">
+        <input type="checkbox" checked={look.stageArt} onChange={(event) => saveLook({ stageArt: event.target.checked })} />
+        Show pictures on the story: the place behind it and portraits of who is here, once they are made
+      </label>
     </div>
   )
 }

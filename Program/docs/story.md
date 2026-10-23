@@ -725,8 +725,12 @@ Settings (`dungeon/images`), and never hold up the story.
 - **Kept** in `story_art` with the chapter open when it was asked for; not game state, so going back keeps them. A
   new story clears them. The EPUB book carries each chapter's pictures (a passage's after that passage).
 - **Passive art** (Settings > Images, `passive_art`, off by default): after a turn, with a backend enabled, the one
-  picture the turn calls for, in code: someone in the scene with no portrait, else the place with no picture, else
-  the scene as a chapter closes. At most one a turn and `art.PASSIVE_CAP` (6) a session.
+  picture the turn calls for, in code: someone in the scene with no portrait, else someone here whose portrait has
+  gone out of date (live-state portraits), else the place with no picture, else the scene as a chapter closes. At
+  most one a turn and `art.PASSIVE_CAP` (6) a session.
+- **The stage** (`GET /api/story/art/stage`, `art.stage`): above the story, the place's newest picture as a
+  background and the newest portrait of each person here who has one, VN style. Shown only once pictures exist, and
+  only while this device has "Show pictures on the story" on (General > Appearance, `stageArt`, on by default).
 
 ## Off-page beats and word getting around
 

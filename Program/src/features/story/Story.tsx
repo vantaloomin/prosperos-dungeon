@@ -18,6 +18,7 @@ import { AuthorsNote } from './AuthorsNote'
 import { StoryStart } from './StoryStart'
 import { StoryNarration } from './StoryNarration'
 import { StoryPanel } from './StoryPanel'
+import { StoryStage } from './StoryArt'
 import { EntityHost } from './EntityCard'
 import { STORY_KEY } from './table'
 
@@ -65,6 +66,7 @@ export function Story({ go }: { go: (view: View) => void }) {
         <StoryHeader story={story.data} change={change} onDraft={(text) => setDraft({ text, at: Date.now() })} />
         {!story.data.ready && <NoModel go={go} />}
         {!story.data.messages.length && pending === null ? <StoryStart onStarted={update} intensity={story.data.intensity} /> : <>
+          <StoryStage turn={`${story.data.scene.city.id}/${story.data.scene.place.id}/${story.data.messages.length}`} />
           <StoryLog messages={story.data.messages} pending={story.data.messages.length > since ? null : pending} streamed={streamed} turn={turn} bands={story.data.bands}
             onRetry={() => void run('', () => streamApi('/story/retry/stream', {}, grow, note))}
             onRewrite={(id, passage, note) => change(() => api<StoryData>(`/story/messages/${id}/rewrite`, { passage, note }))}

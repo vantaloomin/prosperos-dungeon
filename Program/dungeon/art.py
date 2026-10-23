@@ -18,7 +18,9 @@ when the player asks, through the image backends in Settings (dungeon/images).
 - **Kept with the chapter** it was made in, so the book can carry it.
 - **Passive art** (the `passive_art` setting, off by default) adds pictures on their own after a turn, at most one a
   turn and PASSIVE_CAP a session, only with a backend enabled: the portrait of someone in the scene who has none,
-  then the place when it has no picture, then the scene when a chapter is about to close.
+  then a portrait of someone here that has gone out of date (live-state portraits), then the place when it has no
+  picture, then the scene when a chapter is about to close.
+- **The stage** (`stage`) shows the place's picture behind the story and the portraits of who is here, VN style.
 
 Pictures are not game state: going back in the story keeps them.
 """
@@ -273,6 +275,26 @@ def gallery(database) -> list[dict]:
         return out
 
 
+def stage(database) -> dict:
+    """What the story's stage shows (requirements "Art": background art and VN portraits): the newest finished
+    picture of the place behind the story, and the newest finished portrait of each person here who has one."""
+    with database.connect() as connection:
+        view = story.scene(connection, story_clock.now(connection, database.clock))
+        here = f"{view['city']['id']}/{view['place']['id']}"
+        known = {row['key']: row['name'] for row in many(connection, 'SELECT key, name FROM story_people')}
+        present = [person['sheet']['key'] for person in view['people'] if person['sheet'].get('key') in known]
+        done = many(connection, "SELECT * FROM story_art WHERE status='done' AND file IS NOT NULL AND "
+                                "kind IN ('place', 'portrait') ORDER BY created_at DESC, rowid DESC")
+    place = next((row for row in done if row['kind'] == 'place' and row['subject'] == here), None)
+    portraits = []
+    for key in present:
+        if row := next((row for row in done if row['kind'] == 'portrait' and row['subject'] == key), None):
+            portraits.append({'key': key, 'name': known[key], 'url': f"/api/story/art/{row['id']}/file",
+                              'width': row['width'], 'height': row['height']})
+    return {'background': place and {'url': f"/api/story/art/{place['id']}/file", 'width': place['width'],
+                                     'height': place['height']}, 'portraits': portraits}
+
+
 def file_of(database, art_id: str):
     with database.connect() as connection:
         row = optional(connection, 'SELECT file FROM story_art WHERE id=?', (art_id,))
@@ -288,6 +310,9 @@ def wanted(connection, database, present: list[str]) -> tuple[str, str] | None:
     pictured = {(row['kind'], row['subject']) for row in many(connection, 'SELECT kind, subject FROM story_art')}
     if who := next((key for key in present if ('portrait', key) not in pictured), None):
         return 'portrait', who
+    # Live-state portraits: someone here whose portrait no longer shows them as they are (a wound, a change of heart).
+    if who := next((key for key in present if stale_portrait(connection, database, key)), None):
+        return 'portrait', who
     row = story.scene_row(connection)
     here = f"{row['city_id']}/{row['place_id']}"
     if ('place', here) not in pictured and not row['place_id'].startswith('~'):
@@ -298,6 +323,15 @@ def wanted(connection, database, present: list[str]) -> tuple[str, str] | None:
     if chapters.pending(connection) and last_line and (not latest_scene or latest_scene['created_at'] < last_line['created_at']):
         return 'scene', ''
     return None
+
+
+def stale_portrait(connection, database, key: str) -> bool:
+    row = optional(connection, "SELECT * FROM story_art WHERE kind='portrait' AND subject=? ORDER BY created_at DESC, "
+                               'rowid DESC LIMIT 1', (key,))
+    if row is None or row['status'] != 'done':
+        return False
+    current = current_state(connection, database, row)
+    return bool(current and current != row['state'])
 
 
 async def passive(state, present: list[str]):

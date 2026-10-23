@@ -13,8 +13,9 @@ test('text size stays between 85% and 200% in steps of 5', () => {
 test('a damaged saved look falls back to the defaults, keeping what is valid', () => {
   assert.deepEqual(cleanLook('nonsense'), DEFAULT_LOOK)
   assert.deepEqual(cleanLook({ textScale: 150, font: 'comic', motion: 'reduce', fontEverywhere: 'yes', layout: 'grid' }),
-    { textScale: 150, font: 'default', fontEverywhere: false, motion: 'reduce', layout: 'classic' })
+    { textScale: 150, font: 'default', fontEverywhere: false, motion: 'reduce', layout: 'classic', stageArt: true })
   assert.equal(cleanLook({ layout: 'reader' }).layout, 'reader')
+  assert.equal(cleanLook({ stageArt: false }).stageArt, false)
 })
 
 test('Match my computer shows Paper or Ink, and a saved scheme shows itself', () => {

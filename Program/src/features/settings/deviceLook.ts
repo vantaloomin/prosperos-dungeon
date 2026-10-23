@@ -7,10 +7,11 @@ export type Motion = 'system' | 'reduce' | 'full'
 /** The story screen's layout (requirements "Play screen and widgets": presets as modes). Classic keeps the scene panel
  *  beside the story on a wide screen; Reader gives the story the width and folds the panel into its tabs. */
 export type Layout = 'classic' | 'reader'
-export interface DeviceLook { textScale: number; font: ReadingFont; fontEverywhere: boolean; motion: Motion; layout: Layout }
+/** `stageArt`: the place's picture behind the story and portraits of who is here, when they have been made. */
+export interface DeviceLook { textScale: number; font: ReadingFont; fontEverywhere: boolean; motion: Motion; layout: Layout; stageArt: boolean }
 
 export const TEXT_SCALE = { min: 85, max: 200, step: 5 } as const
-export const DEFAULT_LOOK: DeviceLook = { textScale: 100, font: 'default', fontEverywhere: false, motion: 'system', layout: 'classic' }
+export const DEFAULT_LOOK: DeviceLook = { textScale: 100, font: 'default', fontEverywhere: false, motion: 'system', layout: 'classic', stageArt: true }
 const KEY = 'dungeon-device-look'
 const FONTS: ReadingFont[] = ['default', 'atkinson', 'opendyslexic']
 const MOTIONS: Motion[] = ['system', 'reduce', 'full']
@@ -30,6 +31,7 @@ export function cleanLook(value: unknown): DeviceLook {
     fontEverywhere: saved.fontEverywhere === true,
     motion: MOTIONS.includes(saved.motion as Motion) ? saved.motion as Motion : DEFAULT_LOOK.motion,
     layout: saved.layout === 'reader' ? 'reader' : 'classic',
+    stageArt: saved.stageArt !== false,
   }
 }
 

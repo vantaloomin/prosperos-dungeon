@@ -130,3 +130,25 @@ def test_someone_here_in_the_scene_can_be_pictured_before_the_record_has_met_the
     here = view['people'][0]['sheet']
     portrait = made(ask(client, 'portrait', here['key']))
     assert portrait['status'] == 'done' and f"Portrait of {here['name']}" in adapters['comfyui'].requests[0].prompt
+
+
+def test_the_stage_shows_the_places_picture_and_portraits_of_who_is_here(client, adapters):
+    from dungeon import story, story_clock
+    local_comfy(client)
+    assert ok(client.get('/api/story/art/stage')) == {'background': None, 'portraits': []}
+    with client.app.state.database.connect(write=True) as connection:
+        view = story.scene(connection, story_clock.now(connection, client.app.state.database.clock))
+        here = view['people'][0]['sheet']
+        connection.execute("INSERT INTO story_people (key, city_id, name, first_met_at, last_met_at, last_day, notes) "
+                           "VALUES (?, 'kingswood', ?, 'x', 'x', 'x', '[]')", (here['key'], here['name']))
+    ask(client, 'place')
+    ask(client, 'portrait', here['key'])
+    staged = ok(client.get('/api/story/art/stage'))
+    assert staged['background']['url'].endswith('/file')
+    assert [(item['key'], item['name']) for item in staged['portraits']] == [(here['key'], here['name'])]
+    # Live-state portraits: once their feelings change, passive art makes them again.
+    with client.app.state.database.connect(write=True) as connection:
+        assert not art.stale_portrait(connection, client.app.state.database, here['key'])
+        connection.execute('UPDATE story_people SET fear=4 WHERE key=?', (here['key'],))
+        assert art.stale_portrait(connection, client.app.state.database, here['key'])
+        assert art.wanted(connection, client.app.state.database, [here['key']]) == ('portrait', here['key'])
