@@ -195,7 +195,10 @@ def strike(connection, roll: dict, target: dict, items: list[dict], rng, lines: 
     bonus, dice, what, modifier = attack_bonus(found, weapon_of(items, roll['action']))
     natural = roll['natural']
     total = natural + bonus
-    critical, hit = natural == 20, natural != 1 and (natural == 20 or total >= target['ac'])
+    # A Champion crits on 19 or 18; a hit on a paralyzed or unconscious foe is a critical hit.
+    critical = natural >= srd52.critical_from(found)
+    hit = natural != 1 and (critical or total >= target['ac'])
+    critical = hit and (critical or (target.get('held') or {}).get('condition') in HELPLESS)
     band = 'critical_success' if critical else 'success' if hit else 'critical_failure' if natural == 1 else 'failure'
     record_roll(connection, roll, f'Attack ({what})', bonus, total, target['ac'], band)
     target['zone'] = 'engaged'
@@ -216,20 +219,29 @@ def spell_in(connection, roll: dict) -> dict | None:
 
 
 def cast(connection, roll: dict, spell: dict, targets: list[dict], rng, lines: list[str]):
-    """A spell in a fight: healing already healed; no slot left fizzles; a damaging spell hits a foe."""
+    """A spell in a fight: healing already healed; no slot left fizzles; a damaging spell hits a foe, one that lays a
+    condition on a failed save lays it, Magic Missile's darts always hit."""
     if 'no spell slot' in (roll.get('skill') or ''):
         lines.append(f"The player's character reaches for {spell['name']}, but has no spell slot left.")
         return
     if srd52.healing_of(spell):
         lines.append(f"The player's character casts {spell['name']}: {roll['skill'].split('(')[-1].rstrip(')')}.")
         return
-    damage = srd52.damage_of(spell)
-    if damage is None or not targets:
+    slot = srd52.slot_of(roll.get('skill')) or spell['level']
+    damage, condition = srd52.damage_of(spell), condition_of(spell)
+    if not targets or (damage is None and spell['id'] not in DARTS and not condition):
         lines.append(f"The player's character casts {spell['name']}.")
         return
     target = next((foe for foe in targets if foe['name'].lower() in roll['action'].lower()), targets[0])
     found = sheet.native(connection)
-    dice = srd52.cantrip_dice(damage[0], found['level']) if spell['level'] == 0 else damage[0]
+    if spell['id'] in DARTS:
+        darts(spell, slot, target, rng, lines)
+        return
+    if damage is None:
+        lay(connection, roll, spell, condition, target, found, rng, lines)
+        return
+    dice = srd52.cantrip_dice(damage[0], found['level']) if spell['level'] == 0 else \
+        srd52.scaled(damage[0], spell, slot)
     if spell.get('attack'):
         natural, bonus = roll['natural'], srd52.spell_bonus(found)
         critical, hit = natural == 20, natural != 1 and (natural == 20 or natural + bonus >= target['ac'])
@@ -246,7 +258,9 @@ def cast(connection, roll: dict, spell: dict, targets: list[dict], rng, lines: l
         record_roll(connection, roll, f"{spell['name']} ({target['name']}'s {srd52.ABILITY_NAMES[ability]} save, DC "
                     f"{dc})", save, natural + save, dc, 'success' if failed else 'failure', natural)
         rolled = max(1, roll_dice(dice, rng))
-        dealt = rolled if failed else 0 if spell['level'] == 0 else rolled // 2
+        # An Evoker's Potent Cantrip deals half on a save, as a levelled spell does.
+        halved = spell['level'] > 0 or srd52.has(found, 'Potent Cantrip')
+        dealt = rolled if failed else rolled // 2 if halved else 0
     target['zone'] = 'engaged' if not spell.get('attack') or 'melee' in spell['attack'] else target['zone']
     if not dealt:
         lines.append(f"The player's character casts {spell['name']} at {target['name']}, and it does no harm.")
@@ -255,6 +269,69 @@ def cast(connection, roll: dict, spell: dict, targets: list[dict], rng, lines: l
     word = 'down, dead' if target['hp'] <= 0 else describe(target)
     lines.append(f"The player's character casts {spell['name']} at {target['name']}: {dealt} {damage[1]} damage, "
                  f"now {word}.")
+
+
+# Conditions a failed save lays on a foe, the gravest first: the helpless can't act and may save again each round;
+# the charmed stop fighting and the frightened flee; the restrained and blinded attack with disadvantage.
+CONDITIONS = ('Paralyzed', 'Unconscious', 'Incapacitated', 'Charmed', 'Frightened', 'Restrained', 'Blinded')
+HELPLESS = ('Paralyzed', 'Unconscious', 'Incapacitated')
+HAMPERED = ('Restrained', 'Blinded')
+# Spells whose darts always hit: how many at the spell's own level (one more a slot level above).
+DARTS = {'magic-missile': 3}
+
+
+def condition_of(spell: dict) -> str | None:
+    if not spell.get('saving_throws'):
+        return None
+    return next((name for name in CONDITIONS if f'{name} condition' in spell['description']), None)
+
+
+def darts(spell: dict, slot: int, target: dict, rng, lines: list[str]):
+    count = DARTS[spell['id']] + slot - spell['level']
+    dealt = sum(rng.randint(1, 4) + 1 for _ in range(count))
+    hurt(target, dealt)
+    word = 'down, dead' if target['hp'] <= 0 else describe(target)
+    lines.append(f"The player's character casts {spell['name']}: {count} darts strike {target['name']} for {dealt} "
+                 f"force damage, now {word}.")
+
+
+def lay(connection, roll: dict, spell: dict, condition: str, target: dict, found: dict, rng, lines: list[str]):
+    """A spell that lays a condition: the foe's save against the spell save DC; a failure takes it."""
+    ability = spell['saving_throws'][0]
+    save = monsters()[target['monster']]['abilities'][ability]['save']
+    natural, dc = rng.randint(1, 20), srd52.spell_dc(found)
+    failed = natural + save < dc
+    record_roll(connection, roll, f"{spell['name']} ({target['name']}'s {srd52.ABILITY_NAMES[ability]} save, DC "
+                f"{dc})", save, natural + save, dc, 'success' if failed else 'failure', natural)
+    if not failed:
+        lines.append(f"The player's character casts {spell['name']} at {target['name']}, who resists it.")
+        return
+    said = condition.lower()
+    if condition in HELPLESS:
+        target['held'] = {'condition': condition, 'save': ability, 'dc': dc,
+                          'repeat': 'repeat' in spell['description']}
+        lines.append(f"The player's character casts {spell['name']} at {target['name']}: {said}, they can't act.")
+    elif condition in HAMPERED:
+        target['hampered'] = condition
+        lines.append(f"The player's character casts {spell['name']} at {target['name']}: {said}, their attacks "
+                     'falter.')
+    else:
+        target['broken'] = True
+        what = 'they stop fighting' if condition == 'Charmed' else 'they flee'
+        lines.append(f"The player's character casts {spell['name']} at {target['name']}: {said}, {what}.")
+
+
+def held(foe: dict, rng, lines: list[str]) -> bool:
+    """A helpless foe loses its turn; one whose spell allows it saves again at the end of it."""
+    spell = foe.get('held')
+    if not spell:
+        return False
+    lines.append(f"{foe['name'].capitalize()} is {spell['condition'].lower()} and can't act.")
+    if spell['repeat'] and rng.randint(1, 20) + monsters()[foe['monster']]['abilities'][spell['save']]['save'] \
+            >= spell['dc']:
+        foe.pop('held')
+        lines.append(f"{foe['name'].capitalize()} shakes it off.")
+    return True
 
 
 def record_roll(connection, roll: dict, skill: str, bonus: int, total: int, target: int, band: str,
@@ -313,9 +390,9 @@ def foes_attack(connection, state: dict, standing, guarded: bool, rng, lines: li
     found = sheet.native(connection)
     hp = found['hp']
     for foe in standing(state):
-        if ranges.close(foe, lines):
+        if held(foe, rng, lines) or ranges.close(foe, lines):
             continue
-        natural, _ = srd52.d20(rng, 'disadvantage' if guarded else '')
+        natural, _ = srd52.d20(rng, 'disadvantage' if guarded or foe.get('hampered') else '')
         if natural == 1 or (natural != 20 and natural + foe['attack']['bonus'] < found['ac']):
             lines.append(f"{foe['name'].capitalize()} attacks and misses.")
             continue

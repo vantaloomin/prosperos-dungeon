@@ -38,7 +38,7 @@ def test_a_made_5e_character_takes_the_array_the_background_and_the_class(client
     ok(start(client, persona={'name': 'Brann'}, ruleset='srd52', build=made()))
     view = ok(client.get('/api/story/sheet'))
     assert view['ruleset'] == 'srd52' and view['names'] == {'class': 'Fighter', 'species': 'Dwarf',
-                                                           'background': 'Soldier'}
+                                                           'background': 'Soldier', 'subclass': None}
     # Soldier raises the best of Str, Dex and Con by 2 and the next by 1.
     assert view['abilities'] == {'str': 17, 'con': 15, 'dex': 13, 'wis': 12, 'int': 10, 'cha': 8}
     assert (view['level'], view['proficiency'], view['max_hp'], view['ac']) == (1, 2, 12, 16)  # Chain Mail
@@ -62,7 +62,7 @@ def test_a_5e_build_must_be_one_the_rules_allow(client, build, detail):
 def test_a_premade_plays_under_5e_with_its_own_build(client):
     ok(start(client, premade_id='lirien-of-the-ford', ruleset='srd52'))
     view = ok(client.get('/api/story/sheet'))
-    assert view['names'] == {'class': 'Rogue', 'species': 'Elf', 'background': 'Criminal'}
+    assert view['names'] == {'class': 'Rogue', 'species': 'Elf', 'background': 'Criminal', 'subclass': None}
     assert view['abilities']['dex'] == 17 and 'stealth' in view['skills']
 
 

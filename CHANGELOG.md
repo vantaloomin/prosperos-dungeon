@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **5E subclasses and spells.** At level 3 every class takes its SRD subclass (Champion, Life Domain, Evoker and
+  the rest), with its features and always-prepared spells. A few of them work in fights: a Champion crits on a 19,
+  and Disciple of Life heals more. You can cast at a higher level ("Cure Wounds at 2nd level") for bigger dice.
+  Magic Missile always hits. Hold Person, Sleep, Charm Person and other condition spells now take foes out of the
+  fight or hamper them.
 - **Real-time worlds.** Havenbrooke now keeps living while the app is closed: come back tomorrow and a day has
   passed, with deadlines, factions and classes moving on, and the story opens on what changed. Any campaign can pick
   story time or real time with the new World clock setting in Tone and rules.

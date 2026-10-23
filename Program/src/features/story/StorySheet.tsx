@@ -120,7 +120,7 @@ function Marvel({ sheet }: { sheet: MarvelSheet }) {
 function Srd52({ sheet }: { sheet: Srd52Sheet }) {
   const skills = Object.entries(sheet.skill_bonuses)
   return <>
-    <p><strong>Level {sheet.level} {sheet.names.species} {sheet.names.class}</strong> <span className="subtle">({sheet.names.background})</span></p>
+    <p><strong>Level {sheet.level} {sheet.names.species} {sheet.names.class}{sheet.names.subclass ? `, ${sheet.names.subclass}` : ''}</strong> <span className="subtle">({sheet.names.background})</span></p>
     <p className="subtle">{xpLine(sheet.level, sheet.xp, sheet.next_xp)}</p>
     <p>Hit points {sheet.hp} of {sheet.max_hp} · Armor Class {sheet.ac} · Speed {sheet.speed} ft. · Proficiency {signed(sheet.proficiency)}</p>
     <ul className="story-abilities" aria-label="Abilities">
