@@ -206,6 +206,8 @@ class TableUpdate(Input):
     length: Literal['short', 'medium', 'long'] | None = None
     # Whether shopkeepers have finite cash (dungeon/inventory.py).
     shop_cash: Literal['finite', 'unlimited'] | None = None
+    # Whether carrying is limited by slots (dungeon/inventory.py).
+    carry_limit: Literal['slots', 'off'] | None = None
 
 
 class IronswornBuild(Input):

@@ -8,7 +8,7 @@ starting stock, and the kit each premade starts with.
 
 - Money is kept in hundredths of the currency, so sums never drift.
 - Carrying is counted in slots: a knife takes a quarter, a sword one. The character carries 5 plus half their
-  Vitality.
+  Vitality, unless the Table's `carry_limit` is 'off'.
 - A shop is open while one of its staff is at work (the townsfolk rules). Its stock is finite: what the player
   buys is gone. It buys what it deals in at its sell rate (half the base price).
 - Buying and selling happen on the shop window or in the story ("I buy two loaves"); each trade is logged and
@@ -104,7 +104,14 @@ def carried(connection, city_id: str) -> list[dict]:
     return result
 
 
+# What "no limit" carries when the Table turns carrying limits off.
+UNLIMITED = 9999
+
+
 def capacity(connection) -> float:
+    """Carry slots: 5 plus half the Vitality, unless the Table turns carrying limits off."""
+    if table.rule(connection, 'carry_limit') == 'off':
+        return UNLIMITED
     return BASE_SLOTS + sheet_stats(connection).get('Vitality', 10) / 2
 
 

@@ -13,7 +13,7 @@ from dungeon.database import RENAMED_TABLES, identifier, many, one, optional
 from dungeon.errors import require
 
 SAVED = ('story_scene', 'story_people', 'character_stats', 'record_entries', 'story_summary',
-         'story_clock', 'story_quests', 'story_inventory', 'story_purse', 'story_stock', 'story_shops', 'story_markets', 'story_services', 'story_trades',
+         'story_clock', 'story_quests', 'story_inventory', 'story_purse', 'story_stock', 'story_shops', 'story_markets', 'story_services', 'story_appearance', 'story_trades',
          'story_wounds', 'story_fight', 'story_haggles', 'story_finds', 'story_map', 'story_hexes', 'story_sites', 'story_lots', 'story_position',
          'story_injuries', 'story_stress', 'story_cards',
          'story_clocks', 'story_reputation', 'story_fates', 'story_beats', 'story_word', 'story_offpage',

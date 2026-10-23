@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
 import type { Gear, Shop } from '../../types'
 import { Notice } from '../../components/Feedback'
-import { gearLine, haggleText, moneyText, slotsText } from './storyText'
+import { gearLine, haggleText, looksText, moneyText, slotsText } from './storyText'
 import { EntityName } from './EntityCard'
 
 const GEAR_KEY = ['story-gear']
@@ -23,6 +23,7 @@ export function StoryGear({ onTrade, open }: { onTrade: () => void; open?: boole
   return (<>
     <details className="story-people" open={open}>
       <summary>Your pack ({moneyText(coins, currency)} · {slotsText(slots)})</summary>
+      {gear.data.looks && <p className="subtle">How you look: {looksText(gear.data.looks)}</p>}
       <ul aria-label="Your pack">
         {items.map((item) => <li key={item.id}>
           <p><EntityName entity={{ kind: 'item', id: item.id }}>{gearLine(item)}</EntityName></p>

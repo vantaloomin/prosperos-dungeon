@@ -363,6 +363,26 @@
    "rarity": "common",
    "legal": true,
    "service": "guide"
+  },
+  {
+   "id": "laundry",
+   "name": "Laundry, washed and pressed",
+   "category": "service",
+   "price": 0.1,
+   "slots": 0,
+   "rarity": "common",
+   "legal": true,
+   "service": "laundry"
+  },
+  {
+   "id": "mending",
+   "name": "Mending, a tear sewn",
+   "category": "service",
+   "price": 0.15,
+   "slots": 0,
+   "rarity": "common",
+   "legal": true,
+   "service": "mending"
   }
  ],
  "shops": [
@@ -437,7 +457,9 @@
     "hot-meal": 20,
     "hot-bath": 4,
     "stabling": 4,
-    "heartwood-guide": 1
+    "heartwood-guide": 1,
+    "laundry": 4,
+    "mending": 3
    }
   },
   {
