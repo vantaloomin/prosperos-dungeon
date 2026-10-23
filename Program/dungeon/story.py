@@ -582,9 +582,10 @@ def place_words(text: str) -> set[str]:
     return set(re.findall(r'[a-z]+', text.lower())) - PLACE_FILLER
 
 
-def walked_to(connection, text: str) -> dict | None:
+def walked_to(connection, text: str, clock=None) -> dict | None:
     """A place in this town the player's line goes to by name or kind ("I go to the shrine", "I sleep at the
-    bunkhouses"), with its city id; none when the words fit no place, or two equally, or there is a fight on."""
+    bunkhouses"), or the room of their next class ("I head to my first class"), with its city id; none when the
+    words fit no place, or two equally, or there is a fight on."""
     if combat.fight(connection) is not None or combat.captors(connection):
         return None
     row = scene_row(connection)
@@ -601,6 +602,10 @@ def walked_to(connection, text: str) -> dict | None:
         top = [place for hits, place in scored if hits == best]
         if best and len(top) == 1:
             return None if top[0]['id'] == row['place_id'] else top[0] | {'city_id': data['id']}
+    if spans and clock is not None and (room := institutions.class_place(
+            connection, data['id'], ' '.join(spans), story_clock.now(connection, clock))):
+        found = catalog.find(data, room)
+        return None if room == row['place_id'] or found is None else found | {'city_id': data['id']}
     return None
 
 
@@ -1298,7 +1303,7 @@ def received(database, text: str, client_id: str) -> tuple[dict, dict | None]:
             require(not growth.lost(connection), f'Your character is lost to {growth.lost(connection)}.' + after, 409)
             user = add(connection, database.now(), 'user', text, scene_row(connection), client_id=client_id)
             timeline.save(connection, user['id'])
-            walked = None if in_character.out_of_character(text) else walked_to(connection, text)
+            walked = None if in_character.out_of_character(text) else walked_to(connection, text, database.clock)
             if walked and (walked['city_id'], walked['id']) != (user['city_id'], user['place_id']):
                 # A line that goes somewhere opens the chapter there.
                 chapters.mark(connection, 'place')

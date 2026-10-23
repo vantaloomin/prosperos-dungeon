@@ -48,3 +48,12 @@ def test_a_trip_goes_by_car_or_bus_and_eats_nothing_from_the_pack(client, connec
     assert 'from Haven to Ithaca by car or bus on Route 34B along the lake: 42 minutes on the road' in journey
     assert 'hungry' not in journey and 'on foot' not in journey
     assert travel.duration(1) == 'an hour' and travel.duration(4.5) == '4.5 hours'
+
+
+def test_heading_to_class_goes_to_the_room_so_the_class_is_attended(client, connected, provider, app):
+    # Playtest m6a: "I head to my first class" left the lead at home, and the class was missed.
+    begin(client)
+    first = next(item for item in ok(client.get('/api/story/journal'))['institutions'][0]['today'] if item['place_id'])
+    reply(provider)
+    tell(client, 'I check my schedule and head to my first class of the day.', 'story-0001')
+    assert ok(client.get('/api/story'))['scene']['place']['id'] == first['place_id']

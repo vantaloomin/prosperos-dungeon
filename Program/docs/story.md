@@ -684,7 +684,9 @@ demands, attendance_weight).
 - **Terms** run once on set dates (`start`, `end`) or every year (`from`, `to` as month-day). **Classes** meet on
   their `days` at `start` during a term. When the story clock passes a class's start, the character attended if the
   scene is at its `place_id` (anywhere in the institution's town when it names none); otherwise it is missed and
-  the record keeps it (`story_attendance`). A long sleep or journey checks at most three weeks.
+  the record keeps it (`story_attendance`). A long sleep or journey checks at most three weeks. A line that heads
+  to class ("I head to my first class") moves the story to the room of the next class today, up to half an hour
+  late (`institutions.class_place`).
 - **Demands are quests** (job quests with `institution`, `demand` and `weight` set, shown as Coursework).
   `every_days` demands open each period and are due `due_days` later; `week` demands (exams) are due that many
   weeks into the term and open `notice_days` (7) before. Each opens once (`demand` is `id@when`). The Continuity

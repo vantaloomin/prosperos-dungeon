@@ -119,3 +119,14 @@ def test_passive_art_pictures_the_place_after_a_turn_once_and_stops_at_the_cap(c
         connection.execute('DELETE FROM story_art')
     tell(client, 'I wait some more.', 'art-0004')
     assert ok(client.get('/api/story/art'))['art'] == []
+
+
+def test_someone_here_in_the_scene_can_be_pictured_before_the_record_has_met_them(client, adapters):
+    # Playtest m6a: the first person in the scene was refused as not met.
+    from dungeon import story, story_clock
+    local_comfy(client)
+    with client.app.state.database.connect() as connection:
+        view = story.scene(connection, story_clock.now(connection, client.app.state.database.clock))
+    here = view['people'][0]['sheet']
+    portrait = made(ask(client, 'portrait', here['key']))
+    assert portrait['status'] == 'done' and f"Portrait of {here['name']}" in adapters['comfyui'].requests[0].prompt
