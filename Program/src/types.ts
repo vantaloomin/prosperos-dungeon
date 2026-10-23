@@ -311,7 +311,7 @@ export interface StoryPerson {
   feelings: string
 }
 /** The character's purse and pack, and the shop window where the story is (dungeon/inventory.py). Money is in hundredths. */
-export interface GearItem { id: string; item_id: string; name: string; category: string; qty: number; slots: number; stolen?: boolean }
+export interface GearItem { id: string; item_id: string; name: string; category: string; qty: number; slots: number; stolen?: boolean; condition?: 'sound' | 'damaged' | 'broken' }
 export interface ShopRow { item_id: string; name: string; category: string; price: number; qty: number; slots: number }
 /** `haggled`: today's prices after a haggle, in percent off (negative) or on; 0 without one. */
 /** `fence`: buys stolen goods; `cash`: what the keeper has to buy with (null: unlimited); `market`: prices moved by events. */

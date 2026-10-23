@@ -22,6 +22,10 @@ Under 5E the same fight runs on hit points, Armor Class and SRD stat blocks (dun
 on health, harm, initiative and progress tracks (dungeon/combat_iron.py); under BRP on skills, the Attack and Defense
 Matrix, hit points and major wounds (dungeon/combat_brp.py).
 
+Gear wears: an attack that fails critically damages the weapon swung (dungeon/inventory.py wear), and a damaged weapon
+hits a step softer. A fight won leaves its fallen foes' bodies where it was fought, with what they carried (coins, their
+weapon) for the character to search (dungeon/finds.py spoils); a beast carries nothing.
+
 Each round is decided once, kept with the player's line (story_rounds), and retold the same way. The fight and the
 character's wounds are game state, branched with the story (dungeon/timeline.py SAVED).
 """
@@ -29,7 +33,7 @@ import json
 import random
 import re
 
-from dungeon import combat5e, combat_brp, combat_iron, record, referee, sheet, timeline
+from dungeon import combat5e, combat_brp, combat_iron, inventory, record, referee, sheet, timeline
 from dungeon import table as campaign_table
 from dungeon.database import encode, identifier, optional
 from dungeon.rules import marvel
@@ -239,6 +243,7 @@ def foes_from(spec: dict, zone: str = 'near') -> list[dict]:
     return [{'id': f"{spec['name']}-{n}", 'name': spec['name'] if count == 1 else f"{spec['name']} {n + 1}",
              'vitality': spec.get('vitality', 10), 'resolve': spec.get('resolve', 10), 'weapon': spec.get('weapon', 0),
              'wound': 0, 'zone': zone, 'broken': False} | ({'horror': True} if spec.get('horror') else {})
+            | {key: spec[key] for key in ('beast', 'carries') if key in spec}
             for n in range(count)]
 
 
@@ -275,8 +280,29 @@ def attack_on(people: list[dict], rolls: list[dict]) -> dict | None:
 
 
 def weapon_bonus(items: list[dict]) -> int:
-    held = [WEAPONS[row['item_id']] for row in items if row['item_id'] in WEAPONS]
+    """The best weapon carried: a damaged one a step softer, a broken one no weapon at all."""
+    held = [WEAPONS[row['item_id']] - (row.get('condition') == 'damaged') for row in items
+            if row['item_id'] in WEAPONS and row.get('condition') != 'broken']
     return max(held) if held else BARE_HANDS
+
+
+def swung(items: list[dict], action: str) -> dict | None:
+    """The weapon an attack swings: the one the line names, else the best carried."""
+    held = [row for row in items if row['item_id'] in WEAPONS and row.get('condition') != 'broken']
+    named = [row for row in held if any(re.search(rf'\b{re.escape(noun)}\b', action, re.I)
+                                        for noun in inventory.nouns(row))]
+    return max(named or held, key=lambda row: (WEAPONS[row['item_id']], row.get('condition') == 'sound'), default=None)
+
+
+def worn(connection, rolls: list[dict], state: dict, items: list[dict]) -> list[str]:
+    """An attack that fails critically damages the weapon swung, one step: sound to damaged, damaged to broken."""
+    if state.get('bare'):
+        return []
+    for roll in rolls:
+        if roll['band'] == 'critical_failure' and roll['stat'] == 'Vitality' and attacks(roll['action']) and \
+                (row := swung(items, roll['action'])) and (after := inventory.wear(connection, row['id'])):
+            return [f"The player's character's {row['name'].lower()} is {after} by the botched blow."]
+    return []
 
 
 def down(foe: dict) -> bool:
@@ -491,12 +517,13 @@ def saved_round(connection, message_id: str) -> list[str] | None:
 
 
 def turn(connection, message_id: str, people: list[dict], rolls: list[dict], start: dict | None, items: list[dict],
-         rng, now: str, aftermath=None) -> list[str]:
+         rng, now: str, aftermath=None, spoils=None) -> list[str]:
     """The fight's part of a turn, decided once: start a fight if one begins, play the round, and keep the lines.
     `aftermath(events)` deals with what the round did to the character, [(event, who)]: 'horror' when a fight with
     something dreadful starts, 'kill' when the character kills, 'fled' when a foe gets away from a fight the character
     won, 'maimed' when a hit calls for a lasting injury, and
-    the defeat table's outcome; it says what that left (dungeon/stress.py)."""
+    the defeat table's outcome; it says what that left (dungeon/stress.py). `spoils(foes, wants)` leaves the bodies of a
+    fight won, with what they carried (dungeon/finds.py)."""
     if (kept := saved_round(connection, message_id)) is not None:
         return kept
     rng = rng or random.SystemRandom()
@@ -509,7 +536,7 @@ def turn(connection, message_id: str, people: list[dict], rolls: list[dict], sta
     before = {foe['id']: foe['wound'] for foe in state['foes']}
     events = [('horror', foe['name']) for foe in state['foes'][:1] if foe.get('horror') and not state['round']]
     state, lines, ending = play_round(connection, state, rolls, items, rng)
-    lines = freed + lines
+    lines = freed + lines + worn(connection, rolls, state, items)
     events += [('kill', foe['name']) for foe in state['foes'] if foe['wound'] >= DYING > before[foe['id']]]
     # A foe who broke and got away alive (the story director may make a nemesis of them).
     events += [('fled', foe['name']) for foe in state['foes'] if ending == 'won' and foe['broken'] and not down(foe)]
@@ -517,6 +544,8 @@ def turn(connection, message_id: str, people: list[dict], rolls: list[dict], sta
         ending = fall(connection, state, rng, now, lines, events)
     if ending == 'won' and fifth(connection):
         lines += combat5e.gain(connection, combat5e.fight_xp(state), 'the fight won', now)
+    if ending == 'won' and spoils:
+        lines += spoils([foe for foe in state['foes'] if down(foe)], state.get('wants', ''))
     if cause := maimed_by(state):
         events.append(('maimed', cause))
     for card in state.pop('cards', []):

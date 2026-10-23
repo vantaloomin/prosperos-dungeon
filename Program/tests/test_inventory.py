@@ -303,6 +303,6 @@ def test_lodging_and_meals_stay_within_ordinary_means():
             assert min(common) + min(meals) <= low, city_id
         for entry in services:
             assert entry['slots'] == 0 and entry['service'] in ('lodging', 'meal', 'drink', 'bath', 'stabling', 'guide',
-                                                                'laundry', 'mending')
+                                                                'laundry', 'mending', 'repair')
             if entry.get('tier') == 'private':
                 assert entry['price'] <= high * 2, (city_id, entry['id'])

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Wear, repair and the spoils of a fight.** A botched attack can damage your weapon, and a damaged one hits softer;
+  shops pay less for worn goods. The Blackwood smithy in Kingswood sells blades and tools and mends what you carry
+  ("I have the smith mend my sword"). Win a fight and the fallen lie where they fell: search the body for their purse
+  and their weapon. Wolves carry nothing.
 - **How you look.** The road, a fight, a day's work or a night with someone leaves its mark: you get grimy, bloody,
   your clothes tear. Wash, take a bath at the Wayhouse, or have your clothes laundered and mended. Take off your
   cloak and the game remembers where you left it. The narrator describes you the same way every turn, and people
