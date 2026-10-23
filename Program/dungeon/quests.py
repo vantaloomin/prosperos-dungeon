@@ -219,21 +219,38 @@ def oaths(answer: str) -> list[dict]:
 def swear(connection, city_id: str, oath: dict, now: datetime) -> str:
     """An oath kept as a quest, with its deadline on the story clock."""
     to = oath['to'] or 'someone'
-    return create(connection, 'oath', city_id, f'An oath to {to}', oath['text'],
-                  f"The player's character swore it to {to}. Keeping it, or not, will be remembered.",
-                  f'The oath to {to} was broken. {to} remembers.',
-                  (now + timedelta(days=oath['days'])).isoformat(), giver=to,
-                  ties=[{'kind': 'npc', 'ref': to}])
+    # An iron vow (dungeon/sworn.py iron_vow) is sworn to no one but the character, and has no deadline.
+    title = oath.get('title') or f'An oath to {to}'
+    due = (now + timedelta(days=oath['days'])).isoformat() if oath.get('days') else None
+    quest_id = create(connection, 'oath', city_id, title, oath['text'],
+                      f"The player's character swore it to {to}. Keeping it, or not, will be remembered.",
+                      f'The oath to {to} was broken. {to} remembers.', due, giver=oath['to'] or None,
+                      ties=[{'kind': 'npc', 'ref': to}] if oath['to'] else [])
+    sworn.swore(connection, {'id': quest_id, 'title': title, 'kind': 'oath'})
+    return quest_id
+
+
+COMMON = {'their', 'about', 'other', 'oath', 'find', 'whoever', 'whatever', 'what', 'with', 'from', 'into', 'this',
+          'that', 'them', 'they', 'will', 'have', 'make', 'keep', 'stop', 'learn', 'some', 'over', 'back', 'down'}
+
+
+def stems(title: str) -> set[str]:
+    """A title's longer words, as a line names them: a plural names its singular too ("the saws", "the saw pit")."""
+    words = set(re.findall(r"[a-z][a-z'-]{3,}", title.lower())) - COMMON
+    return {word[:-1] if word.endswith('s') and not word.endswith('ss') else word for word in words}
+
+
+def says(text: str, words: set[str]) -> int:
+    said = text.lower()
+    return sum(re.search(rf'\b{re.escape(word)}', said) is not None for word in words)
 
 
 def named(connection, text: str) -> dict | None:
     """The open quest the character knows of that a line names: at least half of its title's longer words ("the
     Heartwood contract")."""
-    said = text.lower()
     for quest in (row for row in rows(connection, 'open') if row['known']):
-        words = set(re.findall(r"[a-z][a-z'-]{4,}", quest['title'].lower())) - {'their', 'about', 'other'}
-        if words and sum(re.search(rf'\b{re.escape(word)}', said) is not None for word in words) >= \
-                max(1, math.ceil(len(words) / 2)):
+        words = stems(quest['title'])
+        if words and says(text, words) >= max(1, math.ceil(len(words) / 2)):
             return quest
     return None
 
@@ -246,6 +263,7 @@ def vow(connection, city_id: str, text: str, oath: dict, now: datetime) -> str:
         return swear(connection, city_id, oath, now)
     record.add(connection, 'fact', "the player's character", f"Swore to see {quest['title']} through: {oath['text']}",
                now.isoformat())
+    sworn.swore(connection, quest)
     return quest['id']
 
 

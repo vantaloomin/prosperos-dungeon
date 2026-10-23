@@ -7,7 +7,7 @@ fights from ("the stairs", "the bar"):
 - The character's blow reaches a near foe (and engages it) but not a far one: the line closes to near instead. A
   shot or a throw reaches any band and leaves the target where it is.
 - A line that backs off ("I fall back to the stairs", "I step back out of reach") and lands its roll breaks away from
-  every engaged foe, who must close again; one that names a place to go moves the fight's area there. A move to a
+  every engaged foe, who must close again (not in the same round: a foe shaken off loses its turn); one that names a place to go moves the fight's area there. A move to a
   place this way is not an escape: running away is (dungeon/combat.py FLEE).
 """
 import re
@@ -40,6 +40,10 @@ def close(foe: dict, lines: list[str]) -> bool:
     """A foe's move at range: True when it spends the turn closing a band, False when it can attack (engaged, or
     a ranged foe shooting from where it stands)."""
     zone = foe.get('zone', 'engaged')
+    if foe.pop('shaken', False) and zone != 'engaged':
+        # Shaken off this round (break_away): it gathers itself and closes again next round.
+        lines.append(f"{foe['name'].capitalize()} is left behind for now.")
+        return True
     if zone == 'engaged' or foe.get('ranged'):
         return False
     foe['zone'] = BANDS[BANDS.index(zone) - 1]
@@ -63,7 +67,7 @@ def break_away(state: dict, action: str, landed: bool, lines: list[str]):
         return
     for foe in state['foes']:
         if foe.get('zone') == 'engaged':
-            foe['zone'] = 'near'
+            foe |= {'zone': 'near', 'shaken': True}
     if moved := area(action):
         state['area'] = moved
     where = f" to {state['area']}" if moved else ''

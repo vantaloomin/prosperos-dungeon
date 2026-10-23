@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Vows and stress playtest fixes.** Breaking away to the stairs now buys you a round: the foes you shook off stay
+  back until next round, and the fight remembers where you are. "I swear an iron vow to …" now makes a vow with a
+  track on your sheet, lines that name it mark progress, and "The vow is done" fulfils it. Oaths sworn to people
+  show as vow tracks too. A critical hit that only leaves you Hurt no longer costs you an eye. Trying to sleep in
+  a fight no longer rolls, and "I sleep until morning" sleeps to the next morning (or says it's morning already).
+  Starting a campaign no longer locks the database on the first screen load.
 - **Magic under Percentile.** Wizards and priests now start as magicians with four spells, each a skill fuelled by
   power points. "I cast Blast 2 at the thug" rolls the spell at that level. In fights, Blast, Fire, Frost and
   Lightning do damage, Protection and Sharpen help you, Dull hampers your foes, and Control can stop one. Heal

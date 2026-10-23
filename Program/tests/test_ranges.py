@@ -73,9 +73,15 @@ def test_falling_back_to_the_stairs_breaks_away_and_the_narrator_hears_where(app
         state, lines, ending = combat.play_round(connection, state, [roll('I fall back to the stairs.')], [], Dice(80))
         assert ending == '' and lines[0] == ("The player's character breaks away to the stairs: the foes must close "
                                              'again.')
-        assert lines[1] == 'The bandit closes in.' and state['area'] == 'the stairs'
+        # Shaken off, the bandit loses this round's turn and stays near; the area outlasts the line.
+        assert lines[1] == 'The bandit is left behind for now.' and state['area'] == 'the stairs'
         assert ranges.positions(state, combat.standing(state)) == ("The player's character is at the stairs. Ranges: "
-                                                                    'the bandit: engaged.')
+                                                                    'the bandit: near.')
+        combat.save_fight(connection, state)
+        state = combat.fight(connection)
+        assert state['area'] == 'the stairs'
+        state, lines, _ = combat.play_round(connection, state, [roll('I wait for him.')], [], Dice(80))
+        assert 'The bandit closes in.' in lines and state['area'] == 'the stairs'
         failed = {'round': 0, 'wants': 'kill', 'foes': [foe(resolve=100)]}
         _, lines, _ = combat.play_round(connection, failed, [roll('I fall back to the stairs.', 'failure')], [],
                                         Dice(80))
@@ -91,3 +97,32 @@ def test_the_heartwood_wardens_shoot_from_the_trees(app, client):
         assert all(item['zone'] == 'far' and item['ranged'] for item in state['foes'])
         _, lines, _ = combat.play_round(connection, state, [], [], Dice(80))
         assert all('hits the player' in line for line in lines)
+
+
+def test_bedding_down_mid_fight_is_no_feat_to_roll(app, client, connected, provider, monkeypatch):
+    # E2E vows pass: "I sleep until morning" mid-fight was rolled as an action against Great.
+    from conftest import tell
+    from test_rulesets import reply
+
+    from dungeon import record, referee
+    begin(client)
+    with app.state.database.connect(write=True) as connection:
+        combat.save_fight(connection, {'round': 0, 'wants': 'drive_off', 'foes': [foe(zone='far', resolve=100)]})
+
+    async def a_feat(*_):
+        return [{'action': 'I sleep until morning', 'stat': 'Resolve', 'difficulty': 'hard'}]
+    monkeypatch.setattr(referee, 'decide', a_feat)
+    client.put('/api/settings', json={'show_odds': True})
+    provider.respond = lambda system, messages: reply(
+        '{"facts": []}' if system.startswith(record.EXTRACT) else 'No sleep.')
+    tell(client, 'I sleep until morning.', 'story-0001')
+    asked = [message for message in client.get('/api/story').json()['messages'] if message['role'] == 'user'][-1]
+    assert asked['text'] == 'I sleep until morning.' and not asked.get('rolls')
+
+
+def test_a_new_campaign_has_its_world_seed_before_anything_reads_it(app, client):
+    # E2E vows pass: the first GET /api/story wrote the seed (townmap.street) while the start still held the lock.
+    begin(client)
+    with app.state.database.connect() as connection:
+        from dungeon.database import optional
+        assert optional(connection, 'SELECT seed FROM story_campaign WHERE id=1')['seed']

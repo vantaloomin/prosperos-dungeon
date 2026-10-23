@@ -995,6 +995,10 @@ def rest_turn(state, user: dict, rolls: list[dict]) -> list[str]:
 def slept(database, connection, resting: dict, rolls: list[dict], message_id: str, rng=None) -> list[str]:
     if resting.get('fighting'):
         return ["The player's character cannot rest with a fight on their hands."]
+    row = scene_row(connection)
+    local = local_moment(city_data(connection, row['city_id']), story_clock.now(connection, database.clock))
+    if resting.get('morning') and resting['nights'] == 1 and rest.awake(local):
+        return ["It is morning already: the player's character is not tired enough to sleep, and no time passes."]
     nights, lost, cut_short, happened = rest.night(resting, rolls)
     if resting.get('outside') and not cut_short:
         drawn, _ = life_card(database, connection, 'rest', message_id)
@@ -1005,8 +1009,6 @@ def slept(database, connection, resting: dict, rolls: list[dict], message_id: st
     hungry = 0
     if resting.get('outside') and nights > 1:
         _, hungry = travel.eat(connection, resting['food'], nights - 1)
-    row = scene_row(connection)
-    local = local_moment(city_data(connection, row['city_id']), story_clock.now(connection, database.clock))
     # A bed paid for here tonight (dungeon/inventory.py services): the narrator plays it, and a private room's quiet
     # eases one more point of stress. Before dawn, last evening's bed still counts.
     nights_of = [local.date()] + ([local.date() - timedelta(days=1)] if local.hour < rest.WAKE_HOUR else [])
@@ -1216,15 +1218,16 @@ def bond_turn(state, user: dict) -> list[str]:
 
 
 def vow_turn(state, user: dict, rolls: list[dict]) -> list[str]:
-    """Under Ironsworn, a landed roll on a line that pursues an open vow reaches a milestone (dungeon/sworn.py), once
-    for the line."""
+    """Under Ironsworn, a line's vow moves (dungeon/sworn.py declared): a vow sworn, a milestone on one it pursues
+    with a landed roll, or one fulfilled; once for the line."""
     database = state.database
     with database.connect(write=True) as connection:
         kept = optional(connection, "SELECT lines FROM story_cards WHERE message_id=? AND scene='vow'", (user['id'],))
         if kept:
             return decode(kept['lines'])
-        day = story_clock.now(connection, database.clock).date()
-        lines = sworn.pursued(connection, user['text'], rolls, day.isoformat())
+        now = story_clock.now(connection, database.clock)
+        day = now.date()
+        lines = sworn.declared(connection, user['city_id'], user['text'], rolls, day.isoformat(), now)
         if lines:
             happenings.keep(connection, user['id'], 'vow', day, None, lines)
         return lines
@@ -1320,7 +1323,9 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
     obvious = pace.obvious(user['text']) and not fighting
     # A journey's dangers and bearings are rolled by the journey (dungeon/travel.py): walking itself is no feat, and
     # "I strike out north-east" is no attack.
-    actions = [] if journeying else await referee.decide(
+    # Nor is bedding down mid-fight a feat to roll: the rest is refused (dungeon/rest.py) and the foes come on.
+    sleeping = fighting and rest.resting(user['text'])
+    actions = [] if journeying or sleeping else await referee.decide(
         state, user['text'], None if obvious else splitter, None if obvious else decisions, foes)
     steps.timed('referee', since)
     if not held and (hazard := quests.danger_action(user['city_id'], user['place_id'], getattr(state, 'dice', None))):

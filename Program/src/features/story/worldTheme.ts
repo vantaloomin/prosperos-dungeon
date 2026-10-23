@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { paletteReadability, paletteStyles, type Palette } from '../settings/palette.ts'
+import { paletteReadability, paletteStyle, type Palette } from '../settings/palette.ts'
 
 /** The colors the story's world ships (dungeon/world_theme.py): Vallarith's ember, Havenbrooke's autumn quad. */
 export interface WorldTheme { world: string | null; theme: { name: string; palette: Palette } | null }
@@ -9,6 +9,5 @@ export interface WorldTheme { world: string | null; theme: { name: string; palet
 export function themeStyle(found: WorldTheme | undefined, on: boolean): CSSProperties | undefined {
   const palette = found?.theme?.palette
   if (!on || !palette || !paletteReadability(palette).valid) return undefined
-  const { 'color-scheme': scheme, ...variables } = paletteStyles(palette)
-  return { ...variables, colorScheme: scheme } as CSSProperties
+  return paletteStyle(palette)
 }

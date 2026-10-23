@@ -291,11 +291,12 @@ def save_fight(connection, state: dict | None):
         connection.execute('DELETE FROM story_fight')
         return
     # Whether the fight is bare-handed (hands) is kept with it, so "I hit him again" next line stays a punch.
-    connection.execute('INSERT INTO story_fight (id, round, wants, foes, initiative, bare) VALUES (1, ?, ?, ?, ?, ?) '
-                       'ON CONFLICT(id) DO UPDATE SET round=excluded.round, wants=excluded.wants, foes=excluded.foes, '
-                       'initiative=excluded.initiative, bare=excluded.bare',
+    connection.execute('INSERT INTO story_fight (id, round, wants, foes, initiative, bare, area) '
+                       'VALUES (1, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET round=excluded.round, '
+                       'wants=excluded.wants, foes=excluded.foes, initiative=excluded.initiative, bare=excluded.bare, '
+                       'area=excluded.area',
                        (state['round'], state['wants'], json.dumps(state['foes']), state.get('initiative'),
-                        int(bool(state.get('bare')))))
+                        int(bool(state.get('bare'))), state.get('area')))
 
 
 def foes_from(spec: dict, zone: str = 'near') -> list[dict]:
@@ -530,8 +531,9 @@ def foes_move(connection, state: dict, guarded: bool, rng, lines: list[str], fre
         band = marvel.roll(foe['vitality'], ('normal', 'hard', 'very_hard')[steps], rng)['band']
         if band in SUCCESS:
             before, level = level, min(worst, level + blow(band, foe['weapon']))
-            # A maiming or a critical hit can leave a lasting injury (dungeon/injuries.py).
-            if band == 'critical_success' or before < DOWN <= level:
+            # A maiming, or a critical hit that leaves the character Wounded or worse, can leave a lasting injury
+            # (dungeon/injuries.py): a Hurt blow never maims.
+            if before < DOWN <= level or (band == 'critical_success' and level >= DOWN - 1):
                 state['hurt_by'] = foe['name']
             lines.append(f"{foe['name'].capitalize()} hits the player's character: now {LEVELS[level]}.")
         else:

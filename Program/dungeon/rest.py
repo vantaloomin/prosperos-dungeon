@@ -24,6 +24,7 @@ from dungeon.database import decode, encode, optional
 
 NIGHT_MINUTES = 8 * 60
 WAKE_HOUR = 7
+MORNING_ENDS = 12
 DAY_MINUTES = 24 * 60
 CUT_SHORT_MINUTES = 4 * 60
 MOST_NIGHTS = 30
@@ -153,15 +154,22 @@ def minutes(nights: int, cut_short: bool, local: datetime | None = None, morning
 def first_night(local: datetime | None, morning: bool = False) -> int:
     """A night's sleep runs to the next morning when it starts in the evening or the night (the morning 6 to 15 hours
     off), so bedding down at six wakes at dawn, not at two in the morning; otherwise eight hours. Asked to sleep
-    until morning (`morning`), the small hours wake with the morning too, an hour on at least."""
+    until morning (`morning`), it runs to the next morning from any hour (awake says when it is morning already)."""
     if local is None:
         return NIGHT_MINUTES
     wake = local.replace(hour=WAKE_HOUR, minute=0, second=0, microsecond=0)
     if wake <= local:
         wake += timedelta(days=1)
     gap = int((wake - local).total_seconds() // 60)
-    small_hours = morning and local.hour < WAKE_HOUR and gap >= 60
-    return gap if 6 * 60 <= gap <= 15 * 60 or small_hours else NIGHT_MINUTES
+    return gap if 6 * 60 <= gap <= 15 * 60 or morning else NIGHT_MINUTES
+
+
+def awake(local: datetime | None) -> bool:
+    """Whether it is morning already (or within the hour of it): sleeping until morning is no sleep at all."""
+    if local is None:
+        return False
+    wake = local.replace(hour=WAKE_HOUR, minute=0, second=0, microsecond=0)
+    return WAKE_HOUR <= local.hour < MORNING_ENDS or timedelta(0) <= wake - local < timedelta(hours=1)
 
 
 def opening(rest: dict) -> str:
