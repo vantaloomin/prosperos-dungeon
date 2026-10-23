@@ -315,11 +315,14 @@ def test_lost_out_in_the_wild_a_day_s_setting_out_can_bring_the_bearings_back(cl
 
 def test_a_search_that_goes_as_well_as_it_can_finds_the_nearest_site_close_by(app):
     board = hexes.Grid(vallarith(), 'fixed')
-    at = next(other for radius in range(3, 20) for other in hexes.ring(board.places['kingswood'], radius)
-              if board.cell(other)['terrain'] != 'water' and not board.site(other)
-              and any(board.site(near) for near in hexes.neighbours(*other)))
     with app.state.database.connect(write=True) as connection:
-        connection.execute("UPDATE story_campaign SET seed='fixed' WHERE id=1")
+        # No story started here: the campaign row may not exist yet, and without it the seed would be a new one.
+        connection.execute("INSERT INTO story_campaign (id, seed) VALUES (1, 'fixed') "
+                           "ON CONFLICT(id) DO UPDATE SET seed='fixed'")
+        levels = hexes.levels(connection)
+        at = next(other for radius in range(3, 20) for other in hexes.ring(board.places['kingswood'], radius)
+                  if board.cell(other)['terrain'] != 'water' and not board.site(other, levels)
+                  and any(board.site(near, levels) for near in hexes.neighbours(*other)))
         plan_ = {'from': 'the-wilds', 'start': list(at), 'search': {'hours': 2}}
         _, plain = travel.search(connection, plan_, [{'threat': travel.NOTHING, 'band': 'success'}])
         assert 'nothing hidden here' in plain[-1]
