@@ -684,10 +684,65 @@ def havenbrooke(play):
     play.journal()
 
 
+def tone(play):
+    """M6: per-category intensity, veils and the voice. Sex off the page, violence mature, torture veiled, a wry
+    voice; then a preset resets the categories but keeps the veils and the voice."""
+    play.start('agna-holt', table={'levels': {'sex': 0, 'violence': 2}, 'veils': ['torture'], 'voice': 'wry'})
+    rules = play.dungeon.call('GET', '/api/story/table')
+    play.write(f"- table: levels {rules.get('levels')}, veils {rules.get('veils')}, voice {rules.get('voice')}\n")
+    play.say('I flirt shamelessly with the keeper, and when she laughs I ask her to come upstairs with me tonight.')
+    play.say('We go up to my room together and I take her to bed.')
+    play.say('In the morning I catch a thief going through my pack and drag him out to the woodshed.')
+    play.say('I torture him for the name of whoever sent him, breaking his fingers one by one.')
+    play.say('I put my knife to his throat and finish it.')
+    play.attempt('Pick the Restrained preset', 'PUT', '/api/story/table', {'intensity': 'restrained'})
+    after = play.dungeon.call('GET', '/api/story/table')
+    play.write(f"- after the preset: levels {after.get('levels')}, veils {after.get('veils')}, "
+               f"voice {after.get('voice')}\n")
+    if after.get('levels'):
+        play.flag(f"The preset did not reset the categories: {after.get('levels')}")
+    if 'torture' not in (after.get('veils') or []) or after.get('voice') != 'wry':
+        play.flag('The preset dropped the veils or the voice.')
+
+
+def restrained_wounds(play):
+    """M6: violence at Restrained: a maiming never leaves a lost eye, a ruined hand or lost fingers."""
+    play.start('tobin-pell', table={'levels': {'violence': 1}})
+    play.move('the-heartwood')
+    for _ in range(20):
+        fighting = (play.story().get('fight') or {}).get('fight')
+        play.say('I hit the nearest one with my fist.' if fighting else 'I go deeper into the Heartwood.')
+        state = play.story().get('fight') or {}
+        if state.get('dead') or state.get('captors') or state.get('injuries'):
+            break
+    injuries = (play.story().get('fight') or {}).get('injuries') or []
+    play.write(f'- lasting injuries at Restrained: {injuries}\n')
+    if any(word in ' '.join(injuries) for word in ('eye', 'hand', 'finger')):
+        play.flag(f'Restrained violence still left a lost eye, ruined hand or lost fingers: {injuries}')
+
+
+def stage(play):
+    """M6: the stage without an image backend: no place picture and no portraits; a portrait of someone present
+    before they are met is still asked for (and refused for want of a backend)."""
+    play.start('agna-holt')
+    view = play.say('I take a stool at the bar and watch the keeper work.')
+    staged = play.attempt('Read the stage', 'GET', '/api/story/art/stage') or {}
+    play.write(f'- stage: {json.dumps(staged, ensure_ascii=False)[:400]}\n')
+    if staged.get('place') or staged.get('portraits'):
+        play.flag('The stage shows pictures with no image backend.')
+    around = (view or {}).get('scene', {}).get('around') or []
+    key = next((person.get('key') for person in around if isinstance(person, dict) and person.get('key')), '')
+    response = play.dungeon.http.post('/api/story/art', json={'kind': 'portrait', 'subject': key})
+    play.write(f'### A portrait of {key or "nobody"} before meeting them: {response.status_code} {response.text[:200]}\n')
+    if response.status_code == 404:
+        play.flag('A portrait of someone in the scene was refused because they are not met yet.')
+
+
 SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl, 'road': road,
              'director': director, 'chapters': chapters, 'ironman': ironman, 'gm_view': gm_view, 'memory': memory,
              'legacy': legacy, 'fivee_checks': fivee_checks, 'fivee_fight': fivee_fight,
              'fivee_caster': fivee_caster, 'ironsworn': ironsworn, 'percentile': percentile,
              'lore': lore, 'narrative': narrative, 'fivee_defeat_aim': fivee_defeat_aim,
              'fivee_defeat_written': fivee_defeat_written, 'importer': importer,
-             'editor': editor, 'pictures': pictures, 'havenbrooke': havenbrooke}
+             'editor': editor, 'pictures': pictures, 'havenbrooke': havenbrooke,
+             'tone': tone, 'restrained_wounds': restrained_wounds, 'stage': stage}
