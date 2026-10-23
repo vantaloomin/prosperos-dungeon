@@ -116,6 +116,6 @@ def test_a_spell_beside_a_blow_is_cast_too(client, app, connected, provider, mon
     tell(client, 'I cast Healing Word on myself and hit the thug with my mace.', 'spell-0005')
     skills = [roll['skill'] or '' for roll in last_rolls(client)]
     assert len(skills) == 2 and skills[1].startswith('Healing Word (heals ')
+    # The heal is on the card (the thug may hit back the same round, so the hit points alone don't show it).
     with app.state.database.connect() as connection:
-        healed = sheet.native(connection)
-    assert healed['hp'] > found['max_hp'] - 6 and healed['spells']['used'][0] == 1
+        assert sheet.native(connection)['spells']['used'][0] == 1
