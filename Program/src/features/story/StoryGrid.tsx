@@ -1,9 +1,9 @@
 import { useEffect, useState, type DragEvent, type ReactNode } from 'react'
-import { ArrowDown, ArrowUp, LayoutGrid, Plus, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, LayoutGrid, Plus, Trash2, Undo2, X } from 'lucide-react'
 import type { Story as StoryData } from '../../types'
 import {
   addable, addTile, dropTile, moveTile, onGrid, removeTile, resizeTile, SIZES, tileName, withGrid, withoutGrid,
-  type Flash, type GridLayout, type Grids, type Tile, type TileSize, type TileWidget,
+  type Flash, type GridLayout, type Grids, type SavedGrids, type Tile, type TileSize, type TileWidget,
 } from './grid'
 import { hasWidget, WIDGET_NAMES, type Widget } from './scene'
 
@@ -73,16 +73,27 @@ function GridBar({ grids, arranging, onArrange }: { grids: Grids; arranging: boo
 function GridSave({ grids }: { grids: Grids }) {
   const { saved, grid, keep } = grids
   const [name, setName] = useState('')
-  const several = Object.keys(saved.layouts).length > 1
   return (
     <form className="story-grid-save" onSubmit={(event) => { event.preventDefault(); if (name.trim()) { keep(withGrid(saved, grid, name)); setName('') } }}>
       <label><span className="visually-hidden">New layout name</span>
         <input value={name} maxLength={40} placeholder="Save as…" onChange={(event) => setName(event.target.value)} /></label>
       <button type="submit" className="text-button" disabled={!name.trim()}>Save as new</button>
-      {several && <button type="button" className="text-button" onClick={() => keep(withoutGrid(saved, saved.current))}>
-        <Trash2 aria-hidden="true" />Delete “{saved.current}”</button>}
+      <GridDelete grids={grids} />
     </form>
   )
+}
+
+/** Delete this layout (one always stays), with an Undo until the next change. */
+function GridDelete({ grids }: { grids: Grids }) {
+  const { saved, keep } = grids
+  const [before, setBefore] = useState<{ saved: SavedGrids; name: string } | null>(null)
+  if (before && before.saved.layouts[before.name] && !saved.layouts[before.name]) {
+    return <button type="button" className="text-button" onClick={() => { keep(before.saved); setBefore(null) }}>
+      <Undo2 aria-hidden="true" />Undo deleting “{before.name}”</button>
+  }
+  if (Object.keys(saved.layouts).length < 2) return null
+  return <button type="button" className="text-button" onClick={() => { setBefore({ saved, name: saved.current }); keep(withoutGrid(saved, saved.current)) }}>
+    <Trash2 aria-hidden="true" />Delete “{saved.current}”</button>
 }
 
 function GridAdd({ story, grid, onAdd }: { story: StoryData; grid: GridLayout; onAdd: (widget: TileWidget) => void }) {

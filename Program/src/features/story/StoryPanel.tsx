@@ -27,10 +27,12 @@ import { STORY_KEY } from './table'
 /** Matches the stylesheet's breakpoint for the side panel. */
 const WIDE = '(min-width: 1100px)'
 
+/** The media query's change, and a resize as well: some embedded or emulated windows resize without firing it. */
 function subscribe(change: () => void) {
   const query = window.matchMedia?.(WIDE)
   query?.addEventListener('change', change)
-  return () => query?.removeEventListener('change', change)
+  window.addEventListener('resize', change)
+  return () => { query?.removeEventListener('change', change); window.removeEventListener('resize', change) }
 }
 
 function useWide() {
