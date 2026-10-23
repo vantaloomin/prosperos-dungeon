@@ -406,6 +406,23 @@ CREATE TABLE IF NOT EXISTS story_shops (
   PRIMARY KEY (city_id, place_id)
 );
 
+-- How the character looks right now (dungeon/appearance.py): cleanliness 0 to 3 and its marks (JSON), the clothes'
+-- condition, the state of dress per layer (JSON), and the paid baths, laundry and mending already used (JSON).
+CREATE TABLE IF NOT EXISTS story_appearance (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  grime INTEGER NOT NULL DEFAULT 0 CHECK (grime BETWEEN 0 AND 3),
+  marks TEXT NOT NULL DEFAULT '[]',
+  clothes TEXT NOT NULL DEFAULT 'intact' CHECK (clothes IN ('intact', 'rumpled', 'torn', 'ruined')),
+  dress TEXT NOT NULL DEFAULT '{}',
+  used TEXT
+);
+
+-- Each line's change to the character's look, decided once (dungeon/appearance.py).
+CREATE TABLE IF NOT EXISTS story_appearance_turns (
+  message_id TEXT PRIMARY KEY,
+  lines TEXT NOT NULL
+);
+
 -- Services paid for (dungeon/inventory.py): lodging, a meal, a bath, a guide, kept for the story day they were bought.
 CREATE TABLE IF NOT EXISTS story_services (
   id TEXT PRIMARY KEY,
@@ -902,6 +919,8 @@ CREATE TABLE IF NOT EXISTS story_campaign (
   length TEXT CHECK (length IN ('short', 'medium', 'long')),
   -- Whether shopkeepers have finite cash to buy with (dungeon/inventory.py).
   shop_cash TEXT CHECK (shop_cash IN ('finite', 'unlimited')),
+  -- Whether carrying is limited by slots (dungeon/inventory.py capacity).
+  carry_limit TEXT CHECK (carry_limit IN ('slots', 'off')),
   -- The world seed the land past a hex map's authored edge is generated from (dungeon/hexes.py).
   seed TEXT
 );

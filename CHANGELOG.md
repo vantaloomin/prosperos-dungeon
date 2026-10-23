@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **How you look.** The road, a fight, a day's work or a night with someone leaves its mark: you get grimy, bloody,
+  your clothes tear. Wash, take a bath at the Wayhouse, or have your clothes laundered and mended. Take off your
+  cloak and the game remembers where you left it. The narrator describes you the same way every turn, and people
+  notice. Tone and rules can also turn carrying limits off.
 - **Inns and taverns.** Take a room ("I take a private room"), order the stew, have a bath or hire a guide. The
   Wayhouse in Kingswood has a floor by the fire, bunks and private rooms at real prices, only so many a night. The
   narrator knows what you paid for, and a night in a private room eases your nerves a little more.

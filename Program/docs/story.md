@@ -376,7 +376,28 @@ its shops with their starting stock, and each premade's starting kit (plus a def
 - Everything branches with the story and is cleared by a new story.
 
 Not yet: an opposed roll against the keeper's Resolve, hirelings who travel and fight beside the character, wear,
-loot from bodies, appearance state.
+loot from bodies.
+
+## How you look
+
+`dungeon/appearance.py` (requirements "Inventory and equipment": appearance state and visible gear). Code keeps how
+the character looks, and the narrator gets it every turn ("How the character looks right now"), with "## How the
+character looks" when a line changed it. The pack widget shows it as "How you look".
+
+- **Cleanliness:** clean, worn, grimy, filthy, with marks. A journey (road dust), a night camped (smoke), a fight
+  (sweat, blood), a day's hard work (sweat, sawdust or dirt) or sex (sweat, other fluids) each raise it. A line that
+  washes lowers it a step and clears the marks; a paid bath (the Wayhouse's hot bath) clears it all.
+- **Clothes:** intact, rumpled, torn, ruined. A wound in a fight tears them (a second tear ruins them), sex rumples
+  them. The Wayhouse's laundry presses rumpled clothes, its mending sews a tear, and clothing bought replaces ruined
+  clothes. Each paid service is used once (`story_appearance.used`).
+- **State of dress,** per layer (outer: cloak, coat, armour; under: shirt, dress, trousers; accessories: boots,
+  gloves, hat): a line that takes something off, loosens it or puts it back on moves that layer, and what came off
+  is kept with where it was left ("off (the Felled Oak)"). "I undress" takes off all that is still on. A city whose
+  `appearance` is 'basic' keeps only cleanliness and clothes.
+- **On show:** the weapons carried, and wounds once they are Hurt or worse.
+- It is game state (`story_appearance`), and each line's change is decided once (`story_appearance_turns`).
+- **Carrying limits** (Tone and rules, the Table's `carry_limit`: 'slots' or 'off') turn the slot count off; the pack
+  then reads "no limit".
 
 ## Fights
 

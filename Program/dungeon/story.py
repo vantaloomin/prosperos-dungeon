@@ -14,6 +14,7 @@ import time
 from datetime import datetime, timedelta, timezone, tzinfo
 
 from dungeon import (
+    appearance,
     authors_note,
     beats,
     chapters,
@@ -380,7 +381,9 @@ def gear(database) -> dict:
         city = view['city']['id']
         rows = inventory.carried(connection, city)
         return {'coins': inventory.purse(connection), 'currency': view['data']['currency'],
-                'slots': {'used': inventory.used(rows), 'max': inventory.capacity(connection)},
+                'slots': {'used': inventory.used(rows), 'max': None if inventory.capacity(connection) ==
+                          inventory.UNLIMITED else inventory.capacity(connection)},
+                'looks': appearance.summary(connection, city, view['data'].get('appearance', 'full')),
                 'items': [{key: row[key] for key in ('id', 'item_id', 'name', 'category', 'qty', 'slots')} |
                           {'stolen': bool(row['stolen'])}
                           for row in rows],
@@ -683,7 +686,7 @@ def clear(database) -> dict:
         connection.execute('DELETE FROM story_messages')
         connection.execute('DELETE FROM story_people')
         for name in ('record_entries', 'record_corrections', 'story_summary', 'story_clock', 'story_quests',
-                      'story_inventory', 'story_purse', 'story_stock', 'story_shops', 'story_markets', 'story_services', 'story_trades', 'story_wounds', 'story_fight',
+                      'story_inventory', 'story_purse', 'story_stock', 'story_shops', 'story_markets', 'story_services', 'story_appearance', 'story_appearance_turns', 'story_trades', 'story_wounds', 'story_fight',
                       'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
                       'story_rounds', 'story_map', 'story_hexes', 'story_sites', 'story_lots', 'story_position', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
                       'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_beats', 'story_word',
@@ -734,7 +737,8 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
     who_text, name = persona_text(connection)
     for extra in (combat.condition_text(connection), stress.prompt_text(connection), growth.prompt_text(connection),
                   injuries.prompt_text(connection, now),
-                  inventory.prompt_text(connection, view['city']['id'], view['data']['currency'], story_day(view))):
+                  inventory.prompt_text(connection, view['city']['id'], view['data']['currency'], story_day(view)),
+                  appearance.prompt_text(connection, view['city']['id'], view['data'].get('appearance', 'full'))):
         if extra:
             who_text = f'{who_text}\n{extra}' if who_text else extra
     shop, level = shop_view(connection, view), intensity(connection, view['data'])
@@ -887,6 +891,37 @@ def look_turn(state, user: dict, rolls: list[dict]) -> list[str]:
         lines += finds.take(connection, city, view['place'], user['text'], database.now())
         connection.execute('INSERT INTO story_looks (message_id, lines) VALUES (?, ?)', (user['id'], encode(lines)))
         return lines
+
+
+def in_scene(state, user: dict, rolls: list[dict], travelled: list[str], rested: list[str]) -> tuple[list[str], ...]:
+    """The turn where the character is: a fight round, the counter, treatment, what is looked into, and what all of
+    it (and the road and the rest) did to how the character looks."""
+    with state.database.connect() as connection:
+        hurt_before = combat.condition(connection)['level']
+    fought = fight_round(state, user, rolls)
+    traded = counter_turn(state, user, rolls)
+    tended = treat_turn(state, user, rolls)
+    looked = look_turn(state, user, rolls)
+    with state.database.connect() as connection:
+        wounded = combat.condition(connection)['level'] > hurt_before
+    return fought, traded, tended, looked, appearance_turn(state, user, wounded, travelled, rested, fought, traded)
+
+
+def appearance_turn(state, user: dict, wounded: bool, travelled: list[str], rested: list[str], fought: list[str],
+                    traded: list[str]) -> list[str]:
+    """What the turn did to how the character looks (dungeon/appearance.py), decided once, as a note for the narrator."""
+    database = state.database
+    with database.connect(write=True) as connection:
+        view = scene(connection, story_clock.now(connection, database.clock))
+        camp = rest.kept(connection, user['id'])
+        clothing = [entry['name'] for entry in inventory.catalog(view['city']['id'])['items']
+                    if entry['category'] == 'clothing']
+        events = {'travelled': bool(travelled), 'camped': bool(rested and camp and camp.get('outside')),
+                  'fought': bool(fought), 'wounded': wounded,
+                  'bought_clothes': any(f'buys {name}' in line for line in traded for name in clothing)}
+        lines = appearance.changed(connection, user['id'], user['text'], events, view['place']['name'],
+                                   story_day(view), view['data'].get('appearance', 'full'))
+    return [appearance.note_text(lines)] if lines else []
 
 
 def travel_turn(state, user: dict, rolls: list[dict]) -> list[str]:
@@ -1325,10 +1360,9 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
     carded = town_turn(state, user) if in_story else []
     meanwhile = beats_turn(state, user) if in_story else []
     noted = director_turn(state, user) + recall_turn(state, rolls) + opening_turn(state, user) if in_story else []
-    fought = fight_round(state, user, rolls) if in_story else []
-    traded = counter_turn(state, user, rolls) if in_story else []
-    tended = treat_turn(state, user, rolls) if in_story else []
-    looked = look_turn(state, user, rolls) if in_story else []
+    fought, traded, tended, looked, looks = (in_scene(state, user, rolls, travelled, rested) if in_story
+                                             else ([], [], [], [], []))
+    noted = noted + looks
     with database.connect() as connection:
         packet = prompt(connection, story_clock.now(connection, database.clock), config, user,
                         turn.outcomes(rolls) if in_story else None, fought, traded, looked, travelled, rested, tended, carded,

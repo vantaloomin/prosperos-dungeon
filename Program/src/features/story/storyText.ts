@@ -1,4 +1,4 @@
-import type { BandStep, DramaLevel, Gear, HiddenRoll, IntensityPreset, JournalEntry, JournalInstitution, JournalQuest, JournalThread, LegacyRole, NarrationLength, NarrationPov, NarrationTense, Premade, ReceiptChip, SheetGrowth, Srd52Spells, StoryArc, StoryBranch, StoryChapter, StoryFight, StoryHand, StoryMessage, StoryPace, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryTier, ToneCategory, ToneVoice, TurnAction, TurnEvent, TurnPace, TurnSoFar, VeilTopic } from '../../types'
+import type { BandStep, DramaLevel, Gear, HiddenRoll, IntensityPreset, JournalEntry, JournalInstitution, JournalQuest, JournalThread, LegacyRole, Looks, NarrationLength, NarrationPov, NarrationTense, Premade, ReceiptChip, SheetGrowth, Srd52Spells, StoryArc, StoryBranch, StoryChapter, StoryFight, StoryHand, StoryMessage, StoryPace, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryTier, ToneCategory, ToneVoice, TurnAction, TurnEvent, TurnPace, TurnSoFar, VeilTopic } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -179,10 +179,18 @@ export function gearLine(item: { name: string; qty: number; stolen?: boolean }):
   return (item.qty > 1 ? `${item.name} × ${item.qty}` : item.name) + (item.stolen ? ' (stolen)' : '')
 }
 
+/** How the character looks, in a line: "Grimy (blood); clothes torn; outer clothing off (the Felled Oak)". */
+export function looksText(looks: Looks): string {
+  const parts = [looks.cleanliness.charAt(0).toUpperCase() + looks.cleanliness.slice(1), `clothes ${looks.clothes}`,
+    ...Object.entries(looks.dress).map(([layer, value]) => `${layer} clothing ${value}`)]
+  if (looks.on_show.length) parts.push(`on show: ${looks.on_show.join(', ')}`)
+  return parts.join('; ')
+}
+
 /** "6.35 of 13 slots". */
 export function slotsText(slots: Gear['slots']): string {
   const round = (value: number) => Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0$/, '')
-  return `${round(slots.used)} of ${round(slots.max)} slots`
+  return slots.max == null ? `${round(slots.used)} slots, no limit` : `${round(slots.used)} of ${round(slots.max)} slots`
 }
 
 export function foeNumbers(foe: NonNullable<StoryFight['fight']>['foes'][number]): string {

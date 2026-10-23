@@ -316,9 +316,13 @@ export interface ShopRow { item_id: string; name: string; category: string; pric
 /** `haggled`: today's prices after a haggle, in percent off (negative) or on; 0 without one. */
 /** `fence`: buys stolen goods; `cash`: what the keeper has to buy with (null: unlimited); `market`: prices moved by events. */
 export interface Shop { place_id: string; open: boolean; keeper: string; haggled: number; stock: ShopRow[]; offers: Record<string, number>; fence?: boolean; cash?: number | null; market?: string }
+/** How the character looks (dungeon/appearance.py): cleanliness with its marks, clothes, layers not worn, weapons on show. */
+export interface Looks { cleanliness: string; grime: string; marks: string[]; clothes: string; dress: Record<string, string>; on_show: string[] }
 export interface Gear {
-  coins: number; currency: { code: string; symbol?: string; name?: string }; slots: { used: number; max: number }
+  coins: number; currency: { code: string; symbol?: string; name?: string }; slots: { used: number; max: number | null }
   items: GearItem[]; shop: Shop | null
+  /** How the character looks right now (dungeon/appearance.py). */
+  looks?: Looks
 }
 /** A character a town ships to play as (dungeon/campaign.py). */
 export interface Premade { id: string; name: string; gender: PersonaGender; age: number | null; about: string; stats: Record<string, number> }
@@ -405,6 +409,8 @@ export interface TableRules {
   pov?: NarrationPov; tense?: NarrationTense; length?: NarrationLength
   /** Whether shopkeepers have finite cash to buy with (dungeon/inventory.py). */
   shop_cash?: 'finite' | 'unlimited'
+  /** Whether carrying is limited by slots (dungeon/inventory.py). */
+  carry_limit?: 'slots' | 'off'
 }
 export type NarrationPov = 'first' | 'second' | 'third'
 export type NarrationTense = 'past' | 'present'
