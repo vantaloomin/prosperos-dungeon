@@ -62,19 +62,27 @@ def is_wild(travel_map: dict, node_id: str) -> bool:
     return bool(travel_map.get('wild')) and travel_map['wild']['id'] == node_id
 
 
-def node_at(city_id: str, place_id: str) -> tuple[dict, dict] | None:
-    """The travel map and the place on it where the scene is: the place itself on the Road, the whole town, or out
-    in the wild."""
+def nodes_at(city_id: str, place_id: str) -> list[tuple[dict, dict]]:
+    """Every travel map and place on it the scene is at, the closest first: the place itself (on the Road, a trailhead
+    into Havenbrooke's woods) or out in the wild, then the whole town."""
+    exact, town = [], []
     for travel_map in maps():
         wild = travel_map.get('wild')
         if wild and wild['city'] == city_id and wild['place'] == place_id:
-            return travel_map, wild
-        found = next((node for node in travel_map['nodes'] if node['city'] == city_id and node['place'] == place_id),
-                     None) or next((node for node in travel_map['nodes'] if node['city'] == city_id
-                                    and node['city'] != 'vallarith-road'), None)
-        if found:
-            return travel_map, found
-    return None
+            exact.append((travel_map, wild))
+        elif found := next((node for node in travel_map['nodes'] if node['city'] == city_id
+                            and node['place'] == place_id), None):
+            exact.append((travel_map, found))
+        elif found := next((node for node in travel_map['nodes'] if node['city'] == city_id
+                            and node['city'] != 'vallarith-road'), None):
+            town.append((travel_map, found))
+    return exact + town
+
+
+def node_at(city_id: str, place_id: str) -> tuple[dict, dict] | None:
+    """The travel map and the place on it where the scene is (the closest of nodes_at)."""
+    found = nodes_at(city_id, place_id)
+    return found[0] if found else None
 
 
 def neighbours(travel_map: dict, node_id: str) -> list[tuple[str, dict]]:
@@ -205,7 +213,8 @@ def encounter_on(travel_map: dict, legs: list[dict], crawl: bool, rng) -> dict |
         odds = travel_map['odds'][leg['danger']]
         if rng.randint(1, 100) <= (odds * leg['hours'] / travel_map['hours_a_day'] if crawl else odds):
             region = leg['region'] if crawl else nodes(travel_map)[leg['to']]['region']
-            table = travel_map['encounters'].get(region) or travel_map['encounters'][hexes.FRONTIER[0]]
+            table = travel_map['encounters'].get(region) or travel_map['encounters'].get(hexes.FRONTIER[0]) or next(
+                iter(travel_map['encounters'].values()))
             return {'leg': index, 'entry': pick(table, rng)}
     return None
 
@@ -250,11 +259,16 @@ def plan(connection, city_id: str, place_id: str, text: str, rng=None) -> dict |
     held = optional(connection, 'SELECT captors FROM story_wounds WHERE id=1')
     if held and held['captors']:
         return None
-    found = node_at(city_id, place_id)
-    if found is None:
-        return None
-    travel_map, here = found
     rng = rng or random.SystemRandom()
+    # At a trailhead into Havenbrooke's woods, a drive to Ithaca still goes by the roads.
+    for travel_map, here in nodes_at(city_id, place_id):
+        if (planned := plan_on(connection, travel_map, here, text, rng)) is not None:
+            return planned
+    return None
+
+
+def plan_on(connection, travel_map: dict, here: dict, text: str, rng) -> dict | None:
+    """A line's journey on one travel map, from one place on it."""
     goal = destination(travel_map, here['id'], text)
     if goal is None:
         return off_the_map(connection, travel_map, here, text, rng)
@@ -422,13 +436,13 @@ def ending(connection, travel_map: dict, plan_: dict, legs: list[dict], rolls: l
     if stop == 'water':
         lines.append(f"Open water stops them: there is no walking further {plan_.get('direction', 'that way')}.")
     elif stop == 'day':
-        lines.append(f"The day's walking ends in {hexes.TERRAINS[cell['terrain']]['text']} in {region}, with no road "
+        lines.append(f"The day's walking ends in {board.terrain_text(cell['terrain'])} in {region}, with no road "
                      'or roof in sight.')
     if believed != actual:
         lines.append(f"Somewhere in {plan_['lost']['terrain']} they lost their bearings and drifted off course; they "
                      'believe they are somewhere they are not.')
     wild = travel_map['wild']
-    return wild, f"You stop in {hexes.TERRAINS[cell['terrain']]['text']}, in {region}.", lines
+    return wild, f"You stop in {board.terrain_text(cell['terrain'])}, in {region}.", lines
 
 
 def search(connection, plan_: dict, rolls: list[dict]) -> tuple[int, list[str]]:
@@ -557,7 +571,7 @@ def wild_text(connection, city_id: str, place_id: str) -> str:
         return ''
     cell = board.cell(where['at'])
     region = (travel_map['regions'].get(cell['region']) or {}).get('name', 'country nobody has named')
-    lines = [f"The player's character is out in the wild, off the roads, in {hexes.TERRAINS[cell['terrain']]['text']} "
+    lines = [f"The player's character is out in the wild, off the roads, in {board.terrain_text(cell['terrain'])} "
              f"in {region}.", f"Today's weather: {today(connection, board, where['at'])}."]
     seen = known(connection, travel_map, here['id'])
     nearby = sorted((hexes.distance(where['believed'], board.places[node]), node) for node in seen

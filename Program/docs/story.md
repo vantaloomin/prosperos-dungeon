@@ -608,6 +608,12 @@ Havenbrooke's (car or bus) and BABEL's (the Stair) do. Vallarith's is.
   out as a place on the Road.
 - **Searching.** Out in the wild, "I search the area" (search, scour, explore, look around, scout) takes the hex's
   crossing time and a Mind roll; a success finds a hidden site there, if there is one.
+- **Havenbrooke's woods.** Havenbrooke's trips between towns stay on its roads, by car or bus. Its woods are a hex
+  crawl of their own (`world/data/travel/havenbrooke-woods.json`): one-mile hexes (crossing times scale with the
+  size: half an hour through a mile of woods), all generated from the seed with the map's `hex_map` settings (no
+  waste or mountains; open ground is mostly trees; its own words for the land), entered from Ironroot Woods or the
+  Riverwalk, with Haven's `the-back-woods` as the wild place. A walk there eats nothing. A place on two travel maps
+  (the trailheads) tries the closest first, so "I drive to Ithaca" from Ironroot still takes the road.
 - **Fog of war.** The hexes seen (`story_hexes`, branched with the story) are those walked and what could be seen
   from them: the ring around, two from hills, three from mountains, none past the trees in forest or marsh. A place
   in a hex seen is known. The map in the story view carries the known hexes (`map.hexes`) and where the character

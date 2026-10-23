@@ -925,6 +925,38 @@
    "source": "curated-2026-10"
   },
   {
+   "id": "the-back-woods",
+   "name": "the back woods",
+   "kind": "trail",
+   "neighborhood": "campus",
+   "summary": "Off the kept trails, in the woods and hills that run west and south of Haven: second-growth forest, old stone walls, hunting stands and no signal.",
+   "tags": [
+    "woods",
+    "wild",
+    "remote"
+   ],
+   "cost": "free",
+   "setting": "outdoor",
+   "good_for": [
+    "solo",
+    "friends"
+   ],
+   "day_parts": [
+    "morning",
+    "afternoon",
+    "evening",
+    "late"
+   ],
+   "seasons": [],
+   "cuisine": "",
+   "spots": [
+    "a stone wall in the trees",
+    "a deer track",
+    "a rise with a view of the lake"
+   ],
+   "source": "curated-2026-10"
+  },
+  {
    "id": "old-cemetery",
    "name": "the Old Cemetery",
    "kind": "landmark",

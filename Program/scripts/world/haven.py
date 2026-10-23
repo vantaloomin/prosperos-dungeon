@@ -136,6 +136,11 @@ places = [
           'campus. The trails are kept by day; after dusk the lycans run and the witches gather.',
           ['woods', 'night', 'lycans'], 'free', 'outdoor', ['solo', 'friends', 'date'], ALWAYS,
           spots=['the creek', 'the training clearing', 'the unmarked paths']),
+    # Off the trails (dungeon/hexes.py): the hex crawl's stand-in for wherever a walk past Ironroot or the Riverwalk ends.
+    place('the-back-woods', 'the back woods', 'trail', 'campus', 'Off the kept trails, in the woods and hills that run '
+          'west and south of Haven: second-growth forest, old stone walls, hunting stands and no signal.',
+          ['woods', 'wild', 'remote'], 'free', 'outdoor', ['solo', 'friends'], ALWAYS,
+          spots=['a stone wall in the trees', 'a deer track', 'a rise with a view of the lake']),
     place('old-cemetery', 'the Old Cemetery', 'landmark', 'campus', 'Granite stones behind an overgrown iron fence, '
           'older than the university, where some headstones are not where they were last week.',
           ['quiet', 'eerie', 'couples'], 'free', 'outdoor', ['solo', 'date'], ALWAYS),

@@ -75,3 +75,35 @@ def test_going_on_after_class_passes_the_class_first_so_it_is_attended(client, c
     with app.state.database.connect() as connection:
         attended = connection.execute('SELECT attended, missed FROM story_attendance').fetchone()
     assert attended['attended'] >= 1 and clock_at(app).time() > datetime.strptime(first['at'], '%H:%M').time()
+
+
+def woods() -> dict:
+    return next(found for found in travel.maps() if found.get('wild', {}).get('id') == 'the-back-woods')
+
+
+def test_the_woods_are_a_hex_crawl_of_mile_hexes_and_the_roads_stay_roads():
+    from dungeon import hexes
+    roads = next(found for found in travel.maps() if any(node['id'] == 'haven' for node in found['nodes']))
+    assert not hexes.is_hex(roads) and hexes.is_hex(woods())
+    board = hexes.Grid(woods(), 'seed')
+    around = [board.cell(at) for at in hexes.ring(board.places['ironroot-trailhead'], 15)]
+    kinds = {cell['terrain'] for cell in around}
+    # Trees, hills, fields, swamp and lakes: no waste or mountains in the Finger Lakes.
+    assert 'forest' in kinds and not kinds & {'waste', 'mountains'}
+    # A mile of woods is half an hour's walking, not the three hours of a six-mile hex.
+    forest = next(cell for cell in around if cell['terrain'] == 'forest')
+    assert board.hours(forest, False) == 0.5 and board.text(forest, False) == 'the woods'
+
+
+def test_from_ironroot_a_walk_goes_into_the_woods_and_a_drive_still_takes_the_road(client, connected, provider, app):
+    begin(client, place='ironroot-woods')
+    app.state.dice = Road(99)
+    reply(provider)
+    tell(client, 'I set out west into the trees.', 'story-0001')
+    story = ok(client.get('/api/story'))
+    assert story['scene']['place']['id'] == 'the-back-woods' and story['map']['hexes']
+    narrator = provider.requests[-1]['system']
+    assert 'strikes out west from Ironroot Woods' in narrator and '## Out in the wild' in narrator
+    reply(provider, 'The truck starts on the second try.')
+    tell(client, 'I walk back out and drive to Ithaca.', 'story-0002')
+    assert ok(client.get('/api/story'))['scene']['place']['id'] == 'ithaca'
