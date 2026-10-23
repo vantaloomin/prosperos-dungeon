@@ -276,9 +276,11 @@ def strike_out(connection, travel_map: dict, here: dict, direction: str, rng, ho
     found = hexes.found_sites(connection, board)
     # A walk with no length said goes on for the map's `walk_hours` (a ramble in Havenbrooke's woods), else a day.
     meant = min(travel_map['hours_a_day'], hours or travel_map.get('walk_hours') or travel_map['hours_a_day'])
-    # And it ends at dusk, unless the line means to walk on in the dark.
+    # And it ends at dusk, unless the line means to walk on in the dark. A walk of so long takes the step nearest it;
+    # dusk is a hard stop.
     budget = meant if dark else min(meant, daylight(connection))
-    legs, stop = board.heading(start, direction, budget, weather, about=budget < travel_map['hours_a_day'])
+    legs, stop = board.heading(start, direction, budget, weather,
+                               about=budget == meant < travel_map['hours_a_day'])
     if stop == 'day' and budget < meant:
         stop = 'dusk'
     elif stop == 'day' and budget < travel_map['hours_a_day']:
