@@ -349,6 +349,20 @@ def known_spell(sheet: dict, text: str) -> dict | None:
                  if re.search(rf"\b{re.escape(spells()[spell]['name'].lower())}\b", lowered)), None)
 
 
+def cast_named(text: str) -> dict | None:
+    """The SRD spell a line casts by name ("I cast Cure Wounds on myself"), known or not; the longest name first, so
+    "Mass Cure Wounds" is not read as Cure Wounds. Only a name after "cast": "Light" or "Sleep" alone are words."""
+    lowered = text.lower()
+    return next((spell for spell in sorted(spells().values(), key=lambda spell: -len(spell['name']))
+                 if re.search(rf"\bcast(?:s|ing)?\s+(?:(?:a|an|the|my)\s+)?{re.escape(spell['name'].lower())}\b",
+                              lowered)), None)
+
+
+def knows(sheet: dict, spell: dict) -> bool:
+    own = sheet.get('spells') or {}
+    return spell['id'] in own.get('cantrips', []) + own.get('prepared', [])
+
+
 def spell_bonus(sheet: dict) -> int:
     return modifier(sheet['abilities'][sheet['spell_ability']]) + proficiency(sheet['level'])
 
