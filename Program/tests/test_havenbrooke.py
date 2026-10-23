@@ -62,3 +62,16 @@ def test_heading_to_class_goes_to_the_room_so_the_class_is_attended(client, conn
     reply(provider)
     tell(client, 'I check my schedule and head to my first class of the day.', 'story-0001')
     assert ok(client.get('/api/story'))['scene']['place']['id'] == first['place_id']
+
+
+def test_going_on_after_class_passes_the_class_first_so_it_is_attended(client, connected, provider, app):
+    # Playtest m6b: "After class I go to Commons Coffee" left the room at 08:50, before the 9:00 class.
+    begin(client)
+    first = next(item for item in ok(client.get('/api/story/journal'))['institutions'][0]['today'] if item['place_id'])
+    reply(provider)
+    tell(client, 'I head to my first class of the day.', 'story-0001')
+    reply(provider)
+    tell(client, 'After class I go to Commons Coffee.', 'story-0002')
+    with app.state.database.connect() as connection:
+        attended = connection.execute('SELECT attended, missed FROM story_attendance').fetchone()
+    assert attended['attended'] >= 1 and clock_at(app).time() > datetime.strptime(first['at'], '%H:%M').time()

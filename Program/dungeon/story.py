@@ -11,7 +11,7 @@ import asyncio
 import logging
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta, timezone, tzinfo
 
 from dungeon import (
     authors_note,
@@ -162,8 +162,18 @@ def scene_row(connection) -> dict:
     return {'city_id': data['id'], 'place_id': opening_place(data)['id']}
 
 
+def city_zone(data: dict) -> tzinfo:
+    """The city's clock. A fantasy world keeps no daylight saving, so its clock never runs back an hour (playtest
+    m6b): its zone's standard offset all year. A city may also say `"dst": false`."""
+    found = zone(data['timezone'])
+    if data.get('era') != 'fantasy' and data.get('dst', True):
+        return found
+    probe = datetime(2001, 1, 15, tzinfo=found)
+    return timezone(probe.utcoffset() - (probe.dst() or timedelta(0)))
+
+
 def local_moment(data: dict, now: datetime) -> datetime:
-    return now.astimezone(zone(data['timezone'])).replace(tzinfo=None)
+    return now.astimezone(city_zone(data)).replace(tzinfo=None)
 
 
 def present(connection, data: dict, place_id: str, moment: datetime) -> list[dict]:
@@ -285,7 +295,9 @@ def scene_view(view: dict) -> dict:
     return {key: view[key] for key in ('city', 'place', 'local_time', 'weather')} | {
         'places': [{'id': item['id'], 'name': item['name'], 'kind': item['kind'],
                     'neighborhood': townsfolk.neighborhood_name(data, item['neighborhood'])} for item in data['places']],
-        'around': [seen(person, view) for person in view['people']]}
+        'around': [seen(person, view) for person in view['people']],
+        # The same people with the key a picture is asked by (dungeon/art.py); a key names no one.
+        'present': [{'key': person['sheet']['key'], 'label': seen(person, view)} for person in view['people']]}
 
 
 def seen(person: dict, view: dict) -> str:
@@ -1304,6 +1316,7 @@ def received(database, text: str, client_id: str) -> tuple[dict, dict | None]:
             chapters.arrive(connection, user, database.now())
             # The time the line takes passes as it is sent: the narrator writes the scene after it.
             if not in_character.out_of_character(text):
+                sit_through(database, connection, user, text)
                 if walked:
                     # "I go to the shrine": the story moves there before the narrator writes, as "Go somewhere
                     # else" would.
@@ -1316,6 +1329,14 @@ def received(database, text: str, client_id: str) -> tuple[dict, dict | None]:
         reply = optional(connection, "SELECT * FROM story_messages WHERE reply_to=? AND status='complete'",
                          (user['id'],))
         return user, reply
+
+
+def sit_through(database, connection, user: dict, text: str):
+    """A line that goes on after the class held here ("after class I...") passes the class first, so it is attended
+    (dungeon/institutions.py)."""
+    if minutes := institutions.until_class_ends(connection, user['city_id'], user['place_id'], text,
+                                               story_clock.now(connection, database.clock)):
+        pass_time(database, connection, minutes)
 
 
 async def send(state, text: str, client_id: str, on_text=None, on_event=None) -> dict:

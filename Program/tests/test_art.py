@@ -128,6 +128,9 @@ def test_someone_here_in_the_scene_can_be_pictured_before_the_record_has_met_the
     with client.app.state.database.connect() as connection:
         view = story.scene(connection, story_clock.now(connection, client.app.state.database.clock))
     here = view['people'][0]['sheet']
+    # The screen has their key, though not their name (playtest m6b).
+    shown = ok(client.get('/api/story'))['scene']['present']
+    assert here['key'] in [item['key'] for item in shown] and here['name'] not in str(shown)
     portrait = made(ask(client, 'portrait', here['key']))
     assert portrait['status'] == 'done' and f"Portrait of {here['name']}" in adapters['comfyui'].requests[0].prompt
 
