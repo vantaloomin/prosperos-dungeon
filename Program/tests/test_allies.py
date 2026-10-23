@@ -67,4 +67,4 @@ def test_without_a_party_nothing_changes(app, client):
     with app.state.database.connect(write=True) as connection:
         state = {'round': 0, 'wants': 'kill', 'foes': [foe()]}
         state, lines, _ = combat.play_round(connection, state, [], [], Dice(95, 0.1))
-        assert state['allies'] == [] and lines == ["The bandit hits the player's character: now wounded."]
+        assert state['allies'] == [] and lines == ["The bandit hits the player's character: now hurt."]

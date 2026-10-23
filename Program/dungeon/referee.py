@@ -211,6 +211,17 @@ GIVING_IN = re.compile(r"\b(hand\w* (it |them |him |her )?over|give (it|them) (u
                        r"coins?|silver|valuables))\b", re.I)
 
 
+def backed(text: str, actions: list[dict], fight: str | None) -> list[dict]:
+    """Mid-fight, a line that backs off ("I fall back to the stairs") always rolls Vitality, so the break away
+    (dungeon/ranges.py) is decided even when the Referee let it pass unrolled."""
+    from dungeon import ranges
+    if not fight or any(ranges.backing(action['action']) for action in actions) or len(actions) >= MOST_ACTIONS:
+        return actions
+    part = next((part for part in sentences(text) if ranges.backing(part)), None)
+    return [*actions, {'action': part, 'roll': True, 'stat': 'Vitality', 'difficulty': 'normal', 'said': True}] \
+        if part else actions
+
+
 def armed(text: str, actions: list[dict], fight: str | None = None) -> list[dict]:
     """The rolled actions, with an attack the Referee let pass unrolled added back: a line that attacks someone
     ("I draw my sword and cut down the foreman") always rolls Vitality, so the fight starts, even when the Referee
@@ -223,6 +234,7 @@ def armed(text: str, actions: list[dict], fight: str | None = None) -> list[dict
     if violent and not any(action.get('stat') == 'Vitality' for action in actions):
         actions = [action | {'stat': 'Vitality'} if index == violent[0] else action
                    for index, action in enumerate(actions)]
+    actions = backed(text, actions, fight)
     if any(action.get('stat') == 'Vitality' for action in actions) or len(actions) >= MOST_ACTIONS:
         return actions
     for part in sentences(text):

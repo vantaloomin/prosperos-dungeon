@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Party playtest fixes.** "I fall back to the stairs" in a fight now always rolls, so you can break away. "The
+  day" begun in the evening passes an hour instead of running into the night. A drunk's fists or a knife can no
+  longer take you from fresh to dying in one round: you go down first. Under Fate, consequences no longer make
+  rolls harder.
 - **Fate stress and consequences.** Under Fate, a foe's blow is now absorbed by your stress boxes and
   consequences, such as "Badly cut by the bandit", instead of the shared wound levels. A hit too big to absorb takes
   you out. Stress clears with a night's sleep, and consequences heal over one, three or seven nights. The sheet and

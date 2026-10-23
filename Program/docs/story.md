@@ -15,7 +15,8 @@ The app decides the scene (`dungeon/story.py`):
 - **When:** the story clock (`dungeon/story_clock.py`), in the city's own timezone. It starts at campaign start
   and moves with what the player does: 5 minutes for talk, 10 for a rolled action, 30 for a walk somewhere, the
   hours they say for "I wait two hours" or "for three hours", a day, morning or evening spent at something (10, 4
-  and 3 hours: "I spend the day felling trees"), the nights of a rest (see "Rest"), 20 minutes to cross town and 6 hours to
+  and 3 hours: "I spend the day felling trees"; the day runs only to 19:00, and begun after 18:00 an hour passes),
+  the nights of a rest (see "Rest"), 20 minutes to cross town and 6 hours to
   reach another city. Out-of-character lines take no time. A story with no campaign start runs on the app clock
   (debug time included), as Companion's did. The clock is branched with the story.
 - **Weather:** the city's typical weather for the date (`generators.conditions`).
@@ -446,7 +447,7 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
   character's blow reaches a near foe (and engages it) but a far one only closes to near; a shot or throw reaches
   any band and leaves the target where it is. A line that backs off ("I fall back to the stairs") and lands breaks
   away from every engaged foe, who must close again, and moves the fight's named area to the place it names; a
-  failure can't shake them. "Retreat to …" is such a move, not an escape. The narrator gets where everyone stands
+  failure can't shake them. Mid-fight such a line always rolls Vitality, even when the Referee lets it pass. "Retreat to …" is such a move, not an escape. The narrator gets where everyone stands
   under the round; the fight card shows the area and each foe's range.
 - **Fight on my plan.** A line that sets a plan and says to keep at it ("I hold the door and cut down whoever comes,
   fight on until they break", "I fight it out") plays its round, then fights on that plan a round at a time, each
@@ -458,6 +459,9 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
   whole: their blows stop at Maimed (MARVEL), which ends the fight on the defeat table, and a surrender ("I drop my
   sword and surrender") makes the character their prisoner at once. A brawler lets a character who backs off or
   yields go. Killers give no quarter: the narrator is told the plea fails and the round goes on.
+- **How hard a blow lands (MARVEL).** A foe's hit deals wound levels by its band (1, 2, 3 for a critical) plus its
+  weapon, at least one; bare hands or a poor weapon deal at most two. One round of blows takes a character on their
+  feet no further than Maimed: they go down first, and only a blow on someone already down can leave them dying.
 - **Morale.** A foe at Maimed is down. When one falls or is badly hurt, the rest roll Resolve, and on a failure they
   break: they flee or give up. The fight is won when nobody is left standing and unbroken.
 - **Wounds.** Grazed, Hurt, Wounded, Maimed, Dying. Wounded makes physical actions a step harder; Maimed makes every

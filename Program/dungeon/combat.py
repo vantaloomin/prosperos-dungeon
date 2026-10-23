@@ -230,8 +230,9 @@ def mend_wounds(connection, nights: int, now: dict) -> list[str]:
 def adjust(connection, actions: list[dict]) -> list[dict]:
     """Wounds make actions harder: Wounded slows physical ones, Maimed everything and physical ones twice."""
     level = condition(connection)['level']
-    if fifth(connection) or sworn(connection) or basic(connection):
-        # 5E, Ironsworn and BRP have no wound penalties: hit points and health are whole until they run out.
+    if fifth(connection) or sworn(connection) or basic(connection) or fated(connection):
+        # 5E, Ironsworn, BRP and Fate have no wound penalties: hit points, health and consequences are whole (or
+        # aspects for the narrator) until they run out.
         return actions
     adjusted = []
     for action in actions:
@@ -504,10 +505,20 @@ def morale(state: dict, rng, lines: list[str]):
             lines.append(f"{foe['name'].capitalize()} breaks: they flee or give up.")
 
 
+def blow(band: str, weapon: int) -> int:
+    """Wound levels a foe's hit deals: by how well it landed and the weapon, at least one; bare hands or a poor
+    weapon (0 or less) at most two, however well it lands."""
+    dealt = max(1, DAMAGE[band] + weapon)
+    return min(2, dealt) if weapon <= 0 else dealt
+
+
 def foes_move(connection, state: dict, guarded: bool, rng, lines: list[str], free=None) -> int:
     """Each foe still standing (and not busy with an ally, `free`) closes in or attacks; returns the character's
     wound level after."""
     level = condition(connection)['level']
+    # Captors want the character whole: their blows stop at Maimed. Nor does one round take a character on their
+    # feet past Maimed: they go down first.
+    worst = DOWN if state['wants'] == 'capture' or level < DOWN else DYING
     for foe in (free or standing)(state):
         if ranges.close(foe, lines):
             continue
@@ -515,9 +526,7 @@ def foes_move(connection, state: dict, guarded: bool, rng, lines: list[str], fre
         steps = int(guarded) + int(foe.get('zone') == 'far')
         band = marvel.roll(foe['vitality'], ('normal', 'hard', 'very_hard')[steps], rng)['band']
         if band in SUCCESS:
-            # Captors want the character whole: their blows stop at Maimed.
-            worst = DOWN if state['wants'] == 'capture' else DYING
-            before, level = level, min(worst, max(level, level + max(1, DAMAGE[band] + foe['weapon'])))
+            before, level = level, min(worst, level + blow(band, foe['weapon']))
             # A maiming or a critical hit can leave a lasting injury (dungeon/injuries.py).
             if band == 'critical_success' or before < DOWN <= level:
                 state['hurt_by'] = foe['name']
