@@ -314,6 +314,9 @@ class Play:
                 self.flag(f'{label} was refused: {error}')
             return None
         self.write(f'### {label}\n')
+        if path.endswith(('/back', '/go')) or '/switch' in path:
+            # Playing from a chapter, a bookmark or another branch puts the clock where that line was.
+            self.clock = None
         if expect_refusal:
             self.flag(f'{label} should have been refused.')
         return result
