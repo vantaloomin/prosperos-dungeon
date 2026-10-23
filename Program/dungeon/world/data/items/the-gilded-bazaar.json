@@ -216,6 +216,27 @@
    "slots": 0.25,
    "rarity": "common",
    "legal": true
+  },
+  {
+   "id": "private-room",
+   "name": "Private room, a night",
+   "category": "service",
+   "price": 9,
+   "slots": 0,
+   "rarity": "common",
+   "legal": true,
+   "service": "lodging",
+   "tier": "private"
+  },
+  {
+   "id": "bathhouse",
+   "name": "Copper bathhouse soak",
+   "category": "service",
+   "price": 3,
+   "slots": 0,
+   "rarity": "common",
+   "legal": true,
+   "service": "bath"
   }
  ],
  "shops": [
@@ -267,6 +288,16 @@
     "dried-meat": 15,
     "waterskin": 4,
     "bandages": 6
+   }
+  },
+  {
+   "place": "the-copper-scale",
+   "buys": [],
+   "sell_rate": 0.5,
+   "restock_days": 1,
+   "stock": {
+    "private-room": 4,
+    "bathhouse": 4
    }
   }
  ],

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Inns and taverns.** Take a room ("I take a private room"), order the stew, have a bath or hire a guide. The
+  Wayhouse in Kingswood has a floor by the fire, bunks and private rooms at real prices, only so many a night. The
+  narrator knows what you paid for, and a night in a private room eases your nerves a little more.
 - **Shops that run like shops.** Sell in the story ("I sell the blanket"). Shops restock every week or so, and their
   keepers only have so much money to buy with (Tone and rules can turn that off). What you take from other people's
   things is stolen: honest shops won't touch it, but Mother Mag's in Kingswood will, for a quarter of its worth.

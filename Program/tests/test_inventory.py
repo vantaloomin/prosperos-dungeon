@@ -107,7 +107,7 @@ def test_a_closed_shop_sells_nothing_and_elsewhere_there_is_no_shop(client, conn
     begin_when(client, clock, open_now=False)
     assert not ok(client.get('/api/story/gear'))['shop']['open']
     assert client.post('/api/story/shop/buy', json={'item_id': 'rope'}).status_code == 409
-    ok(client.put('/api/story/scene', json={'city_id': 'kingswood', 'place_id': 'felled-oak'}))
+    ok(client.put('/api/story/scene', json={'city_id': 'kingswood', 'place_id': 'the-green'}))
     assert ok(client.get('/api/story/gear'))['shop'] is None
     assert client.post('/api/story/shop/buy', json={'item_id': 'rope'}).status_code == 404
 
@@ -271,3 +271,37 @@ def test_a_market_card_moves_the_towns_prices(client, app):
         poultice = inventory.item('kingswood', 'poultice')
         assert inventory.market(connection, 'kingswood', poultice, '2026-10-21') == 80
         assert inventory.market(connection, 'kingswood', poultice, '2026-10-22') == 0
+
+
+def test_services_are_paid_for_not_carried(client, app):
+    begin(client)
+    inn = inventory.shop_at('kingswood', 'the-wayhouse')
+    with app.state.database.connect(write=True) as connection:
+        before = inventory.used(inventory.carried(connection, 'kingswood'))
+        done = inventory.buy(connection, 'kingswood', inn, 'private-room', 1, '2026-10-01T18:00:00Z', '2026-10-01')
+        assert done['amount'] == 150 and inventory.used(inventory.carried(connection, 'kingswood')) == before
+        assert inventory.bed(connection, 'kingswood', 'the-wayhouse', '2026-10-01')['tier'] == 'private'
+        assert inventory.bed(connection, 'kingswood', 'the-wayhouse', '2026-10-02') is None
+        assert 'Paid for today (kept by the game): Private room, a night at the Wayhouse.' in inventory.prompt_text(
+            connection, 'kingswood', {'symbol': 'cr.'}, '2026-10-01')
+        # Rooms are finite each night, and come back the next day.
+        inventory.set_purse(connection, 1000)
+        inventory.buy(connection, 'kingswood', inn, 'private-room', 2, '2026-10-01T18:00:00Z', '2026-10-01')
+        assert inventory.stock(connection, 'kingswood', inn, '2026-10-01')['private-room'] == 0
+        assert inventory.stock(connection, 'kingswood', inn, '2026-10-02')['private-room'] == 3
+
+
+def test_lodging_and_meals_stay_within_ordinary_means():
+    # A common-room night and a meal cost no more than an unskilled day's wage; a private room no more than a good one.
+    for city_id in ('kingswood', 'the-concourse', 'the-gilded-bazaar'):
+        city = catalog.city(city_id)
+        low, high = next((price['low'], price['high']) for price in city['prices'] if price['id'] == 'day-wage')
+        services = [entry for entry in inventory.catalog(city_id)['items'] if entry['category'] == 'service']
+        common = [entry['price'] for entry in services if entry.get('tier') == 'common']
+        meals = [entry['price'] for entry in services if entry['service'] == 'meal']
+        if common and meals:
+            assert min(common) + min(meals) <= low, city_id
+        for entry in services:
+            assert entry['slots'] == 0 and entry['service'] in ('lodging', 'meal', 'drink', 'bath', 'stabling', 'guide')
+            if entry.get('tier') == 'private':
+                assert entry['price'] <= high * 2, (city_id, entry['id'])

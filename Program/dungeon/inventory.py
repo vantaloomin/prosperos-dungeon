@@ -20,6 +20,10 @@ starting stock, and the kit each premade starts with.
   shop can't buy a dragon hoard; 'unlimited' turns this off.
 - Stolen goods are tracked (story_inventory.stolen: what was taken from someone's things, dungeon/finds.py). An honest
   shop won't buy them, nor anything illegal; a fence (a shop with `fence`) buys both, at its own low rate.
+- Services are sold the same way (category 'service': lodging by comfort tier, meals, drink, baths, stabling, a guide),
+  from finite stock that comes back each day (an inn's `restock_days` of 1: so many rooms a night). A service is not
+  carried: it is kept as paid for that story day (story_services) and the narrator is told, so it quotes the tier's
+  real price and plays the room the character paid for.
 - Life Cards move markets (dungeon/happenings.py): a shortage or a glut changes a kind of goods' prices in a town for
   some days (story_markets), both what the shops charge and what they pay.
 - Haggling is a roll: an Allure action aimed at a better price, in an open shop, moves the shop's prices for the
@@ -41,7 +45,9 @@ ITEMS = Path(__file__).parent / 'world' / 'data' / 'items'
 BASE_SLOTS = 5
 HAGGLE = re.compile(r'\b(haggl\w*|barter\w*|bargain\w*|discount|cheaper|better (price|deal)|lower (the )?price|'
                     r'knock\w* (it |that |something |a bit )?(down|off))', re.I)
-BUY = re.compile(r"\b(buy|buys|buying|purchase|pay for|i'?ll take|i'?ll have)\b", re.I)
+BUY = re.compile(r"\b(buy|buys|buying|purchase|pay for|i'?ll take|i'?ll have|rent\w*|hire|order\w*|book\w*|"
+                 r"take an? (room|bed|bunk|bath|pallet|meal))\b", re.I)
+SERVICE = 'service'
 SELL = re.compile(r'\b(sell|sells|selling|pawn\w*|fence|offload\w*|trade in|get rid of)\b', re.I)
 RESTOCK_DAYS = 7
 # A shop's cash when its file names none: this share of what its starting stock is worth.
@@ -127,15 +133,44 @@ def give_kit(connection, city_id: str, premade_id: str | None):
         add_item(connection, city_id, item_id, qty)
 
 
-def prompt_text(connection, city_id: str, currency: dict) -> str:
-    """What the character carries and has in their purse, for the narrator."""
+def prompt_text(connection, city_id: str, currency: dict, day: str = '') -> str:
+    """What the character carries and has in their purse, and what they paid for today, for the narrator."""
     rows = carried(connection, city_id)
+    paid = services_text(connection, day)
     if not rows and not purse(connection):
-        return ''
+        return paid
     things = ', '.join(f"{row['name']}" + (f" (x{row['qty']})" if row['qty'] > 1 else '') +
                        (' (stolen)' if row['stolen'] else '') for row in rows)
     return (f"Carrying (kept by the game; nothing else, and nothing appears or goes without the game): "
-            f"{things or 'nothing'}. Purse: {money_text(purse(connection), currency)}. {money_words(currency)}".rstrip())
+            f"{things or 'nothing'}. Purse: {money_text(purse(connection), currency)}. {money_words(currency)}".rstrip()
+            + (f'\n{paid}' if paid else ''))
+
+
+def services_text(connection, day: str) -> str:
+    """What the character paid for this story day: a bed tonight, a meal, a bath, a guide."""
+    if not day:
+        return ''
+    rows = many(connection, 'SELECT city_id, place_id, item_id, qty FROM story_services WHERE day=? ORDER BY rowid',
+                (day,))
+    paid = [f"{entry['name']}" + (f" (x{row['qty']})" if row['qty'] > 1 else '') +
+            f" at {place_name(row['city_id'], row['place_id'])}"
+            for row in rows if (entry := item(row['city_id'], row['item_id']))]
+    return f"Paid for today (kept by the game): {'; '.join(paid)}." if paid else ''
+
+
+def place_name(city_id: str, place_id: str) -> str:
+    city = world_data.read('cities', city_id) or {}
+    return next((place['name'] for place in city.get('places', []) if place['id'] == place_id), place_id)
+
+
+def bed(connection, city_id: str, place_id: str, day: str) -> dict | None:
+    """The lodging the character paid for at this place for the night of this story day, if any."""
+    for row in many(connection, 'SELECT item_id FROM story_services WHERE city_id=? AND place_id=? AND day=?',
+                    (city_id, place_id, day)):
+        entry = item(city_id, row['item_id'])
+        if entry and entry.get('service') == 'lodging':
+            return entry
+    return None
 
 
 def money_words(currency: dict) -> str:
@@ -337,8 +372,9 @@ def buy_in_story(connection, city_id: str, shop: dict, text: str, stock_rows: li
             lines.append(f"No sale of {item(city_id, item_id)['name']}: {refused.message}")
             continue
         what = done['name'] if done['qty'] == 1 else f"{done['qty']} × {done['name']}"
+        kept = ('it is theirs today' if item(city_id, item_id)['category'] == SERVICE else 'it is in their pack')
         lines.append(f"The player's character buys {what} for {money_text(done['amount'], currency)}; "
-                     'it is in their pack and the money is paid.')
+                     f'{kept} and the money is paid.')
     return lines
 
 
@@ -426,12 +462,18 @@ def buy(connection, city_id: str, shop: dict, item_id: str, qty: int, now: str, 
     cost = priced(entry, haggled(connection, city_id, shop, day) + market(connection, city_id, entry, day)) * qty
     require(cost <= purse(connection), "You can't afford that.", 409)
     pack = carried(connection, city_id)
-    require(used(pack) + entry['slots'] * qty <= capacity(connection), "You can't carry that much more.", 409)
+    service = entry['category'] == SERVICE
+    require(service or used(pack) + entry['slots'] * qty <= capacity(connection), "You can't carry that much more.",
+            409)
     connection.execute('UPDATE story_stock SET qty=qty-? WHERE city_id=? AND place_id=? AND item_id=?',
                        (qty, city_id, shop['place'], item_id))
     set_purse(connection, purse(connection) - cost)
     pay(connection, city_id, shop, cost)
-    add_item(connection, city_id, item_id, qty)
+    if service:
+        connection.execute('INSERT INTO story_services (id, city_id, place_id, item_id, qty, day, created_at) '
+                           'VALUES (?, ?, ?, ?, ?, ?, ?)', (identifier(), city_id, shop['place'], item_id, qty, day, now))
+    else:
+        add_item(connection, city_id, item_id, qty)
     log(connection, now, 'buy', city_id, item_id, qty, cost)
     return {'name': entry['name'], 'qty': qty, 'amount': cost}
 
