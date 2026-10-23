@@ -302,6 +302,7 @@ class Play:
         try:
             result = self.dungeon.call(method, path, body)
         except ApiError as error:
+            self.last_error = str(error)
             self.write(f'### {label}: refused ({error})\n')
             if not expect_refusal:
                 self.flag(f'{label} was refused: {error}')

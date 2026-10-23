@@ -479,6 +479,13 @@ def lore(play):
     if 'Stoneheart' not in told and 'dwar' not in told.lower():
         play.flag('The narration about Dun Aldun shows nothing from its lore entry.')
     play.say('I ask what the Kingdom of Cyrel and the High Elves of Brynwyr are to each other these days.')
+    # Keywords beyond the entry's name: "dwarven steel" is Dun Aldun's, "the badlands" The Badlands'.
+    view = play.say('I ask a carter where the best dwarven steel comes from.')
+    told = next((m['text'] for m in reversed((view or {}).get('messages') or []) if m['role'] == 'narrator'), '')
+    play.write(f"- dwarven steel brought up Dun Aldun: {'Aldun' in told or 'Ley' in told}\n")
+    view = play.say('I ask him what lies out past the badlands, and whether anyone comes back.')
+    told = next((m['text'] for m in reversed((view or {}).get('messages') or []) if m['role'] == 'narrator'), '')
+    play.write(f"- the badlands brought up its entry: {any(word in told for word in ('Dragon King', 'corpse', 'tribe'))}\n")
 
 
 def narrative(play):
@@ -607,6 +614,9 @@ def editor(play):
     play.attempt('Save an edit', 'PUT', f'{base}/entries/lore/{entry_id}', {'entry': edited})
     play.attempt('Save a bad id', 'PUT', f'{base}/entries/lore/{entry_id}', {'entry': dict(entry, id='Not Kebab Case')},
                  expect_refusal=True)
+    said = getattr(play, 'last_error', '')
+    if entry_id not in said and 'Dun Aldun' not in said and 'Not Kebab Case' not in said:
+        play.flag(f"The bad-id error doesn't name the entry: {said}")
     play.attempt('Undo', 'POST', f'{base}/undo')
     after = (play.attempt('Read it back', 'GET', f'{base}/entries/lore/{entry_id}') or {})
     if (after.get('entry') or after).get('text') != original:
@@ -625,10 +635,59 @@ def editor(play):
         play.flag('Reset did not bring the entry back as it shipped.')
 
 
+def pictures(play):
+    """M6: pictures on request (Picture me, This place, The scene, Someone you met, a passage) and passive art. With
+    no image backend set up, each request is refused with a clear message; the EPUB book still exports."""
+    play.start('agna-holt')
+    view = play.say('I ask the keeper her name and what she makes of the rain.')
+    met = next((person.get('key') for person in (view or {}).get('people') or []), '')
+    narration = next((m['id'] for m in reversed((view or {}).get('messages') or []) if m['role'] == 'narrator'), '')
+    for label, kind, subject in (('Picture me', 'portrait', 'player'), ('This place', 'place', ''),
+                                 ('The scene', 'scene', ''), ('Someone you met', 'portrait', met),
+                                 ('Picture this passage', 'passage', narration)):
+        response = play.dungeon.http.post('/api/story/art', json={'kind': kind, 'subject': subject})
+        body = response.text[:300]
+        play.write(f'### {label}: {response.status_code} {body}\n')
+        gallery = play.dungeon.call('GET', '/api/story/art').get('art') or []
+        latest = gallery[0] if gallery else {}
+        play.write(f"- gallery newest: {json.dumps(latest, ensure_ascii=False)[:300]}\n")
+        said = (body + json.dumps(latest)).lower()
+        if 'backend' not in said and 'no image' not in said:
+            play.flag(f'{label} without an image backend gave no clear "No image backend" message.')
+    play.dungeon.call('PUT', '/api/settings', {'passive_art': True})
+    play.say('I step out onto the green and watch the crews come in from the stump fields.')
+    play.write(f"- gallery after a turn with passive art: {len(play.dungeon.call('GET', '/api/story/art').get('art') or [])}\n")
+    epub = play.dungeon.http.get('/api/story/export/book', params={'format': 'epub'})
+    play.write(f'### Export the EPUB: {epub.status_code}, {len(epub.content)} bytes\n')
+    if epub.status_code != 200:
+        play.flag(f'The EPUB export failed with no pictures: {epub.status_code}')
+
+
+def havenbrooke(play):
+    """M5: a short Havenbrooke start: a premade sophomore in Haven in autumn 2009, the dorm, a class, the coffee
+    place, and a drive to Ithaca by car."""
+    play.dungeon.call('PUT', '/api/story/scene', {'city_id': 'haven', 'place_id': 'nexus-housing'})
+    play.dungeon.call('DELETE', '/api/story')
+    premades = play.dungeon.call('GET', '/api/story/start').get('premades') or []
+    play.write(f"- premades: {[item.get('name') for item in premades]}\n")
+    if not premades:
+        play.flag('No Havenbrooke premades offered in Haven.')
+        return
+    play.start(premades[0]['id'])
+    play.sheet()
+    play.say('I look around the third floor of the Nexus and knock on the door across the hall.')
+    play.say('I introduce myself and ask what they make of our floor so far.')
+    play.say('I check my schedule and head to my first class of the day.')
+    play.say('After class I go to Commons Coffee and grab a table by the window.')
+    play.say('OOC: what is my character enrolled in, and where can I drive from here?', {'no_roll': True})
+    play.say('I borrow a car and drive to Ithaca for the afternoon.')
+    play.journal()
+
+
 SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl, 'road': road,
              'director': director, 'chapters': chapters, 'ironman': ironman, 'gm_view': gm_view, 'memory': memory,
              'legacy': legacy, 'fivee_checks': fivee_checks, 'fivee_fight': fivee_fight,
              'fivee_caster': fivee_caster, 'ironsworn': ironsworn, 'percentile': percentile,
              'lore': lore, 'narrative': narrative, 'fivee_defeat_aim': fivee_defeat_aim,
              'fivee_defeat_written': fivee_defeat_written, 'importer': importer,
-             'editor': editor}
+             'editor': editor, 'pictures': pictures, 'havenbrooke': havenbrooke}
