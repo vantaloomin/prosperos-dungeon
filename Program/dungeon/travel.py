@@ -438,9 +438,13 @@ def ending(connection, travel_map: dict, plan_: dict, legs: list[dict], rolls: l
     elif stop == 'day':
         lines.append(f"The day's walking ends in {board.terrain_text(cell['terrain'])} in {region}, with no road "
                      'or roof in sight.')
-    if believed != actual:
+    if believed != actual and plan_.get('lost'):
         lines.append(f"Somewhere in {plan_['lost']['terrain']} they lost their bearings and drifted off course; they "
                      'believe they are somewhere they are not.')
+    elif believed != actual:
+        # Lost on an earlier day and still off course: no new check today, but they are no nearer to knowing it.
+        lines.append('They are still off course from an earlier day, and still believe they are somewhere they are '
+                     'not.')
     wild = travel_map['wild']
     return wild, f"You stop in {board.terrain_text(cell['terrain'])}, in {region}.", lines
 

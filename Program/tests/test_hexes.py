@@ -160,6 +160,11 @@ def test_losing_the_way_drifts_off_course_and_the_map_shows_where_they_think_the
     story = ok(client.get('/api/story'))
     assert story['map']['at']['lost']
     assert 'lost their bearings' in provider.requests[-1]['system']
+    # Playtest: walking on the next day while still lost, with no new check that day, crashed on the missing check.
+    monkeypatch.setattr(travel, 'strayed', lambda plan_, rolls: False)
+    provider.replies = [[Chunk('More trees.'), Chunk('', 'stop')]]
+    tell(client, f'I keep walking {direction}.', 'story-0002')
+    assert ok(client.get('/api/story'))['messages'][-1]['text'] == 'More trees.'
 
 
 def site_hexes(board: hexes.Grid, visible: bool) -> list[tuple[int, int]]:
