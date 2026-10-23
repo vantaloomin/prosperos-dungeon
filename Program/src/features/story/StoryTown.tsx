@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
-import { kindName, lotClass, middle, namedPlaces, points, viewBox, whereOnMap, ZOOMS, type Point, type TownMap, type TownThing } from './town'
+import { kindName, lotClass, type TownLot, middle, namedPlaces, points, viewBox, whereOnMap, ZOOMS, type Point, type TownMap, type TownThing } from './town'
 
 interface Picked { thing: TownThing; at: Point }
 
@@ -9,12 +9,24 @@ interface Picked { thing: TownThing; at: Point }
  *  and buildings, laid out by code from the town's data and the campaign's seed. A place on it can be looked at and
  *  gone to; going puts the line in the box. Zoomed in, the map follows where you are or what you picked. */
 export function StoryTown({ where, open, onLine }: { where: string; open?: boolean; onLine?: (text: string) => void }) {
-  const town = useQuery({ queryKey: ['story-town', where], queryFn: () => api<{ town: TownMap | null }>('/story/town') })
+  const key = ['story-town', where]
+  const client = useQueryClient()
+  const town = useQuery({ queryKey: key, queryFn: () => api<{ town: TownMap | null }>('/story/town') })
   const [zoom, setZoom] = useState(1)
   const [picked, setPicked] = useState<Picked | null>(null)
+  const [error, setError] = useState('')
   const map = town.data?.town
   if (!map) return town.isSuccess ? <p className="subtle">There is no street map out here.</p> : null
   const places = namedPlaces(map)
+  // A blank building is decided when you look at it, and kept.
+  const look = async (lot: TownLot) => {
+    setError('')
+    try {
+      const looked = await api<{ found: TownThing; town: TownMap }>(`/story/town/lots/${encodeURIComponent(lot.id)}/look`, {})
+      client.setQueryData(key, { town: looked.town })
+      setPicked({ thing: looked.found, at: middle(lot.polygon) })
+    } catch (failure) { setError(failure instanceof Error ? failure.message : 'That building could not be looked at.') }
+  }
   const find = (id: string) => {
     const found = places.find((place) => place.thing.id === id)
     setPicked(found ? { thing: found.thing, at: found.at } : null)
@@ -27,12 +39,9 @@ export function StoryTown({ where, open, onLine }: { where: string; open?: boole
         {ZOOMS.map((level, index) => <button key={level} type="button" className="text-button" aria-pressed={zoom === index + 1}
           onClick={() => setZoom(index + 1)}>{level === 1 ? 'Whole town' : `×${level}`}</button>)}
       </div>
-      <TownSvg map={map} zoom={zoom} picked={picked} onPick={setPicked} />
-      {picked && <div className="town-picked">
-        <p><strong>{picked.thing.name}</strong> <span className="subtle">{kindName(picked.thing)}</span></p>
-        {picked.thing.id !== map.here.place && onLine &&
-          <button type="button" className="text-button" onClick={() => onLine(`I head to ${picked.thing.name}.`)}>Go there</button>}
-      </div>}
+      <TownSvg map={map} zoom={zoom} picked={picked} onPick={setPicked} onLook={(lot) => void look(lot)} />
+      {error && <p className="subtle" role="alert">{error}</p>}
+      <PickedPanel picked={picked} here={map.here.place} onLine={onLine} />
       <label className="town-find">
         <span className="visually-hidden">Find a place</span>
         <select value={picked?.thing.id ?? ''} onChange={(event) => find(event.target.value)}>
@@ -44,7 +53,23 @@ export function StoryTown({ where, open, onLine }: { where: string; open?: boole
   )
 }
 
-function TownSvg({ map, zoom, picked, onPick }: { map: TownMap; zoom: number; picked: Picked | null; onPick: (picked: Picked | null) => void }) {
+/** The building or place picked on the map: what it is, and a way to go there. */
+function PickedPanel({ picked, here, onLine }: { picked: Picked | null; here: string; onLine?: (text: string) => void }) {
+  if (!picked) return <p className="subtle">Pick a building to see what is there.</p>
+  const { thing } = picked
+  return (
+    <div className="town-picked">
+      <p><strong>{thing.name}</strong> <span className="subtle">{kindName(thing)}</span>
+        {thing.summary && <><br /><span className="subtle">{thing.summary}</span></>}</p>
+      {thing.id !== here && onLine &&
+        <button type="button" className="text-button" onClick={() => onLine(`I head to ${thing.name}.`)}>Go there</button>}
+    </div>
+  )
+}
+
+interface SvgProps { map: TownMap; zoom: number; picked: Picked | null; onPick: (picked: Picked | null) => void; onLook: (lot: TownLot) => void }
+
+function TownSvg({ map, zoom, picked, onPick, onLook }: SvgProps) {
   const here = whereOnMap(map)
   const [left, top, span] = viewBox(map, ZOOMS[zoom - 1] ?? 1, picked?.at ?? here)
   const pick = (thing: TownThing | null, polygon: Point[]) => onPick(thing ? { thing, at: middle(polygon) } : null)
@@ -58,8 +83,11 @@ function TownSvg({ map, zoom, picked, onPick }: { map: TownMap; zoom: number; pi
         <title>{water.name}</title></polyline>)}
       {map.walls && <g className="town-wall">{map.border.map(([a, b]) => <line key={`${a}-${b}`} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} />)}</g>}
       {map.roads.map((road, index) => <polyline key={index} className="town-road" points={points(road)} />)}
-      {map.lots.map((lot) => <polygon key={lot.id} points={points(lot.polygon)} className={lotClass(lot, map, picked?.thing.id)}
-        onClick={() => pick(lot.place, lot.polygon)}>{lot.place && <title>{lot.place.name}</title>}</polygon>)}
+      {map.lots.map((lot) => {
+        const thing = lot.place ?? lot.found
+        return <polygon key={lot.id} points={points(lot.polygon)} className={lotClass(lot, map, picked?.thing.id)}
+          onClick={() => thing ? pick(thing, lot.polygon) : onLook(lot)}><title>{thing?.name ?? 'A building: look at it'}</title></polygon>
+      })}
       {map.districts.map((district) => <text key={district.id} className="town-district" x={district.label[0]} y={district.label[1]}
         textAnchor="middle">{district.name}</text>)}
       {zoom > 1 && namedPlaces(map).map(({ thing, at }) => <text key={thing.id} className="town-label" x={at[0]} y={at[1] - 2.5}

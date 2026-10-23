@@ -98,3 +98,62 @@ def test_the_story_shows_the_map_of_the_town_it_is_in(client):
     # Out on the road there is no town to map.
     ok(client.put('/api/story/scene', json={'city_id': 'vallarith-road'}))
     assert ok(client.get('/api/story/town'))['town'] is None
+
+
+def blank_lot(town: dict) -> dict:
+    return next(lot for lot in town['lots'] if not lot['place'] and not lot['found'])
+
+
+def test_a_blank_building_is_decided_when_looked_at_and_kept(client):
+    ok(client.put('/api/story/scene', json={'city_id': 'kingswood', 'place_id': 'pell-provisions'}))
+    town = ok(client.get('/api/story/town'))['town']
+    lot = blank_lot(town)
+    looked = ok(client.post(f"/api/story/town/lots/{lot['id']}/look"))
+    found = looked['found']
+    assert found['id'] == f"lot-{lot['id']}" and found['name'] and found['summary']
+    assert found['neighborhood'] == lot['neighborhood']
+    assert next(item for item in looked['town']['lots'] if item['id'] == lot['id'])['found'] == found
+    # Looking again finds the same, and it is a place of the town the story can go to.
+    assert ok(client.post(f"/api/story/town/lots/{lot['id']}/look"))['found'] == found
+    moved = ok(client.put('/api/story/scene', json={'city_id': 'kingswood', 'place_id': found['id']}))
+    assert moved['scene']['place']['name'] == found['name']
+    # It does not take another lot on the map once it is a place.
+    again = ok(client.get('/api/story/town'))['town']
+    assert [item['id'] for item in again['lots']] == [item['id'] for item in town['lots']]
+    assert again['here']['place'] == found['id']
+
+
+def test_a_named_place_or_unknown_lot_cannot_be_looked_at(client):
+    ok(client.put('/api/story/scene', json={'city_id': 'kingswood', 'place_id': 'pell-provisions'}))
+    town = ok(client.get('/api/story/town'))['town']
+    named = next(lot for lot in town['lots'] if lot['place'])
+    assert client.post(f"/api/story/town/lots/{named['id']}/look").status_code == 400
+    assert client.post('/api/story/town/lots/nowhere/look').status_code == 404
+
+
+def test_what_a_lot_holds_follows_the_seed_and_the_intensity_levels():
+    data = catalog.city('kingswood')
+    board = townmap.build(data, 'seed')
+    lots = [lot for lot in board['lots'] if not lot['place']]
+    tame = dict.fromkeys(('violence', 'sex', 'horror', 'cruelty', 'drugs'), 0)
+    held = [townmap.contents(data, 'seed', lot, None) for lot in lots]
+    assert held == [townmap.contents(data, 'seed', lot, None) for lot in lots]
+    assert len({found['entry'] for found in held}) > 5
+    gated = {entry['id'] for entry in townmap.tables()['ink'] if entry.get('intensity')}
+    assert not {townmap.contents(data, 'seed', lot, tame)['entry'] for lot in lots} & gated
+    # A modern town's signs use modern names.
+    haven = catalog.city('haven')
+    lot = next(lot for lot in townmap.build(haven, 'seed')['lots'] if not lot['place'])
+    assert townmap.contents(haven, 'seed', lot, None)['entry'] in {entry['id'] for entry in townmap.tables()['street']}
+
+
+def test_a_building_looked_at_is_somewhere_the_player_can_walk_to_by_name(client, app):
+    from dungeon import story
+    with app.state.database.connect(write=True) as connection:
+        connection.execute("INSERT INTO story_campaign (id, seed) VALUES (1, 'walk') ON CONFLICT(id) DO UPDATE SET seed='walk'")
+    ok(client.put('/api/story/scene', json={'city_id': 'kingswood', 'place_id': 'pell-provisions'}))
+    town = ok(client.get('/api/story/town'))['town']
+    found = ok(client.post(f"/api/story/town/lots/{blank_lot(town)['id']}/look"))['found']
+    with app.state.database.connect() as connection:
+        went = story.walked_to(connection, f"I head to {found['name']}.")
+    assert went and went['id'] == found['id']

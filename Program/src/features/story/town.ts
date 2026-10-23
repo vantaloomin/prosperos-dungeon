@@ -1,9 +1,10 @@
 /** The town map (dungeon/townmap.py) as the Town widget draws it: what the server sends, and the sums for drawing it. */
 
 export type Point = [number, number]
-export interface TownThing { id: string; name: string; kind: string; what?: string }
+export interface TownThing { id: string; name: string; kind: string; what?: string; summary?: string }
 export interface TownPatch { id: number; kind: 'town' | 'country' | 'square' | 'open' | 'water'; neighborhood: string | null; polygon: Point[]; place: TownThing | null }
-export interface TownLot { id: string; neighborhood: string; front: boolean; place: TownThing | null; polygon: Point[] }
+/** A lot: one of the town's own places, or blank until looked at (`found`, then kept). */
+export interface TownLot { id: string; neighborhood: string; front: boolean; place: TownThing | null; found?: TownThing | null; polygon: Point[] }
 export interface TownMap {
   town: string; name: string; style: 'ink' | 'street' | 'floor'; walls: boolean; size: number
   patches: TownPatch[]; streets: [Point, Point][]; roads: Point[][]
@@ -27,7 +28,7 @@ export function points(polygon: Point[]): string {
 
 /** Where the character is on the map: their place's lot or open ground, else their neighborhood, else the square. */
 export function whereOnMap(town: TownMap): Point {
-  const lot = town.lots.find((found) => found.place?.id === town.here.place)
+  const lot = town.lots.find((found) => (found.place ?? found.found)?.id === town.here.place)
   if (lot) return middle(lot.polygon)
   const ground = town.patches.find((patch) => patch.place?.id === town.here.place)
   if (ground) return middle(ground.polygon)
@@ -49,7 +50,7 @@ export function viewBox(town: TownMap, zoom: number, on: Point): [number, number
 export function namedPlaces(town: TownMap): { thing: TownThing; at: Point; open: boolean }[] {
   return [
     ...town.patches.filter((patch) => patch.place).map((patch) => ({ thing: patch.place!, at: middle(patch.polygon), open: true })),
-    ...town.lots.filter((lot) => lot.place).map((lot) => ({ thing: lot.place!, at: middle(lot.polygon), open: false })),
+    ...town.lots.filter((lot) => lot.place ?? lot.found).map((lot) => ({ thing: (lot.place ?? lot.found)!, at: middle(lot.polygon), open: false })),
   ].sort((a, b) => a.thing.name.localeCompare(b.thing.name))
 }
 
@@ -60,8 +61,9 @@ export function kindName(thing: TownThing): string {
   return thing.kind
 }
 
-/** A lot's look: a named place's lot stands out, as do yours and the one picked. */
+/** A lot's look: a named place's lot stands out, one looked at a little, and yours and the one picked most. */
 export function lotClass(lot: TownLot, town: TownMap, picked?: string): string {
-  const id = lot.place?.id
-  return ['town-lot', id && 'named', id && id === town.here.place && 'here', id && id === picked && 'picked'].filter(Boolean).join(' ')
+  const id = (lot.place ?? lot.found)?.id
+  return ['town-lot', lot.place && 'named', lot.found && 'found', id && id === town.here.place && 'here', id && id === picked && 'picked']
+    .filter(Boolean).join(' ')
 }

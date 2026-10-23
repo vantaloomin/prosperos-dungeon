@@ -51,6 +51,7 @@ from dungeon import (
     tiers,
     timeline,
     tone,
+    townmap,
     travel,
     turn,
 )
@@ -136,7 +137,9 @@ def city_for(connection, city_id: str, town: str) -> dict:
     data = changes.resolve(city_id, custom.all_cities(connection))
     if data is None:
         raise DomainError(f'No world data for city {city_id!r}.', 404, 'unknown_city')
-    return data | {'kin': [], 'town': town, 'you': you(connection, town), 'kept': ()} | hamlets(connection, data)
+    data = data | {'kin': [], 'town': town, 'you': you(connection, town), 'kept': ()} | hamlets(connection, data)
+    # The buildings looked at on the town map (dungeon/townmap.py) are places of the town too.
+    return data | townmap.lot_places(connection, data)
 
 
 def hamlets(connection, data: dict) -> dict:
@@ -672,7 +675,7 @@ def clear(database) -> dict:
         for name in ('record_entries', 'record_corrections', 'story_summary', 'story_clock', 'story_quests',
                       'story_inventory', 'story_purse', 'story_stock', 'story_trades', 'story_wounds', 'story_fight',
                       'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
-                      'story_rounds', 'story_map', 'story_hexes', 'story_sites', 'story_position', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
+                      'story_rounds', 'story_map', 'story_hexes', 'story_sites', 'story_lots', 'story_position', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
                       'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_beats', 'story_word',
                       'story_offpage', 'story_tier', 'story_marks', 'story_dark',
                       'story_director', 'story_arcs', 'story_threads', 'story_nemeses', 'story_seeds',

@@ -152,6 +152,14 @@ def read_town(request: Request):
         return {'town': townmap.view(connection)}
 
 
+@router.post('/town/lots/{lot_id}/look')
+def look_at_lot(request: Request, lot_id: str):
+    """Look at a blank building on the town map: what stands there is decided now and kept."""
+    with request.app.state.database.connect(write=True) as connection:
+        found = townmap.look(connection, lot_id)
+        return {'found': found, 'town': townmap.view(connection)}
+
+
 @router.put('/sheet')
 def change_sheet(request: Request, body: SheetChange):
     database = request.app.state.database
