@@ -1593,6 +1593,25 @@ def brp_magic(play):
     play.sheet()
 
 
+def town_quests(play):
+    """Town adventures: a BABEL start on the Concourse begins its quests; reaching Hollin mid-campaign begins
+    Hollin's (once, deadlines from the arrival); a dangerous place there and a search with its finds."""
+    play.dungeon.call('PUT', '/api/story/scene', {'city_id': 'the-concourse', 'place_id': 'the-plaza'})
+    play.dungeon.call('DELETE', '/api/story')
+    premades = play.dungeon.call('GET', '/api/story/start').get('premades') or []
+    if not premades:
+        play.flag('No BABEL premades offered on the Concourse.')
+        return
+    play.start(premades[0]['id'])
+    play.journal()
+    play.say('I set out for Hollin.')
+    play.write(f"- scene: {play.story()['scene']['place']['id']} in {play.story()['scene']['city']['name']}\n")
+    play.journal()
+    play.say('I go down into the bone-cellar with a lamp and look around.')
+    play.say('I search the bone-cellar for anything worth carrying.')
+    play.gear()
+
+
 SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl, 'road': road,
              'director': director, 'chapters': chapters, 'ironman': ironman, 'gm_view': gm_view, 'memory': memory,
              'legacy': legacy, 'fivee_checks': fivee_checks, 'fivee_fight': fivee_fight,
@@ -1609,4 +1628,4 @@ SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl,
              'lies': lies, 'labour': labour, 'ranges': ranges, 'shut_shop': shut_shop,
              'dice_log': dice_log, 'haggling': haggling, 'life_cards': life_cards, 'bonds': bonds, 'party': party,
              'ironsworn_vows': ironsworn_vows, 'fate_stress': fate_stress, 'real_time': real_time,
-             'fivee_cleric': fivee_cleric, 'fivee_evoker': fivee_evoker, 'brp_magic': brp_magic}
+             'fivee_cleric': fivee_cleric, 'fivee_evoker': fivee_evoker, 'brp_magic': brp_magic, 'town_quests': town_quests}
