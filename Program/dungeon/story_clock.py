@@ -18,6 +18,8 @@ ACROSS_TOWN_MINUTES = 20
 ANOTHER_CITY_MINUTES = 6 * 60
 WORDS = {'one': 1, 'an': 1, 'a': 1, 'another': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7,
          'eight': 8, 'nine': 9, 'ten': 10, 'eleven': 11, 'twelve': 12, 'few': 3, 'couple of': 2}
+# "The day" runs until DAY_END local (from a late start, LATE_DAY instead), at most DAY_SPAN.
+DAY_SPAN, DAY_END, LATE_DAY = 10 * 60, 19, 3 * 60
 # (pattern, minutes), first match wins.
 SPANS = (
     (r'\b(sleep|go to bed|turn in|rest for the night|bed down|camp for the night)\b', 8 * 60),
@@ -25,7 +27,7 @@ SPANS = (
     # A stretch of the day spent at something: "I spend the day felling trees and come back at dusk".
     (r'\b(spend|spends|spending|work|works|working|pass|passes|passing|take|takes|taking)\b.*'
      r'\b(the|all|a|an|the whole|a whole)[- ]day\b',
-     10 * 60),
+     DAY_SPAN),
     (r'\b(spend|spends|spending|work|works|working|pass|passes|passing)\b.*\b(the|all) (morning|afternoon)\b',
      4 * 60),
     (r'\b(spend|spends|spending|work|works|working|pass|passes|passing)\b.*\b(the|all) evening\b',
@@ -94,5 +96,20 @@ def minutes_for(text: str, rolled: bool, local: datetime | None = None) -> int:
         return minutes
     for pattern, minutes in SPANS:
         if re.search(pattern, text, re.I):
-            return minutes
+            return day_left(minutes, local)
     return TURN_MINUTES if rolled else TALK_MINUTES
+
+
+def day_left(minutes: int, local: datetime | None) -> int:
+    """A span as long as it really runs: 'the day' begun at 16:10 runs to the evening, not past midnight."""
+    if minutes != DAY_SPAN or local is None:
+        return minutes
+    left = int((local.replace(hour=DAY_END, minute=0, second=0, microsecond=0) - local).total_seconds() // 60)
+    return min(DAY_SPAN, left) if left >= 60 else LATE_DAY
+
+
+def spent(text: str, local: datetime | None = None) -> int:
+    """A stretch a line spends at something ('for three hours', 'the afternoon', 'the day'), in minutes; 0 for none."""
+    if (minutes := waited(text)) is not None:
+        return minutes
+    return next((day_left(span, local) for pattern, span in SPANS[2:5] if re.search(pattern, text, re.I)), 0)

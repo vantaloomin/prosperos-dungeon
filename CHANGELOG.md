@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Dice, haggling and bonds playtest fixes.** An arm-wrestle, a race or a bet no longer starts a fight. "I spend
+  the day at the market" takes you there. "The day" now ends with the evening rather than running past midnight, and
+  work pays only for the hours that actually passed. "I sleep until morning" from the small hours wakes you in the
+  morning.
 - **Combat-extras playtest fixes.** Tossing or throwing your purse to robbers no longer rolls. "For three more
   hours" and "another hour" now pass the time, and work pays for it. A charge counts as an attack, and every move you
   roll in a fight now gets a line. A near miss when someone lies to you leaves you uneasy, so you get a small tell.

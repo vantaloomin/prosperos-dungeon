@@ -67,7 +67,17 @@ def ground(city_id: str, place_id: str) -> tuple[dict | None, dict | None]:
     return found
 
 
+# "I sleep until morning": from the small hours too, the sleep ends with the morning.
+UNTIL_MORNING = re.compile(r'\b(?:until|till|til|to)\s+(?:the\s+)?(?:morning|dawn|daybreak|first light|sunrise)\b',
+                           re.I)
+
+
 def plan(city_id: str, place_id: str, text: str, rng=None, connection=None) -> dict:
+    return planned(city_id, place_id, text, rng, connection) | ({'morning': True} if UNTIL_MORNING.search(text)
+                                                                 else {})
+
+
+def planned(city_id: str, place_id: str, text: str, rng=None, connection=None) -> dict:
     nights = nights_in(text)
     precautions = [name for name, words, _ in PRECAUTIONS if words.search(text)]
     travel_map, node = ground(city_id, place_id)
@@ -134,22 +144,24 @@ def night(rest: dict, rolls: list[dict]) -> tuple[int, int, bool, list[str]]:
     return nights, 1, False, lines
 
 
-def minutes(nights: int, cut_short: bool, local: datetime | None = None) -> int:
+def minutes(nights: int, cut_short: bool, local: datetime | None = None, morning: bool = False) -> int:
     if cut_short:
         return nights * DAY_MINUTES + CUT_SHORT_MINUTES
-    return (nights - 1) * DAY_MINUTES + first_night(local)
+    return (nights - 1) * DAY_MINUTES + first_night(local, morning)
 
 
-def first_night(local: datetime | None) -> int:
+def first_night(local: datetime | None, morning: bool = False) -> int:
     """A night's sleep runs to the next morning when it starts in the evening or the night (the morning 6 to 15 hours
-    off), so bedding down at six wakes at dawn, not at two in the morning; otherwise eight hours."""
+    off), so bedding down at six wakes at dawn, not at two in the morning; otherwise eight hours. Asked to sleep
+    until morning (`morning`), the small hours wake with the morning too, an hour on at least."""
     if local is None:
         return NIGHT_MINUTES
     wake = local.replace(hour=WAKE_HOUR, minute=0, second=0, microsecond=0)
     if wake <= local:
         wake += timedelta(days=1)
     gap = int((wake - local).total_seconds() // 60)
-    return gap if 6 * 60 <= gap <= 15 * 60 else NIGHT_MINUTES
+    small_hours = morning and local.hour < WAKE_HOUR and gap >= 60
+    return gap if 6 * 60 <= gap <= 15 * 60 or small_hours else NIGHT_MINUTES
 
 
 def opening(rest: dict) -> str:

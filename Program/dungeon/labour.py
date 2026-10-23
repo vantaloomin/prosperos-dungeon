@@ -19,19 +19,19 @@ OWN = re.compile(r'\b(on (my|his|her|their) own|for myself|my (own )?(gear|sword
                  r'homework|coursework|out (at|in) the gym|work\w* out)\b', re.I)
 
 
-def minutes(text: str) -> int:
-    """The minutes of paid work in a line: a stretch of the day, or so many hours, spent working; 0 for none."""
+def minutes(text: str, passed: int | None = None) -> int:
+    """The minutes of paid work in a line: a stretch of the day, or so many hours, spent working, and no more than
+    the time the line `passed` on the story clock; 0 for none."""
     if not WORKING.search(text) or OWN.search(text):
         return 0
-    spent = story_clock.waited(text)
-    if spent is None:
-        spent = next((span for pattern, span in story_clock.SPANS[2:5] if re.search(pattern, text, re.I)), 0)
+    spent = story_clock.spent(text)
+    spent = spent if passed is None else min(spent, passed)
     return min(spent, DAY_MINUTES) if spent >= LEAST_MINUTES else 0
 
 
-def pay(connection, text: str, wage: int, currency: dict) -> list[str]:
+def pay(connection, text: str, wage: int, currency: dict, passed: int | None = None) -> list[str]:
     """The wage for the line's work, into the purse; the line that tells the narrator."""
-    worked = minutes(text)
+    worked = minutes(text, passed)
     if not worked:
         return []
     earned = wage * worked // DAY_MINUTES
