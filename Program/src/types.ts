@@ -224,6 +224,13 @@ export interface StoryMessage {
 /** One thing a turn changed: the purse, the pack, the character's condition, a quest, or something learned. */
 export interface ReceiptChip { kind: 'coins' | 'item' | 'hurt' | 'injury' | 'quest' | 'learned'; tone: 'gain' | 'loss' | 'neutral'; text: string }
 export interface StoryFlag { passage: string; why: string[] }
+/** The dice log (dungeon/dice_log.py): every roll of the branch, turn by turn and newest first, with how long each
+ *  turn took; empty while the dice are hidden. */
+export interface DiceLog {
+  shown: boolean
+  turns: { id: string; seq: number; line: string; rolls: StoryRoll[]; pace: TurnPace | null }[]
+  tally: { rolls: number; landed: number; bands: Partial<Record<Band, number>> } | null
+}
 export interface TurnPace { steps: Record<string, number>; skipped: string[]; budget: number; total: number }
 export type Band = 'critical_failure' | 'failure' | 'failure_upside' | 'success_cost' | 'success' | 'critical_success'
 /** One roll: MARVEL's d100 plus the stat die, less the difficulty shift (dungeon/rules/marvel.py); or, under 5E, a d20

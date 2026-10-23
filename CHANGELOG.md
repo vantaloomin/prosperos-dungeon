@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Dice log.** With the dice shown, the drawer's Dice log lists every roll of this branch, turn by turn, with how
+  long each turn took and how many of your rolls landed.
 - **Recheck fixes.** "Cut at him with my sword" or "hit him over the head" always starts the fight, even when
   the referee skipped the line or called it Luck. Handing over your purse or surrendering no longer rolls. Captors
   beat you down rather than leave you dying. "Sell her everything I can spare" sells stolen goods, curios and spare

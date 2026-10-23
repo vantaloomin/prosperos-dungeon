@@ -16,6 +16,7 @@ import { StoryMap } from './StoryMap'
 import { StoryTown } from './StoryTown'
 import { StoryArt } from './StoryArt'
 import { StoryNotebook } from './StoryNotebook'
+import { StoryDiceLog } from './StoryDiceLog'
 import { StoryPeople } from './StoryPeople'
 import { StoryPowers } from './StoryPowers'
 import { StorySheet } from './StorySheet'
@@ -225,6 +226,7 @@ const WIDGETS: Record<Widget, (props: PanelProps, refresh: () => void) => ReactN
   branches: ({ story, change }) => <StoryBranches branches={story.branches} open
     onSwitch={(id) => void change(() => api<StoryData>(`/story/branches/${encodeURIComponent(id)}/switch`, {}))} />,
   notebook: () => <StoryNotebook open />,
+  dice: () => <StoryDiceLog open />,
   art: ({ story }) => <StoryArt people={story.people} present={story.scene.present} place={{ key: `${story.scene.city.id}/${story.scene.place.id}`, name: story.scene.place.name }} open />,
   export: () => <StoryExport open />,
   rules: ({ story }, refresh) => <ToneAndRules story={story} refresh={refresh} />,
