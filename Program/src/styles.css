@@ -154,6 +154,24 @@ textarea { resize: vertical; line-height: 1.6; }
   :root[data-layout='reader'] .story-panel-title { padding-right: 36px; }
   /* Custom (deviceLook.ts layout, StoryGrid.tsx): a wider panel holding the player's own grid of tiles. */
   :root[data-layout='custom'] .story-panel { flex-basis: 600px; max-width: 600px; }
+  /* Visual novel (deviceLook.ts layout, StoryArt.tsx StoryStage): once the scene has a picture, it fills the story
+     column; the portraits stand above a text box that holds the story, and the header and composer sit on glass.
+     With no picture yet, nothing here applies and the layout is Classic. */
+  :root[data-layout='novel'] .story-main:has(> .story-stage) { position: relative; isolation: isolate; }
+  :root[data-layout='novel'] .story-main > .story-stage { position: absolute; inset: 0; z-index: -1; width: auto; max-width: none; margin: 0; min-height: 0;
+    border: 0; border-radius: 0; background-color: var(--canvas); }
+  :root[data-layout='novel'] .story-main > .story-stage::after { content: ''; position: absolute; inset: 0;
+    background: linear-gradient(to bottom, color-mix(in srgb, var(--canvas) 55%, transparent), transparent 30%, transparent 55%, color-mix(in srgb, var(--canvas) 70%, transparent)); }
+  :root[data-layout='novel'] .story-main > .stage-portraits { flex: 1 1 auto; min-height: 0; align-items: flex-end; justify-content: center; gap: 20px; padding: 12px 32px 0; overflow: hidden; }
+  :root[data-layout='novel'] .story-main > .stage-portraits li { height: 100%; grid-template-rows: minmax(0, 1fr) auto; align-items: end; gap: 4px; }
+  :root[data-layout='novel'] .story-main > .stage-portraits img { height: 100%; max-height: 24rem; width: auto; aspect-ratio: 3 / 4; border-radius: 10px; }
+  :root[data-layout='novel'] .story-main:has(> .story-stage) > .story-log { flex: 0 1 auto; max-height: 38%; max-width: 820px; margin: 10px auto 8px;
+    width: calc(100% - 48px); padding: 16px 24px; border: 1px solid var(--border); border-radius: 12px;
+    background: color-mix(in srgb, var(--surface) 90%, transparent); backdrop-filter: blur(6px); box-shadow: 0 8px 28px var(--shadow, #0006); }
+  :root[data-layout='novel'] .story-main:has(> .story-stage) > .story-header { max-width: none; padding-left: max(32px, calc((100% - 696px) / 2)); padding-right: max(32px, calc((100% - 696px) / 2));
+    background: color-mix(in srgb, var(--canvas) 82%, transparent); backdrop-filter: blur(6px); }
+  :root[data-layout='novel'] .story-main:has(> .story-stage) > :is(.story-composer, .story-footer, .story-notice) { position: relative; }
+  :root[data-layout='novel'] .story-main:has(> .story-stage) > .story-footer { max-width: none; background: color-mix(in srgb, var(--canvas) 82%, transparent); padding-top: 8px; }
 }
 .story-grid-bar, .story-grid-save { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .story-grid-pick select, .story-grid-add select { max-width: 220px; }
@@ -900,5 +918,8 @@ img.avatar, img.portrait { object-fit: cover; object-position: center top; paddi
 .stage-portraits img { width: 4.5rem; height: 6rem; object-fit: cover; border-radius: 6px; border: 2px solid var(--surface); box-shadow: 0 1px 4px rgb(0 0 0 / 35%); }
 .stage-portraits span { font-size: 0.75rem; padding: 0 6px; border-radius: 4px; background: var(--surface); color: var(--text); }
 @media (max-width: 640px) { .story-stage { width: calc(100% - 32px); min-height: 6rem; } .stage-portraits img { width: 3.5rem; height: 4.5rem; } }
+/* Visual novel on a narrower screen: the portraits come apart from the picture (StoryStage), so they stand back on it. */
+@media (max-width: 1099px) { :root[data-layout='novel'] .story-stage + .stage-portraits { position: relative; width: calc(100% - 64px); max-width: 696px; margin: -7.5rem auto 0; } }
+@media (max-width: 640px) { :root[data-layout='novel'] .story-stage + .stage-portraits { width: calc(100% - 32px); margin-top: -6rem; } }
 .story-art select { min-height: 40px; }
 .story-art .form-actions { flex-wrap: wrap; }

@@ -6,19 +6,22 @@ export type ReadingFont = 'default' | 'atkinson' | 'opendyslexic'
 export type Motion = 'system' | 'reduce' | 'full'
 /** The story screen's layout (requirements "Play screen and widgets": presets as modes). Classic keeps the scene panel
  *  beside the story on a wide screen; Reader gives the story the width and folds the panel into its tabs; Custom is the
- *  free grid the player arranges (src/features/story/grid.ts), never the default. */
-export type Layout = 'classic' | 'reader' | 'custom'
+ *  free grid the player arranges (src/features/story/grid.ts), never the default; Visual novel puts the story's text box
+ *  over the scene's picture with portraits of who is here (StoryArt.tsx StoryStage), and is Classic until pictures are
+ *  made. */
+export type Layout = 'classic' | 'reader' | 'custom' | 'novel'
+export type Beside = Exclude<Layout, 'reader'>
 /** `stageArt`: the place's picture behind the story and portraits of who is here, when they have been made.
  *  `lastBeside`: the layout with the panel beside the story that Reader goes back to. `worldColors`: the story screen
  *  wears the colors its world ships (dungeon/world_theme.py), when they read well. */
-export interface DeviceLook { textScale: number; font: ReadingFont; fontEverywhere: boolean; motion: Motion; layout: Layout; lastBeside: 'classic' | 'custom'; stageArt: boolean; worldColors: boolean }
+export interface DeviceLook { textScale: number; font: ReadingFont; fontEverywhere: boolean; motion: Motion; layout: Layout; lastBeside: Beside; stageArt: boolean; worldColors: boolean }
 
 export const TEXT_SCALE = { min: 85, max: 200, step: 5 } as const
 export const DEFAULT_LOOK: DeviceLook = { textScale: 100, font: 'default', fontEverywhere: false, motion: 'system', layout: 'classic', lastBeside: 'classic', stageArt: true, worldColors: true }
 const KEY = 'dungeon-device-look'
 const FONTS: ReadingFont[] = ['default', 'atkinson', 'opendyslexic']
 const MOTIONS: Motion[] = ['system', 'reduce', 'full']
-const LAYOUTS: Layout[] = ['classic', 'reader', 'custom']
+const LAYOUTS: Layout[] = ['classic', 'reader', 'custom', 'novel']
 const listeners = new Set<() => void>()
 
 export function clampScale(value: number): number {
@@ -35,7 +38,7 @@ export function cleanLook(value: unknown): DeviceLook {
     fontEverywhere: saved.fontEverywhere === true,
     motion: MOTIONS.includes(saved.motion as Motion) ? saved.motion as Motion : DEFAULT_LOOK.motion,
     layout: LAYOUTS.includes(saved.layout as Layout) ? saved.layout as Layout : DEFAULT_LOOK.layout,
-    lastBeside: saved.lastBeside === 'custom' ? 'custom' : 'classic',
+    lastBeside: saved.lastBeside === 'custom' || saved.lastBeside === 'novel' ? saved.lastBeside : 'classic',
     stageArt: saved.stageArt !== false,
     worldColors: saved.worldColors !== false,
   }

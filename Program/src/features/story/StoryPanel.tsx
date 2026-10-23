@@ -147,7 +147,7 @@ function PanelTabs({ story, panel }: { story: StoryData; panel: Panel }) {
   )
 }
 
-/** Reader, or back to the layout with the panel beside the story (Classic or Custom), from the tabs on a wide screen
+/** Reader, or back to the layout with the panel beside the story (Classic, Custom or Visual novel), from the tabs on a wide screen
  *  (Settings > General > Appearance keeps it too). */
 function LayoutSwitch({ reader }: { reader: boolean }) {
   const { lastBeside } = useDeviceLook()

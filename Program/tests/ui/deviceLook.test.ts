@@ -18,6 +18,7 @@ test('a damaged saved look falls back to the defaults, keeping what is valid', (
   assert.equal(cleanLook({ layout: 'custom' }).layout, 'custom')
   assert.equal(cleanLook({ lastBeside: 'custom' }).lastBeside, 'custom')
   assert.equal(cleanLook({ lastBeside: 'reader' }).lastBeside, 'classic')
+  assert.equal(cleanLook({ layout: 'novel', lastBeside: 'novel' }).lastBeside, 'novel')
   assert.equal(cleanLook({ stageArt: false }).stageArt, false)
   assert.equal(cleanLook({ worldColors: false }).worldColors, false)
 })
