@@ -268,6 +268,8 @@ export interface BrpSheet {
   names: { profession: string; personality: string }; rolls: Record<string, number>; damage_modifier: string; major_wound: number
   xp_bonus: number; armor_name: string; armor_value: number; checks: string[]
   skill_list: { id: string; name: string; value: number; checked: boolean }[]
+  /** A magician's spells (Chapter 4: Powers): each a skill, its power points a level, and the most levels. */
+  spell_list?: { id: string; name: string; value: number; cost: number; summary: string; checked: boolean }[]; most_level?: number
   major_wounds: { text: string; characteristic: string; lost: number; by: string }[]; attribution: string; growth?: SheetGrowth
 }
 /** What a Percentile character is built from at campaign start (dungeon/campaign.py brp_choices). */

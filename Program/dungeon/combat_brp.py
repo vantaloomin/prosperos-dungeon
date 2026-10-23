@@ -17,6 +17,13 @@ table by what the foes want), with BRP's numbers from the pack:
   At 2 hit points or fewer after one, the character collapses; at 0 or less the wound is fatal, and the defeat table
   decides (BRP has no death saves: someone may yet drag them clear).
 - **Morale:** once a foe is down or under half its hit points, the others roll Luck; a failure breaks them.
+- **Magic** (dungeon/rules/brp.py cast; the roll spent the power points). Blast, Fire and Frost do 1D6 a level
+  that armour absorbs, Lightning and Wounding 1D6 a level straight to hit points; the target may dodge any but
+  Wounding (a touch). A special rolls the dice twice and keeps the better, a critical does the most and ignores
+  armour. Protection adds a point of armour a level for the rest of the fight, Sharpen 5% and a point of damage a
+  level to the character's blows, Dull takes as much off the foes'. Control pits the character's POW against the
+  foe's on the resistance table (50% + 5% a point of difference): won, the foe stands idle. Heal heals 1D6 a level
+  (its most on a critical). The rest are the narrator's to tell.
 - **Healing** is slow, as written: each hit point back takes 7 days divided by a 1D3 roll (3, 4 or 7 nights of
   rest). First Aid on the character's own wound restores 1D3 at once, once a wound (dungeon/sheet.py).
 """
@@ -185,11 +192,13 @@ def weapon_words(weapon: dict) -> list[str]:
 
 # The player's attack ------------------------------------------------------------------------------
 
-def strike(connection, roll: dict, target: dict, items: list[dict], rng, lines: list[str]):
-    """The character's attack on `target` with the turn's own d100 against the weapon's skill; the foe dodges."""
+def strike(connection, roll: dict, target: dict, items: list[dict], rng, lines: list[str], state: dict | None = None):
+    """The character's attack on `target` with the turn's own d100 against the weapon's skill; the foe dodges.
+    Sharpen on the character's weapon adds to the chance and the damage."""
     found = sheet.native(connection)
     weapon = weapon_of(items, roll['action'])
-    chance = found['skills'][weapon['skill']]
+    sharpened = (state or {}).get('sharpen', 0)
+    chance = found['skills'][weapon['skill']] + 5 * sharpened
     attack = brp.level(roll['natural'], chance)
     combat5e.record_roll(connection, roll, f"{weapon['name']} {brp.shown(chance)}% ({attack})", 0, roll['natural'], chance,
                          brp.BANDS[attack])
@@ -203,6 +212,7 @@ def strike(connection, roll: dict, target: dict, items: list[dict], rng, lines: 
                         else 'is dodged.'))
         return
     damage = damage_of(weapon, brp.damage_modifier(found['characteristics']), hit, target['armor'], rng)
+    damage += sharpened if damage else 0
     hurt(target, damage)
     word = 'down' if target['hp'] <= 0 else combat5e.describe(target)
     how = {'critical': 'lands a critical hit on', 'special': 'lands a telling blow on'}.get(hit, 'hits')
@@ -232,12 +242,14 @@ def morale(state: dict, standing, rng, lines: list[str]):
 def foes_attack(connection, state: dict, standing, guarded: bool, rng, lines: list[str]) -> int:
     """Each foe still standing closes in or attacks; the character dodges the first (every one when they defend)."""
     found = sheet.native(connection)
-    armor = (brp.by_id('armor').get(found.get('armor') or '') or {}).get('av', 0)
+    # Protection adds to the armour; Dull takes off the foes' chance and damage.
+    armor = (brp.by_id('armor').get(found.get('armor') or '') or {}).get('av', 0) + state.get('protection', 0)
+    dulled = state.get('dull', 0)
     dodged = False
     for foe in standing(state):
         if ranges.close(foe, lines):
             continue
-        attack = brp.level(rng.randint(1, 100), foe['attack']['skill'])
+        attack = brp.level(rng.randint(1, 100), max(1, foe['attack']['skill'] - 5 * dulled))
         dodge = None
         if attack not in ('failure', 'fumble') and (guarded or not dodged):
             dodged, dodge = True, brp.level(rng.randint(1, 100), found['skills']['dodge'])
@@ -250,6 +262,7 @@ def foes_attack(connection, state: dict, standing, guarded: bool, rng, lines: li
             continue
         damage = damage_of({'damage': foe['attack']['damage'], 'special': foe['attack']['special'],
                             'damage_modifier': foe['attack']['damage_modifier']}, foe['dm'], hit, armor, rng)
+        damage = max(1, damage - dulled) if damage else 0
         if not damage:
             lines.append(f"{foe['name'].capitalize()} hits the player's character, and the armour takes it.")
             continue
@@ -291,8 +304,11 @@ def major(connection, found: dict, state: dict, foe: dict, rng, lines: list[str]
 
 
 def rest(connection, nights: int, rng=None) -> list[str]:
-    """Each hit point back takes 7 days divided by a 1D3 roll, counted in nights of rest."""
+    """Each hit point back takes 7 days divided by a 1D3 roll, counted in nights of rest. Power points come back
+    with sleep, silently (the sheet shows them)."""
     found = sheet.native(connection)
+    if nights > 0 and brp.recover(found, nights):
+        sheet.set_native(connection, found, '')
     if nights <= 0 or found['hp'] >= found['max_hp']:
         return []
     rng = rng or random.SystemRandom()
@@ -319,3 +335,94 @@ def first_aid(connection, found: dict, result: dict, rng) -> dict:
     found['hp'] += healed
     found['aided'] = True
     return result | {'skill': f"{result['skill']} (heals {healed})", 'healed': healed}
+
+
+# Magic --------------------------------------------------------------------------------------------
+
+def healed(found: dict, result: dict, rng) -> dict:
+    """A Heal spell that works heals the character 1D6 a level (the most on a critical). Changes `found`."""
+    cast = brp.spell_of(result.get('skill'))
+    if not cast or cast[0]['effect'] != 'heal' or result['band'] not in ('success', 'critical_success'):
+        return result
+    rng = rng or random.SystemRandom()
+    rolled = sum(6 if result.get('degree') == 'critical' else rng.randint(1, 6) for _ in range(cast[1]))
+    gained = min(found['max_hp'] - found['hp'], rolled)
+    found['hp'] += gained
+    return result | {'skill': f"{result['skill']} (heals {gained})", 'healed': gained}
+
+
+def spell_in(connection, roll: dict) -> tuple[dict, int] | None:
+    """The spell a roll cast and its level, under BRP."""
+    return brp.spell_of(roll.get('skill')) if basic_sheet(connection) else None
+
+
+def basic_sheet(connection) -> dict | None:
+    return sheet.native(connection) if sheet.ruleset(connection) == brp.ID else None
+
+
+def spell_damage(levels: int, degree: str, rng) -> int:
+    if degree == 'critical':
+        return 6 * levels
+    rolled = sum(rng.randint(1, 6) for _ in range(levels))
+    return max(rolled, sum(rng.randint(1, 6) for _ in range(levels))) if degree == 'special' else rolled
+
+
+def resisted(active: int, passive: int, rng) -> bool:
+    """The resistance table: 50% + 5% a point the active side has over the passive."""
+    return rng.randint(1, 100) <= max(5, min(95, 50 + 5 * (active - passive)))
+
+
+def cast(connection, state: dict, roll: dict, cast_: tuple[dict, int], targets: list[dict], rng, lines: list[str]):
+    """A spell in a fight, as the roll left it."""
+    spell, levels = cast_
+    name = spell['name']
+    degree = 'fumble' if roll['band'] == 'critical_failure' else 'failure' if roll['band'] == 'failure' else \
+        'critical' if roll['band'] == 'critical_success' else 'success'
+    if degree in ('failure', 'fumble'):
+        lines.append(f"The player's character tries to cast {name}, but the spell "
+                     + ('goes badly wrong (a fumble).' if degree == 'fumble' else 'fails.'))
+        return
+    if spell['effect'] == 'heal':
+        lines.append(f"The player's character casts {name}: {roll['skill'].rsplit('(', 1)[-1].rstrip(')')}.")
+        return
+    if spell['effect'] in ('protection', 'sharpen', 'dull'):
+        state[spell['effect']] = max(state.get(spell['effect'], 0), levels)
+        what = {'protection': f'{levels} more armour against blows',
+                'sharpen': f"+{5 * levels}% and +{levels} damage to their blows",
+                'dull': f"-{5 * levels}% and -{levels} damage to the foes' blows"}[spell['effect']]
+        lines.append(f"The player's character casts {name} {levels}: {what} for the rest of the fight.")
+        return
+    target = next((foe for foe in targets if foe['name'].lower() in roll['action'].lower()), targets[0]) \
+        if targets else None
+    if target is None or spell['effect'] not in ('damage', 'control'):
+        lines.append(f"The player's character casts {name}.")
+        return
+    if spell['effect'] == 'control':
+        found = sheet.native(connection)
+        if resisted(found['characteristics']['pow'], target.get('pow', 10), rng):
+            target['broken'] = True
+            lines.append(f"The player's character casts {name} on {target['name']}, who stands idle under their will.")
+        else:
+            lines.append(f"The player's character casts {name} on {target['name']}, whose will holds.")
+        return
+    strike_spell(spell, levels, degree, target, rng, lines)
+
+
+def strike_spell(spell: dict, levels: int, degree: str, target: dict, rng, lines: list[str]):
+    """A damaging spell: the target may dodge (not a touch); armour takes its share unless the spell goes straight to
+    hit points or lands a critical."""
+    name = spell['name']
+    if spell['range'] != 'Touch' and target.get('dodge') and degree != 'critical' and \
+            landed('success', brp.level(rng.randint(1, 100), target['dodge'])) is None:
+        lines.append(f"The player's character casts {name} at {target['name']}, who dodges it.")
+        return
+    damage = spell_damage(levels, degree, rng)
+    if spell['armor'] and degree != 'critical':
+        damage = max(0, damage - target['armor'])
+    if not damage:
+        lines.append(f"The player's character casts {name} at {target['name']}, and the armour takes it.")
+        return
+    hurt(target, damage)
+    word = 'down' if target['hp'] <= 0 else combat5e.describe(target)
+    lines.append(f"The player's character casts {name} {levels} at {target['name']} for {damage} damage"
+                 + (' (through the armour)' if degree == 'critical' and spell['armor'] else '') + f': now {word}.')

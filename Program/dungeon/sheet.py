@@ -92,7 +92,9 @@ def check(connection, approach: str, difficulty: str = 'normal', text: str = '',
         from dungeon import combat_brp
         result = brp.check(found, approach, difficulty, text, rng, save) | {'ruleset': brp.ID}
         result = combat_brp.first_aid(connection, found, result, rng)
-        if (not save and brp.check_skill(found, result)) or result.get('healed'):
+        # A Heal spell heals the character at once (dungeon/combat_brp.py healed).
+        result = combat_brp.healed(found, result, rng)
+        if (not save and brp.check_skill(found, result)) or result.get('healed') or result.get('brp_spell'):
             set_native(connection, found, '')
         if result.get('healed'):
             from dungeon import combat, combat5e

@@ -69,6 +69,10 @@ function Percentile({ sheet }: { sheet: BrpSheet }) {
       <p>{sheet.skill_list.filter((skill) => skill.value > 0).map((skill) => `${skill.name} ${skill.value}%${skill.checked ? ' •' : ''}`).join(' · ')}</p>
       <p className="subtle">• an experience check, rolled after a night's rest.</p>
     </details>
+    {!!sheet.spell_list?.length && <details>
+      <summary>Spells (power points {sheet.pp} of {sheet.max_pp}, up to level {sheet.most_level})</summary>
+      {sheet.spell_list.map((spell) => <p key={spell.id}><strong>{spell.name} {spell.value}%{spell.checked ? ' •' : ''}</strong> <span className="subtle">({spell.cost} a level)</span> {spell.summary}</p>)}
+    </details>}
     <p className="subtle story-attribution">{sheet.attribution}</p>
   </>
 }

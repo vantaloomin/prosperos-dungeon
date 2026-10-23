@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Magic under Percentile.** Wizards and priests now start as magicians with four spells, each a skill fuelled by
+  power points. "I cast Blast 2 at the thug" rolls the spell at that level. In fights, Blast, Fire, Frost and
+  Lightning do damage, Protection and Sharpen help you, Dull hampers your foes, and Control can stop one. Heal
+  heals you, and power points come back with sleep.
 - **5E subclasses and spells.** At level 3 every class takes its SRD subclass (Champion, Life Domain, Evoker and
   the rest), with its features and always-prepared spells. A few of them work in fights: a Champion crits on a 19,
   and Disciple of Life heals more. You can cast at a higher level ("Cure Wounds at 2nd level") for bigger dice.

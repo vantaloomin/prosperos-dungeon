@@ -1738,5 +1738,322 @@
   "professional_cap": 75,
   "personal_per_int": 10,
   "personality_points": 20
+ },
+ "magic": [
+  {
+   "id": "blast",
+   "name": "Blast",
+   "range": "100 meters",
+   "duration": "Instantaneous",
+   "cost": 3,
+   "effect": "damage",
+   "armor": true,
+   "summary": "A beam of magic energy at one target: 1D6 damage per level. Armour absorbs it; it can be dodged."
+  },
+  {
+   "id": "change",
+   "name": "Change",
+   "range": "30 meters",
+   "duration": "15 minutes",
+   "cost": 1,
+   "effect": "other",
+   "armor": false,
+   "summary": "Transforms 3 SIZ of a being or object per level into another shape of the same kind; an unwilling target resists with POW."
+  },
+  {
+   "id": "conjure_elemental",
+   "name": "Conjure Elemental",
+   "range": "12 meters",
+   "duration": "10 combat rounds",
+   "cost": 1,
+   "effect": "other",
+   "armor": false,
+   "summary": "Summons or dismisses an elemental of one type (air, earth, fire, water); 1 power point per point of its POW."
+  },
+  {
+   "id": "control",
+   "name": "Control",
+   "range": "100 meters",
+   "duration": "10 combat rounds",
+   "cost": 3,
+   "effect": "control",
+   "armor": false,
+   "summary": "Controls one intelligent being's actions per level, overcoming its POW with the magician's; the magician must concentrate."
+  },
+  {
+   "id": "countermagic",
+   "name": "Countermagic",
+   "range": "100 meters",
+   "duration": "5 minutes",
+   "cost": 1,
+   "effect": "other",
+   "armor": false,
+   "summary": "A shield that turns incoming spells back on their caster unless their level overcomes its own."
+  },
+  {
+   "id": "dark",
+   "name": "Dark",
+   "range": "100 meters",
+   "duration": "15 minutes",
+   "cost": 1,
+   "effect": "other",
+   "armor": false,
+   "summary": "Absolute darkness in a circle 3 meters in radius plus 3 meters per level, cast on an object."
+  },
+  {
+   "id": "diminish",
+   "name": "Diminish",
+   "range": "Touch",
+   "duration": "15 minutes",
+   "cost": 1,
+   "effect": "other",
+   "armor": false,
+   "summary": "Lowers one of the target's STR, CON, SIZ or DEX by 1 per level, overcoming its POW."
+  },
+  {
+   "id": "dispel",
+   "name": "Dispel",
+   "range": "100 meters",
+   "duration": "Instantaneous",
+   "cost": 1,
+   "effect": "other",
+   "armor": false,
+   "summary": "Ends a spell in effect if its level overcomes the spell's; can banish lesser summoned beings."
+  },
+  {
+   "id": "dull",
+   "name": "Dull",
+   "range": "100 meters",
+   "duration": "15 minutes",
+   "cost": 1,
+   "effect": "dull",
+   "armor": false,
+   "summary": "Takes 5% off a weapon's attack chance and 1 off its damage per level, or spreads over several weapons."
+  },
+  {
+   "id": "enhance",
+   "name": "Enhance",
+   "range": "Touch",
+   "duration": "15 minutes",
+   "cost": 1,
+   "effect": "other",
+   "armor": false,
+   "summary": "Raises one of the target's STR, CON, SIZ or DEX by 1 per level."
+  },
+  {
+   "id": "fire",
+   "name": "Fire",
+   "range": "100 meters",
+   "duration": "Instantaneous",
+   "cost": 3,
+   "effect": "damage",
+   "armor": true,
+   "summary": "A pillar of fire: 1D6 fire damage per level. Armour absorbs it; it can be dodged."
+  },
+  {
+   "id": "frost",
+   "name": "Frost",
+   "range": "100 meters",
+   "duration": "Instantaneous",
+   "cost": 3,
+   "effect": "damage",
+   "armor": true,
+   "summary": "A pillar of cold: 1D6 cold damage per level. Armour absorbs it; it can be dodged."
+  },
+  {
+   "id": "heal",
+   "name": "Heal",
+   "range": "Touch",
+   "duration": "Instantaneous",
+   "cost": 3,
+   "effect": "heal",
+   "armor": false,
+   "summary": "Heals 1D6 hit points per level; it restores no lost limb."
+  },
+  {
+   "id": "illusion",
+   "name": "Illusion",
+   "range": "30 meters",
+   "duration": "15 minutes",
+   "cost": 1,
+   "effect": "other",
+   "armor": false,
+   "summary": "Creates the look of an object, 3 SIZ per level: sight only, insubstantial."
+  },
+  {
+   "id": "invisibility",
+   "name": "Invisibility",
+   "range": "Touch",
+   "duration": "15 minutes",
+   "cost": 1,
+   "effect": "other",
+   "armor": false,
+   "summary": "Makes 3 SIZ per level of a being or object invisible while the magician concentrates."
+  },
+  {
+   "id": "lift",
+   "name": "Lift",
+   "range": "100 meters",
+   "duration": "15 minutes",
+   "cost": 1,
+   "effect": "other",
+   "armor": false,
+   "summary": "Lifts and moves 3 SIZ per level through the air, the magician too."
+  },
+  {
+   "id": "light",
+   "name": "Light",
+   "range": "100 meters",
+   "duration": "15 minutes",
+   "cost": 1,
+   "effect": "other",
+   "armor": false,
+   "summary": "Torchlight in a circle 3 meters per level in radius, cast on an object."
+  },
+  {
+   "id": "lightning",
+   "name": "Lightning",
+   "range": "60 meters",
+   "duration": "Instantaneous",
+   "cost": 3,
+   "effect": "damage",
+   "armor": false,
+   "summary": "A lightning bolt: 1D6 damage per level straight to the target's hit points."
+  },
+  {
+   "id": "perception",
+   "name": "Perception",
+   "range": "60 meters",
+   "duration": "Instantaneous",
+   "cost": 1,
+   "effect": "other",
+   "armor": false,
+   "summary": "Points out the nearest thing of one kind (a trap, a secret door, gold, magic) per level."
+  },
+  {
+   "id": "protection",
+   "name": "Protection",
+   "range": "100 meters",
+   "duration": "15 minutes",
+   "cost": 1,
+   "effect": "protection",
+   "armor": false,
+   "summary": "Adds 1 armour point per level against physical attacks."
+  },
+  {
+   "id": "resistance",
+   "name": "Resistance",
+   "range": "Touch",
+   "duration": "15 minutes",
+   "cost": 1,
+   "effect": "other",
+   "armor": false,
+   "summary": "Takes 1 per level off damage from heat, cold and the elements."
+  },
+  {
+   "id": "seal",
+   "name": "Seal",
+   "range": "Touch",
+   "duration": "15 minutes",
+   "cost": 1,
+   "effect": "other",
+   "armor": false,
+   "summary": "Joins two fitted objects (a door in its frame, a lid on a box) as one."
+  },
+  {
+   "id": "sharpen",
+   "name": "Sharpen",
+   "range": "100 meters",
+   "duration": "15 minutes",
+   "cost": 1,
+   "effect": "sharpen",
+   "armor": false,
+   "summary": "Adds 5% to a weapon's attack chance and 1 to its damage per level."
+  },
+  {
+   "id": "speak_to_mind",
+   "name": "Speak to Mind",
+   "range": "100 meters",
+   "duration": "10 combat rounds",
+   "cost": 1,
+   "effect": "other",
+   "armor": false,
+   "summary": "Mind-to-mind speech with one other mind per level, whatever its language."
+  },
+  {
+   "id": "teleport",
+   "name": "Teleport",
+   "range": "1,000 meters",
+   "duration": "Instantaneous",
+   "cost": 1,
+   "effect": "other",
+   "armor": false,
+   "summary": "Moves 3 SIZ per level of a whole object or being anywhere within range."
+  },
+  {
+   "id": "unseal",
+   "name": "Unseal",
+   "range": "Touch",
+   "duration": "Instantaneous",
+   "cost": 1,
+   "effect": "other",
+   "armor": false,
+   "summary": "Opens unlocked doors and boxes and drops weapons from their sheaths; cancels Seal."
+  },
+  {
+   "id": "vision",
+   "name": "Vision",
+   "range": "100/10 meters",
+   "duration": "10 combat rounds",
+   "cost": 1,
+   "effect": "other",
+   "armor": false,
+   "summary": "Sees and hears what happens in a place in range, or a day further into its past per extra level."
+  },
+  {
+   "id": "wall",
+   "name": "Wall",
+   "range": "12 meters",
+   "duration": "15 minutes",
+   "cost": 1,
+   "effect": "other",
+   "armor": false,
+   "summary": "Raises a wall of the earth, stone or wood at hand, 1 square meter per level, with 30 hit points."
+  },
+  {
+   "id": "ward",
+   "name": "Ward",
+   "range": "Touch",
+   "duration": "Permanent",
+   "cost": 3,
+   "effect": "other",
+   "armor": false,
+   "summary": "Four objects guard a square: power crossing it meets Countermagic, and anything crossing it Blast."
+  },
+  {
+   "id": "wounding",
+   "name": "Wounding",
+   "range": "Touch",
+   "duration": "Instantaneous",
+   "cost": 3,
+   "effect": "damage",
+   "armor": false,
+   "summary": "A touch that does 1D6 magic damage per level; armour does not stop it."
+  }
+ ],
+ "magicians": {
+  "about": "Professions that begin as magicians at the Normal power level: four spells, each a skill starting at INT x1, that the profession's points also go to (the spells code picks).",
+  "wizard": [
+   "blast",
+   "protection",
+   "light",
+   "perception"
+  ],
+  "priest": [
+   "heal",
+   "protection",
+   "light",
+   "dispel"
+  ]
  }
 }
