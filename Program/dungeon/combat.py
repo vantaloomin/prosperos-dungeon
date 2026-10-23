@@ -49,7 +49,7 @@ import json
 import random
 import re
 
-from dungeon import combat5e, combat_brp, combat_iron, inventory, record, referee, sheet, timeline
+from dungeon import combat5e, combat_brp, combat_iron, inventory, ranges, record, referee, sheet, timeline
 from dungeon import table as campaign_table
 from dungeon.database import encode, identifier, optional
 from dungeon.rules import ladder, marvel, narrative
@@ -368,6 +368,11 @@ def player_moves(connection, state: dict, rolls: list[dict], items: list[dict], 
         landed = roll['band'] in SUCCESS
         if five and (spell := combat5e.spell_in(connection, roll)):
             combat5e.cast(connection, roll, spell, standing(state), rng, lines)
+        elif ranges.backing(roll['action']):
+            # "I fall back to the stairs": a move within the fight, not an escape (dungeon/ranges.py).
+            ranges.break_away(state, roll['action'], landed, lines)
+            if roll['stat'] == 'Vitality' and attacks(roll['action']) and (targets := standing(state)):
+                attack(connection, state, roll, targets, hands(state, roll['action'], items), rng, lines)
         elif FLEE.search(roll['action']):
             if landed:
                 lines.append("The player's character gets away.")
@@ -390,7 +395,18 @@ def attacks(action: str) -> bool:
 
 
 def attack(connection, state: dict, roll: dict, targets: list[dict], items: list[dict], rng, lines: list[str]):
-    """The character's attack in the campaign's ruleset."""
+    """The character's attack in the campaign's ruleset, if it reaches (dungeon/ranges.py): a shot leaves its target
+    where it stands."""
+    target = aimed_at(roll, targets)
+    zone = target.get('zone', 'engaged')
+    if not ranges.reach(target, roll['action'], lines):
+        return
+    struck(connection, state, roll, targets, items, rng, lines)
+    if ranges.ranged(roll['action']):
+        target['zone'] = zone
+
+
+def struck(connection, state: dict, roll: dict, targets: list[dict], items: list[dict], rng, lines: list[str]):
     if fifth(connection):
         combat5e.strike(connection, roll, aimed_at(roll, targets), items, rng, lines)
     elif basic(connection):
@@ -447,9 +463,7 @@ def foes_move(connection, state: dict, guarded: bool, rng, lines: list[str]) -> 
     """Each foe still standing closes in or attacks; returns the character's wound level after."""
     level = condition(connection)['level']
     for foe in standing(state):
-        if foe['zone'] != 'engaged':
-            foe['zone'] = 'engaged'
-            lines.append(f"{foe['name'].capitalize()} closes in.")
+        if ranges.close(foe, lines):
             continue
         band = marvel.roll(foe['vitality'], 'hard' if guarded else 'normal', rng)['band']
         if band in SUCCESS:
@@ -728,7 +742,8 @@ def begin(connection, people: list[dict], rolls: list[dict], start: dict | None,
         None if message_id and just_ended(connection, message_id) else stand_in(rolls))
     if spec is None:
         return None
-    zone = 'near' if spec is start else 'engaged'
+    # A danger's foes come from where its spec puts them (archers far off), an attack begins at arm's length.
+    zone = spec.get('zone', 'near') if spec is start else 'engaged'
     if fifth(connection):
         foes = combat5e.foes_from(spec, zone, rng)
     elif sworn(connection):
@@ -737,6 +752,8 @@ def begin(connection, people: list[dict], rolls: list[dict], start: dict | None,
         foes = combat_brp.foes_from(spec, zone)
     else:
         foes = foes_from(spec, zone)
+    for foe in foes if spec.get('ranged') else []:
+        foe['ranged'] = True
     # Ironsworn: whoever starts it has the upper hand.
     state = {'round': 0, 'wants': spec.get('wants', 'kill'), 'foes': foes,
              'initiative': 'foe' if spec is start else 'player'}
@@ -757,7 +774,7 @@ def surprise(connection, state: dict, spec: dict, rolls: list[dict], ambushed: b
         caught = rank(hidden['band']) > rank(noticed['band'])
         if caught:
             for foe in state['foes']:
-                foe['zone'] = 'engaged'
+                foe['zone'] = foe['zone'] if foe.get('ranged') else 'engaged'
         return state | {'surprised': 'player' if caught else None, 'cards': [card]}
     crept = sheet.check(connection, 'Vitality', 'normal', 'sneak up unseen', rng)
     aware = marvel.roll(spec.get('resolve', 10), 'normal', rng)
@@ -798,9 +815,10 @@ def prompt_text(lines: list[str], connection) -> str:
         return ''
     state = fight(connection)
     foes = '; '.join(f"{foe['name']}: {foe_word(foe)}" for foe in state['foes']) if state else ''
+    where = ranges.positions(state, standing(state)) if state else ''
     return ('## The fight (decided by the game; write this round exactly as it went, nothing more)\n'
             + '\n'.join(f'- {line}' for line in lines)
-            + (f'\nStill fighting: {foes}.' if foes else '\nThe fight is over.'))
+            + (f'\nStill fighting: {foes}.' if foes else '\nThe fight is over.') + (f'\n{where}' if where else ''))
 
 
 def view(connection, shown: bool) -> dict:
@@ -808,8 +826,8 @@ def view(connection, shown: bool) -> dict:
     state, now = fight(connection), condition(connection)
     points = points_of(connection)
     return {'condition': word(connection, now['level']), 'dead': now['dead'], 'captors': captors(connection),
-            'fight': state and {'round': state['round'],
-                                'foes': [{'name': foe['name'], 'state': foe_word(foe),
+            'fight': state and {'round': state['round'], 'area': state.get('area'),
+                                'foes': [{'name': foe['name'], 'state': foe_word(foe), 'zone': foe.get('zone'),
                                           'wound': foe['wound'] if shown else None}
                                          | ({'hp': foe['hp'], 'max_hp': foe['max_hp']} if shown and 'hp' in foe else {})
                                          for foe in state['foes']]}} \

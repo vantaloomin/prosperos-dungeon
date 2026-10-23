@@ -21,7 +21,7 @@ import { StoryPowers } from './StoryPowers'
 import { StorySheet } from './StorySheet'
 import { loadGrids, onGrid, useGrids, type Flash } from './grid'
 import { StoryGrid } from './StoryGrid'
-import { foeNumbers } from './storyText'
+import { foeNumbers, zoneText } from './storyText'
 import { ASK_EVENT, hasWidget, loadPins, MORE, peopleHere, savePins, sceneWidgets, TABS, takeAsked, WIDGET_NAMES, type Widget } from './scene'
 import { STORY_KEY } from './table'
 
@@ -254,10 +254,10 @@ function FightCard({ fight }: { fight: StoryFight }) {
   if (!fight.fight) return null
   return (
     <details className="story-people story-fight-card" open>
-      <summary>The fight · round {fight.fight.round}</summary>
+      <summary>The fight · round {fight.fight.round}{fight.fight.area ? ` · at ${fight.fight.area}` : ''}</summary>
       <ul aria-label="Foes">
         {fight.fight.foes.map((foe, index) => <li key={`${foe.name}-${index}`}>
-          <p><strong>{foe.name}</strong> <span className="subtle">{foe.state}{foeNumbers(foe)}</span></p>
+          <p><strong>{foe.name}</strong> <span className="subtle">{foe.state}{foeNumbers(foe)}{zoneText(foe.zone)}</span></p>
         </li>)}
       </ul>
     </details>

@@ -24,7 +24,7 @@ with Ironsworn's moves from the pack:
 import re
 from functools import cache
 
-from dungeon import sheet
+from dungeon import ranges, sheet
 from dungeon.rules import ironsworn
 
 # Boxes of progress (of ten) a foe's track takes for each harm, by rank; ticks are a quarter box.
@@ -202,10 +202,8 @@ def foes_attack(connection, state: dict, standing, guarded: bool, rng, lines: li
     """Foes close in; the one with the upper hand attacks (a dodge that landed keeps them off this round)."""
     level = level_for(sheet.native(connection)['health'])
     for foe in standing(state):
-        if foe['zone'] != 'engaged':
-            foe['zone'] = 'engaged'
-            lines.append(f"{foe['name'].capitalize()} closes in.")
-    attacker = next((foe for foe in standing(state) if foe['zone'] == 'engaged'), None)
+        ranges.close(foe, lines)
+    attacker = next((foe for foe in standing(state) if foe['zone'] == 'engaged' or foe.get('ranged')), None)
     if attacker and state.get('initiative') == 'foe' and not guarded:
         level = endure(connection, state, attacker, rng, lines)
     elif attacker and guarded and state.get('initiative') == 'foe':

@@ -427,7 +427,15 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
 - **A round.** The player's rolled actions land first. An attack that succeeds wounds its target by the band (a
   success with a cost one level, a success two, a critical three), plus one with a sword or felling axe and minus
   one bare-handed. A successful dodge, block or parry makes the foes' attacks hard this round; a successful flight
-  ends the fight. Foes at a distance close in; engaged foes roll Vitality to hit back the same way.
+  ends the fight. Engaged foes roll Vitality to hit back the same way.
+- **Range and areas** (`dungeon/ranges.py`, every ruleset). Each foe stands engaged, near or far. A foe not engaged
+  spends its turn closing a band (far, near, engaged) unless it fights at range (`ranged` in a danger's foe, which
+  may also start `zone: far`, like the Heartwood wardens' bows): then it shoots from where it stands. The
+  character's blow reaches a near foe (and engages it) but a far one only closes to near; a shot or throw reaches
+  any band and leaves the target where it is. A line that backs off ("I fall back to the stairs") and lands breaks
+  away from every engaged foe, who must close again, and moves the fight's named area to the place it names; a
+  failure can't shake them. "Retreat to …" is such a move, not an escape. The narrator gets where everyone stands
+  under the round; the fight card shows the area and each foe's range.
 - **Fight on my plan.** A line that sets a plan and says to keep at it ("I hold the door and cut down whoever comes,
   fight on until they break", "I fight it out") plays its round, then fights on that plan a round at a time, each
   with its own roll card (Vitality, or the ruleset's attack), until a turning point: someone falls, a foe breaks, the

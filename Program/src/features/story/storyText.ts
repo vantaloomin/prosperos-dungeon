@@ -1,4 +1,4 @@
-import type { BandStep, DramaLevel, Gear, HiddenRoll, IntensityPreset, JournalEntry, JournalInstitution, JournalQuest, JournalThread, LegacyRole, Looks, NarrationLength, NarrationPov, NarrationTense, Premade, ReceiptChip, SheetGrowth, Srd52Spells, StoryArc, StoryBranch, StoryChapter, StoryFight, StoryHand, StoryMessage, StoryPace, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryTier, ToneCategory, ToneVoice, TurnAction, TurnEvent, TurnPace, TurnSoFar, VeilTopic } from '../../types'
+import type { BandStep, DramaLevel, Gear, HiddenRoll, IntensityPreset, JournalEntry, JournalInstitution, JournalQuest, JournalThread, LegacyRole, Looks, NarrationLength, NarrationPov, NarrationTense, Premade, ReceiptChip, SheetGrowth, Srd52Spells, StoryArc, StoryBranch, StoryChapter, StoryFight, StoryHand, StoryMessage, StoryPace, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryTier, ToneCategory, ToneVoice, TurnAction, TurnEvent, TurnPace, TurnSoFar, VeilTopic, Zone } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -197,6 +197,11 @@ export function slotsText(slots: Gear['slots']): string {
 export function foeNumbers(foe: NonNullable<StoryFight['fight']>['foes'][number]): string {
   if (foe.max_hp !== undefined) return `, ${foe.hp} of ${foe.max_hp} HP`
   return foe.wound === null ? '' : `, wound ${foe.wound} of 5`
+}
+
+/** How far off a foe is, when it is not at arm's length. */
+export function zoneText(zone?: Zone | null): string {
+  return zone === 'near' ? ' · nearby' : zone === 'far' ? ' · far off' : ''
 }
 
 /** The header's fight line: who the character is fighting, or that they are dead; '' otherwise. How the character is

@@ -56,7 +56,9 @@
             "vitality": 12,
             "resolve": 12,
             "weapon": 1,
-            "wants": "capture"
+            "wants": "capture",
+            "ranged": true,
+            "zone": "far"
           }
         },
         {

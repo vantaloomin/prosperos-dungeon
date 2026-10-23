@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, foesText, statusItems, haggleText, paceText, intensityChoices, dramaChoices, gearLine, looksText, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, unrolled, fateFaces, fateLadder, challengeDice, brpCost, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, threadKind, receiptsByReply, institutionLine, todayLine, toggledVeil } from '../../src/features/story/storyText.ts'
+import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, foesText, zoneText, statusItems, haggleText, paceText, intensityChoices, dramaChoices, gearLine, looksText, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, unrolled, fateFaces, fateLadder, challengeDice, brpCost, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, threadKind, receiptsByReply, institutionLine, todayLine, toggledVeil } from '../../src/features/story/storyText.ts'
 import { artLabel, artStatus, making, pictureChoices } from '../../src/features/story/artText.ts'
 
 test('the scene time is the city clock as written', () => {
@@ -91,6 +91,13 @@ test('money, gear and slots read plainly', () => {
     'Grimy (blood, mud); clothes torn; outer clothing off (the Felled Oak); on show: Plain sword')
   assert.equal(slotsText({ used: 3.35, max: 13 }), '3.35 of 13 slots')
   assert.equal(slotsText({ used: 2.5, max: 10 }), '2.5 of 10 slots')
+})
+
+test('zoneText says how far off a foe is', () => {
+  assert.equal(zoneText('engaged'), '')
+  assert.equal(zoneText(undefined), '')
+  assert.equal(zoneText('near'), ' · nearby')
+  assert.equal(zoneText('far'), ' · far off')
 })
 
 test('foesText names who the character is fighting, or that they are dead', () => {

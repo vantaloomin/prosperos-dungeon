@@ -31,7 +31,7 @@ import random
 import re
 from functools import cache
 
-from dungeon import sheet
+from dungeon import ranges, sheet
 from dungeon.rules import srd52
 
 # Monsters by the words in a foe's name, the more specific first.
@@ -313,9 +313,7 @@ def foes_attack(connection, state: dict, standing, guarded: bool, rng, lines: li
     found = sheet.native(connection)
     hp = found['hp']
     for foe in standing(state):
-        if foe['zone'] != 'engaged':
-            foe['zone'] = 'engaged'
-            lines.append(f"{foe['name'].capitalize()} closes in.")
+        if ranges.close(foe, lines):
             continue
         natural, _ = srd52.d20(rng, 'disadvantage' if guarded else '')
         if natural == 1 or (natural != 20 and natural + foe['attack']['bonus'] < found['ac']):
