@@ -22,7 +22,22 @@ again draws nothing new.
 import re
 from datetime import date, timedelta
 
-from dungeon import combat, factions, feelings, growth, injuries, inventory, record, stress, sworn, table, tiers, travel
+from dungeon import (
+    combat,
+    director,
+    factions,
+    feelings,
+    growth,
+    injuries,
+    inventory,
+    quests,
+    record,
+    stress,
+    sworn,
+    table,
+    tiers,
+    travel,
+)
 from dungeon.database import encode, many
 from dungeon.life import cards
 
@@ -229,8 +244,65 @@ def corrupted(connection, effect: dict, context: dict) -> list[str]:
                          context['logged'], context['rng'])
 
 
+def fated(connection, effect: dict, context: dict) -> list[str]:
+    """What becomes of the person the card names: the one here (`npc`) is marked so (story_fates, as an off-page
+    beat marks them, dungeon/beats.py); dead, the record holds them dead. The unnamed ones are only the card's text."""
+    person = context['npc']
+    if effect['who'] != 'npc' or person is None:
+        return []
+    name = person.get('full') or person.get('name') or 'someone'
+    connection.execute('INSERT INTO story_fates (key, name, state, since) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO '
+                       'UPDATE SET state=excluded.state, since=excluded.since', (person['key'], name, effect['state'],
+                                                                                 context['logged']))
+    if effect['state'] == 'dead':
+        record.add(connection, 'death', name, context['truth'], context['logged'], truth='world')
+    elif effect['state'] == 'turned':
+        feelings.change(connection, person['key'], {'trust': -3, 'affection': -2}, context['title'])
+    return [f"From now on {name} is {effect['state']}: play them so."]
+
+
+def rumored(connection, effect: dict, context: dict) -> list[str]:
+    """Word goes round town. About the character, the townsfolk may have heard it and treat them by it; true or not,
+    the record keeps what is said as belief, and a false one as the world's lie."""
+    said = context['seen']
+    if effect['about'] == 'pc':
+        record.add(connection, 'fact', "the player's character", f'Word going round town: {said}', context['logged'],
+                   truth='world' if not effect['true'] else 'both')
+        return ["Word of it is going round town: the people the character meets may have heard it, and treat them "
+                'by it.']
+    if not effect['true']:
+        record.add(connection, 'fact', context['title'], f'A false rumor: {said}', context['logged'], truth='world')
+    return ['It is the talk of the town; people repeat it as they heard it.']
+
+
+def quested(connection, effect: dict, context: dict) -> list[str]:
+    """Someone asks something of the character, due on the story clock: a job in the journal, the card's truth its
+    hidden side (dungeon/quests.py)."""
+    if not context.get('city'):
+        return []
+    person = context['npc'] if effect['from'] == 'npc' else None
+    giver = (person.get('full') or person.get('name')) if person else \
+        context['faction']['name'] if effect['from'] == 'faction' and context['faction'] else None
+    due = context['now'] + timedelta(days=effect['days'])
+    quests.create(connection, 'job', context['city'], context['title'][:1].upper() + context['title'][1:],
+                  context['pressure'] or context['seen'], context['truth'], 'Nothing comes of it, for now.',
+                  due.isoformat(), giver=giver, faction_id=context['faction']['id'] if effect['from'] == 'faction'
+                  and context['faction'] else None)
+    who = giver or 'someone'
+    return [f"{who[:1].upper() + who[1:]} wants something of the character, within {effect['days']} days: it is in "
+            'their journal now.']
+
+
+def pursued(connection, effect: dict, context: dict) -> list[str]:
+    """Someone is on the character's trail, `days` behind: a nemesis who catches up then (dungeon/director.py)."""
+    director.pursue(connection, context['truth'], effect['days'], context['now'], context['logged'])
+    return [f"Someone is on the character's trail, about {effect['days']} day{'s' if effect['days'] != 1 else ''} "
+            'behind. The character does not know who.']
+
+
 APPLY = {'coin': coin, 'supply': supply, 'wound': wound, 'feeling': feeling, 'fight': fight, 'stress': feared,
-         'clock': clocked, 'reputation': reputed, 'corruption': corrupted, 'market': marketed}
+         'clock': clocked, 'reputation': reputed, 'corruption': corrupted, 'market': marketed, 'fate': fated,
+         'rumor': rumored, 'quest': quested, 'pursuer': pursued}
 
 
 def play(connection, drawn: dict, context: dict) -> tuple[list[str], int]:
@@ -242,9 +314,10 @@ def play(connection, drawn: dict, context: dict) -> tuple[list[str], int]:
              'faction': drawn['faction']['name'] if drawn.get('faction') else 'the powers here',
              'npc': (person.get('full') or f"the {person.get('occupation') or person['role']}") if person
              else 'a stranger'}
-    context = context | {'npc': person, 'title': fill(card['title'], names).lower(), 'faction': drawn.get('faction'),
-                         'world': drawn.get('world'), 'found': drawn.get('found')}
     truth, seen = fill(card['truth'], names), fill(card['seen'], names)
+    context = context | {'npc': person, 'title': fill(card['title'], names).lower(), 'faction': drawn.get('faction'),
+                         'world': drawn.get('world'), 'found': drawn.get('found'), 'truth': truth, 'seen': seen,
+                         'pressure': fill(card['pressure'], names) if card.get('pressure') else ''}
     record.add(connection, 'fact', fill(card['title'], names), truth, context['logged'], truth='world')
     if card['accuracy'] != 'true':
         record.add(connection, 'fact', fill(card['title'], names), seen, context['logged'], truth='belief')

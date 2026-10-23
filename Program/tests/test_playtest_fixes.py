@@ -121,3 +121,22 @@ def test_selling_everything_i_can_spare():
     everything = inventory.offered('I sell her everything.', pack)
     assert [(row['item_id'], qty) for row, qty in everything] == [('candle', 1), ('knife', 2), ('bread', 3)]
     assert [(row['item_id'], qty) for row, qty in inventory.offered('I sell the knife.', pack)] == [('knife', 1)]
+
+
+class Keeper:
+    """The keeper's d100 shows `natural`; every other die rolls lowest."""
+
+    def __init__(self, natural):
+        self.natural = natural
+
+    def randint(self, low, high):
+        return self.natural if (low, high) == (1, 100) else low
+
+
+def test_a_haggle_is_allure_against_the_keepers_resolve():
+    shop = {'place': 'pells', 'resolve': 10}
+    # A keeper who does better than the character costs them a step.
+    assert inventory.opposed(shop, 'success', Keeper(99)) == ('success_cost', 'critical_success')
+    # One who does worse leaves the character's result as it was.
+    assert inventory.opposed(shop, 'success', Keeper(2)) == ('success', 'critical_failure')
+    assert inventory.opposed(shop, 'critical_failure', Keeper(99))[0] == 'critical_failure'

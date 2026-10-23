@@ -104,3 +104,36 @@ def test_every_card_the_game_can_draw_has_every_name_filled(app):
                 if drawn:
                     for field in ('title', 'truth', 'seen', 'pressure'):
                         assert not re.search(r'\{\w+\}', happenings.fill(drawn['card'][field] or '', names))
+
+
+def test_fate_rumor_quest_and_pursuer_effects_are_applied(client, app):
+    from datetime import datetime
+
+    from dungeon import director, record
+    begin(client)
+    now = datetime(2026, 10, 1, 12)
+    context = {'npc': {'key': 'pell', 'full': 'Pell Ash'}, 'title': 'a knife in the dark', 'truth': 'Pell was knifed.',
+               'seen': 'They say Pell was knifed.', 'pressure': '', 'logged': '2026-10-01T12:00:00Z', 'now': now,
+               'city': 'kingswood', 'faction': None}
+    with app.state.database.connect(write=True) as connection:
+        assert happenings.fated(connection, {'who': 'npc', 'state': 'dead'}, context) == [
+            'From now on Pell Ash is dead: play them so.']
+        assert 'pell ash' in record.dead(connection)
+        assert happenings.fated(connection, {'who': 'them', 'state': 'dead'}, context) == []
+
+        assert 'treat them by it' in happenings.rumored(connection, {'about': 'pc', 'true': False}, context)[0]
+        happenings.rumored(connection, {'about': 'npc', 'true': False}, context)
+        lies = [row['text'] for row in record.entries(connection, known_only=False) if row['truth'] == 'world']
+        assert 'Word going round town: They say Pell was knifed.' in lies and \
+            'A false rumor: They say Pell was knifed.' in lies
+
+        lines = happenings.quested(connection, {'from': 'npc', 'days': 10}, context)
+        assert lines[0].startswith('Pell Ash wants something of the character, within 10 days')
+        quest = connection.execute("SELECT * FROM story_quests WHERE kind='job'").fetchone()
+        assert quest['giver'] == 'Pell Ash' and quest['due_at'].startswith('2026-10-11') and \
+            quest['truth'] == 'Pell was knifed.'
+
+        assert 'about 1 day behind' in happenings.pursued(connection, {'days': 1}, context)[0]
+        assert director.due_nemesis(connection, now) is None
+        due = director.due_nemesis(connection, datetime(2026, 10, 2, 12))
+        assert due['name'] == "whoever is on the character's trail" and due['grudge'] == 'Pell was knifed.'

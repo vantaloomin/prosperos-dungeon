@@ -33,7 +33,7 @@ All of it is game state, branched with the story (dungeon/timeline.py SAVED).
 """
 import random
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from dungeon import plotting, record, tiers, world_data
@@ -283,6 +283,19 @@ def promote(connection, who: str, event: str, now: datetime, logged: str):
     connection.execute("INSERT INTO story_nemeses (id, name, grudge, remembers, status, since, thread_id) VALUES "
                        "(?, ?, ?, ?, 'alive', ?, ?)", (f'nemesis-{identifier()[:12]}', name, grudge, remembers,
                                                       now.isoformat(), thread_id))
+    record.add(connection, 'fact', name, grudge, logged, truth='world')
+
+
+def pursue(connection, grudge: str, days: int, now: datetime, logged: str):
+    """Someone on the character's trail (a Life Card's pursuer), due to catch up in `days`: a nemesis whose clock
+    starts so it comes due then."""
+    name = 'whoever is on the character\'s trail'
+    if optional(connection, "SELECT 1 FROM story_nemeses WHERE name=? AND status='alive'", (name,)):
+        return
+    since = now - timedelta(days=max(0, NEMESIS_DAYS - days))
+    connection.execute("INSERT INTO story_nemeses (id, name, grudge, remembers, status, since, thread_id) VALUES "
+                       "(?, ?, ?, 'Mind', 'alive', ?, NULL)", (f'nemesis-{identifier()[:12]}', name, grudge,
+                                                               since.isoformat()))
     record.add(connection, 'fact', name, grudge, logged, truth='world')
 
 

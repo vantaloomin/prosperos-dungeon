@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Life Cards do everything they say.** A card that kills, captures or turns someone you know does it. A rumor
+  goes round town (and people may treat you by it). A favour asked goes in your journal with its deadline. Someone
+  on your trail catches up in the days the card says.
+- **Keepers haggle back.** A haggle is your Allure against the shopkeeper's Resolve: a keeper who out-rolls you
+  holds firm and your result lands a step worse.
 - **Dice log.** With the dice shown, the drawer's Dice log lists every roll of this branch, turn by turn, with how
   long each turn took and how many of your rolls landed.
 - **Recheck fixes.** "Cut at him with my sword" or "hit him over the head" always starts the fight, even when

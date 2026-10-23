@@ -843,7 +843,7 @@ def counter_turn(state, user: dict, rolls: list[dict]) -> list[str]:
             connection.execute('INSERT INTO story_counter (message_id, lines) VALUES (?, ?)', (user['id'], encode(lines)))
             return lines
         city, shop, day = view['city']['id'], inventory.shop_at(view['city']['id'], view['place']['id']), story_day(view)
-        lines = haggle_lines(connection, city, shop, day, rolls, found['keeper_key'])
+        lines = haggle_lines(connection, city, shop, day, rolls, found['keeper_key'], getattr(state, 'dice', None))
         stock_rows = inventory.window(connection, city, shop, True, '', day)['stock']
         lines += inventory.lift(connection, city, shop, user['text'], rolls, stock_rows)
         lines += inventory.buy_in_story(connection, city, shop, user['text'], stock_rows, day, database.now(),
@@ -859,16 +859,23 @@ def trading(text: str) -> bool:
     return any(pattern.search(text) for pattern in (inventory.BUY, inventory.SELL, inventory.HAGGLE))
 
 
-def haggle_lines(connection, city: str, shop: dict, day: str, rolls: list[dict], keeper_key: str) -> list[str]:
+def haggle_lines(connection, city: str, shop: dict, day: str, rolls: list[dict], keeper_key: str,
+                 rng=None) -> list[str]:
+    """A haggle settled by the character's Allure against the keeper's Resolve (dungeon/inventory.py opposed);
+    under Narrative Only the judge's verdict stands alone."""
     roll = next((roll for roll in rolls if roll['stat'] == 'Allure' and inventory.HAGGLE.search(roll['action'])), None)
     if roll is None:
         return []
-    percent = inventory.haggle(connection, city, shop, roll['band'], day)
-    if percent is None:
+    if inventory.haggled_today(connection, city, shop, day):
         return ['The shopkeeper has already haggled with the character today and will not move on price again.']
-    if roll['band'] == 'success_cost' and keeper_key:
+    band, keeper = (roll['band'], None) if ruleset_of(connection) == narrative.ID else \
+        inventory.opposed(shop, roll['band'], rng)
+    percent = inventory.haggle(connection, city, shop, band, day)
+    if band == 'success_cost' and keeper_key:
         feelings.change(connection, keeper_key, {'affection': -1}, 'Beat me down on price.')
-    return [f"The haggle settles today's prices: {inventory.haggle_text(percent) or 'no change'}."]
+    held = ['The keeper drives a hard bargain and holds firm: the haggle lands a step worse than it might have.'] \
+        if keeper and band != roll['band'] else []
+    return held + [f"The haggle settles today's prices: {inventory.haggle_text(percent) or 'no change'}."]
 
 
 def scene_break(connection, user: dict, travelled: list[str], rested: list[str], fought: list[str]) -> str | None:
