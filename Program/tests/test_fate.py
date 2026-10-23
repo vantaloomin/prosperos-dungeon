@@ -2,6 +2,7 @@
 import random
 
 import pytest
+from conftest import Chunk, tell
 from test_rulesets import start
 from test_travel import ok
 
@@ -130,3 +131,11 @@ def test_the_narrator_reads_the_aspects(client, app):
     with app.state.database.connect() as connection:
         described = story.persona_text(connection)[0]
     assert 'Dockside cutpurse' in described and 'Owes the Hollins gang' in described
+
+
+def test_a_line_acting_on_the_trouble_earns_a_fate_point_with_nothing_rolled(client, connected, provider, app):
+    ok(made(client, trouble='I always pay my debts, whatever they cost'))
+    provider.respond = lambda system, messages: [Chunk('He takes your coin and nods.'), Chunk('', 'stop')]
+    tell(client, 'A creditor demands I settle a debt. I agree to pay it whatever it costs me.', 'fate-0001')
+    with app.state.database.connect() as connection:
+        assert sheet.native(connection)['fate_points'] == 4

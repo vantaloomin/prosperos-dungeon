@@ -192,6 +192,11 @@ def ladder_name(value: int) -> str:
     return LADDER.get(max(-2, min(8, value)), 'Legendary')
 
 
+def compelled(sheet: dict, text: str) -> bool:
+    """Whether a line is about the character's trouble."""
+    return bool(sheet.get('trouble')) and fits(sheet['trouble'], text)
+
+
 def ladder_succeeded(band: str) -> bool:
     return band in ('success_cost', 'success', 'critical_success')
 
@@ -219,7 +224,7 @@ def roll(sheet: dict, approach: str, difficulty: str, text: str = '', rng: rando
         total, points = total + INVOKE, points - 1
         notes.append(f'invoked “{aspect}”')
     band = outcome(total - opposition)
-    if sheet.get('trouble') and fits(sheet['trouble'], text):
+    if compelled(sheet, text):
         # The trouble is what this is about: a compel. It pays a Fate point, and a success comes at a cost.
         band, points = ('success_cost' if ladder_succeeded(band) else band), points + 1
         notes.append(f'compelled “{sheet["trouble"]}”, +1 Fate point')
