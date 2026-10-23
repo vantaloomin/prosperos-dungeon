@@ -1282,16 +1282,6 @@ def ranges(play):
     length, falling back to the stairs breaks away and moves the fight's area."""
     play.start('agna-holt')
     play.move('the-wayhouse')
-    set_fight(play, {'name': 'warden archer', 'count': 1, 'vitality': 9, 'resolve': 9, 'weapon': 0, 'wants': 'kill',
-                     'ranged': True}, zone='far')
-    play.say('An archer has come in at the far end of the common room, bow drawn. I charge him.')
-    play.write(f"- fight: {json.dumps(fight_on(play).get('fight'))}\n")
-    if fight_on(play).get('fight'):
-        play.say('I throw my belt knife at the archer.')
-        play.write(f"- fight: {json.dumps(fight_on(play).get('fight'))}\n")
-    play.say('I catch my breath.')
-    if fight_on(play).get('fight') or fight_on(play).get('dead'):
-        return
     set_fight(play, {'name': 'drunk brawler', 'count': 2, 'vitality': 9, 'resolve': 9, 'weapon': 0, 'wants': 'kill'},
               zone='engaged')
     play.say('Two drunks come at me with knives. I fall back to the stairs.')
@@ -1299,6 +1289,19 @@ def ranges(play):
     play.write(f'- fight: {json.dumps(state)}\n')
     if state and 'stair' not in (state.get('area') or ''):
         play.flag(f"Falling back to the stairs left the fight's area at {state.get('area')}.")
+    for _ in range(3):
+        if not fight_on(play).get('fight') or fight_on(play).get('dead'):
+            break
+        play.say('I hold the stairs and cut at whoever comes up.')
+    if fight_on(play).get('fight') or fight_on(play).get('dead'):
+        return
+    set_fight(play, {'name': 'warden archer', 'count': 1, 'vitality': 9, 'resolve': 9, 'weapon': 0, 'wants': 'kill',
+                     'ranged': True}, zone='far')
+    play.say('An archer has come in at the far end of the common room, bow drawn. I charge him.')
+    play.write(f"- fight: {json.dumps(fight_on(play).get('fight'))}\n")
+    if fight_on(play).get('fight'):
+        play.say('I throw my belt knife at the archer.')
+        play.write(f"- fight: {json.dumps(fight_on(play).get('fight'))}\n")
 
 
 def shut_shop(play):
@@ -1384,6 +1387,7 @@ def party(play):
     """Companions: someone bonded comes along when asked, is in every scene with the character, fights beside them,
     and leaves when told to go home."""
     play.start('agna-holt')
+    set_clock(play, '12:00')  # Corin keeps the Felled Oak by day
     play.say('I take a seat at the bar and talk with Corin Ashby about the Heartwood contract.')
     play.say('I clasp Corin\'s hand. "I swear to stand by you, Corin."')
     play.say('"Come with me, Corin. I could use someone at my back."')
