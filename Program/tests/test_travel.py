@@ -104,3 +104,9 @@ def test_a_sight_on_the_road_is_woven_in_without_a_roll(client, connected, provi
     planned = travel.travelled({'legs': [{'from': 'kingswood', 'to': 'eriane', 'hours': 12, 'terrain': 'the Cyrel road',
                                           'danger': 'low'}], 'encounter': {'leg': 0, 'entry': sight}}, [])
     assert planned[1] == [f"On the Cyrel road: {sight['text']}"]
+
+
+def test_a_modern_world_sets_out_by_car_or_bus():
+    haven = next(item for item in travel.maps() if any(node['id'] == 'haven' for node in item['nodes']))
+    assert travel.destination(haven, 'haven', 'I borrow a car and drive to Ithaca for the afternoon.')['id'] == 'ithaca'
+    assert travel.destination(haven, 'haven', 'I take the bus to Syracuse.')['id'] == 'syracuse'
