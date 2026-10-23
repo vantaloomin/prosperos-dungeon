@@ -397,6 +397,24 @@ CREATE TABLE IF NOT EXISTS story_stock (
   PRIMARY KEY (city_id, place_id, item_id)
 );
 
+-- Each shop's till and when it last restocked (dungeon/inventory.py), set up the first time anyone deals with it.
+CREATE TABLE IF NOT EXISTS story_shops (
+  city_id TEXT NOT NULL,
+  place_id TEXT NOT NULL,
+  cash INTEGER NOT NULL,
+  restocked TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (city_id, place_id)
+);
+
+-- Markets moved by Life Cards (dungeon/inventory.py move_market): a kind of goods' prices in a town, until a day.
+CREATE TABLE IF NOT EXISTS story_markets (
+  id TEXT PRIMARY KEY,
+  city_id TEXT NOT NULL,
+  goods TEXT NOT NULL,
+  shift INTEGER NOT NULL,
+  until TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS story_trades (
   id TEXT PRIMARY KEY,
   kind TEXT NOT NULL CHECK (kind IN ('buy', 'sell')),
@@ -871,6 +889,8 @@ CREATE TABLE IF NOT EXISTS story_campaign (
   pov TEXT CHECK (pov IN ('first', 'second', 'third')),
   tense TEXT CHECK (tense IN ('past', 'present')),
   length TEXT CHECK (length IN ('short', 'medium', 'long')),
+  -- Whether shopkeepers have finite cash to buy with (dungeon/inventory.py).
+  shop_cash TEXT CHECK (shop_cash IN ('finite', 'unlimited')),
   -- The world seed the land past a hex map's authored edge is generated from (dungeon/hexes.py).
   seed TEXT
 );

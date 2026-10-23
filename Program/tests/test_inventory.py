@@ -179,3 +179,95 @@ def test_buying_more_than_the_purse_holds_in_the_story_is_refused(client, connec
     tell(client, 'I buy two hooded lanterns.', 'story-0001')
     assert "No sale of Hooded lantern: You can't afford that." in provider.requests[-1]['system']
     assert ok(client.get('/api/story/gear'))['coins'] == 340
+
+
+def test_selling_in_the_story(client, connected, clock, provider):
+    begin_when(client, clock)
+    provider.replies = [[Chunk('Pell weighs the blanket.'), Chunk('', 'stop')]]
+    tell(client, 'I sell my blanket and my sword to the storekeeper.', 'story-0001')
+    narrator = provider.requests[-1]['system']
+    assert "The player's character sells Wool blanket for" in narrator
+    assert "No sale of Plain sword: This shop doesn't buy that." in narrator
+    gear = ok(client.get('/api/story/gear'))
+    assert not any(row['item_id'] == 'blanket' for row in gear['items'])
+    assert any(row['item_id'] == 'sword' for row in gear['items']) and gear['coins'] > 340
+
+
+def test_a_line_names_what_it_sells():
+    pack = [{'id': 'a', 'item_id': 'knife', 'name': 'Belt knife', 'qty': 3, 'stolen': 0},
+            {'id': 'b', 'item_id': 'knife', 'name': 'Belt knife', 'qty': 1, 'stolen': 1},
+            {'id': 'c', 'item_id': 'rope', 'name': 'Rope, fifty feet', 'qty': 2, 'stolen': 0}]
+    assert [(row['id'], qty) for row, qty in inventory.offered('I sell all my rope and the knife', pack)] == \
+        [('b', 1), ('c', 2)]
+    assert inventory.offered('I look at the rope', pack) and not inventory.SELL.search('I look at the rope')
+
+
+def test_shops_restock_and_their_cash_runs_out(client, app):
+    begin(client)
+    shop = inventory.shop_at('kingswood', 'pell-provisions')
+    with app.state.database.connect(write=True) as connection:
+        assert inventory.stock(connection, 'kingswood', shop, '2026-10-01')['rope'] == 5
+        assert inventory.cash(connection, 'kingswood', shop) == inventory.start_cash('kingswood', shop) == 2928
+        connection.execute("UPDATE story_stock SET qty=0 WHERE item_id='rope'")
+        inventory.pay(connection, 'kingswood', shop, -2900)
+        # Six days on nothing has come in; on the seventh, the rope is back and the till topped up.
+        assert inventory.stock(connection, 'kingswood', shop, '2026-10-07')['rope'] == 0
+        assert inventory.stock(connection, 'kingswood', shop, '2026-10-08')['rope'] == 5
+        assert inventory.cash(connection, 'kingswood', shop) == 2928
+        # A shop without the money can't buy; with unlimited cash at the Table it can.
+        inventory.pay(connection, 'kingswood', shop, -2928)
+        knife = next(row for row in inventory.carried(connection, 'kingswood') if row['item_id'] == 'blanket')
+        try:
+            inventory.sell(connection, 'kingswood', shop, knife['id'], 1, '2026-10-08T12:00:00Z', '2026-10-08')
+            raise AssertionError('sold to an empty till')
+        except inventory.DomainError as refused:
+            assert refused.message == "The keeper hasn't the money for that."
+        connection.execute("UPDATE story_campaign SET shop_cash='unlimited' WHERE id=1")
+        assert inventory.sell(connection, 'kingswood', shop, knife['id'], 1, '2026-10-08T12:00:00Z',
+                              '2026-10-08')['amount'] > 0
+
+
+def test_stolen_goods_go_only_to_a_fence(client, app):
+    begin(client)
+    pell, mag = (inventory.shop_at('kingswood', place) for place in ('pell-provisions', 'mother-mags'))
+    with app.state.database.connect(write=True) as connection:
+        inventory.add_item(connection, 'kingswood', 'candles', 2, stolen=True)
+        rows = [row for row in inventory.carried(connection, 'kingswood') if row['item_id'] == 'candles']
+        assert len(rows) == 1 and rows[0]['stolen'] == 1
+        assert '(stolen)' in inventory.prompt_text(connection, 'kingswood', {'symbol': 'cr.'})
+        stolen = rows[0]
+        try:
+            inventory.sell(connection, 'kingswood', pell, stolen['id'], 1, '2026-10-01T12:00:00Z', '2026-10-01')
+            raise AssertionError('an honest shop bought stolen goods')
+        except inventory.DomainError as refused:
+            assert refused.message == "The keeper won't touch stolen goods."
+        honest = inventory.offer(pell, stolen | {'stolen': 0})
+        fenced = inventory.sell(connection, 'kingswood', mag, stolen['id'], 1, '2026-10-01T12:00:00Z', '2026-10-01')
+        assert 0 < fenced['amount'] < honest
+
+
+def test_life_cards_move_markets(client, app):
+    begin(client)
+    shop = inventory.shop_at('kingswood', 'pell-provisions')
+    bread = inventory.item('kingswood', 'bread')
+    with app.state.database.connect(write=True) as connection:
+        inventory.move_market(connection, 'kingswood', 'food', 60, '2026-10-10')
+        inventory.move_market(connection, 'kingswood', 'arms', -30, '2026-10-10')
+        assert inventory.market(connection, 'kingswood', bread, '2026-10-10') == 60
+        assert inventory.market(connection, 'kingswood', bread, '2026-10-11') == 0
+        view = inventory.window(connection, 'kingswood', shop, True, 'the storekeeper', '2026-10-05')
+        assert next(row for row in view['stock'] if row['item_id'] == 'bread')['price'] == 16
+        assert view['market'] == 'Prices moved by what is going on: arms -30%, food +60%.' or \
+            view['market'] == 'Prices moved by what is going on: food +60%, arms -30%.'
+
+
+def test_a_market_card_moves_the_towns_prices(client, app):
+    from dungeon import happenings
+    begin(client)
+    with app.state.database.connect(write=True) as connection:
+        lines = happenings.marketed(connection, {'kind': 'market', 'goods': 'medicine', 'shift': 80, 'days': 21},
+                                    {'city': 'kingswood', 'day': '2026-10-01'})
+        assert lines == ['Prices of medicine here are 80% up for 21 days.']
+        poultice = inventory.item('kingswood', 'poultice')
+        assert inventory.market(connection, 'kingswood', poultice, '2026-10-21') == 80
+        assert inventory.market(connection, 'kingswood', poultice, '2026-10-22') == 0

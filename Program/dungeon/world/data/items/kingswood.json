@@ -310,6 +310,27 @@
     "crowbar": 1,
     "salt": 4
    }
+  },
+  {
+   "place": "mother-mags",
+   "fence": true,
+   "buys": [
+    "food",
+    "gear",
+    "remedy",
+    "clothing",
+    "tool",
+    "trade",
+    "weapon",
+    "curio"
+   ],
+   "sell_rate": 0.25,
+   "cash": 6,
+   "restock_days": 10,
+   "stock": {
+    "plum-spirit": 6,
+    "poultice": 2
+   }
   }
  ],
  "kits": {

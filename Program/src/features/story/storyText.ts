@@ -175,8 +175,8 @@ export function moneyText(hundredths: number, currency: Gear['currency']): strin
 }
 
 /** "Rope, fifty feet × 2". */
-export function gearLine(item: { name: string; qty: number }): string {
-  return item.qty > 1 ? `${item.name} × ${item.qty}` : item.name
+export function gearLine(item: { name: string; qty: number; stolen?: boolean }): string {
+  return (item.qty > 1 ? `${item.name} × ${item.qty}` : item.name) + (item.stolen ? ' (stolen)' : '')
 }
 
 /** "6.35 of 13 slots". */

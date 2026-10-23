@@ -241,7 +241,8 @@
     "boots": 3,
     "floor-map": 3,
     "minor-potion": 3
-   }
+   },
+   "fence": true
   },
   {
    "place": "the-charm-sellers",

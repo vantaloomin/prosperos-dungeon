@@ -13,6 +13,15 @@ starting stock, and the kit each premade starts with.
   buys is gone. It buys what it deals in at its sell rate (half the base price).
 - Buying and selling happen on the shop window or in the story ("I buy two loaves"); each trade is logged and
   adds a line to the story.
+- Shops restock on the story clock: every `restock_days` (RESTOCK_DAYS by default) what was sold comes back up to the
+  file's stock, and what the player sold them stays to be sold again.
+- Shopkeepers have finite cash (the Table's `shop_cash`, 'finite' by default): a shop's `cash` (else half its starting
+  stock's worth) grows with what it sells and shrinks with what it buys, and is topped up as it restocks. A village
+  shop can't buy a dragon hoard; 'unlimited' turns this off.
+- Stolen goods are tracked (story_inventory.stolen: what was taken from someone's things, dungeon/finds.py). An honest
+  shop won't buy them, nor anything illegal; a fence (a shop with `fence`) buys both, at its own low rate.
+- Life Cards move markets (dungeon/happenings.py): a shortage or a glut changes a kind of goods' prices in a town for
+  some days (story_markets), both what the shops charge and what they pay.
 - Haggling is a roll: an Allure action aimed at a better price, in an open shop, moves the shop's prices for the
   rest of the story day by how it landed (a critical a quarter off, a success 15%, a success at a cost 10% and the
   keeper remembers, a critical failure 20% on). One haggle a shop a day.
@@ -20,9 +29,10 @@ starting stock, and the kit each premade starts with.
 All of it is game state, branched with the story (dungeon/timeline.py SAVED).
 """
 import re
+from datetime import date
 from pathlib import Path
 
-from dungeon import world_data
+from dungeon import table, world_data
 from dungeon.database import identifier, many, optional
 from dungeon.errors import DomainError, require
 from dungeon.sheet import stats as sheet_stats
@@ -32,6 +42,14 @@ BASE_SLOTS = 5
 HAGGLE = re.compile(r'\b(haggl\w*|barter\w*|bargain\w*|discount|cheaper|better (price|deal)|lower (the )?price|'
                     r'knock\w* (it |that |something |a bit )?(down|off))', re.I)
 BUY = re.compile(r"\b(buy|buys|buying|purchase|pay for|i'?ll take|i'?ll have)\b", re.I)
+SELL = re.compile(r'\b(sell|sells|selling|pawn\w*|fence|offload\w*|trade in|get rid of)\b', re.I)
+RESTOCK_DAYS = 7
+# A shop's cash when its file names none: this share of what its starting stock is worth.
+CASH_SHARE = 0.5
+# The Life Cards' kinds of goods (dungeon/life/cards.py GOODS) and the item categories they move; drink is food named
+# as drink.
+GOODS = {'food': ('food',), 'medicine': ('remedy',), 'arms': ('weapon',), 'cloth': ('clothing',), 'ley': ('curio',)}
+DRINK = re.compile(r'\b(ale|beer|wine|spirits?|mead|brandy|whiske?y|rum|gin|vodka|liquor|cider)\b', re.I)
 # How a haggle moves the shop's prices for the day, in percent, by how the Allure roll landed.
 HAGGLED = {'critical_success': -25, 'success': -15, 'success_cost': -10, 'failure_upside': -5, 'failure': 0,
            'critical_failure': 20}
@@ -76,7 +94,7 @@ def carried(connection, city_id: str) -> list[dict]:
         entry = item(row['city_id'], row['item_id']) or item(city_id, row['item_id'])
         if entry:
             result.append(row | {'name': entry['name'], 'category': entry['category'], 'slots': entry['slots'],
-                                 'price': entry['price']})
+                                 'price': entry['price'], 'legal': entry.get('legal', True)})
     return result
 
 
@@ -88,13 +106,15 @@ def used(rows: list[dict]) -> float:
     return sum(row['slots'] * row['qty'] for row in rows)
 
 
-def add_item(connection, city_id: str, item_id: str, qty: int = 1):
-    row = optional(connection, 'SELECT id FROM story_inventory WHERE item_id=? AND city_id=?', (item_id, city_id))
+def add_item(connection, city_id: str, item_id: str, qty: int = 1, stolen: bool = False):
+    """Into the pack; stolen goods are kept apart from the same thing come by honestly."""
+    row = optional(connection, 'SELECT id FROM story_inventory WHERE item_id=? AND city_id=? AND stolen=?',
+                   (item_id, city_id, int(stolen)))
     if row:
         connection.execute('UPDATE story_inventory SET qty=qty+? WHERE id=?', (qty, row['id']))
     else:
-        connection.execute('INSERT INTO story_inventory (id, city_id, item_id, qty) VALUES (?, ?, ?, ?)',
-                           (identifier(), city_id, item_id, qty))
+        connection.execute('INSERT INTO story_inventory (id, city_id, item_id, qty, stolen) VALUES (?, ?, ?, ?, ?)',
+                           (identifier(), city_id, item_id, qty, int(stolen)))
 
 
 def give_kit(connection, city_id: str, premade_id: str | None):
@@ -112,7 +132,8 @@ def prompt_text(connection, city_id: str, currency: dict) -> str:
     rows = carried(connection, city_id)
     if not rows and not purse(connection):
         return ''
-    things = ', '.join(f"{row['name']}" + (f" (x{row['qty']})" if row['qty'] > 1 else '') for row in rows)
+    things = ', '.join(f"{row['name']}" + (f" (x{row['qty']})" if row['qty'] > 1 else '') +
+                       (' (stolen)' if row['stolen'] else '') for row in rows)
     return (f"Carrying (kept by the game; nothing else, and nothing appears or goes without the game): "
             f"{things or 'nothing'}. Purse: {money_text(purse(connection), currency)}. {money_words(currency)}".rstrip())
 
@@ -131,23 +152,124 @@ def shop_at(city_id: str, place_id: str) -> dict | None:
     return next((shop for shop in catalog(city_id)['shops'] if shop['place'] == place_id), None)
 
 
-def stock(connection, city_id: str, shop: dict) -> dict[str, int]:
-    """The shop's stock, seeded from its file the first time anyone looks."""
+def stock(connection, city_id: str, shop: dict, day: str = '') -> dict[str, int]:
+    """The shop's stock, seeded from its file the first time anyone looks, and restocked on the story clock."""
     rows = many(connection, 'SELECT item_id, qty FROM story_stock WHERE city_id=? AND place_id=?',
                 (city_id, shop['place']))
     if not rows:
         for item_id, qty in shop['stock'].items():
             connection.execute('INSERT INTO story_stock (city_id, place_id, item_id, qty) VALUES (?, ?, ?, ?)',
                                (city_id, shop['place'], item_id, qty))
+        till(connection, city_id, shop, day)
         return dict(shop['stock'])
+    if day and restock(connection, city_id, shop, day):
+        rows = many(connection, 'SELECT item_id, qty FROM story_stock WHERE city_id=? AND place_id=?',
+                    (city_id, shop['place']))
     return {row['item_id']: row['qty'] for row in rows}
 
 
-def offer(shop: dict, entry: dict) -> int | None:
-    """What the shop pays for one of an item, in hundredths; None if it does not deal in it."""
-    if entry['category'] not in shop['buys'] or not entry.get('legal', True):
+def start_cash(city_id: str, shop: dict) -> int:
+    """The shop's cash when it opens and after each restock: its file's, else a share of its stock's worth."""
+    if 'cash' in shop:
+        return cents(shop['cash'])
+    worth = sum((item(city_id, item_id) or {'price': 0})['price'] * qty for item_id, qty in shop['stock'].items())
+    return cents(worth * CASH_SHARE)
+
+
+def till(connection, city_id: str, shop: dict, day: str = '') -> dict:
+    """The shop's cash and when it last restocked (story_shops), set up the first time anyone deals with it."""
+    row = optional(connection, 'SELECT cash, restocked FROM story_shops WHERE city_id=? AND place_id=?',
+                   (city_id, shop['place']))
+    if row is None:
+        row = {'cash': start_cash(city_id, shop), 'restocked': day}
+        connection.execute('INSERT INTO story_shops (city_id, place_id, cash, restocked) VALUES (?, ?, ?, ?)',
+                           (city_id, shop['place'], row['cash'], day))
+    return row
+
+
+def pay(connection, city_id: str, shop: dict, amount: int):
+    """Money into the shop's till (out of it when negative)."""
+    till(connection, city_id, shop)
+    connection.execute('UPDATE story_shops SET cash=MAX(0, cash+?) WHERE city_id=? AND place_id=?',
+                       (amount, city_id, shop['place']))
+
+
+def restock(connection, city_id: str, shop: dict, day: str) -> bool:
+    """Every restock_days of story time, what was sold comes back up to the file's stock and the till is topped up;
+    what the player sold the shop stays on its shelves. Whether it restocked."""
+    found = till(connection, city_id, shop, day)
+    if not found['restocked']:
+        connection.execute('UPDATE story_shops SET restocked=? WHERE city_id=? AND place_id=?',
+                           (day, city_id, shop['place']))
+        return False
+    if (date.fromisoformat(day) - date.fromisoformat(found['restocked'])).days < shop.get('restock_days',
+                                                                                          RESTOCK_DAYS):
+        return False
+    for item_id, qty in shop['stock'].items():
+        connection.execute('INSERT INTO story_stock (city_id, place_id, item_id, qty) VALUES (?, ?, ?, ?) '
+                           'ON CONFLICT(city_id, place_id, item_id) DO UPDATE SET qty=MAX(qty, excluded.qty)',
+                           (city_id, shop['place'], item_id, qty))
+    connection.execute('UPDATE story_shops SET restocked=?, cash=MAX(cash, ?) WHERE city_id=? AND place_id=?',
+                       (day, start_cash(city_id, shop), city_id, shop['place']))
+    return True
+
+
+def cash(connection, city_id: str, shop: dict) -> int | None:
+    """What the shop has to buy with, in hundredths; None when the Table gives shopkeepers unlimited cash."""
+    if table.rule(connection, 'shop_cash') == 'unlimited':
         return None
-    return max(1, cents(entry['price'] * shop['sell_rate']))
+    return till(connection, city_id, shop)['cash']
+
+
+def offer(shop: dict, entry: dict, percent: int = 0) -> int | None:
+    """What the shop pays for one of an item, in hundredths, with the market's move in percent; None if it does not
+    deal in it. Only a fence buys stolen goods or anything illegal."""
+    crooked = entry.get('stolen') or not entry.get('legal', True)
+    if crooked and not shop.get('fence'):
+        return None
+    if entry['category'] not in shop['buys'] and not shop.get('fence'):
+        return None
+    return max(1, (cents(entry['price'] * shop['sell_rate']) * (100 + percent) + 50) // 100)
+
+
+def refusal(shop: dict, entry: dict) -> str:
+    """Why the shop won't buy something."""
+    if entry.get('stolen') and not shop.get('fence'):
+        return "The keeper won't touch stolen goods."
+    if not entry.get('legal', True) and not shop.get('fence'):
+        return "The keeper won't be seen buying that."
+    return "This shop doesn't buy that."
+
+
+# Markets ----------------------------------------------------------------------------------------
+
+def move_market(connection, city_id: str, goods: str, shift: int, until: str):
+    """A Life Card moves a kind of goods' prices in a town until a day (story_markets)."""
+    connection.execute('INSERT INTO story_markets (id, city_id, goods, shift, until) VALUES (?, ?, ?, ?, ?)',
+                       (identifier(), city_id, goods, shift, until))
+
+
+def market(connection, city_id: str, entry: dict, day: str) -> int:
+    """How far the market has moved an item's price today, in percent (the moves add up)."""
+    if not day:
+        return 0
+    rows = many(connection, 'SELECT goods, shift FROM story_markets WHERE city_id=? AND until>=?', (city_id, day))
+    return sum(row['shift'] for row in rows if moves(row['goods'], entry))
+
+
+def moves(goods: str, entry: dict) -> bool:
+    if goods == 'any':
+        return True
+    if goods == 'drink':
+        return entry['category'] == 'food' and bool(DRINK.search(entry['name']))
+    return entry['category'] in GOODS.get(goods, ())
+
+
+def market_text(connection, city_id: str, day: str) -> str:
+    rows = many(connection, 'SELECT goods, SUM(shift) AS shift FROM story_markets WHERE city_id=? AND until>=? '
+                'GROUP BY goods', (city_id, day)) if day else []
+    moved = [f"{row['goods']} {row['shift']:+d}%" for row in rows if row['shift']]
+    return f"Prices moved by what is going on: {', '.join(moved)}." if moved else ''
 
 
 # Haggling ---------------------------------------------------------------------------------------
@@ -220,20 +342,59 @@ def buy_in_story(connection, city_id: str, shop: dict, text: str, stock_rows: li
     return lines
 
 
+def sell_in_story(connection, city_id: str, shop: dict, text: str, day: str, now: str, currency: dict) -> list[str]:
+    """Sell what the player's line offers the shop ("I sell the knife"), at what it pays today; a refusal is a line."""
+    if not SELL.search(text):
+        return []
+    lines = []
+    for row, qty in offered(text, carried(connection, city_id)):
+        try:
+            done = sell(connection, city_id, shop, row['id'], qty, now, day)
+        except DomainError as refused:
+            lines.append(f"No sale of {row['name']}: {refused.message}")
+            continue
+        what = done['name'] if done['qty'] == 1 else f"{done['qty']} × {done['name']}"
+        lines.append(f"The player's character sells {what} for {money_text(done['amount'], currency)}; it is out of "
+                     'their pack and the money is in their purse.')
+    return lines
+
+
+def offered(text: str, pack: list[dict]) -> list[tuple[dict, int]]:
+    """The pack's things a selling line names, with how many (all of them for "all my ..."), stolen ones first."""
+    found, named = [], set()
+    for row in sorted(pack, key=lambda row: not row['stolen']):
+        if row['item_id'] in named:
+            continue
+        for noun in sorted(nouns(row), key=len, reverse=True):
+            match = re.search(rf"(?:\b(\d+|all|{'|'.join(NUMBERS)})\s+(?:\w+\s+){{0,2}})?\b{re.escape(noun)}(e?s)?\b",
+                              text, re.I)
+            if match:
+                count = (match.group(1) or 'one').lower()
+                qty = row['qty'] if count == 'all' else int(count) if count.isdigit() else NUMBERS.get(count, 1)
+                found.append((row, min(qty, row['qty'])))
+                named.add(row['item_id'])
+                break
+    return found
+
+
 # The shop window ---------------------------------------------------------------------------------
 
 def window(connection, city_id: str, shop: dict, open_now: bool, keeper: str, day: str = '') -> dict:
-    found = stock(connection, city_id, shop)
+    found = stock(connection, city_id, shop, day)
     percent = haggled(connection, city_id, shop, day)
     order = [entry['id'] for entry in catalog(city_id)['items']]
     items = [(item(city_id, item_id), found[item_id])
              for item_id in sorted(found, key=lambda key: order.index(key) if key in order else len(order))]
     pack = carried(connection, city_id)
     return {'place_id': shop['place'], 'open': open_now, 'keeper': keeper, 'haggled': percent,
+            'fence': bool(shop.get('fence')), 'cash': cash(connection, city_id, shop),
+            'market': market_text(connection, city_id, day),
             'stock': [{'item_id': entry['id'], 'name': entry['name'], 'category': entry['category'],
-                       'price': priced(entry, percent), 'qty': qty, 'slots': entry['slots']}
+                       'price': priced(entry, percent + market(connection, city_id, entry, day)), 'qty': qty,
+                       'slots': entry['slots']}
                       for entry, qty in items if entry and qty > 0],
-            'offers': {row['id']: price for row in pack if (price := offer(shop, row)) is not None}}
+            'offers': {row['id']: price for row in pack
+                       if (price := offer(shop, row, market(connection, city_id, row, day))) is not None}}
 
 
 def shop_prompt(view: dict, currency: dict) -> str:
@@ -241,6 +402,11 @@ def shop_prompt(view: dict, currency: dict) -> str:
         return '## The shop here\nIt is closed now; nobody is behind the counter.'
     lines = [f"- {row['name']}: {money_text(row['price'], currency)} ({row['qty']} left)" for row in view['stock']]
     haggled = f"\nToday's prices after haggling: {haggle_text(view['haggled'])}." if view.get('haggled') else ''
+    haggled += f"\n{view['market']}" if view.get('market') else ''
+    if view.get('fence'):
+        haggled += '\nThe keeper fences stolen goods on the quiet, and pays little for them.'
+    if view.get('cash') is not None:
+        haggled += f"\nThe keeper has {money_text(view['cash'], currency)} to buy with, and no more."
     return ('## The shop here (stock and prices kept by the game; quote them exactly, invent nothing)\n'
             f"{view['keeper'] or 'The shopkeeper'} sells:\n" + '\n'.join(lines) + haggled +
             f'\n{money_words(currency)}'.rstrip() + '\nThe shopkeeper can name what is there and its price, but nothing changes hands until the game says '
@@ -254,34 +420,41 @@ def log(connection, now: str, kind: str, city_id: str, item_id: str, qty: int, a
 
 def buy(connection, city_id: str, shop: dict, item_id: str, qty: int, now: str, day: str = '') -> dict:
     entry = item(city_id, item_id)
-    have = stock(connection, city_id, shop).get(item_id, 0)
+    have = stock(connection, city_id, shop, day).get(item_id, 0)
     require(entry is not None and have > 0, 'The shop has none of that.', 404)
     require(qty <= have, f'The shop has only {have}.', 409)
-    cost = priced(entry, haggled(connection, city_id, shop, day)) * qty
+    cost = priced(entry, haggled(connection, city_id, shop, day) + market(connection, city_id, entry, day)) * qty
     require(cost <= purse(connection), "You can't afford that.", 409)
     pack = carried(connection, city_id)
     require(used(pack) + entry['slots'] * qty <= capacity(connection), "You can't carry that much more.", 409)
     connection.execute('UPDATE story_stock SET qty=qty-? WHERE city_id=? AND place_id=? AND item_id=?',
                        (qty, city_id, shop['place'], item_id))
     set_purse(connection, purse(connection) - cost)
+    pay(connection, city_id, shop, cost)
     add_item(connection, city_id, item_id, qty)
     log(connection, now, 'buy', city_id, item_id, qty, cost)
     return {'name': entry['name'], 'qty': qty, 'amount': cost}
 
 
-def sell(connection, city_id: str, shop: dict, inventory_id: str, qty: int, now: str) -> dict:
+def sell(connection, city_id: str, shop: dict, inventory_id: str, qty: int, now: str, day: str = '') -> dict:
     row = optional(connection, 'SELECT * FROM story_inventory WHERE id=? AND qty > 0', (inventory_id,))
     require(row is not None, "You don't have that.", 404)
     require(qty <= row['qty'], f"You have only {row['qty']}.", 409)
     entry = item(row['city_id'], row['item_id'])
-    price = offer(shop, entry) if entry else None
-    require(price is not None, "This shop doesn't buy that.", 409)
-    stock(connection, city_id, shop)
+    entry = entry and entry | {'stolen': bool(row['stolen'])}
+    price = offer(shop, entry, market(connection, city_id, entry, day)) if entry else None
+    require(price is not None, refusal(shop, entry or {}), 409)
+    stock(connection, city_id, shop, day)
+    has = cash(connection, city_id, shop)
+    if has is not None and price * qty > has:
+        raise DomainError("The keeper hasn't the money for that." if has < price else
+                          f'The keeper can only afford {has // price} of those.', 409)
     connection.execute('UPDATE story_inventory SET qty=qty-? WHERE id=?', (qty, inventory_id))
     connection.execute('INSERT INTO story_stock (city_id, place_id, item_id, qty) VALUES (?, ?, ?, ?) '
                        'ON CONFLICT(city_id, place_id, item_id) DO UPDATE SET qty=qty+excluded.qty',
                        (city_id, shop['place'], row['item_id'], qty))
     set_purse(connection, purse(connection) + price * qty)
+    pay(connection, city_id, shop, -price * qty)
     log(connection, now, 'sell', city_id, row['item_id'], qty, price * qty)
     return {'name': entry['name'], 'qty': qty, 'amount': price * qty}
 
