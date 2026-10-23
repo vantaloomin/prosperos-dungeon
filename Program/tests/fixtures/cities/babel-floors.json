@@ -532,5 +532,8 @@
  "calendar": "none",
  "prices": [],
  "water": [],
- "notables": []
+ "notables": [],
+ "town_map": {
+  "style": "none"
+ }
 }

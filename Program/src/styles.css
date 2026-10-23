@@ -259,6 +259,34 @@ textarea { resize: vertical; line-height: 1.6; }
 .map-place.here circle { fill: var(--accent); stroke: var(--accent); }
 .map-place text { fill: var(--muted); font-size: 10px; }
 .map-place.here text { fill: var(--text); font-weight: 600; }
+/* The town map (StoryTown.tsx): 'ink' an old inked town on the theme's paper, 'street' a modern grid, 'floor' a
+   town on one floor of the tower. Strokes scale with the zoom (--town-scale) so lines stay fine when zoomed in. */
+.story-town svg.town-map { width: 100%; height: auto; display: block; margin: 6px 0; border: 1px solid var(--border); border-radius: 6px; }
+.town-zoom { display: flex; gap: 8px; flex-wrap: wrap; }
+.town-zoom [aria-pressed="true"] { font-weight: 600; text-decoration: underline; }
+.town-map { --ink: color-mix(in srgb, var(--text) 80%, #6b4a2b); --paper: color-mix(in srgb, var(--surface) 82%, #d9c49a); }
+.town-map .town-ground { fill: color-mix(in srgb, var(--paper) 90%, #b9a66a); }
+.town-map .town-patch { stroke: color-mix(in srgb, var(--ink) 18%, transparent); stroke-width: calc(0.3px * var(--town-scale, 1)); fill: none; }
+.town-map .patch-country { fill: color-mix(in srgb, var(--paper) 80%, #b9a66a); }
+.town-map .patch-town, .town-map .patch-square { fill: var(--paper); }
+.town-map .patch-square { fill: color-mix(in srgb, var(--paper) 85%, var(--surface)); }
+.town-map .patch-open { fill: color-mix(in srgb, #6f9a5a 40%, var(--paper)); cursor: pointer; }
+.town-map .patch-water { fill: color-mix(in srgb, #4f7aa8 50%, var(--paper)); }
+.town-map .town-river { fill: none; stroke: color-mix(in srgb, #4f7aa8 55%, var(--paper)); stroke-linecap: round; stroke-linejoin: round; }
+.town-map .town-road { fill: none; stroke: color-mix(in srgb, var(--ink) 30%, var(--paper)); stroke-width: 2.4; stroke-linejoin: round; }
+.town-map .town-wall line { stroke: var(--ink); stroke-width: 2.2; stroke-linecap: round; }
+.town-map .town-lot { fill: color-mix(in srgb, var(--ink) 45%, var(--paper)); stroke: var(--ink); stroke-width: calc(0.35px * var(--town-scale, 1)); cursor: pointer; }
+.town-map .town-lot.named { fill: color-mix(in srgb, var(--accent) 55%, var(--ink)); }
+.town-map .town-lot.here, .town-map .town-lot.picked { fill: var(--accent); }
+.town-map.town-street .town-lot { fill: color-mix(in srgb, var(--muted) 40%, var(--surface)); stroke: color-mix(in srgb, var(--muted) 70%, transparent); }
+.town-map.town-street .town-road { stroke: color-mix(in srgb, #d9b45a 60%, var(--surface)); }
+.town-map .town-district { fill: var(--ink); opacity: 0.75; font-size: calc(10px * var(--town-scale, 1)); font-style: italic; pointer-events: none; }
+.town-map .town-label { fill: var(--text); font-size: 2.6px; pointer-events: none; paint-order: stroke; stroke: var(--paper); stroke-width: 0.6px; }
+.town-map .town-exit { fill: var(--muted); font-size: calc(6px * var(--town-scale, 1)); pointer-events: none; }
+.town-map .town-here { fill: var(--accent); stroke: var(--surface); stroke-width: calc(1px * var(--town-scale, 1)); }
+.town-picked { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.town-picked p { margin: 0; }
+.town-find select { width: 100%; }
 /* The hex crawl's map (StoryMap.tsx HexMap): each land a tint of the theme's surface, so every palette keeps it. */
 .hex-map .map-hex polygon { stroke: var(--canvas); stroke-width: 0.8; cursor: pointer; }
 .hex-map .terrain-water polygon { fill: color-mix(in srgb, #4f7aa8 65%, var(--surface)); }

@@ -11,6 +11,9 @@
  "timezone": "Europe/London",
  "aliases": [],
  "summary": "On the road in Vallarith, between towns: a gate, an edge, a ruin to arrive at.",
+ "town_map": {
+  "style": "none"
+ },
  "lat": 52.012,
  "lon": -2.004,
  "intensity": {

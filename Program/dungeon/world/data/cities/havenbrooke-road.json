@@ -11,6 +11,9 @@
  "timezone": "America/New_York",
  "aliases": [],
  "summary": "Out of Haven: a bus station, a lake house, a city or home for the holidays.",
+ "town_map": {
+  "style": "none"
+ },
  "lat": 42.71,
  "lon": -76.415,
  "intensity": {

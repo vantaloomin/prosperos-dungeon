@@ -765,6 +765,8 @@ floors = city(
                                             'down the Stair, about half a day a floor.', 'source': SRC}],
     None, [], [], CONCOURSE_NAMES, [], [],
 )
+# The floors are the ways between towns, not a town: no street map (dungeon/townmap.py).
+floors['town_map'] = {'style': 'none'}
 
 
 def main():

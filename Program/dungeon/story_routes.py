@@ -25,6 +25,7 @@ from dungeon import (
     story_clock,
     table,
     tiers,
+    townmap,
 )
 from dungeon.errors import DomainError, require
 from dungeon.models import Input, PersonaInput
@@ -142,6 +143,13 @@ class SheetChange(Input):
 def read_sheet(request: Request):
     with request.app.state.database.connect() as connection:
         return sheet.full_view(connection) | {'growth': growth.view(connection, story.dice_shown(connection))}
+
+
+@router.get('/town')
+def read_town(request: Request):
+    """The street map of the town the story is in (dungeon/townmap.py), or null between towns."""
+    with request.app.state.database.connect() as connection:
+        return {'town': townmap.view(connection)}
 
 
 @router.put('/sheet')

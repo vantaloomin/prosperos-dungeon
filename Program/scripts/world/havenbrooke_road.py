@@ -77,6 +77,7 @@ def build() -> dict:
         'era': city['era'], 'category': city['category'], 'basis': "The places in Vanta's Havenbrooke a trip from "
         'Haven can reach.', 'region': 'the Northeast', 'country': 'US', 'timezone': city['timezone'],
         'aliases': [], 'summary': 'Out of Haven: a bus station, a lake house, a city or home for the holidays.',
+        'town_map': {'style': 'none'},
         'lat': city['lat'], 'lon': city['lon'], 'intensity': city['intensity'], 'currency': city['currency'],
         'rent_period': city['rent_period'], 'speeds': city['speeds'], 'sources': city['sources'],
         'neighborhoods': [{'id': town, 'name': name, 'summary': summary, 'vibe': vibe, 'lat': lat, 'lon': lon,
