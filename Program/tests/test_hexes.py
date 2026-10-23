@@ -5,7 +5,7 @@ from conftest import Chunk, tell
 from test_inventory import begin
 from test_travel import Road
 
-from dungeon import hexes, travel, turn
+from dungeon import hexes, story_clock, travel, turn
 
 
 def ok(response):
@@ -348,6 +348,8 @@ def test_a_walk_stops_at_a_hamlet_it_knows_on_the_way_and_waits_for_light_at_nig
     start = (at[0] - 2 * dq, at[1] - 2 * dr)
     out_in_the_wild(app, start)
     with app.state.database.connect(write=True) as connection:
+        # A morning's start on a fixed day: the walk's daylight and weather follow the story clock, not the wall clock.
+        story_clock.start(connection, datetime(2026, 10, 5, 8, 0))
         hexes.find_site(connection, board, at, board.site(at))
         planned = travel.plan(connection, 'vallarith-road', 'the-wilds', f'I strike out {way}.', Road())
         assert tuple(planned['legs'][-1]['to']) == at and planned['stop'] == 'site'
