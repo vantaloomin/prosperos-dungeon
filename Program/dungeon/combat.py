@@ -33,6 +33,11 @@ on until they break") plays its round, then keeps fighting on that plan, a roll 
 turning point: someone falls, a foe breaks, the character is badly hurt, the fight ends, or PLAN_ROUNDS rounds pass.
 A plan with no attack or guard in it stops at once.
 
+Foes fight for what they want (requirements "Who decides enemy actions"): robbers who have hurt the character demand
+their purse, and a line that hands it over (or yields) ends the fight with the purse gone; captors fight to take the
+character whole, so their blows stop at Maimed and a surrender makes the character their prisoner; a brawler lets a
+character who backs off or yields go; killers give no quarter.
+
 Gear wears: an attack that fails critically damages the weapon swung (dungeon/inventory.py wear), and a damaged weapon
 hits a step softer. A fight won leaves its fallen foes' bodies where it was fought, with what they carried (coins, their
 weapon) for the character to search (dungeon/finds.py spoils); a beast carries nothing.
@@ -51,6 +56,8 @@ from dungeon.rules import ladder, marvel, narrative
 
 LEVELS = ('unhurt', 'grazed', 'hurt', 'wounded', 'maimed', 'dying')
 DOWN, DYING = 4, 5
+# The wound level at which robbers stop to demand the purse (Hurt).
+DEMAND = 2
 # Nights of rest that mend each level by one: Grazed, Hurt, Wounded, Maimed.
 MEND_NIGHTS = {1: 1, 2: 2, 3: 4, 4: 7}
 DAMAGE = {'success_cost': 1, 'success': 2, 'critical_success': 3}
@@ -70,6 +77,11 @@ OPPONENT = 'their opponent'
 SNEAK = re.compile(r"\b(sneak\w*|snuck|creep\w*|crept|from behind|unseen|unawares|ambush\w*|by surprise|quietly|"
                    r"silently|stealthily|stalk\w*|in (his|her|their) sleep|while (he|she|they)('s|'re| is| are) "
                    r"(asleep|sleeping|unaware|distracted|not looking))\b", re.I)
+YIELD = re.compile(r"\b(surrender\w*|yield\w*|give up|gives? in|beg\w* for (mercy|my life)|hands up|"
+                   r"drop\w* my (weapon|sword|axe|knife|blade)|back\w* off|walk\w* away|leave (them|him|her) be)\b", re.I)
+HAND_OVER = re.compile(r"\b(hand\w* (it |them |him |her )?over|give (it|them|him|her)|throw (it|them|him|her)|toss\w* "
+                       r"(it|them|him|her)|pay (them|him|her)( off)?)\b.*\b(purse|money|coins?|silver|crowns?|it|them)\b",
+                       re.I)
 PLAN = re.compile(r"\b(on my plan|fight it out|fight on|keep fighting|fight until|until (they|he|she|it)('s| is| are)? "
                   r"(down|done|beaten|dead|yields?|gives? up|flees?|runs?|breaks?))\b", re.I)
 PLAN_ROUNDS = 5
@@ -439,7 +451,9 @@ def foes_move(connection, state: dict, guarded: bool, rng, lines: list[str]) -> 
             continue
         band = marvel.roll(foe['vitality'], 'hard' if guarded else 'normal', rng)['band']
         if band in SUCCESS:
-            before, level = level, min(DYING, level + max(1, DAMAGE[band] + foe['weapon']))
+            # Captors want the character whole: their blows stop at Maimed.
+            worst = DOWN if state['wants'] == 'capture' else DYING
+            before, level = level, min(worst, max(level, level + max(1, DAMAGE[band] + foe['weapon'])))
             # A maiming or a critical hit can leave a lasting injury (dungeon/injuries.py).
             if band == 'critical_success' or before < DOWN <= level:
                 state['hurt_by'] = foe['name']
@@ -476,13 +490,18 @@ def play_round(connection, state: dict, rolls: list[dict], items: list[dict], rn
     if caught == 'foes':
         lines.append('Taken unawares, the foes do nothing this round.')
         return state, lines, ''
+    hurt = condition(connection)['level']
     if five or iron or percent:
         level = (combat5e if five else combat_brp if percent else combat_iron).foes_attack(connection, state, standing,
                                                                                          guarded, rng, lines)
         set_condition(connection, level)
     else:
         level = foes_move(connection, state, guarded, rng, lines)
-    return state, lines, 'dying' if level >= DYING else ''
+    if state['wants'] == 'rob' and hurt < DEMAND <= level < DYING:
+        lines.append(f"{standing(state)[0]['name'].capitalize()} demands the character's purse: hand it over and the "
+                     'robbers go.')
+    beaten = level >= DOWN and state['wants'] == 'capture' and not (five or iron or percent)
+    return state, lines, 'dying' if level >= DYING or beaten else ''
 
 
 def defeat(connection, state: dict, rng, now: str, saved: bool | None = None) -> tuple[str, str]:
@@ -542,14 +561,14 @@ def saved_round(connection, message_id: str) -> list[str] | None:
 
 
 def turn(connection, message_id: str, people: list[dict], rolls: list[dict], start: dict | None, items: list[dict],
-         rng, now: str, aftermath=None, spoils=None, plan: str = '') -> list[str]:
+         rng, now: str, aftermath=None, spoils=None, said: str = '') -> list[str]:
     """The fight's part of a turn, decided once: start a fight if one begins, play the round, and keep the lines.
     `aftermath(events)` deals with what the round did to the character, [(event, who)]: 'horror' when a fight with
     something dreadful starts, 'kill' when the character kills, 'fled' when a foe gets away from a fight the character
     won, 'maimed' when a hit calls for a lasting injury, and
     the defeat table's outcome; it says what that left (dungeon/stress.py). `spoils(foes, wants)` leaves the bodies of a
-    fight won, with what they carried (dungeon/finds.py). `plan`, the line itself when it fights on a plan, plays on
-    past this round to a turning point."""
+    fight won, with what they carried (dungeon/finds.py). `said` is the line itself: it can yield or pay the foes off
+    (terms), or set a plan that plays on past this round to a turning point."""
     if (kept := saved_round(connection, message_id)) is not None:
         return kept
     rng = rng or random.SystemRandom()
@@ -561,13 +580,28 @@ def turn(connection, message_id: str, people: list[dict], rolls: list[dict], sta
         return freed
     before = {foe['id']: foe['wound'] for foe in state['foes']}
     events = [('horror', foe['name']) for foe in state['foes'][:1] if foe.get('horror') and not state['round']]
+    settled, over = terms(connection, state, said, now)
+    if over:
+        return keep(connection, message_id, freed + settled, None)
+    freed += settled
     marked = mark(connection, state)
     state, lines, ending = play_round(connection, state, rolls, items, rng)
     lines = freed + lines + worn(connection, rolls, state, items)
+    plan = said if PLAN.search(said) else ''
     state, ending = fight_on(connection, message_id, state, plan, items, rng, now, (marked, ending), lines)
     events += [('kill', foe['name']) for foe in state['foes'] if foe['wound'] >= DYING > before[foe['id']]]
     # A foe who broke and got away alive (the story director may make a nemesis of them).
     events += [('fled', foe['name']) for foe in state['foes'] if ending == 'won' and foe['broken'] and not down(foe)]
+    ending = settle(connection, message_id, state, ending, lines, events, spoils, rng, now)
+    if aftermath and events and not condition(connection)['dead']:
+        lines += aftermath(events)
+    return keep(connection, message_id, lines, None if ending else state)
+
+
+def settle(connection, message_id: str, state: dict, ending: str, lines: list[str], events: list, spoils, rng,
+           now: str) -> str:
+    """How the round ended, dealt with: a fall to the defeat table, a fight won's experience and its fallen, a lasting
+    injury, and the fight's own roll cards. Returns the ending after a fall."""
     if ending == 'dying':
         ending = fall(connection, state, rng, now, lines, events)
     if ending == 'won' and fifth(connection):
@@ -578,11 +612,37 @@ def turn(connection, message_id: str, people: list[dict], rolls: list[dict], sta
         events.append(('maimed', cause))
     for card in state.pop('cards', []):
         card_for(connection, message_id, card, now)
-    if aftermath and events and not condition(connection)['dead']:
-        lines += aftermath(events)
-    save_fight(connection, None if ending else state)
+    return ending
+
+
+def keep(connection, message_id: str, lines: list[str], state: dict | None) -> list[str]:
+    """The fight as the round left it (None when it is over), and the round's lines kept with the player's line."""
+    save_fight(connection, state)
     connection.execute('INSERT INTO story_rounds (message_id, lines) VALUES (?, ?)', (message_id, encode(lines)))
     return lines
+
+
+def terms(connection, state: dict, said: str, now: str) -> tuple[list[str], bool]:
+    """A line that yields or pays the foes off, met by what they want: robbers take the purse and go, captors take a
+    prisoner, a brawl lets the character go; killers give no quarter. Returns what happened and whether the fight is
+    over."""
+    wants, paying = state['wants'], bool(HAND_OVER.search(said))
+    if not said or not (YIELD.search(said) or paying) or not standing(state):
+        return [], False
+    who = standing(state)[0]['name']
+    if wants == 'rob':
+        connection.execute('UPDATE story_purse SET coins=0')
+        record.add(connection, 'fact', "the player's character", f'Handed their purse over to {who}.', now)
+        return [f"The player's character hands over their purse; {who} takes it, and the robbers go. The fight is "
+                'over.'], True
+    if wants == 'capture':
+        set_condition(connection, condition(connection)['level'])
+        connection.execute('UPDATE story_wounds SET captors=? WHERE id=1', (who,))
+        record.add(connection, 'fact', "the player's character", f'Surrendered to {who} and was taken prisoner.', now)
+        return [f"The player's character surrenders; {who} binds them and takes them prisoner. The fight is over."], True
+    if wants == 'drive_off':
+        return [f"The player's character backs down; {who} lets them go. The fight is over."], True
+    return [f"The player's character tries to give in; {who} gives no quarter."], False
 
 
 def mark(connection, state: dict) -> tuple[int, int, int]:

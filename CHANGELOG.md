@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Foes who want something.** Bandits who have drawn blood demand your purse, and handing it over ends the fight.
+  Wardens and slavers want you alive: they beat you down rather than kill you, and you can surrender. Back off from
+  a brawl and they let you go. Beasts and killers won't take surrender.
 - **Surprise and ambushes.** Creep up on someone and attack, and the game rolls your stealth against their awareness:
   catch them unawares and they can't strike back in the first round. A danger can ambush you too, rolling against
   your Mind; if it catches you, your first round comes to nothing. Both rolls show as roll cards.
