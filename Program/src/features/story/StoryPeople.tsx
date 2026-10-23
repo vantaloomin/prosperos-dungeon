@@ -16,6 +16,7 @@ export function StoryPeople({ people, onFind, title = "People you've met", open 
           <li key={person.key}>
             <p><strong><EntityName entity={{ kind: 'person', key: person.key }}>{person.name}</EntityName></strong> <span className="subtle">{person.role}, {person.city}</span></p>
             <p className="subtle">{personLine(person)}</p>
+            {person.bond && <p className="subtle">Bonded to you ({person.bond})</p>}
             {person.feelings && <p className="subtle">{person.feelings}</p>}
             {person.notes.length > 0 && <p className="story-note">{person.notes[person.notes.length - 1]}</p>}
             <div className="form-actions">

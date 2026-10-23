@@ -23,6 +23,7 @@ import re
 from datetime import date, timedelta
 
 from dungeon import (
+    bonds,
     combat,
     director,
     factions,
@@ -44,10 +45,11 @@ from dungeon.life import cards
 DEFAULT_DRAMA = 'uneasy'
 # Off only for tests that are about something else (tests/conftest.py).
 ACTIVE = True
-# Cards that need someone the game cannot name yet: a bonded companion, a beat's absent character; and a faction,
-# where no faction has a hand.
+# Cards that need someone the game cannot name here: a bond, until the character has one (dungeon/bonds.py), a beat's
+# absent character; and a faction, where no faction has a hand.
 UNNAMED = re.compile(r'\{(bond|them)\}')
 BOND = re.compile(r'\{bond\}')
+THEM = re.compile(r'\{them\}')
 FACTION = re.compile(r'\{faction\}')
 WAGE_ID = 'day-wage'
 DEFAULT_WAGE = 100
@@ -92,9 +94,10 @@ def drama(connection, data: dict) -> str:
     return (data.get('intensity') or {}).get('drama') or DEFAULT_DRAMA if chosen == 'world' else chosen
 
 
-def unnamed(world: str, faction: bool = False, them: bool = False) -> set[str]:
-    """The cards that name someone the game cannot fill in here: {them} only an off-page beat can (dungeon/beats.py)."""
-    who = BOND if them else UNNAMED
+def unnamed(world: str, faction: bool = False, them: bool = False, bonded: bool = False) -> set[str]:
+    """The cards that name someone the game cannot fill in here: {them} only an off-page beat can (dungeon/beats.py),
+    {bond} only a scene while the character has a bond."""
+    who = BOND if them else THEM if bonded else UNNAMED
     return {item['id'] for item in cards.cards(world) if any(
         who.search(item.get(field) or '') or (not faction and FACTION.search(item.get(field) or ''))
         for field in ('title', *cards.TEXT)) or (not faction and any(
@@ -117,16 +120,19 @@ def draw(connection, scene: str, seed: str, city_id: str, place_id: str, data: d
         return None
     world = found['world']
     beat = scene == 'beat'
-    has = has if beat else ({'injured'} if combat.condition(connection)['level'] else set())
+    bound = [] if beat else bonds.whole(connection)
+    has = has if beat else ({'injured'} if combat.condition(connection)['level'] else set()) | \
+        ({'bond'} if bound else set())
     powers = factions.local(world, found['node'])
     skipped = (skip or set()) if beat else recent(connection, world, day)
     drawn = cards.draw(world, scene, seed, cards.DRAMA.index(drama(connection, data)), level['levels'],
-                       has or set(), skipped | unnamed(world, bool(powers), beat), found['region'],
+                       has or set(), skipped | unnamed(world, bool(powers), beat, bool(bound)), found['region'],
                        veils=frozenset(level['veils']), forced=forced)
     if not drawn['card']:
         return None
     faction = powers[sum(map(ord, seed)) % len(powers)] if powers else None
-    return drawn | {'map': found['map'], 'world': world, 'faction': faction, 'found': found}
+    bond = bound[sum(map(ord, seed)) % len(bound)] if bound else None
+    return drawn | {'map': found['map'], 'world': world, 'faction': faction, 'found': found, 'bond': bond}
 
 
 def keep(connection, message_id: str, scene: str, day: date, card_id: str | None, lines: list[str]):
@@ -141,7 +147,7 @@ def drawn_today(connection, scene: str, day: date) -> bool:
 # Playing a card -------------------------------------------------------------------------------------
 
 def fill(text: str, names: dict[str, str]) -> str:
-    return re.sub(r'\{(pc|npc|town|faction|them)\}', lambda match: names[match.group(1)], text)
+    return re.sub(r'\{(pc|npc|town|faction|them|bond)\}', lambda match: names[match.group(1)], text)
 
 
 def npc(people: list[dict]) -> dict | None:
@@ -194,8 +200,9 @@ def wound(connection, effect: dict, context: dict) -> list[str]:
 
 
 def feeling(connection, effect: dict, context: dict) -> list[str]:
-    person = context['npc']
-    if effect['who'] != 'npc' or person is None:
+    """How the one here (`npc`) or the character's bond (`bond`) comes to feel about the character."""
+    person = {'npc': context['npc'], 'bond': context.get('bond')}.get(effect['who'])
+    if person is None:
         return []
     feelings.change(connection, person['key'], {effect['axis']: effect['shift']}, context['title'])
     return []
@@ -280,7 +287,7 @@ def quested(connection, effect: dict, context: dict) -> list[str]:
     hidden side (dungeon/quests.py)."""
     if not context.get('city'):
         return []
-    person = context['npc'] if effect['from'] == 'npc' else None
+    person = {'npc': context['npc'], 'bond': context.get('bond')}.get(effect['from'])
     giver = (person.get('full') or person.get('name')) if person else \
         context['faction']['name'] if effect['from'] == 'faction' and context['faction'] else None
     due = context['now'] + timedelta(days=effect['days'])
@@ -313,10 +320,11 @@ def play(connection, drawn: dict, context: dict) -> tuple[list[str], int]:
     names = {'pc': context['name'] or 'the character', 'town': context['data']['name'],
              'faction': drawn['faction']['name'] if drawn.get('faction') else 'the powers here',
              'npc': (person.get('full') or f"the {person.get('occupation') or person['role']}") if person
-             else 'a stranger'}
+             else 'a stranger', 'bond': drawn['bond']['name'] if drawn.get('bond') else 'a friend'}
     truth, seen = fill(card['truth'], names), fill(card['seen'], names)
     context = context | {'npc': person, 'title': fill(card['title'], names).lower(), 'faction': drawn.get('faction'),
                          'world': drawn.get('world'), 'found': drawn.get('found'), 'truth': truth, 'seen': seen,
+                         'bond': drawn.get('bond'),
                          'pressure': fill(card['pressure'], names) if card.get('pressure') else ''}
     record.add(connection, 'fact', fill(card['title'], names), truth, context['logged'], truth='world')
     if card['accuracy'] != 'true':

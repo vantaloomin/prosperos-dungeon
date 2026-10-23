@@ -557,6 +557,14 @@ CREATE TABLE IF NOT EXISTS story_fates (
   since TEXT NOT NULL
 );
 
+-- Bonds (dungeon/bonds.py): the people the character is bound to, earned by warm feelings or sworn.
+CREATE TABLE IF NOT EXISTS story_bonds (
+  key TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  how TEXT NOT NULL CHECK (how IN ('earned', 'sworn')),
+  since TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS story_beats (
   message_id TEXT NOT NULL,
   key TEXT NOT NULL,

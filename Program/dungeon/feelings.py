@@ -14,7 +14,7 @@ Feelings are game state, branched with the story (story_people is in dungeon/tim
 import json
 import re
 
-from dungeon import record
+from dungeon import bonds, record
 from dungeon.database import decode, encode, optional
 
 AXES = ('trust', 'affection', 'respect', 'fear', 'desire')
@@ -83,6 +83,8 @@ def change(connection, key: str, changes: dict[str, int], why: str = ''):
         kept = [*kept, why.strip()[:160]][-IMPRESSIONS:]
     connection.execute(f"UPDATE story_people SET {', '.join(f'{axis}=?' for axis in AXES)}, impressions=? WHERE key=?",
                        (*values.values(), encode(kept), key))
+    # Warm enough, they are bonded to the character (dungeon/bonds.py).
+    bonds.earned(connection, key)
 
 
 def aimed_at(row: dict, action: str) -> bool:

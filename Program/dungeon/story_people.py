@@ -29,8 +29,12 @@ YOU_SPEAK = re.compile(r'\byou\s+(?:\w+\s+)?(?:say|said|ask|asked|tell|told|repl
 
 
 def known(connection) -> dict[str, dict]:
+    """Everyone met, with their bond to the character if they have one ('earned' or 'sworn', dungeon/bonds.py) and
+    unless it is broken or lost."""
     return {row['key']: row | {'notes': decode(row['notes'])} for row in many(
-        connection, 'SELECT * FROM story_people ORDER BY last_met_at DESC')}
+        connection, "SELECT p.*, CASE WHEN f.state IN ('dead', 'turned') THEN NULL ELSE b.how END AS bond "
+                    'FROM story_people p LEFT JOIN story_bonds b ON b.key=p.key LEFT JOIN story_fates f ON f.key=p.key '
+                    'ORDER BY p.last_met_at DESC')}
 
 
 def named(sheet: dict, text: str) -> bool:
@@ -140,4 +144,6 @@ def remembered(row: dict | None, today: str | None = None) -> str:
     felt = feelings.text(row)
     return f" The user has met them {times} and knows their name; last on {row['last_day']}." + \
         (f' From before: {notes}' if notes else '') + voice_text(row, today) + (f' {felt}' if felt else '') + \
-        (f' Their impressions of the character: {impressions}.' if impressions else '')
+        (f' Their impressions of the character: {impressions}.' if impressions else '') + \
+        (' They are bonded to the character: they would stand by them, and the character can call on them.'
+         if row.get('bond') else '')

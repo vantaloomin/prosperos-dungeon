@@ -35,7 +35,7 @@ def test_a_nights_rest_turns_use_into_growth(client, connected, provider, app):
     assert 'Vitality grows from 10 to 11' in narrator and 'Mind grows' not in narrator
     with app.state.database.connect() as connection:
         assert sheet.stats(connection)['Vitality'] == 11 and growth.marked(connection) == []
-    assert ok(client.get('/api/story/sheet'))['growth'] == {'marked': [], 'dark': []}
+    assert ok(client.get('/api/story/sheet'))['growth'] == {'marked': [], 'dark': [], 'bonds': {'word': 'no one to call on', 'bonds': []}}
 
 
 def test_a_milestone_boosts_the_stat_used_most(app):

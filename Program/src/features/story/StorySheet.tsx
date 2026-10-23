@@ -4,7 +4,7 @@ import { api } from '../../api'
 import type { BrpSheet, FateSheet, IronswornSheet, MarvelSheet, NarrativeSheet, Sheet, SheetGrowth, Srd52Sheet, Srd52Spells } from '../../types'
 import { Stepper } from '../../components/NumberFields'
 import { Notice } from '../../components/Feedback'
-import { abilityLine, darkText, signed, spellLine, xpLine } from './storyText'
+import { abilityLine, bondLine, bondsText, darkText, signed, spellLine, xpLine } from './storyText'
 
 const SHEET_KEY = ['story-sheet']
 
@@ -145,5 +145,11 @@ function Spells({ spells }: { spells: Srd52Spells }) {
 }
 
 function Dark({ growth }: { growth?: SheetGrowth }) {
-  return <>{growth?.dark.map((track) => <p key={track.id}><strong>{darkText(track)}</strong>{track.changes.map((change) => <span key={change} className="subtle"> {change}</span>)}</p>)}</>
+  const bonds = growth?.bonds
+  return (
+    <>
+      {bonds && <p><strong>{bondsText(bonds)}</strong>{!!bonds.bonds.length && <span className="subtle"> {bonds.bonds.map(bondLine).join(', ')}</span>}</p>}
+      {growth?.dark.map((track) => <p key={track.id}><strong>{darkText(track)}</strong>{track.changes.map((change) => <span key={change} className="subtle"> {change}</span>)}</p>)}
+    </>
+  )
 }
