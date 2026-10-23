@@ -771,6 +771,58 @@ def babel(play):
     play.journal()
 
 
+def fate_points(play) -> int | None:
+    sheet = play.dungeon.call('GET', '/api/story/sheet')
+    return sheet.get('fate_points', sheet.get('points'))
+
+
+def fate_made(play):
+    """M4: a Fate character made on the start screen: aspects, approaches and stunts; actions that fit them, Fate
+    points spent on invokes and earned on compels, refresh after sleep, and a fight on the shared wound levels."""
+    play.start(persona={'name': 'Wren Halloway', 'gender': 'woman', 'age': 30,
+                        'about': 'A disgraced Guild surveyor who reads land like a ledger and cannot leave a debt alone.'},
+               ruleset='fate', fate={'high_concept': 'Disgraced Guild surveyor with a map for every lie',
+                                    'trouble': 'I always pay my debts, whatever they cost',
+                                    'aspects': ['Knows every path through the stump fields', 'Owes Corin a favour'],
+                                    'approaches': {'Clever': 3, 'Careful': 2, 'Sneaky': 2, 'Quick': 1, 'Forceful': 1,
+                                                   'Flashy': 0},
+                                    'stunts': ['Because I read land like a ledger, I get +2 when I cleverly survey '
+                                               'ground or find a path']})
+    play.sheet()
+    before = fate_points(play)
+    play.say('I cleverly survey the ground outside the tavern and find the path the arrow-carrier took.',
+             {'roll': True})
+    play.say('I flashily stand on the bar and give a rousing speech about the Guild.', {'roll': True})
+    play.say('I sneak into the guild factor\'s office at night to copy the contract ledger.', {'roll': True})
+    play.say('A creditor demands I settle a debt I owe him tonight, and I agree to pay it whatever it costs me.')
+    after = fate_points(play)
+    play.write(f'- Fate points: {before} at the start, {after} now\n')
+    play.say('I sleep the night at the Wayhouse.')
+    play.write(f'- Fate points after sleep: {fate_points(play)}\n')
+    play.move('the-sawpit')
+    play.say('I pick out the loudest drunk in the room.')
+    play.say('I punch him hard in the jaw.', {'fight': True})
+    for line in ('I hit him again.', 'I keep at him.', 'I finish it.'):
+        view = play.say(line)
+        if not ((view or {}).get('fight') or {}).get('fight'):
+            break
+    play.sheet()
+
+
+def fate_premade(play):
+    """M4: a Kingswood premade played under Fate: its high concept from its About, approaches from its stats."""
+    play.start('tobin-pell', ruleset='fate')
+    play.sheet()
+    play.say('I carefully check the tally ledger for the skimmed boards before the factor does.', {'roll': True})
+    play.say('I charm the clerk into letting me take the ledger home for the night.', {'roll': True})
+
+
+def marvel_start(play):
+    """Regression: a plain MARVEL start still plays."""
+    play.start('agna-holt')
+    play.say('I ask the keeper for a room and climb the stairs to it.')
+
+
 SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl, 'road': road,
              'director': director, 'chapters': chapters, 'ironman': ironman, 'gm_view': gm_view, 'memory': memory,
              'legacy': legacy, 'fivee_checks': fivee_checks, 'fivee_fight': fivee_fight,
@@ -778,4 +830,5 @@ SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl,
              'lore': lore, 'narrative': narrative, 'fivee_defeat_aim': fivee_defeat_aim,
              'fivee_defeat_written': fivee_defeat_written, 'importer': importer,
              'editor': editor, 'pictures': pictures, 'havenbrooke': havenbrooke,
-             'tone': tone, 'restrained_wounds': restrained_wounds, 'stage': stage, 'babel': babel}
+             'tone': tone, 'restrained_wounds': restrained_wounds, 'stage': stage, 'babel': babel,
+             'fate_made': fate_made, 'fate_premade': fate_premade, 'marvel_start': marvel_start}
