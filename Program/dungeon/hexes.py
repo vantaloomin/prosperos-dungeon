@@ -135,9 +135,11 @@ class Grid:
 
     def __init__(self, travel_map: dict, seed: str):
         self.map, self.seed = travel_map, seed
-        data = world_data.read('hexes', key(travel_map)) or {}
+        # A map with no hexes file can say how its generated land goes in the travel map itself (`hex_map`).
+        data = world_data.read('hexes', key(travel_map)) or travel_map.get('hex_map') or {}
         self.generate = data.get('generate', {})
         self.miles = data.get('miles', 6)
+        self.names = data.get('names', {})
         self.authored: dict[tuple[int, int], tuple[str, str]] = {}
         legend, regions = data.get('legend', {}), data.get('region_legend', {})
         for row, (terrain_row, region_row) in enumerate(zip(data.get('terrain', []), data.get('regions', []))):
@@ -177,6 +179,10 @@ class Grid:
                 region = self.region_of_place[at]
             if terrain == 'water' and (at in self.roads or at in self.at_place):
                 terrain = 'plains'
+            # Generated land never shuts a place in: every way out of it is walkable for a step.
+            elif terrain == 'water' and at not in self.authored and any(
+                    other in self.at_place for other in neighbours(*at)):
+                terrain = self.generate.get('swap', {}).get('plains', 'plains')
             self.cache[at] = {'q': at[0], 'r': at[1], 'terrain': terrain, 'region': region,
                               'road': self.roads.get(at), 'place': self.at_place.get(at)}
         return self.cache[at]
@@ -217,9 +223,8 @@ class Grid:
             terrain = 'waste'
         else:
             terrain = 'plains'
-        allowed = settings.get('terrains')
-        if allowed and terrain not in allowed:
-            terrain = allowed[int(unit(self.seed, 'terrain', *at) * len(allowed))]
+        # A map's own land: Havenbrooke's woods have no waste or mountains, and its open ground is mostly trees.
+        terrain = settings.get('swap', {}).get(terrain, terrain)
         if near and near[2]:
             return terrain, near[2]
         frontier = settings.get('frontier', FRONTIER)
@@ -234,10 +239,15 @@ class Grid:
         return (self.map['regions'].get(cell['region']) or {}).get('danger', 'high')
 
     def hours(self, cell: dict, road: bool) -> float | None:
-        return ROAD_HOURS if road else TERRAINS[cell['terrain']]['hours']
+        """Hours to cross a hex, for its size: the terrain table is for six-mile hexes."""
+        hours = ROAD_HOURS if road else TERRAINS[cell['terrain']]['hours']
+        return None if hours is None else round(hours * self.miles / 6, 2)
 
     def text(self, cell: dict, road: bool) -> str:
-        return cell['road']['name'] if road else TERRAINS[cell['terrain']]['text']
+        return cell['road']['name'] if road else self.terrain_text(cell['terrain'])
+
+    def terrain_text(self, terrain: str) -> str:
+        return self.names.get(terrain) or TERRAINS[terrain]['text']
 
     def way(self, start: tuple[int, int], goal: tuple[int, int], weather_: str = 'clear') -> list[dict] | None:
         """The quickest way from one hex to another, each step as {from, to, hours, terrain, danger, region}."""
