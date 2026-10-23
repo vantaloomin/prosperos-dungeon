@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Ironsworn progress tracks.** Every quest and oath is now a vow with its own progress track. Pursuing it by name
+  on a roll that lands marks a milestone, once a day. Finishing it rolls the filled boxes against the challenge
+  dice: a strong hit gives full experience, a weak hit one less, a miss none. Each bond you forge ticks the bonds
+  track. The sheet shows every vow's progress and your bonds.
 - **Dice, haggling and bonds playtest fixes.** An arm-wrestle, a race or a bet no longer starts a fight. "I spend
   the day at the market" takes you there. "The day" now ends with the evening rather than running past midnight, and
   work pays only for the hours that actually passed. "I sleep until morning" from the small hours wakes you in the

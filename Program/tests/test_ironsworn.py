@@ -7,7 +7,8 @@ from conftest import tell
 from test_rulesets import reply, start
 from test_travel import ok
 
-from dungeon import quests, record, sheet, stress, travel
+from dungeon import bonds, quests, record, sheet, stress, travel
+from dungeon import sworn as sworn_tracks
 from dungeon.rules import ironsworn
 
 
@@ -223,12 +224,64 @@ def test_a_vow_fulfilled_gives_experience_spent_on_assets():
     assert len(ironsworn.view(character)['asset_list'][0]['abilities']) == 2
 
 
-def test_a_quest_done_under_ironsworn_is_a_vow_fulfilled(client, app):
+def test_a_quest_done_under_ironsworn_is_a_vow_fulfilled(client, app, monkeypatch):
     sworn(client)
+    rolled = ironsworn.progress_roll
+    monkeypatch.setattr(ironsworn, 'progress_roll', lambda ticks, rng=None: rolled(ticks, Faces(1, 1)))
     with app.state.database.connect(write=True) as connection:
         quest_id = quests.create(connection, 'oath', 'kingswood', 'An oath to Tamsin', 'Find her brother.', '', '',
                                  None, giver='Tamsin')
         lines = quests.end(connection, quest_id, 'done', 'Found him.', 'now')
-        assert any(line.startswith('The character fulfils a dangerous vow (An oath to Tamsin): 2 experience')
-                   for line in lines)
+        # The deed that ends it is a milestone: 8 ticks, 2 boxes, beat 1 and 1.
+        assert any(line.startswith('Fulfill Your Vow, dangerous (An oath to Tamsin), progress 2 vs 1 and 1, a strong '
+                                   'hit: 2 experience') for line in lines)
         assert sheet.native(connection)['upgrades'] == {'path/veteran': 1}
+
+
+class Faces:
+    def __init__(self, *faces):
+        self.faces = iter(faces)
+
+    def randint(self, low, high):
+        return next(self.faces)
+
+
+def test_progress_tracks_mark_by_rank_and_roll_against_the_challenge_dice():
+    assert ironsworn.mark(0, 'troublesome') == 12 and ironsworn.mark(36, 'troublesome') == 40
+    assert ironsworn.mark(0, 'epic') == 1
+    assert ironsworn.progress_roll(24, Faces(5, 4))['band'] == 'success'
+    assert ironsworn.progress_roll(24, Faces(5, 7))['band'] == 'success_cost'
+    assert ironsworn.progress_roll(24, Faces(8, 9))['band'] == 'failure'
+    assert ironsworn.progress_roll(0, Faces(3, 3))['band'] == 'critical_failure'
+    assert ironsworn.vow_xp('formidable', weak=True) == 2
+
+
+def test_pursuing_a_vow_reaches_a_milestone_once_a_day_and_bonds_tick(client, app):
+    sworn(client)
+    with app.state.database.connect(write=True) as connection:
+        quests.create(connection, 'job', 'kingswood', 'The Millpond bargain', 'Drag the pond.', '', '', None,
+                      tier=2)
+        landed, missed = [{'band': 'success'}], [{'band': 'failure'}]
+        assert sworn_tracks.pursued(connection, 'I head to the Millpond.', missed, '2026-10-01') == []
+        assert sworn_tracks.pursued(connection, 'I ask about the weather.', landed, '2026-10-01') == []
+        assert sworn_tracks.pursued(connection, 'I drag the Millpond for the bargain\'s token.', landed,
+                                    '2026-10-01') == ['Reach a Milestone on the vow The Millpond bargain: progress 1 '
+                                                      'of 10.']
+        assert sworn_tracks.pursued(connection, 'Deeper to the Millpond.', landed, '2026-10-01') == []
+        assert sworn_tracks.pursued(connection, 'Deeper to the Millpond.', landed, '2026-10-02') != []
+        bonds.forge(connection, 'hesk', 'Hesk Aldane', 'sworn', 'now')
+        shown = ironsworn.view(sheet.native(connection))['progress']
+        assert shown == [{'name': 'The Millpond bargain', 'rank': 'formidable', 'ticks': 8, 'boxes': 2, 'of': 10},
+                         {'name': 'Bonds', 'rank': None, 'ticks': 1, 'boxes': 0, 'of': 10}]
+
+
+def test_a_vow_milestone_reaches_the_narrator(client, connected, provider, app):
+    sworn(client)
+    with app.state.database.connect(write=True) as connection:
+        quests.create(connection, 'oath', 'kingswood', 'An oath to Tamsin', 'Find her brother.', '', '', None)
+    provider.respond = lambda system, messages: reply('{"facts": []}') if system.startswith(record.EXTRACT) \
+        else reply('You ask around.')
+    app.state.dice = Always(6)
+    tell(client, 'I climb the mill wall to look for Tamsin\'s brother.', 'story-0001')
+    assert any('## Vows (decided by the game)\n- Reach a Milestone on the vow An oath to Tamsin: progress 2 of 10.'
+               in request['system'] for request in provider.requests)

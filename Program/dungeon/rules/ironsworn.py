@@ -17,9 +17,12 @@
 - **Supply** is abstract: a day on the road costs a point of it (dungeon/travel.py), and Resupply brings it back
   (+2 on a strong hit, +1 on a weak one). Spirit follows the stress track (dungeon/stress.py): the more strain, the
   less spirit.
-- **Vows.** Quests and oaths are the character's vows, ranked by the quest's tier (an oath is dangerous). A vow
-  kept is Fulfill Your Vow, and gives experience by its rank (1 troublesome to 5 epic). Code spends it as written:
-  2 to upgrade an asset (its next ability), else 3 for a new asset that fits the character's best stat.
+- **Vows.** Quests and oaths are the character's vows, ranked by the quest's tier (an oath is dangerous), each a
+  progress track of BOXES boxes of four ticks: Reach a Milestone marks ticks by the rank (MILESTONE, dungeon/sworn.py
+  says when). A vow kept is Fulfill Your Vow, a progress roll: the filled boxes against the two challenge dice, no
+  action die and no momentum. A strong hit gives experience by its rank (1 troublesome to 5 epic), a weak hit one
+  less, a miss none. Code spends it as written: 2 to upgrade an asset (its next ability), else 3 for a new asset
+  that fits the character's best stat. Bonds is a progress track too, a tick a bond.
 """
 import json
 import random
@@ -70,6 +73,9 @@ RANKS = ('troublesome', 'dangerous', 'formidable', 'extreme', 'epic')
 # A vow's rank by its quest's tier.
 RANK_BY_TIER = {1: 'dangerous', 2: 'formidable', 3: 'extreme'}
 UPGRADE, NEW_ASSET = 2, 3
+# Progress tracks: ten boxes of four ticks; a milestone (or a bond forged) marks ticks by the track's rank.
+BOXES, TICKS_PER_BOX = 10, 4
+MILESTONE = {'troublesome': 12, 'dangerous': 8, 'formidable': 4, 'extreme': 2, 'epic': 1}
 
 
 @cache
@@ -146,11 +152,19 @@ def abilities(sheet: dict, asset: str) -> list[dict]:
 def view(sheet: dict) -> dict:
     found = assets()
     return {'ruleset': ID, 'ruleset_name': NAME, **sheet, 'momentum_max': momentum_max(sheet),
-            'momentum_reset': momentum_reset(sheet),
+            'momentum_reset': momentum_reset(sheet), 'progress': progress(sheet),
             'asset_list': [{'id': asset, 'name': found[asset]['name'], 'category': found[asset]['category'],
                             'abilities': [plain(ability['text']) for ability in abilities(sheet, asset)]}
                            for asset in sheet['assets'] if asset in found],
             'attribution': attribution()}
+
+
+def progress(sheet: dict) -> list[dict]:
+    """The progress tracks: each open vow, then bonds; filled boxes of BOXES and the ticks past them."""
+    tracks = [{'name': vow['title'], 'rank': vow['rank'], 'ticks': vow['ticks']}
+              for vow in (sheet.get('vows') or {}).values()]
+    tracks.append({'name': 'Bonds', 'rank': None, 'ticks': sheet.get('bonds', 0)})
+    return [track | {'boxes': track['ticks'] // TICKS_PER_BOX, 'of': BOXES} for track in tracks]
 
 
 # Vows and experience ----------------------------------------------------------------------------------------
@@ -159,8 +173,22 @@ def rank_of(tier: int | None) -> str:
     return RANK_BY_TIER.get(tier or 1, 'epic')
 
 
-def vow_xp(rank: str) -> int:
-    return RANKS.index(rank) + 1
+def vow_xp(rank: str, weak: bool = False) -> int:
+    """Experience for a vow fulfilled: 1 troublesome to 5 epic, one less on a weak hit."""
+    return RANKS.index(rank) + (0 if weak else 1)
+
+
+def mark(ticks: int, rank: str) -> int:
+    """A progress track's ticks after a milestone of its rank, at most full."""
+    return min(BOXES * TICKS_PER_BOX, ticks + MILESTONE[rank])
+
+
+def progress_roll(ticks: int, rng: random.Random | None = None) -> dict:
+    """A progress move: the track's filled boxes against two challenge dice; no action die, no momentum."""
+    rng = rng or random.SystemRandom()
+    score = ticks // TICKS_PER_BOX
+    challenge = [rng.randint(1, 10), rng.randint(1, 10)]
+    return {'score': score, 'challenge': challenge, 'band': outcome(score, challenge)}
 
 
 def upgradable(sheet: dict) -> str | None:

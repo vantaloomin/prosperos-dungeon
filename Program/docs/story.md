@@ -567,13 +567,21 @@ The same fight on BRP's rules (`dungeon/combat_brp.py`):
   one, shown on the roll card ("+2 supply").
 - **Spirit** follows the stress track: 5 while steady, down to 0 at its top. Resisting stress is Endure Stress on
   heart.
-- **Vows.** A quest or an oath done is a vow fulfilled. Its rank comes from the quest's tier (tier 1 dangerous,
-  2 formidable, 3 extreme, higher epic; an oath is dangerous) and gives experience as written, 1 for troublesome to
-  5 for epic. Code spends it: 2 upgrades an asset (its next ability), else 3 buys a new asset that fits the
-  character's best stat. MARVEL's milestones give Ironsworn nothing; its growth is its vows.
+- **Vows** are progress tracks of ten boxes, four ticks a box. A line that names an open vow (at least half of its
+  title's longer words, as for an oath) and lands a roll is Reach a Milestone: it marks ticks by the vow's rank
+  (troublesome 12, dangerous 8, formidable 4, extreme 2, epic 1), once a story day per vow. The narrator hears it
+  under "## Vows (decided by the game)". The rank comes from the quest's tier (tier 1 dangerous, 2 formidable,
+  3 extreme, higher epic; an oath is dangerous).
+- **Fulfill Your Vow.** A quest or an oath done is a progress roll: the deed that ends it marks a last milestone,
+  then the filled boxes go against the two challenge dice, with no action die and no momentum. A strong hit gives
+  experience as written, 1 for troublesome to 5 for epic; a weak hit one less; a miss none (the story already says
+  it ended, but the vow is not what was sworn). Code spends it: 2 upgrades an asset (its next ability), else 3 buys
+  a new asset that fits the character's best stat. MARVEL's milestones give Ironsworn nothing; its growth is its
+  vows.
+- **Bonds** is a progress track too: each bond forged (dungeon/bonds.py) marks a tick, and the narrator hears the
+  count with the bond. The sheet lists every open vow's progress and the bonds track.
 
-Not yet: progress tracks for vows marked as the story goes, journeys as progress tracks, Sojourn, debilities from
-the suffer moves, bonds.
+Not yet: journeys as progress tracks, Sojourn, debilities from the suffer moves, Write Your Epilogue.
 
 ## Going back
 

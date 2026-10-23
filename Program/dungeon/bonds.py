@@ -16,6 +16,7 @@ Bonds are game state, branched with the story (story_bonds is in dungeon/timelin
 """
 import re
 
+from dungeon import sworn as vows
 from dungeon.database import many, optional
 
 WARM = 3
@@ -33,6 +34,7 @@ def forge(connection, key: str, name: str, how: str, since: str) -> bool:
     if optional(connection, 'SELECT 1 FROM story_bonds WHERE key=?', (key,)):
         return False
     connection.execute('INSERT INTO story_bonds (key, name, how, since) VALUES (?, ?, ?, ?)', (key, name, how, since))
+    vows.forge_bond(connection, name)
     return True
 
 
@@ -54,7 +56,9 @@ def sworn(connection, text: str, people: list[dict], now: str) -> list[str]:
     name = person['sheet']['full']
     if not forge(connection, person['sheet']['key'], name, 'sworn', now):
         return []
-    return [f"The player's character binds themselves to {name}: a bond from now on, kept by the game."]
+    tracked = vows.bonds_line(connection)
+    return [f"The player's character binds themselves to {name}: a bond from now on, kept by the game."] + \
+        ([tracked] if tracked else [])
 
 
 def bonds(connection) -> list[dict]:

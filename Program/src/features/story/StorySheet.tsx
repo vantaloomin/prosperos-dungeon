@@ -74,11 +74,18 @@ function Percentile({ sheet }: { sheet: BrpSheet }) {
 }
 
 /** An Ironsworn sheet (dungeon/rules/ironsworn.py): set when the character was made, so it only reads. */
+function progressLine(track: NonNullable<IronswornSheet['progress']>[number]) {
+  const ticks = track.ticks % 4
+  const name = track.rank ? `${track.name} (${track.rank})` : track.name
+  return `${name}: progress ${track.boxes} of ${track.of}${ticks ? `, ${ticks} tick${ticks === 1 ? '' : 's'}` : ''}`
+}
+
 function Ironsworn({ sheet }: { sheet: IronswornSheet }) {
   return <>
     <p>{Object.entries(sheet.stats).map(([stat, value]) => `${stat} ${value}`).join(' · ')}</p>
     <p>Health {sheet.health} · Spirit {sheet.spirit} · Supply {sheet.supply} · Momentum {signed(sheet.momentum)} (max {sheet.momentum_max}, reset {sheet.momentum_reset}) · Experience {sheet.xp}</p>
     {!!sheet.debilities.length && <p className="subtle">{sheet.debilities.join(', ')}</p>}
+    {sheet.progress?.map((track) => <p key={track.name}>{progressLine(track)}</p>)}
     <details>
       <summary>Assets</summary>
       {sheet.asset_list.map((asset) => <p key={asset.id}><strong>{asset.name}</strong> <span className="subtle">({asset.category})</span> {asset.abilities.join(' ')}</p>)}

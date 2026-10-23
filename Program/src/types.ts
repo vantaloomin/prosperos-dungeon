@@ -280,6 +280,8 @@ export interface BrpChoices {
 export interface IronswornSheet {
   ruleset: 'ironsworn'; ruleset_name: string; stats: Record<string, number>; health: number; spirit: number; supply: number
   momentum: number; momentum_max: number; momentum_reset: number; debilities: string[]; xp: number
+  /** Progress tracks: each open vow (with its rank), then bonds; `ticks` run to `of` boxes of four. */
+  progress?: { name: string; rank: string | null; ticks: number; boxes: number; of: number }[]
   asset_list: { id: string; name: string; category: string; abilities: string[] }[]; attribution: string; growth?: SheetGrowth
 }
 /** What an Ironsworn character is built from at campaign start (dungeon/campaign.py ironsworn_choices). */
