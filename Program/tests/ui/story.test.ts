@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, foesText, statusItems, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, unrolled, challengeDice, brpCost, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, threadKind, receiptsByReply, institutionLine, todayLine, toggledVeil } from '../../src/features/story/storyText.ts'
+import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, foesText, statusItems, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, unrolled, fateFaces, fateLadder, challengeDice, brpCost, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, threadKind, receiptsByReply, institutionLine, todayLine, toggledVeil } from '../../src/features/story/storyText.ts'
 import { artLabel, artStatus, making, pictureChoices } from '../../src/features/story/artText.ts'
 
 test('the scene time is the city clock as written', () => {
@@ -331,4 +331,15 @@ test('a veil toggles in and out in the list order', () => {
 test('a portrait can be asked of someone here before they are met, and of anyone met', () => {
   assert.deepEqual(pictureChoices([{ key: 'a', name: 'Ada' }, { key: 'b', name: 'Bo' }], [{ key: 'b', label: 'Bo, the barkeep' }, { key: 'c', label: 'the smith' }]),
     [{ key: 'b', label: 'Bo, the barkeep (here)' }, { key: 'c', label: 'the smith (here)' }, { key: 'a', label: 'Ada' }])
+})
+
+test('a Fate roll shows its four faces, its line and where it lands on the ladder', () => {
+  const roll = { action: 'slip away', stat: 'Mind', difficulty: 'normal', die: 0, natural: 1, bonus: 5, shift: 0, total: 6, band: 'critical_success' as const,
+    label: 'Critical success', ruleset: 'fate' as const, target: 2, skill: 'Sneaky +3 vs Fair (+2) (stunt +2), dice +0−+' }
+  assert.deepEqual(fateFaces(roll.skill), ['+', '0', '−', '+'])
+  assert.deepEqual(diceFaces(roll).map((face) => face.key), ['fate1', 'fate2', 'fate3', 'fate4'])
+  assert.equal(rollWhat(roll), 'Sneaky +3 vs Fair (+2) (stunt +2)')
+  assert.equal(rollText(roll), 'Sneaky +3 vs Fair (+2) (stunt +2): +1 + 5 = Fantastic (+6), Critical success')
+  assert.equal(fateLadder(-5), 'Terrible')
+  assert.ok(['−', '0', '+'].includes(tumbleFace(diceFaces(roll)[0], 0.5)))
 })

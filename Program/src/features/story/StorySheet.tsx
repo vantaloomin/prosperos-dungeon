@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
-import type { BrpSheet, IronswornSheet, MarvelSheet, NarrativeSheet, Sheet, SheetGrowth, Srd52Sheet, Srd52Spells } from '../../types'
+import type { BrpSheet, FateSheet, IronswornSheet, MarvelSheet, NarrativeSheet, Sheet, SheetGrowth, Srd52Sheet, Srd52Spells } from '../../types'
 import { Stepper } from '../../components/NumberFields'
 import { Notice } from '../../components/Feedback'
 import { abilityLine, darkText, signed, spellLine, xpLine } from './storyText'
@@ -28,6 +28,7 @@ function Rules({ sheet }: { sheet: Sheet }) {
   if (sheet.ruleset === 'ironsworn') return <Ironsworn sheet={sheet} />
   if (sheet.ruleset === 'brp') return <Percentile sheet={sheet} />
   if (sheet.ruleset === 'narrative') return <Narrative sheet={sheet} />
+  if (sheet.ruleset === 'fate') return <Fate sheet={sheet} />
   return <Marvel sheet={sheet} />
 }
 
@@ -37,6 +38,21 @@ function Narrative({ sheet }: { sheet: NarrativeSheet }) {
     <p className="subtle">No stats or dice: what happens comes from who your character is and what you write.</p>
     {!!sheet.good_at.length && <p>Good at: {sheet.good_at.join(', ')}</p>}
     {!!sheet.bad_at.length && <p>Bad at: {sheet.bad_at.join(', ')}</p>}
+  </>
+}
+
+/** A Fate sheet (dungeon/rules/fate.py): the aspects and stunts in the player's words, approaches, Fate points spent
+ *  and gained by code as the story goes, stress and consequences. */
+function Fate({ sheet }: { sheet: FateSheet }) {
+  const hurt = Object.entries(sheet.consequences).filter(([, text]) => text)
+  return <>
+    <p><strong>{sheet.high_concept}</strong>{sheet.trouble && <><br /><span className="subtle">Trouble:</span> {sheet.trouble}</>}</p>
+    {!!sheet.aspects.length && <p>{sheet.aspects.join(' · ')}</p>}
+    <p>{Object.entries(sheet.approaches).sort(([, a], [, b]) => b - a).map(([name, value]) => `${name} ${signed(value)}`).join(' · ')}</p>
+    <p>Fate points {sheet.fate_points} (refresh {sheet.refresh}) · Stress {sheet.stress.map((marked) => marked ? '☒' : '☐').join('')}</p>
+    {!!hurt.length && <p className="subtle">{hurt.map(([kind, text]) => `${kind}: ${text}`).join(' · ')}</p>}
+    {!!sheet.stunts.length && <ul className="story-stunts">{sheet.stunts.map((stunt) => <li key={stunt}>{stunt}</li>)}</ul>}
+    <p className="subtle story-attribution">{sheet.attribution}</p>
   </>
 }
 

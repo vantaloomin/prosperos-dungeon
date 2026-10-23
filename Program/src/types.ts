@@ -232,7 +232,7 @@ export interface StoryRoll {
   action: string; stat: string; difficulty: string; die: number | null; natural: number; bonus: number; shift: number
   total: number; band: Band; label: string; ruleset?: Ruleset; target?: number | null; skill?: string | null
 }
-export type Ruleset = 'marvel' | 'srd52' | 'ironsworn' | 'brp' | 'narrative'
+export type Ruleset = 'marvel' | 'srd52' | 'ironsworn' | 'brp' | 'narrative' | 'fate'
 /** A roll while the dice are hidden: what was tried and with which stat, never the odds (dungeon/turn.py hidden). */
 export type HiddenRoll = Pick<StoryRoll, 'action' | 'stat'>
 /** One of the ruleset's bands by total, worst first; the top band has no ceiling (dungeon/turn.py bands). */
@@ -246,7 +246,15 @@ export interface TurnSoFar { stage: 'reading' | 'writing' | null; actions: TurnA
 /** The persona's MARVEL stats (dungeon/sheet.py) and the die each one rolls; or their 5E sheet (Srd52Sheet). */
 /** A Narrative Only sheet (dungeon/rules/narrative.py): no stats, only what the player says the character is good and bad at. */
 export interface NarrativeSheet { ruleset: 'narrative'; ruleset_name: string; good_at: string[]; bad_at: string[]; growth?: SheetGrowth }
-export type Sheet = MarvelSheet | Srd52Sheet | IronswornSheet | BrpSheet | NarrativeSheet
+/** A Fate sheet (dungeon/rules/fate.py): aspects, approaches, stunts, Fate points, stress and consequences. */
+export interface FateSheet {
+  ruleset: 'fate'; ruleset_name: string; high_concept: string; trouble: string; aspects: string[]; approaches: Record<string, number>
+  stunts: string[]; refresh: number; fate_points: number; stress: boolean[]; consequences: Record<string, string>
+  ladder: Record<string, string>; attribution: string; growth?: SheetGrowth
+}
+/** What a Fate character is made from (dungeon/campaign.py view). */
+export interface FateChoices { hint: string; approaches: string[]; array: number[]; most_aspects: number; most_stunts: number; attribution: string }
+export type Sheet = MarvelSheet | Srd52Sheet | IronswornSheet | BrpSheet | NarrativeSheet | FateSheet
 /** A character under the Percentile ruleset (dungeon/rules/brp.py view): BRP characteristics, skills, hit points. */
 export interface BrpSheet {
   ruleset: 'brp'; ruleset_name: string; characteristics: Record<string, number>; hp: number; max_hp: number; pp: number; max_pp: number
@@ -320,7 +328,7 @@ export type StoryHand = 'soft' | 'guiding' | 'firm'
 /** Another world's story that can come into a new campaign as history (dungeon/legacy.py). */
 export interface LegacyCandidate { world_id: string; world: string; name: string; dead: boolean; chapters: number }
 export type LegacyRole = 'legend' | 'villain' | 'corpse'
-export interface StoryStart { rulesets?: { id: Ruleset; name: string }[]; ruleset?: Ruleset; srd52?: Srd52Choices; ironsworn?: IronswornChoices; brp?: BrpChoices; narrative?: { hint: string }; legacy?: LegacyCandidate[]; presets?: TablePreset[]; table?: TableRules; premades: Premade[]; points: number; range: [number, number]; stat_names: string[]; meanings: Record<string, string>; arc?: { arc: StoryArc; pace: StoryPace; hand?: StoryHand } | null }
+export interface StoryStart { rulesets?: { id: Ruleset; name: string }[]; ruleset?: Ruleset; srd52?: Srd52Choices; ironsworn?: IronswornChoices; brp?: BrpChoices; narrative?: { hint: string }; fate?: FateChoices; legacy?: LegacyCandidate[]; presets?: TablePreset[]; table?: TableRules; premades: Premade[]; points: number; range: [number, number]; stat_names: string[]; meanings: Record<string, string>; arc?: { arc: StoryArc; pace: StoryPace; hand?: StoryHand } | null }
 /** The character's tier on the shared ladder and its track (dungeon/tiers.py); the numbers only with the dice shown. */
 /** Growth by use and the dark tracks (dungeon/growth.py); points only with the dice shown. */
 export interface SheetGrowth { marked: string[]; dark: { id: string; name: string; word: string; changes: string[]; points?: number; top?: number }[] }

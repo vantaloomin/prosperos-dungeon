@@ -112,6 +112,23 @@ what the barmaid wants, not because of a number on a sheet.
 - **It is a ruleset like the others** (`rules/narrative.py`), picked at session zero and locked at the start. It is
   shown as "Narrative" with the hint "No stats or dice: what happens comes from who your character is and what they say."
 
+### Fate
+
+Built 2026-10-23 from Fate Accelerated and Fate Condensed (CC-BY-3.0, Evil Hat's attribution shown with the sheet),
+the first of the three rulesets the license check cleared (Fate, then Blades-style, then Dungeon World).
+
+- **The sheet is words.** A high concept and a trouble, up to three more aspects and up to three stunts, all the
+  player's own; six approaches (Careful, Clever, Flashy, Forceful, Quick, Sneaky) at +3, +2, +2, +1, +1, +0;
+  refresh 3; three stress boxes; mild, moderate and severe consequences.
+- **Resolution:** 4dF plus the approach the action's words name, plus 2 for a stunt whose words fit, against
+  passive opposition on the Fate ladder from the Referee's difficulty. Fail is failure, a tie success at a cost,
+  success success, success with style (3+ shifts) critical success; no critical failure.
+- **Fate points are spent by code,** like Ironsworn's momentum: a fitting aspect is invoked (+2, one Fate point)
+  when the roll falls short, and a failure the trouble fits is a compel that pays a Fate point. They come back to
+  the refresh after a night's sleep.
+- **Progression:** a milestone raises the weakest approach by one, to +4 at most.
+- **Fights** use the shared wound levels for now; stress and consequences as their own harm track come later.
+
 ### Candidate systems and licenses
 
 Dungeon is public, AGPL software, so a ruleset ships only if its license covers software. Licenses

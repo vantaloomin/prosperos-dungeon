@@ -73,6 +73,7 @@ export function personLine(person: StoryPerson): string {
 
 /** What a roll tested, as the card heads it: "Allure · hard", or under 5E "Athletics · DC 15". */
 export function rollWhat(roll: StoryRoll): string {
+  if (roll.ruleset === 'fate') return fateLine(roll.skill)
   if (roll.ruleset === 'ironsworn') return (roll.skill ?? '').replace(/ vs .*$/, '')
   if (roll.ruleset === 'brp') return roll.skill ?? roll.stat
   return roll.target ? `${roll.skill} · DC ${roll.target}` : `${roll.stat} · ${roll.difficulty.replace('_', ' ')}`
@@ -86,7 +87,25 @@ export function unrolled(roll: StoryRoll): boolean {
 
 export function rollText(roll: StoryRoll): string {
   if (unrolled(roll)) return `${roll.skill}: no roll, ${roll.label}`
+  if (roll.ruleset === 'fate') return `${fateLine(roll.skill)}: ${signed(roll.natural)} + ${roll.bonus} = ${fateLadder(roll.total)} (${signed(roll.total)}), ${roll.label}`
   return dicedText(roll)
+}
+
+/** A Fate roll's line without its dice ("Sneaky +3 vs Fair (+2) (stunt +2)"), and its four faces (dungeon/rules/fate.py). */
+export function fateLine(skill: string | null | undefined): string {
+  return (skill ?? '').replace(/, dice [+0−]{4}$/, '')
+}
+
+export function fateFaces(skill: string | null | undefined): string[] {
+  const found = /, dice ([+0−]{4})$/.exec(skill ?? '')
+  return found ? [...found[1]] : ['0', '0', '0', '0']
+}
+
+const FATE_LADDER = ['Terrible', 'Poor', 'Mediocre', 'Average', 'Fair', 'Good', 'Great', 'Superb', 'Fantastic', 'Epic', 'Legendary']
+
+/** Where a total sits on the Fate ladder: -2 Terrible up to +8 Legendary. */
+export function fateLadder(total: number): string {
+  return FATE_LADDER[Math.max(0, Math.min(FATE_LADDER.length - 1, total + 2))]
 }
 
 function dicedText(roll: StoryRoll): string {
@@ -343,7 +362,8 @@ export function nearMiss(roll: StoryRoll, bands: BandStep[]): string {
 }
 
 /** One die on screen: the d100 as a tens and a ones d10, then the stat die and what it added. */
-export interface DieFace { key: 'tens' | 'ones' | 'stat' | 'd20' | 'action' | 'challenge1' | 'challenge2'; sides: number; value: string }
+export interface DieFace { key: 'tens' | 'ones' | 'stat' | 'd20' | 'action' | 'challenge1' | 'challenge2' | 'fate1' | 'fate2' | 'fate3' | 'fate4'; sides: number; value: string }
+const FATE_KEYS = ['fate1', 'fate2', 'fate3', 'fate4'] as const
 
 /** An Ironsworn roll's two challenge dice, from its card ("Face Danger +iron vs 4 and 9"). */
 export function challengeDice(skill: string | null | undefined): [number, number] {
@@ -353,6 +373,7 @@ export function challengeDice(skill: string | null | undefined): [number, number
 
 /** The faces the dice land on for a roll the code already made: 100 reads 00 and 0, as percentile dice do. */
 export function diceFaces(roll: StoryRoll): DieFace[] {
+  if (roll.ruleset === 'fate') return fateFaces(roll.skill).map((value, index) => ({ key: FATE_KEYS[index], sides: 6, value }))
   if (roll.ruleset === 'srd52') return [{ key: 'd20', sides: 20, value: String(roll.natural) }]
   if (roll.ruleset === 'ironsworn') {
     const [first, second] = challengeDice(roll.skill)
@@ -368,6 +389,7 @@ export function diceFaces(roll: StoryRoll): DieFace[] {
 
 /** A face a die shows while it tumbles; `pick` is a number from 0 up to 1. */
 export function tumbleFace(face: DieFace, pick: number): string {
+  if (face.key.startsWith('fate')) return ['−', '0', '+'][Math.floor(pick * 3)]
   const side = Math.floor(pick * face.sides)
   if (face.key === 'tens') return String(side * 10).padStart(2, '0')
   return String(face.key === 'ones' ? side : side + 1)
