@@ -751,6 +751,26 @@ def stage(play):
         play.flag('A portrait of someone in the scene was refused because they are not met yet.')
 
 
+def babel(play):
+    """M5: a short BABEL start: a premade on Floor Zero, the Concourse under the dome, the market, the guilds and the
+    gate onto the Stair."""
+    play.dungeon.call('PUT', '/api/story/scene', {'city_id': 'the-concourse', 'place_id': 'the-plaza'})
+    play.dungeon.call('DELETE', '/api/story')
+    premades = play.dungeon.call('GET', '/api/story/start').get('premades') or []
+    play.write(f"- premades: {[item.get('name') for item in premades]}\n")
+    if not premades:
+        play.flag('No BABEL premades offered on the Concourse.')
+        return
+    play.start(premades[0]['id'])
+    play.sheet()
+    play.say('I walk up to the Waystone and lay my hand on it.')
+    play.say("I go to Hamid's cart and buy whatever passes for breakfast here.")
+    play.say('I head to the guild halls and ask what a newcomer can sign up for.')
+    play.say('OOC: what do I know about the Stair and where can I go from here?', {'no_roll': True})
+    play.say('I go out through the gate arch onto the Stair and look up.')
+    play.journal()
+
+
 SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl, 'road': road,
              'director': director, 'chapters': chapters, 'ironman': ironman, 'gm_view': gm_view, 'memory': memory,
              'legacy': legacy, 'fivee_checks': fivee_checks, 'fivee_fight': fivee_fight,
@@ -758,4 +778,4 @@ SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl,
              'lore': lore, 'narrative': narrative, 'fivee_defeat_aim': fivee_defeat_aim,
              'fivee_defeat_written': fivee_defeat_written, 'importer': importer,
              'editor': editor, 'pictures': pictures, 'havenbrooke': havenbrooke,
-             'tone': tone, 'restrained_wounds': restrained_wounds, 'stage': stage}
+             'tone': tone, 'restrained_wounds': restrained_wounds, 'stage': stage, 'babel': babel}
