@@ -157,3 +157,28 @@ def test_a_building_looked_at_is_somewhere_the_player_can_walk_to_by_name(client
     with app.state.database.connect() as connection:
         went = story.walked_to(connection, f"I head to {found['name']}.")
     assert went and went['id'] == found['id']
+
+
+def test_the_narrator_is_told_what_is_on_the_street_outside_and_it_is_kept_on_arrival(client, app):
+    from dungeon import story, story_clock
+    ok(client.put('/api/story/scene', json={'city_id': 'kingswood', 'place_id': 'pell-provisions'}))
+    town = ok(client.get('/api/story/town'))['town']
+    nearby = {lot['id'] for lot in town['lots'] if lot['found']}
+    assert len(nearby) >= 2, 'arriving keeps the buildings outside as seen'
+    with app.state.database.connect() as connection:
+        view = story.scene(connection, story_clock.now(connection, app.state.database.clock))
+        text = story.scene_text(view)
+    assert 1 <= len(view['street']) <= townmap.STREET_LOTS
+    assert 'Along the street outside' in text
+    assert all(item['name'] in text for item in view['street'])
+    # What the narrator was told is what the map shows, and the player can walk into one by name.
+    shown = {(lot['place'] or lot['found'])['id'] for lot in town['lots'] if lot['place'] or lot['found']}
+    assert {item['id'] for item in view['street']} <= shown
+    blank = next(item for item in view['street'] if item['id'].startswith('lot-'))
+    with app.state.database.connect() as connection:
+        went = story.walked_to(connection, f"I go into {blank['name']}.")
+    assert went is None or went['id'] == blank['id']
+
+
+def test_no_street_on_the_road():
+    assert townmap.street_text([]) == ''

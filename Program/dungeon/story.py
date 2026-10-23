@@ -239,6 +239,7 @@ def scene(connection, now: datetime) -> dict:
                       'neighborhood': hood, 'spots': inside.names(inside.for_place(place, data.get('era')))},
             'local_time': moment.isoformat(timespec='minutes'), 'weather': weather_text(weather) if weather else '',
             'people': present(connection, data, place['id'], moment), 'data': data, 'now': now,
+            'street': townmap.street(connection, data, place['id']),
             'known': story_people.known(connection), 'dead': record.dead(connection)}
 
 
@@ -284,6 +285,8 @@ def scene_text(view: dict) -> str:
              f"Local time: {when}, {moment.strftime('%H:%M')} ({townsfolk.part_of_day(moment.hour * 60 + moment.minute)})."]
     if place.get('spots'):
         lines.append(f"Spots here, for detail only (nobody moves between them): {', '.join(place['spots'])}.")
+    if street := townmap.street_text(view.get('street', [])):
+        lines.append(street)
     if view['weather']:
         lines.append(f"Weather: {view['weather']}")
     lines.append('Who is here (their names are for you; the user knows only the names of people they have met):')
@@ -639,6 +642,8 @@ def place_scene(connection, city_id: str, place_id: str, now: str):
     connection.execute('INSERT INTO story_scene (id, city_id, place_id, updated_at) VALUES (1, ?, ?, ?) ON CONFLICT(id) '
                        'DO UPDATE SET city_id=excluded.city_id, place_id=excluded.place_id, '
                        'updated_at=excluded.updated_at', (city_id, place_id, now))
+    # The street outside is seen on arrival (dungeon/townmap.py).
+    townmap.pass_by(connection, city_data(connection, city_id), place_id)
 
 
 def pass_time(database, connection, minutes: int):

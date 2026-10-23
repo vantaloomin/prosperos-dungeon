@@ -579,6 +579,73 @@ def lot_places(connection, data: dict) -> dict:
     return {'places': [*data['places'], *found]} if found else {}
 
 
+# The street outside ---------------------------------------------------------------------------------
+
+STREET_LOTS = 5     # how many buildings nearby the narrator is told of
+STREET_REACH = 30   # and how far off they may be, in map units
+
+
+def neighbours(board: dict, place_id: str, neighborhood: str | None) -> list[dict]:
+    """The lots nearest where the character is: their own place's lot or open ground, else the middle of their
+    neighborhood. Their own lot is left out."""
+    at = next((lot for lot in board['lots'] if (lot['place'] or {}).get('id') == place_id), None)
+    if at is None and place_id.startswith('lot-'):
+        at = next((lot for lot in board['lots'] if f'lot-{lot["id"]}' == place_id), None)
+    if at is not None:
+        middle_ = centroid(at['polygon'])
+    elif ground := next((patch for patch in board['patches'] if (patch['place'] or {}).get('id') == place_id), None):
+        middle_ = centroid(ground['polygon'])
+    elif district := next((found for found in board['districts'] if found['id'] == neighborhood), None):
+        middle_ = tuple(district['label'])
+    else:
+        return []
+    near = sorted((math.dist(middle_, centroid(lot['polygon'])), lot['id'], lot) for lot in board['lots']
+                  if lot is not at)
+    return [lot for distance, _, lot in near[:STREET_LOTS] if distance < STREET_REACH]
+
+
+def street(connection, data: dict, place_id: str) -> list[dict]:
+    """What the character can see of the street outside: the buildings nearest them, each the town's own place,
+    one looked at, or what the seed puts there (the same as looking at it would find, and kept once they pass by)."""
+    if not has_map(data):
+        return []
+    seed = hexes.seed(connection)
+    board = layout(data, seed)
+    place = next((item for item in data['places'] if item['id'] == place_id), None)
+    # Out and about in a neighborhood, not in any one place: '~' and its id.
+    hood = place['neighborhood'] if place else place_id.removeprefix('~') if place_id.startswith('~') else None
+    known, levels = looked(connection, data['id']), None
+    found = []
+    for lot in neighbours(board, place_id, hood):
+        if lot['place']:
+            found.append(lot['place'])
+            continue
+        if lot['id'] not in known:
+            levels = levels if levels is not None else hexes.levels(connection)
+            known[lot['id']] = contents(data, seed, lot, levels)
+        found.append(known[lot['id']])
+    return found
+
+
+def pass_by(connection, data: dict, place_id: str):
+    """The character arrives somewhere in town: the buildings on the street outside are kept as seen, so the map
+    shows them and the player can walk into one by name."""
+    if not has_map(data):
+        return
+    for found in street(connection, data, place_id):
+        if found['id'].startswith('lot-'):
+            connection.execute('INSERT OR IGNORE INTO story_lots (town, lot, found) VALUES (?, ?, ?)',
+                               (data['id'], found['id'].removeprefix('lot-'), json.dumps(found)))
+
+
+def street_text(found: list[dict]) -> str:
+    """The street outside as one line for the narrator."""
+    if not found:
+        return ''
+    return ('Along the street outside, for detail only (the player may go into any of them): '
+            + '; '.join(f"{item['name']} ({item['kind']})" for item in found) + '.')
+
+
 # What stands on a blank lot -----------------------------------------------------------------------
 
 @functools.cache
