@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **Party playtest fixes.** "I fall back to the stairs" in a fight now always rolls, so you can break away. "The
+  day" begun in the evening passes an hour instead of running into the night. A drunk's fists or a knife can no
+  longer take you from fresh to dying in one round: you go down first. Under Fate, consequences no longer make
+  rolls harder.
+- **Fate stress and consequences.** Under Fate, a foe's blow is now absorbed by your stress boxes and
+  consequences, such as "Badly cut by the bandit", instead of the shared wound levels. A hit too big to absorb takes
+  you out. Stress clears with a night's sleep, and consequences heal over one, three or seven nights. The sheet and
+  the narrator both show them.
+- **Ironsworn progress tracks.** Every quest and oath is now a vow with its own progress track. Pursuing it by name
+  on a roll that lands marks a milestone, once a day. Finishing it rolls the filled boxes against the challenge
+  dice: a strong hit gives full experience, a weak hit one less, a miss none. Each bond you forge ticks the bonds
+  track. The sheet shows every vow's progress and your bonds.
 - **Dice, haggling and bonds playtest fixes.** An arm-wrestle, a race or a bet no longer starts a fight. "I spend
   the day at the market" takes you there. "The day" now ends with the evening rather than running past midnight, and
   work pays only for the hours that actually passed. "I sleep until morning" from the small hours wakes you in the

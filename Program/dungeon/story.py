@@ -52,6 +52,7 @@ from dungeon import (
     story_clock,
     story_people,
     stress,
+    sworn,
     table,
     tiers,
     timeline,
@@ -1214,6 +1215,21 @@ def bond_turn(state, user: dict) -> list[str]:
         return lines
 
 
+def vow_turn(state, user: dict, rolls: list[dict]) -> list[str]:
+    """Under Ironsworn, a landed roll on a line that pursues an open vow reaches a milestone (dungeon/sworn.py), once
+    for the line."""
+    database = state.database
+    with database.connect(write=True) as connection:
+        kept = optional(connection, "SELECT lines FROM story_cards WHERE message_id=? AND scene='vow'", (user['id'],))
+        if kept:
+            return decode(kept['lines'])
+        day = story_clock.now(connection, database.clock).date()
+        lines = sworn.pursued(connection, user['text'], rolls, day.isoformat())
+        if lines:
+            happenings.keep(connection, user['id'], 'vow', day, None, lines)
+        return lines
+
+
 def party_turn(state, user: dict) -> list[str]:
     """Asking someone along, or parting ways (dungeon/party.py), once for the line."""
     database = state.database
@@ -1462,7 +1478,8 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
     meanwhile = beats_turn(state, user) if in_story else []
     noted = director_turn(state, user) + recall_turn(state, rolls) + opening_turn(state, user) if in_story else []
     noted += [labour.prompt_text(labour_turn(state, user)), lies.prompt_text(lie_turn(state, user)),
-              bonds.prompt_text(bond_turn(state, user)), party.prompt_text(party_turn(state, user))] if in_story else []
+              bonds.prompt_text(bond_turn(state, user)), party.prompt_text(party_turn(state, user)),
+              sworn.prompt_text(vow_turn(state, user, rolls))] if in_story else []
     fought, traded, tended, looked, looks = (in_scene(state, user, rolls, travelled, rested) if in_story
                                              else ([], [], [], [], []))
     noted = noted + looks

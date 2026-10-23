@@ -139,3 +139,63 @@ def test_a_line_acting_on_the_trouble_earns_a_fate_point_with_nothing_rolled(cli
     tell(client, 'A creditor demands I settle a debt. I agree to pay it whatever it costs me.', 'fate-0001')
     with app.state.database.connect() as connection:
         assert sheet.native(connection)['fate_points'] == 4
+
+
+# Stress and consequences (dungeon/combat_fate.py) -------------------------------------------------------------
+
+from dungeon import combat_fate  # noqa: E402
+
+
+def fresh():
+    return fate.build('Dockside cutpurse', approaches=APPROACHES)
+
+
+@pytest.mark.parametrize(('shifts', 'way'), [
+    (1, (0, [])), (3, (2, [])), (4, (1, ['mild'])), (6, (1, ['moderate'])), (13, (2, ['moderate', 'severe'])), (15, (2, ['mild', 'moderate', 'severe'])),
+    (16, None)])
+def test_a_hit_is_absorbed_as_cheaply_as_covers_it(shifts, way):
+    assert combat_fate.absorb(fresh(), shifts) == way
+
+
+def test_a_foes_blow_marks_stress_and_a_consequence_and_rest_heals_it(client, app):
+    ok(made(client))
+    with app.state.database.connect(write=True) as connection:
+        state = {'round': 0, 'wants': 'kill', 'foes': [{'id': 'f', 'name': 'the bandit', 'vitality': 10, 'resolve': 90,
+                                                         'weapon': 0, 'wound': 0, 'zone': 'engaged', 'broken': False}]}
+        # The bandit (Average +1) rolls ++++ for 5; the character's Quick +2 defends with ---- for -2: 7 shifts.
+        state, lines, ending = combat.play_round(connection, state, [], [], Dice([1, 1, 1, 1, -1, -1, -1, -1]))
+        assert "The bandit hits the player's character for 7 shifts: absorbed with 3-shift stress and a moderate " \
+               'consequence, “Badly cut by the bandit”.' in lines
+        assert ending == '' and combat.condition(connection)['level'] == 3
+        assert sheet.native(connection)['stress'] == [False, False, True]
+        assert 'Carrying: Badly cut by the bandit.' in fate.described(sheet.native(connection))
+        combat.save_fight(connection, None)
+        # A night clears stress; the moderate consequence takes three.
+        assert combat.mend(connection, 1) == [] and sheet.native(connection)['stress'] == [False] * 3
+        assert combat.condition(connection)['level'] == 3
+        assert combat.mend(connection, 2) == ["Rest heals the character's consequence: Badly cut by the bandit."]
+        assert combat.condition(connection)['level'] == 0
+
+
+def test_more_than_the_character_can_absorb_takes_them_out(client, app):
+    ok(made(client))
+    with app.state.database.connect(write=True) as connection:
+        found = sheet.native(connection)
+        found['consequences'] = {'mild': 'Sprained ankle', 'moderate': 'Cracked rib', 'severe': ''}
+        found['stress'] = [True, True, True]
+        sheet.set_native(connection, found, '')
+        state = {'round': 0, 'wants': 'kill', 'foes': [{'id': 'f', 'name': 'the bandit', 'vitality': 10, 'resolve': 90,
+                                                         'weapon': 1, 'wound': 0, 'zone': 'engaged', 'broken': False}]}
+        state, lines, ending = combat.play_round(connection, state, [], [], Dice([1, 1, 1, 1, -1, -1, -1, -1]))
+        assert lines[-1].endswith('more than they can take: taken out.') and ending == 'dying'
+
+
+def test_a_wound_from_outside_a_fight_marks_its_consequence(client, app):
+    ok(made(client))
+    with app.state.database.connect(write=True) as connection:
+        combat.set_condition(connection, 2)
+        assert sheet.native(connection)['consequences']['mild'] == 'Bruised and sore'
+        combat.set_condition(connection, 1)
+        assert sheet.native(connection)['consequences']['mild'] == ''
+        combat.set_condition(connection, 0)
+        assert sheet.native(connection)['consequences'] == {'mild': '', 'moderate': '', 'severe': ''}

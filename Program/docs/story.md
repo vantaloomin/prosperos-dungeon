@@ -15,7 +15,8 @@ The app decides the scene (`dungeon/story.py`):
 - **When:** the story clock (`dungeon/story_clock.py`), in the city's own timezone. It starts at campaign start
   and moves with what the player does: 5 minutes for talk, 10 for a rolled action, 30 for a walk somewhere, the
   hours they say for "I wait two hours" or "for three hours", a day, morning or evening spent at something (10, 4
-  and 3 hours: "I spend the day felling trees"), the nights of a rest (see "Rest"), 20 minutes to cross town and 6 hours to
+  and 3 hours: "I spend the day felling trees"; the day runs only to 19:00, and begun after 18:00 an hour passes),
+  the nights of a rest (see "Rest"), 20 minutes to cross town and 6 hours to
   reach another city. Out-of-character lines take no time. A story with no campaign start runs on the app clock
   (debug time included), as Companion's did. The clock is branched with the story.
 - **Weather:** the city's typical weather for the date (`generators.conditions`).
@@ -148,7 +149,15 @@ images are non-commercial).
   for (the words after "when"). A premade's trouble comes from its About.
   The dice ride in the roll's `skill` ("…, dice +0−+") for the card, which rolls them flat. A night's sleep brings
   Fate points back to the refresh (3) and clears stress; a milestone raises the weakest approach by one, up to +4.
-  Fights use the shared wound levels for now.
+  A foe's blow is Fate's own (`dungeon/combat_fate.py`): the foe rolls 4dF plus its rating (Average to Good, by
+  how well it fights) against the character's 4dF plus Quick, or Careful when guarding (+1 for the guard, +1 against
+  a shot from far off). The shifts it wins by, plus its weapon, are absorbed as cheaply as code can: one stress box
+  (1, 2 or 3 shifts), else the lightest consequences (mild 2, moderate 4, severe 6) with a box if that covers it.
+  Each consequence is a wound in words ("Badly cut by the bandit") that the narrator reads. What can't be absorbed
+  takes the character out, and the defeat table decides what the winners do. The shared wound level follows what is
+  marked (stress Grazed, mild Hurt, moderate Wounded, severe Maimed), and a wound from outside a fight marks the
+  consequence for its level. Consequences heal with nights of rest: mild 1, moderate 3, severe 7. Foes still take
+  the shared wound levels.
 - **Percentile** (`dungeon/rules/brp.py`, content in `dungeon/rules/packs/brp`: the core of Chaosium's Basic
   Roleplaying from its ORC Content Document, transcribed for a world before firearms). Vanta's call: the app names
   the ruleset "Percentile", and BRP appears only in the ORC notice and credit on the start screen and the sheet. A
@@ -438,7 +447,7 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
   character's blow reaches a near foe (and engages it) but a far one only closes to near; a shot or throw reaches
   any band and leaves the target where it is. A line that backs off ("I fall back to the stairs") and lands breaks
   away from every engaged foe, who must close again, and moves the fight's named area to the place it names; a
-  failure can't shake them. "Retreat to …" is such a move, not an escape. The narrator gets where everyone stands
+  failure can't shake them. Mid-fight such a line always rolls Vitality, even when the Referee lets it pass. "Retreat to …" is such a move, not an escape. The narrator gets where everyone stands
   under the round; the fight card shows the area and each foe's range.
 - **Fight on my plan.** A line that sets a plan and says to keep at it ("I hold the door and cut down whoever comes,
   fight on until they break", "I fight it out") plays its round, then fights on that plan a round at a time, each
@@ -450,6 +459,9 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
   whole: their blows stop at Maimed (MARVEL), which ends the fight on the defeat table, and a surrender ("I drop my
   sword and surrender") makes the character their prisoner at once. A brawler lets a character who backs off or
   yields go. Killers give no quarter: the narrator is told the plea fails and the round goes on.
+- **How hard a blow lands (MARVEL).** A foe's hit deals wound levels by its band (1, 2, 3 for a critical) plus its
+  weapon, at least one; bare hands or a poor weapon deal at most two. One round of blows takes a character on their
+  feet no further than Maimed: they go down first, and only a blow on someone already down can leave them dying.
 - **Morale.** A foe at Maimed is down. When one falls or is badly hurt, the rest roll Resolve, and on a failure they
   break: they flee or give up. The fight is won when nobody is left standing and unbroken.
 - **Wounds.** Grazed, Hurt, Wounded, Maimed, Dying. Wounded makes physical actions a step harder; Maimed makes every
@@ -567,13 +579,21 @@ The same fight on BRP's rules (`dungeon/combat_brp.py`):
   one, shown on the roll card ("+2 supply").
 - **Spirit** follows the stress track: 5 while steady, down to 0 at its top. Resisting stress is Endure Stress on
   heart.
-- **Vows.** A quest or an oath done is a vow fulfilled. Its rank comes from the quest's tier (tier 1 dangerous,
-  2 formidable, 3 extreme, higher epic; an oath is dangerous) and gives experience as written, 1 for troublesome to
-  5 for epic. Code spends it: 2 upgrades an asset (its next ability), else 3 buys a new asset that fits the
-  character's best stat. MARVEL's milestones give Ironsworn nothing; its growth is its vows.
+- **Vows** are progress tracks of ten boxes, four ticks a box. A line that names an open vow (at least half of its
+  title's longer words, as for an oath) and lands a roll is Reach a Milestone: it marks ticks by the vow's rank
+  (troublesome 12, dangerous 8, formidable 4, extreme 2, epic 1), once a story day per vow. The narrator hears it
+  under "## Vows (decided by the game)". The rank comes from the quest's tier (tier 1 dangerous, 2 formidable,
+  3 extreme, higher epic; an oath is dangerous).
+- **Fulfill Your Vow.** A quest or an oath done is a progress roll: the deed that ends it marks a last milestone,
+  then the filled boxes go against the two challenge dice, with no action die and no momentum. A strong hit gives
+  experience as written, 1 for troublesome to 5 for epic; a weak hit one less; a miss none (the story already says
+  it ended, but the vow is not what was sworn). Code spends it: 2 upgrades an asset (its next ability), else 3 buys
+  a new asset that fits the character's best stat. MARVEL's milestones give Ironsworn nothing; its growth is its
+  vows.
+- **Bonds** is a progress track too: each bond forged (dungeon/bonds.py) marks a tick, and the narrator hears the
+  count with the bond. The sheet lists every open vow's progress and the bonds track.
 
-Not yet: progress tracks for vows marked as the story goes, journeys as progress tracks, Sojourn, debilities from
-the suffer moves, bonds.
+Not yet: journeys as progress tracks, Sojourn, debilities from the suffer moves, Write Your Epilogue.
 
 ## Going back
 

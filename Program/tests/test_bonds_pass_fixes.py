@@ -25,7 +25,9 @@ def test_the_day_runs_to_the_evening():
     afternoon = datetime(2026, 10, 1, 16, 10)
     assert story_clock.minutes_for('I spend the day around the Felled Oak', False, afternoon) == 170
     assert story_clock.minutes_for('I spend the day around the Felled Oak', False, datetime(2026, 10, 1, 8)) == 600
-    assert story_clock.minutes_for('I spend the day around the Felled Oak', False, datetime(2026, 10, 1, 21)) == 180
+    # Begun in the evening, the day is done: an hour passes, not the night.
+    assert story_clock.minutes_for('I spend the day around the Felled Oak', False, datetime(2026, 10, 1, 21)) == 60
+    assert story_clock.minutes_for('I spend the whole day hauling logs', False, datetime(2026, 10, 1, 18, 50)) == 60
     # Work is paid for no more than the time it took.
     assert labour.minutes('I spend the day hauling logs for the yard.', 170) == 170
 
