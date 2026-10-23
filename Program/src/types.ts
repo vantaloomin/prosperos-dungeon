@@ -316,6 +316,8 @@ export interface StoryPerson {
   doing: string; place: { id: string; name: string; city_id: string } | null
   /** How they feel about your character, while the dice are shown (dungeon/feelings.py). */
   feelings: string
+  /** How they are bonded to your character, if they are (dungeon/bonds.py). */
+  bond?: 'earned' | 'sworn' | null
 }
 /** The character's purse and pack, and the shop window where the story is (dungeon/inventory.py). Money is in hundredths. */
 export interface GearItem { id: string; item_id: string; name: string; category: string; qty: number; slots: number; stolen?: boolean; condition?: 'sound' | 'damaged' | 'broken' }
@@ -343,7 +345,12 @@ export type LegacyRole = 'legend' | 'villain' | 'corpse'
 export interface StoryStart { rulesets?: { id: Ruleset; name: string }[]; ruleset?: Ruleset; srd52?: Srd52Choices; ironsworn?: IronswornChoices; brp?: BrpChoices; narrative?: { hint: string }; fate?: FateChoices; legacy?: LegacyCandidate[]; presets?: TablePreset[]; table?: TableRules; premades: Premade[]; points: number; range: [number, number]; stat_names: string[]; meanings: Record<string, string>; arc?: { arc: StoryArc; pace: StoryPace; hand?: StoryHand } | null }
 /** The character's tier on the shared ladder and its track (dungeon/tiers.py); the numbers only with the dice shown. */
 /** Growth by use and the dark tracks (dungeon/growth.py); points only with the dice shown. */
-export interface SheetGrowth { marked: string[]; dark: { id: string; name: string; word: string; changes: string[]; points?: number; top?: number }[] }
+export interface SheetGrowth {
+  marked: string[]; dark: { id: string; name: string; word: string; changes: string[]; points?: number; top?: number }[]
+  /** The Bonds track (dungeon/bonds.py); the count only with the dice shown. */
+  bonds?: SheetBonds
+}
+export interface SheetBonds { word: string; count?: number; bonds: { key: string; name: string; how: 'earned' | 'sworn'; state: 'whole' | 'broken' | 'lost' }[] }
 export interface StoryTier { tier: string; words: string; track: string; arc: StoryArc; pace: StoryPace; points?: number; next?: number | null }
 /** A fact the game keeps that the player's character knows (dungeon/record.py). */
 /** `world` (hidden truth) and `pulled` (a fact the model took from the story) show only in the GM view. */

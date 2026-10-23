@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Bonds.** Win someone's trust and affection, or swear yourself to them ("I swear to stand by you, Hesk"), and
+  they are bonded to you. The sheet shows your Bonds track, People you've met marks who is bonded, and the narrator
+  plays them as people who would stand by you. Life Cards about your bonds (a friend in debt, a confession) now turn
+  up once you have one.
 - **Life Cards do everything they say.** A card that kills, captures or turns someone you know does it. A rumor
   goes round town (and people may treat you by it). A favour asked goes in your journal with its deadline. Someone
   on your trail catches up in the days the card says.

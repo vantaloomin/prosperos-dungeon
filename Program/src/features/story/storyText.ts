@@ -1,4 +1,4 @@
-import type { BandStep, DiceLog, DramaLevel, Gear, HiddenRoll, IntensityPreset, JournalEntry, JournalInstitution, JournalQuest, JournalThread, LegacyRole, Looks, NarrationLength, NarrationPov, NarrationTense, Premade, ReceiptChip, SheetGrowth, Srd52Spells, StoryArc, StoryBranch, StoryChapter, StoryFight, StoryHand, StoryMessage, StoryPace, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryTier, ToneCategory, ToneVoice, TurnAction, TurnEvent, TurnPace, TurnSoFar, VeilTopic, Zone } from '../../types'
+import type { BandStep, DiceLog, DramaLevel, Gear, HiddenRoll, IntensityPreset, JournalEntry, JournalInstitution, JournalQuest, JournalThread, LegacyRole, Looks, NarrationLength, NarrationPov, NarrationTense, Premade, ReceiptChip, SheetBonds, SheetGrowth, Srd52Spells, StoryArc, StoryBranch, StoryChapter, StoryFight, StoryHand, StoryMessage, StoryPace, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryTier, ToneCategory, ToneVoice, TurnAction, TurnEvent, TurnPace, TurnSoFar, VeilTopic, Zone } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -315,6 +315,16 @@ export function tierText(tier: StoryTier): string {
 /** "Corruption: tainted", with "(4 of 10)" when the dice are shown. */
 export function darkText(track: SheetGrowth['dark'][number]): string {
   return `${track.name}: ${track.word}${track.points === undefined ? '' : ` (${track.points} of ${track.top})`}`
+}
+
+/** The Bonds track in a line: "Bonds: one true bond (1)", the count only with the dice shown. */
+export function bondsText(track: SheetBonds): string {
+  return `Bonds: ${track.word}${track.count === undefined ? '' : ` (${track.count})`}`
+}
+
+/** One bond: "Hesk Aldane (sworn)", or "Hesk Aldane (sworn, broken)" once they turned or died. */
+export function bondLine(bond: SheetBonds['bonds'][number]): string {
+  return `${bond.name} (${bond.how}${bond.state === 'whole' ? '' : `, ${bond.state}`})`
 }
 
 /** How hard the director pushes the story (dungeon/director.py HANDS). */

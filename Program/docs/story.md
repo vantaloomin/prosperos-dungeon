@@ -817,8 +817,8 @@ story, with the deck and region from the travel map (`world`, `regions.*.cards`)
 - **How eventful.** Beside the story, "How eventful": the world's own (Kingswood's is Eventful) or Quiet, Uneasy,
   Eventful, Merciless (`workspace_settings.drama`; worlds set `intensity.drama`). It sets how often a scene draws
   and which cards can turn up; the intensity levels leave out what they do not allow. It never changes the dice.
-  Cards that need someone the game cannot name yet ({bond}, {them}, {faction}) are left out until companions,
-  beats and factions exist.
+  Cards that need someone the game cannot name here are left out: {bond} until the character has a bond (see
+  Progression), {them} outside an off-page beat, {faction} where no faction has a hand.
 - **Played by code.** The record keeps the card's truth as the world's, and what the character sees as their
   belief when it is not the whole truth. The narrator gets "## What the world brings": what the character sees,
   the choice it puts to them, and what code applied: stress (against Resolve), a wound, coin in day wages (the
@@ -1005,7 +1005,16 @@ milestones (5e and Ironsworn will keep their own growth rules).
   and the points only with the dice shown. The narrator gets "## What the character is becoming" and shows it
   without naming the track.
 
-Marks and dark tracks are game state (`timeline.SAVED`).
+- **Bonds** (`dungeon/bonds.py`, `story_bonds`). Someone whose trust and affection both reach 3 is bonded to the
+  character from then on (earned). A line that pledges the character to someone there ("I swear to stand by you,
+  Hesk") swears a bond, whatever they feel yet; the narrator gets "## A bond". A bond lasts, but shows as broken
+  once its person turns on the character, and lost once they die. The sheet shows the Bonds track in words ("one
+  true bond", "a few who would stand by them"), with each bond and the count only with the dice shown. "People
+  you've met" marks who is bonded, and the narrator is told they would stand by the character. Life Cards that name
+  `{bond}` come into play only while the character has a whole bond, and name one of them (`needs: ["bond"]`; their
+  `feeling` and `quest` effects can be about the bond).
+
+Marks, dark tracks and bonds are game state (`timeline.SAVED`).
 
 ## The director
 

@@ -20,7 +20,7 @@ import random
 import re
 from pathlib import Path
 
-from dungeon import record, sheet
+from dungeon import bonds, record, sheet
 from dungeon.database import decode, encode, many, optional
 from dungeon.life import cards
 from dungeon.rules import brp, fate, ironsworn, ladder, marvel, narrative
@@ -207,4 +207,4 @@ def view(connection, shown: bool) -> dict:
             tracked.append({'id': key, 'name': track['name'], 'word': word(track, row['points']),
                             'changes': row['changes']} | ({'points': row['points'], 'top': track['top']}
                                                           if shown else {}))
-    return {'marked': marked(connection), 'dark': tracked}
+    return {'marked': marked(connection), 'dark': tracked, 'bonds': bonds.track(connection, shown)}

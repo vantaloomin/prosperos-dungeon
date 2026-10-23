@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, foesText, zoneText, tallyText, statusItems, haggleText, paceText, intensityChoices, dramaChoices, gearLine, looksText, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, unrolled, fateFaces, fateLadder, challengeDice, brpCost, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, threadKind, receiptsByReply, institutionLine, todayLine, toggledVeil } from '../../src/features/story/storyText.ts'
+import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, foesText, zoneText, tallyText, statusItems, haggleText, paceText, intensityChoices, dramaChoices, gearLine, looksText, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, unrolled, fateFaces, fateLadder, challengeDice, brpCost, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, bondsText, bondLine, threadKind, receiptsByReply, institutionLine, todayLine, toggledVeil } from '../../src/features/story/storyText.ts'
 import { artLabel, artStatus, making, pictureChoices } from '../../src/features/story/artText.ts'
 
 test('the scene time is the city clock as written', () => {
@@ -165,6 +165,13 @@ test('a dark track reads as a word, with its points when the dice are shown', ()
   const track = { id: 'corruption', name: 'Corruption', word: 'tainted', changes: [] }
   assert.equal(darkText(track), 'Corruption: tainted')
   assert.equal(darkText({ ...track, points: 4, top: 10 }), 'Corruption: tainted (4 of 10)')
+})
+
+test('the Bonds track reads as a word, with the count when the dice are shown, and names each bond', () => {
+  assert.equal(bondsText({ word: 'one true bond', bonds: [] }), 'Bonds: one true bond')
+  assert.equal(bondsText({ word: 'one true bond', count: 1, bonds: [] }), 'Bonds: one true bond (1)')
+  assert.equal(bondLine({ key: 'h', name: 'Hesk Aldane', how: 'sworn', state: 'whole' }), 'Hesk Aldane (sworn)')
+  assert.equal(bondLine({ key: 'h', name: 'Hesk Aldane', how: 'earned', state: 'lost' }), 'Hesk Aldane (earned, lost)')
 })
 
 test('a loose end in the journal says what kind it is', () => {

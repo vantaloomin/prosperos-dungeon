@@ -17,6 +17,7 @@ from dungeon import (
     appearance,
     authors_note,
     beats,
+    bonds,
     chapters,
     combat,
     director,
@@ -573,7 +574,7 @@ def people(connection, view: dict) -> list[dict]:
         result.append({'key': row['key'], 'name': row['name'], 'role': sheet.get('occupation') or sheet['role'],
                        'city': data['name'], 'meetings': row['meetings'], 'last_met_at': row['last_met_at'],
                        'notes': row['notes'], 'doing': now['doing'],
-                       'feelings': feelings.shown(row) if shown else '',
+                       'feelings': feelings.shown(row) if shown else '', 'bond': row.get('bond'),
                        'place': now['place'] and {'id': now['place']['id'], 'name': now['place']['name'],
                                                   'city_id': data['id']}})
     return result
@@ -698,7 +699,7 @@ def clear(database) -> dict:
                       'story_inventory', 'story_purse', 'story_stock', 'story_shops', 'story_markets', 'story_services', 'story_appearance', 'story_appearance_turns', 'story_trades', 'story_wounds', 'story_fight',
                       'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
                       'story_rounds', 'story_map', 'story_hexes', 'story_sites', 'story_lots', 'story_position', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
-                      'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_beats', 'story_word',
+                      'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_bonds', 'story_beats', 'story_word',
                       'story_offpage', 'story_tier', 'story_marks', 'story_dark',
                       'story_director', 'story_arcs', 'story_threads', 'story_nemeses', 'story_seeds',
                       'story_arc_beats', 'story_sheet', 'story_enrollment', 'story_attendance', 'story_grades', 'story_art'):
@@ -1186,6 +1187,21 @@ def lie_turn(state, user: dict) -> list[str]:
                          getattr(state, 'dice', None))
 
 
+def bond_turn(state, user: dict) -> list[str]:
+    """A line that pledges the character to someone there forges a bond (dungeon/bonds.py), once for the line."""
+    database = state.database
+    with database.connect(write=True) as connection:
+        kept = optional(connection, "SELECT lines FROM story_cards WHERE message_id=? AND scene='bond'", (user['id'],))
+        if kept:
+            return decode(kept['lines'])
+        view = scene(connection, story_clock.now(connection, database.clock))
+        lines = bonds.sworn(connection, user['text'], view['people'], database.now())
+        if lines:
+            happenings.keep(connection, user['id'], 'bond', datetime.fromisoformat(view['local_time']).date(), None,
+                            lines)
+        return lines
+
+
 def counter_text(lines: list[str]) -> str:
     return '## At the counter (decided by the game)\n' + '\n'.join(f'- {line}' for line in lines) if lines else ''
 
@@ -1422,7 +1438,8 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
     carded = town_turn(state, user) if in_story else []
     meanwhile = beats_turn(state, user) if in_story else []
     noted = director_turn(state, user) + recall_turn(state, rolls) + opening_turn(state, user) if in_story else []
-    noted += [labour.prompt_text(labour_turn(state, user)), lies.prompt_text(lie_turn(state, user))] if in_story else []
+    noted += [labour.prompt_text(labour_turn(state, user)), lies.prompt_text(lie_turn(state, user)),
+              bonds.prompt_text(bond_turn(state, user))] if in_story else []
     fought, traded, tended, looked, looks = (in_scene(state, user, rolls, travelled, rested) if in_story
                                              else ([], [], [], [], []))
     noted = noted + looks
