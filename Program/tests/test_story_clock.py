@@ -1,9 +1,10 @@
 """The story clock (dungeon/story_clock.py): once a campaign starts, the story keeps its own time."""
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from conftest import Chunk
 
 from dungeon import story_clock
+from dungeon.story import local_moment
 
 
 def ok(response):
@@ -52,3 +53,14 @@ def test_the_story_keeps_its_own_time_once_it_starts(client, connected, clock, p
     assert at(went) == started + timedelta(minutes=5)
     # A new story runs on the app clock until it starts again.
     assert at(ok(client.delete('/api/story'))) != started + timedelta(minutes=5)
+
+
+def test_a_fantasy_city_keeps_no_daylight_saving_and_a_modern_one_does():
+    # Playtest m6b: on 25 October Kingswood's clock ran back from 01:54 to 01:04.
+    fantasy = {'timezone': 'Europe/London', 'era': 'fantasy'}
+    modern = {'timezone': 'America/New_York', 'era': 'modern'}
+    before, after = datetime(2026, 10, 25, 0, 54, tzinfo=UTC), datetime(2026, 10, 25, 1, 4, tzinfo=UTC)
+    assert local_moment(fantasy, before) < local_moment(fantasy, after)
+    assert local_moment(fantasy, datetime(2026, 7, 1, 12, tzinfo=UTC)).hour == 12  # no summer time either
+    assert local_moment(modern, datetime(2009, 7, 1, 12, tzinfo=UTC)).hour == 8  # EDT
+    assert local_moment(modern, datetime(2009, 12, 1, 12, tzinfo=UTC)).hour == 7  # EST

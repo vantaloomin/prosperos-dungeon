@@ -21,3 +21,11 @@ export function artStatus(item: Pick<StoryArt, 'status' | 'error' | 'stale'>): s
 
 /** Whether the gallery should look again soon: a picture is still being made. */
 export const making = (items: Pick<StoryArt, 'status'>[]) => items.some((item) => item.status === 'queued' || item.status === 'running')
+
+/** Who a portrait can be asked of: the people here first ("the barkeep", or their name once met), then everyone
+ *  else met, each once. */
+export function pictureChoices(people: Pick<StoryPerson, 'key' | 'name'>[], present: { key: string; label: string }[]): { key: string; label: string }[] {
+  const here = new Set(present.map((item) => item.key))
+  return [...present.map((item) => ({ key: item.key, label: `${item.label} (here)` })),
+    ...people.filter((person) => !here.has(person.key)).map((person) => ({ key: person.key, label: person.name }))]
+}

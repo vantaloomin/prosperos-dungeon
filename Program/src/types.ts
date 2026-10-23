@@ -203,6 +203,8 @@ export interface StoryScene {
   places: StoryPlace[]
   /** Who is around, as the user would see them ("the barista there"); never names they have not been given. */
   around: string[]
+  /** Those same people with their keys, for asking a portrait of someone here (dungeon/art.py). */
+  present?: { key: string; label: string }[]
 }
 export interface StoryMessage {
   id: string; seq: number; role: 'user' | 'narrator' | 'scene'; text: string; reply_to: string | null

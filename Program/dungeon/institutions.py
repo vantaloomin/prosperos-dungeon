@@ -267,6 +267,32 @@ def class_place(connection, city_id: str, text: str, now: datetime) -> str | Non
     return None
 
 
+# A line that goes on after a class: "after class I go for coffee", "I sit through the lecture".
+AFTER_CLASS = re.compile(r'\bafter (?:my |the |this )?(?:class|lecture|seminar|lesson|tutorial|lab)\b|'
+                         r'\b(?:attend|sit through|stay for|sit in on)\b[^.!?]*\b(?:class|lecture|seminar|lesson|'
+                         r'tutorial|lab)\b', re.I)
+CLASS_MINUTES = 75
+
+
+def until_class_ends(connection, city_id: str, place_id: str, text: str, now: datetime) -> int:
+    """Minutes to the end of the class held here now or next today, for a line that goes on after it (playtest
+    m6b: "after class I go to Commons Coffee" left before the class began); 0 for any other line."""
+    if not AFTER_CLASS.search(text):
+        return 0
+    end_of_day = datetime.combine(now.date(), datetime.max.time())
+    for row in enrolled(connection):
+        institution = find(row['world'], row['institution_id'])
+        if institution is None or institution.get('city_id', city_id) != city_id:
+            continue
+        for item, at in class_times(institution, row['classes'], now - timedelta(minutes=CLASS_MINUTES), end_of_day):
+            if item.get('place_id') in (None, place_id):
+                hour, minute = (int(part) for part in item.get('end', '').split(':')) if item.get('end') else (0, 0)
+                ends = at.replace(hour=hour, minute=minute) if item.get('end') else at + timedelta(minutes=CLASS_MINUTES)
+                if ends > now:
+                    return int((ends - now).total_seconds() // 60)
+    return 0
+
+
 def view(connection, now: datetime) -> list[dict]:
     """Each institution the character is in: the term, the rest of today's classes, and the term's grades."""
     out = []

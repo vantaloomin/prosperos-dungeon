@@ -5,7 +5,7 @@ import { api } from '../../api'
 import { Notice } from '../../components/Feedback'
 import type { ArtKind, ArtStage, StoryArt as Picture, StoryPerson } from '../../types'
 import { useDeviceLook } from '../settings/deviceLook'
-import { artLabel, artStatus, making } from './artText'
+import { artLabel, artStatus, making, pictureChoices } from './artText'
 import { askForDrawer } from './scene'
 
 const ART_KEY = ['story-art']
@@ -14,7 +14,7 @@ const STAGE_REFRESH = 20_000
 
 /** Pictures on request (dungeon/art.py): you, someone you met, this place, or the whole scene. Each is built from what
  *  the game tracks and made by the image backends in Settings; one goes out of date when what it shows changes. */
-export function StoryArt({ people, place, open }: { people: StoryPerson[]; place: { key: string; name: string }; open?: boolean }) {
+export function StoryArt({ people, present = [], place, open }: { people: StoryPerson[]; present?: { key: string; label: string }[]; place: { key: string; name: string }; open?: boolean }) {
   const client = useQueryClient()
   const gallery = useQuery({ queryKey: ART_KEY, queryFn: () => api<{ art: Picture[] }>('/story/art'),
     refetchInterval: (query) => making(query.state.data?.art ?? []) ? 2000 : false })
@@ -26,6 +26,7 @@ export function StoryArt({ people, place, open }: { people: StoryPerson[]; place
     catch (failure) { setError(failure instanceof Error ? failure.message : 'That picture was not asked for.') }
   }
   const items = gallery.data?.art ?? []
+  const choices = pictureChoices(people, present)
   return (
     <details className="story-people story-art" open={open}>
       <summary>Pictures ({items.filter((item) => item.url).length})</summary>
@@ -34,10 +35,10 @@ export function StoryArt({ people, place, open }: { people: StoryPerson[]; place
         <button type="button" className="button" onClick={() => void ask('place')}><MapPin aria-hidden="true" />This place</button>
         <button type="button" className="button" onClick={() => void ask('scene')}><Image aria-hidden="true" />The scene</button>
       </div>
-      {people.length > 0 && <div className="form-actions">
-        <select aria-label="Someone you met" value={who} onChange={(event) => setWho(event.target.value)}>
-          <option value="">Someone you met…</option>
-          {people.map((person) => <option key={person.key} value={person.key}>{person.name}</option>)}
+      {choices.length > 0 && <div className="form-actions">
+        <select aria-label="Someone here or someone you met" value={who} onChange={(event) => setWho(event.target.value)}>
+          <option value="">Someone here or someone you met…</option>
+          {choices.map((choice) => <option key={choice.key} value={choice.key}>{choice.label}</option>)}
         </select>
         <button type="button" className="button" disabled={!who} onClick={() => void ask('portrait', who)}><Users aria-hidden="true" />Picture them</button>
       </div>}

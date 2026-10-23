@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, foesText, statusItems, haggleText, paceText, intensityChoices, dramaChoices, gearLine, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, unrolled, challengeDice, brpCost, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, threadKind, receiptsByReply, institutionLine, todayLine, toggledVeil } from '../../src/features/story/storyText.ts'
-import { artLabel, artStatus, making } from '../../src/features/story/artText.ts'
+import { artLabel, artStatus, making, pictureChoices } from '../../src/features/story/artText.ts'
 
 test('the scene time is the city clock as written', () => {
   assert.equal(sceneTime('2026-10-06T09:05'), 'Tuesday, 9:05 am')
@@ -326,4 +326,9 @@ test('a picture says what it shows and where it stands', () => {
 test('a veil toggles in and out in the list order', () => {
   assert.deepEqual(toggledVeil(['self-harm'], 'torture', true), ['torture', 'self-harm'])
   assert.deepEqual(toggledVeil(['torture', 'self-harm'], 'torture', false), ['self-harm'])
+})
+
+test('a portrait can be asked of someone here before they are met, and of anyone met', () => {
+  assert.deepEqual(pictureChoices([{ key: 'a', name: 'Ada' }, { key: 'b', name: 'Bo' }], [{ key: 'b', label: 'Bo, the barkeep' }, { key: 'c', label: 'the smith' }]),
+    [{ key: 'b', label: 'Bo, the barkeep (here)' }, { key: 'c', label: 'the smith (here)' }, { key: 'a', label: 'Ada' }])
 })
