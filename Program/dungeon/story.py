@@ -1159,7 +1159,7 @@ def fight_round(state, user: dict, rolls: list[dict]) -> list[str]:
 
         usable = [row for row in inventory.carried(connection, view['city']['id']) if row['condition'] != 'broken']
         fought = combat.turn(connection, user['id'], view['people'], rolls, foe, usable, getattr(state, 'dice', None),
-                             database.now(), aftermath, spoils)
+                             database.now(), aftermath, spoils, user['text'] if combat.PLAN.search(user['text']) else '')
         return ([sent] if sent else []) + fought
 
 
