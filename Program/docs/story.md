@@ -137,7 +137,9 @@ images are non-commercial).
   Referee's stat's equivalent), plus 2 for a stunt that shares a word with the action, against the difficulty on the
   ladder (easy Average +1, normal Fair +2, hard Good +3, very hard Great +4, extreme Fantastic +6). Fail is failure,
   a tie success at a cost, success success, three or more shifts critical success. Code spends a Fate point to
-  invoke a fitting aspect (+2) when the roll falls short, and a failure the trouble fits is a compel (+1 Fate point).
+  invoke an aspect sharing two telling words with the action (+2) only when that changes the outcome; an action
+  the trouble fits is a compel (+1 Fate point, a success becomes success at a cost). Stunts fit on what they are
+  for (the words after "when"). A premade's trouble comes from its About.
   The dice ride in the roll's `skill` ("…, dice +0−+") for the card, which rolls them flat. A night's sleep brings
   Fate points back to the refresh (3) and clears stress; a milestone raises the weakest approach by one, up to +4.
   Fights use the shared wound levels for now.

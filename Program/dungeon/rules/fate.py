@@ -62,9 +62,15 @@ APPROACH_WORDS = (
                 'plan', 'puzzle', 'read', 'riddle')),
 )
 # Words too common to tie an aspect or stunt to an action.
-COMMON = {'the', 'and', 'with', 'from', 'that', 'this', 'when', 'what', 'they', 'them', 'their', 'have', 'into',
-          'because', 'never', 'always', 'about', 'more', 'than', 'just', 'like', 'some', 'very', 'will', 'your',
-          'yours', 'mine', 'once', 'over', 'only', 'cannot', 'can\'t', 'won\'t', 'get', 'gets', 'when', 'where'}
+COMMON = {
+    'the', 'and', 'with', 'from', 'that', 'this', 'when', 'what', 'they', 'them', 'their', 'have', 'into', 'because',
+    'never', 'always', 'about', 'more', 'than', 'just', 'like', 'some', 'very', 'will', 'your', 'yours', 'mine', 'once',
+    'over', 'only', 'cannot', "can't", "won't", 'gets', 'where', 'there', 'here', 'then', 'were', 'been', 'being',
+    'would', 'could', 'should', 'make', 'makes', 'take', 'takes', 'want', 'need', 'tell', 'know', 'look', 'said',
+    'says', 'after', 'before', 'still', 'each', 'every', 'other', 'also', 'even', 'much', 'many', 'most', 'away',
+    'back', 'down', 'upon', 'onto', 'through', 'while', 'which', 'whose', 'everything', 'anything', 'something',
+    'nothing', 'someone', 'anyone', 'myself', 'himself', 'herself', 'themselves', 'grew', 'grow', 'good', 'well',
+    'time', 'thing', 'things', 'people', 'person', 'ever', 'try', 'tries', 'trying'}
 
 
 # The sheet --------------------------------------------------------------------------------------------------
@@ -94,11 +100,27 @@ def suggested(top: str) -> dict[str, int]:
     return dict(zip(order, ARRAY))
 
 
+TROUBLE_WORDS = ('owe', 'debt', 'hang', 'hunt', 'wanted', 'secret', 'afraid', 'frightened', 'fear', 'counting',
+                 'skim', 'steal', 'desert', 'run from', 'running from', 'drink', 'temper')
+
+
+def short(sentence: str) -> str:
+    """A sentence as an aspect: its first clause when long, cut at a word."""
+    sentence = sentence.strip().rstrip('.')
+    if len(sentence) > 80:
+        sentence = re.split(r'[,;:]| and ', sentence, maxsplit=1)[0]
+    return sentence if len(sentence) <= MOST_TEXT else sentence[:MOST_TEXT].rsplit(' ', 1)[0]
+
+
 def premade(about: str, top_stat: str) -> dict:
-    """A premade's Fate character: their description's first sentence as the high concept, approaches from their
-    strongest MARVEL stat."""
-    first = re.split(r'(?<=[.!?])\s', (about or '').strip(), maxsplit=1)[0].rstrip('.') or 'A stranger in town'
-    return build(first, approaches=suggested(EQUIVALENT.get(top_stat, 'Clever')))
+    """A premade's Fate character: their description's first sentence as the high concept, the first later one with
+    trouble in it (a debt, a secret, someone hunting them) as the trouble, approaches from their strongest MARVEL
+    stat."""
+    sentences = [part for part in re.split(r'(?<=[.!?])\s', (about or '').strip()) if part.strip()]
+    first = short(sentences[0]) if sentences else 'A stranger in town'
+    later = sentences[1:]
+    trouble = next((part for part in later if found_in(part, TROUBLE_WORDS)), later[0] if later else '')
+    return build(first, short(trouble), approaches=suggested(EQUIVALENT.get(top_stat, 'Clever')))
 
 
 def aspects_of(sheet: dict) -> list[str]:
@@ -148,16 +170,30 @@ def approach_for(approach: str, text: str) -> str:
 
 
 def words(text: str) -> set[str]:
-    return {word for word in re.findall(r"[a-z']{4,}", text.lower()) if word not in COMMON}
+    """The telling words of a line, roughly stemmed ("debts" and "debt" match), common words left out."""
+    found = {word.removesuffix("'s") for word in re.findall(r"[a-z']{4,}", text.lower())}
+    return {re.sub(r'(ing|ed|es|s)$', '', word) or word for word in found if word not in COMMON}
 
 
-def fits(line: str, text: str) -> bool:
-    """Whether an aspect or a stunt shares a telling word with the action (a stunt may also name the approach)."""
-    return bool(words(line) & words(text))
+def fits(line: str, text: str, enough: int = 2) -> bool:
+    """Whether an aspect shares enough telling words with the action to be about it: two, so one shared name ("the
+    Guild") is not enough on its own."""
+    return len(words(line) & words(text)) >= enough
+
+
+def stunt_fits(stunt: str, text: str) -> bool:
+    """Whether a stunt helps: a telling word of what it is for (after "when", else the whole line) is in the
+    action. "Because I grew up on the docks" is the why, not the what."""
+    what = re.split(r'\bwhen\b', stunt, maxsplit=1, flags=re.IGNORECASE)
+    return fits(what[-1], text, 1)
 
 
 def ladder_name(value: int) -> str:
     return LADDER.get(max(-2, min(8, value)), 'Legendary')
+
+
+def ladder_succeeded(band: str) -> bool:
+    return band in ('success_cost', 'success', 'critical_success')
 
 
 def outcome(shifts: int) -> str:
@@ -172,18 +208,20 @@ def roll(sheet: dict, approach: str, difficulty: str, text: str = '', rng: rando
     rng = rng or random.SystemRandom()
     named = approach_for(approach, text)
     dice = [rng.choice((-1, 0, 1)) for _ in range(4)]
-    stunt = next((line for line in sheet.get('stunts', []) if fits(line, text)), None)
+    stunt = next((line for line in sheet.get('stunts', []) if stunt_fits(line, text)), None)
     bonus = sheet['approaches'][named] + (STUNT if stunt else 0)
     opposition = OPPOSITION.get(difficulty, 2)
     total = sum(dice) + bonus
     points, notes = sheet['fate_points'], [f'stunt +{STUNT}'] if stunt else []
     aspect = next((line for line in aspects_of(sheet) if line != sheet.get('trouble') and fits(line, text)), None)
-    if total <= opposition and points > 0 and aspect:
+    # An invoke only when +2 changes the outcome: a failure into a tie or better, a tie into a success.
+    if points > 0 and aspect and opposition - INVOKE <= total <= opposition:
         total, points = total + INVOKE, points - 1
         notes.append(f'invoked “{aspect}”')
     band = outcome(total - opposition)
-    if band == 'failure' and sheet.get('trouble') and fits(sheet['trouble'], text):
-        points += 1
+    if sheet.get('trouble') and fits(sheet['trouble'], text):
+        # The trouble is what this is about: a compel. It pays a Fate point, and a success comes at a cost.
+        band, points = ('success_cost' if ladder_succeeded(band) else band), points + 1
         notes.append(f'compelled “{sheet["trouble"]}”, +1 Fate point')
     # The dice ride in the line, as Ironsworn's challenge dice do, so the card can show each face.
     faces = ''.join(FACES[die] for die in dice)

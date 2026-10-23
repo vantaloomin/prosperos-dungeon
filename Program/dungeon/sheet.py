@@ -152,10 +152,9 @@ def full_view(connection) -> dict:
 
 
 def refresh_fate(connection, nights: int) -> list[str]:
-    """Under Fate, a night's sleep brings Fate points back up to the refresh and clears stress."""
+    """Under Fate, a night's sleep brings Fate points back up to the refresh and clears stress. Silent: the sheet
+    shows it, and the narrator never writes the bookkeeping."""
     found = native(connection) if nights > 0 and ruleset(connection) == fate.ID else None
-    if not found:
-        return []
-    fresh = fate.refreshed(found)
-    set_native(connection, fresh, '')
-    return [f"Rested: {fresh['fate_points']} Fate points."] if fresh['fate_points'] > found['fate_points'] else []
+    if found:
+        set_native(connection, fate.refreshed(found), '')
+    return []

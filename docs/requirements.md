@@ -124,8 +124,11 @@ the first of the three rulesets the license check cleared (Fate, then Blades-sty
   passive opposition on the Fate ladder from the Referee's difficulty. Fail is failure, a tie success at a cost,
   success success, success with style (3+ shifts) critical success; no critical failure.
 - **Fate points are spent by code,** like Ironsworn's momentum: a fitting aspect is invoked (+2, one Fate point)
-  when the roll falls short, and a failure the trouble fits is a compel that pays a Fate point. They come back to
-  the refresh after a night's sleep.
+  only when the +2 changes the outcome. An aspect fits when it shares two telling words with the action (one
+  shared name is not enough); a stunt when a word of what it is for (after "when") is in the action. An action the
+  trouble fits is a compel: it pays a Fate point, and a success comes at a cost. A premade's trouble is the first
+  later sentence of its About with trouble in it (a debt, a secret, someone hunting them). Fate points come back to
+  the refresh after a night's sleep, silently: the sheet shows them and the narration never does.
 - **Progression:** a milestone raises the weakest approach by one, to +4 at most.
 - **Fights** use the shared wound levels for now; stress and consequences as their own harm track come later.
 

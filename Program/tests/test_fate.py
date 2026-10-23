@@ -73,28 +73,48 @@ def test_the_words_pick_the_approach_and_a_fitting_stunt_adds_two():
     assert (plain['ability'], plain['total'], plain['band']) == ('Forceful', 0, 'failure')
 
 
-def test_a_fitting_aspect_is_invoked_for_a_fate_point_when_the_roll_falls_short():
-    found = fate.roll(sheet_of(), 'Mind', 'hard', 'I lose them in the alley behind the tannery',
-                      Dice([-1, -1, 0, 0]))
-    # Clever +2 - 2 = 0 against Good (+3); invoking the alleys makes it 2: still a failure, a Fate point spent.
-    assert found['fate_points'] == 2 and 'invoked “Knows every alley in the river ward”' in found['skill']
-    nothing = fate.roll(sheet_of(fate_points=0), 'Mind', 'hard', 'I lose them in the alley', Dice([-1, -1, 0, 0]))
+def test_a_fitting_aspect_is_invoked_only_when_two_more_changes_the_outcome():
+    found = fate.roll(sheet_of(), 'Mind', 'hard', 'I lose them in an alley of the river ward', Dice([-1, 0, 0, 0]))
+    # Clever +2 - 1 = 1 against Good (+3); invoking the alleys makes it 3, a tie: a Fate point spent.
+    assert found['fate_points'] == 2 and found['band'] == 'success_cost'
+    assert 'invoked “Knows every alley in the river ward”' in found['skill']
+    hopeless = fate.roll(sheet_of(), 'Mind', 'hard', 'I lose them in an alley of the river ward', Dice([-1, -1, -1, 0]))
+    assert hopeless['fate_points'] == 3 and 'invoked' not in hopeless['skill']
+    nothing = fate.roll(sheet_of(fate_points=0), 'Mind', 'hard', 'I lose them in an alley of the river ward',
+                        Dice([-1, 0, 0, 0]))
     assert nothing['fate_points'] == 0 and 'invoked' not in nothing['skill']
 
 
-def test_a_failure_the_trouble_fits_is_a_compel_and_gains_a_fate_point():
+def test_one_shared_name_or_filler_does_not_fit_an_aspect_or_a_stunt():
+    found = fate.roll(sheet_of(), 'Allure', 'hard', 'I make a speech to the river guild about the price of timber',
+                      Dice([-1, 0, 0, 0]))
+    assert 'invoked' not in found['skill'] and 'stunt' not in found['skill']
+    assert not fate.stunt_fits('Because I grew up on the docks, I get +2 when I survey land', 'I pay a debt I owe')
+
+
+def test_the_trouble_compels_whenever_the_action_is_about_it():
     found = fate.roll(sheet_of(), 'Allure', 'very_hard', 'I try to talk the Hollins gang out of my debt',
                       Dice([-1, 0, 0, 0]))
     assert found['band'] == 'failure' and found['fate_points'] == 4 and 'compelled' in found['skill']
+    paid = fate.roll(sheet_of(), 'Allure', 'easy', 'I pay the Hollins gang what I owe, whatever it costs',
+                     Dice([1, 1, 0, 0]))
+    assert paid['band'] == 'success_cost' and paid['fate_points'] == 4
+
+
+def test_a_premade_gets_a_trouble_from_their_description():
+    found = fate.premade('Half-elf, born at Low Ford. Too human for Brynwyr. They owe the wrong people on both sides.',
+                         'Mind')
+    assert (found['high_concept'], found['trouble']) == ('Half-elf, born at Low Ford', 'They owe the wrong people on both sides')
 
 
 def test_a_check_saves_the_fate_points_and_a_night_refreshes_them(client, app):
     ok(made(client))
     with app.state.database.connect(write=True) as connection:
         sheet.set_native(connection, sheet.native(connection) | {'fate_points': 1}, '')
-        found = sheet.check(connection, 'Mind', 'hard', 'I lose them in the alley', Dice([-1, -1, 0, 0]))
+        found = sheet.check(connection, 'Mind', 'hard', 'I lose them in an alley of the river ward', Dice([-1, 0, 0, 0]))
         assert found['ruleset'] == 'fate' and sheet.native(connection)['fate_points'] == 0
-        assert combat.mend(connection, 1) == ['Rested: 3 Fate points.']
+        # The sheet keeps the bookkeeping; the narrator is told nothing of it.
+        assert combat.mend(connection, 1) == []
         assert sheet.native(connection)['fate_points'] == 3
 
 
