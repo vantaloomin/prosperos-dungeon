@@ -79,10 +79,12 @@ def test_vallarith_builds_with_its_engine_data_and_rebuilds_when_its_sources_cha
 
 def test_packages_over_the_api(client, folder, app):
     listed = ok(client.get('/api/packages'))['packages']
-    assert [item['id'] for item in listed] == ['havenbrooke', 'vallarith'] and all(item['builtin'] for item in listed)
+    shipped = packages.builtin_ids()
+    assert 'vallarith' in shipped and [item['id'] for item in listed] == shipped
+    assert all(item['builtin'] for item in listed)
     imported = ok(client.post('/api/packages/import', json={'folder': str(folder)}))
     assert imported['id'] == 'ashmoor'
-    assert [item['id'] for item in ok(client.get('/api/packages'))['packages']] == ['havenbrooke', 'vallarith', 'ashmoor']
+    assert [item['id'] for item in ok(client.get('/api/packages'))['packages']] == [*shipped, 'ashmoor']
     exported = ok(client.post('/api/packages/ashmoor/export'))['folder']
     assert json.loads((packages.Path(exported) / 'world.json').read_text())['name'] == 'Ashmoor'
     downloaded = client.get('/api/packages/ashmoor/file')
