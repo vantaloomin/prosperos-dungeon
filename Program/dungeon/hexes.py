@@ -11,12 +11,17 @@ hexes are flat-topped, in axial coordinates (q, r).
   hexes is all generated around its places, set where the travel map's own positions put them.
 - **Roads.** The travel map's routes are drawn as roads from place to place; a step along a road takes an hour and
   is as dangerous as its route says. Stepping onto a road from the side costs the land's own hours.
+- **Sites.** Hexes off the roads hold ruins, lairs, camps, shrines and hamlets, rolled from the map's site table by
+  the seed, leaving out entries the intensity levels do not allow (an entry's `intensity`, as cards have). A found
+  site is kept as it was found (story_sites), so changing the levels later does not change it. A found hamlet is a
+  place on its map's Road city (`hamlet-<q>-<r>`, dungeon/story.py city_for) until a world package builds it out.
 - **Fog of war.** The hexes the character has seen are game state (story_hexes), branched with the story: walking
   into a hex shows it and the ring around it (more from hills and mountains, none past the trees in forest or marsh).
 """
 import functools
 import hashlib
 import heapq
+import json
 import math
 import secrets
 
@@ -311,15 +316,19 @@ class Grid:
             if leg.get('place'):
                 return legs, 'place'
 
-    def site(self, at: tuple[int, int]) -> dict | None:
-        """The site in a hex, if it has one, decided by the seed alone: never on water, a road or a place."""
+    def site(self, at: tuple[int, int], levels: dict[str, int] | None = None) -> dict | None:
+        """The site in a hex, if it has one, decided by the seed: never on water, a road or a place, and only what the
+        intensity levels allow (none given: everything)."""
         table = self.map.get('sites')
         cell = self.cell(at)
         if not table or cell['terrain'] == 'water' or cell['road'] or cell['place']:
             return None
         if unit(self.seed, 'site', *at) * 100 >= table.get('odds', 4):
             return None
-        entries = [*table.get(cell['region'], []), *table.get('any', [])]
+        entries = [entry for entry in [*table.get(cell['region'], []), *table.get('any', [])]
+                   if allowed(entry, levels)]
+        if not entries:
+            return None
         roll, running = unit(self.seed, 'site-kind', *at) * sum(entry['weight'] for entry in entries), 0
         entry = entries[-1]
         for candidate in entries:
@@ -333,11 +342,12 @@ class Grid:
         return {'q': at[0], 'r': at[1], 'kind': entry['kind'], 'name': name, 'text': entry['text'],
                 'visible': entry['visible']}
 
-    def came_upon(self, legs: list[dict], found: set) -> tuple[list[dict], dict | None]:
+    def came_upon(self, legs: list[dict], found: set, levels: dict[str, int] | None = None) -> tuple[list[dict],
+                                                                                                    dict | None]:
         """The legs up to the first hex with a site the character did not know of, that they would notice walking in
         (a hidden one is only found by searching), and the site."""
         for index, leg in enumerate(legs):
-            site = self.site(tuple(leg['to']))
+            site = self.site(tuple(leg['to']), levels)
             if site and site['visible'] and (site['q'], site['r']) not in found:
                 return legs[:index + 1], site
         return legs, None
@@ -351,6 +361,16 @@ class Grid:
 
 
 # The weather -------------------------------------------------------------------------------------------
+
+def allowed(entry: dict, levels: dict[str, int] | None) -> bool:
+    """Whether the intensity levels let a table entry happen: each category it names at least at its level."""
+    return levels is None or all(levels.get(category, 3) >= level
+                                 for category, level in (entry.get('intensity') or {}).items())
+
+
+def hamlet_id(at: tuple[int, int]) -> str:
+    return f'hamlet-{at[0]}-{at[1]}'
+
 
 def weather(seed_: str, day: str, region: str | None, month: int) -> str:
     """The day's weather in a region, the same for the whole day and decided by the seed alone."""
@@ -386,29 +406,59 @@ def _grid(map_key: str, seed_: str, _version) -> Grid:
     return Grid(travel_map, seed_)
 
 
+def levels(connection) -> dict[str, int]:
+    """The intensity levels in play (dungeon/tone.py), which sites may be."""
+    from dungeon import tone
+    return tone.now(connection)['levels']
+
+
+def site(connection, board: Grid, at: tuple[int, int]) -> dict | None:
+    """The site in a hex: the one found there, else what the seed puts there at the levels in play."""
+    return found_sites(connection, board).get(at) or board.site(at, levels(connection))
+
+
 def reveal(connection, board: Grid, cells: list[tuple[int, int]], walked: bool = True):
     """The character walks into these hexes: each is visited, and seen with what can be seen from it, sites that
     show from a distance among it."""
     name = key(board.map)
+    allowed_ = levels(connection)
     for at in cells:
         for other in board.sight(at):
             connection.execute('INSERT OR IGNORE INTO story_hexes (map, q, r, visited) VALUES (?, ?, ?, 0)',
                                (name, *other))
-            if (site := board.site(other)) and site['visible']:
-                find_site(connection, board, other)
+            if (found := board.site(other, allowed_)) and found['visible']:
+                find_site(connection, board, other, found)
         if walked:
             connection.execute('INSERT INTO story_hexes (map, q, r, visited) VALUES (?, ?, ?, 1) '
                                'ON CONFLICT(map, q, r) DO UPDATE SET visited=1', (name, *at))
 
 
-def find_site(connection, board: Grid, at: tuple[int, int]):
-    connection.execute('INSERT OR IGNORE INTO story_sites (map, q, r) VALUES (?, ?, ?)', (key(board.map), *at))
+def find_site(connection, board: Grid, at: tuple[int, int], found: dict):
+    """The character has found this site: it is kept as found, whatever the levels are later."""
+    connection.execute('INSERT OR IGNORE INTO story_sites (map, q, r, site) VALUES (?, ?, ?, ?)',
+                       (key(board.map), *at, json.dumps(found)))
 
 
 def found_sites(connection, board: Grid) -> dict[tuple[int, int], dict]:
-    """The sites the character has found on this map, by hex."""
-    return {(row['q'], row['r']): board.site((row['q'], row['r'])) for row in many(
-        connection, 'SELECT q, r FROM story_sites WHERE map=?', (key(board.map),)) if board.site((row['q'], row['r']))}
+    """The sites the character has found on this map, by hex (one found before sites were kept: the seed's, again)."""
+    found = {}
+    for row in many(connection, 'SELECT q, r, site FROM story_sites WHERE map=?', (key(board.map),)):
+        at = (row['q'], row['r'])
+        if kept := json.loads(row['site']) if row['site'] else board.site(at):
+            found[at] = kept
+    return found
+
+
+def hamlets(connection, travel_map: dict) -> list[dict]:
+    """The hamlets found on a hex crawl, as places in the wild's city: each one a copy of the wild place, named and
+    described as found, with people of its own (dungeon/world/townsfolk.py) because it is a place of its own."""
+    wild = travel_map.get('wild')
+    if not wild or not is_hex(travel_map):
+        return []
+    board = grid(connection, travel_map)
+    return [{'id': hamlet_id(at), 'name': found['name'], 'kind': 'landmark', 'summary': found['text'],
+             'tags': ['travel', 'wild', 'hamlet'], 'q': at[0], 'r': at[1]}
+            for at, found in sorted(found_sites(connection, board).items()) if found['kind'] == 'hamlet']
 
 
 def seen(connection, board: Grid, here: tuple[int, int] | None = None) -> dict[tuple[int, int], bool]:

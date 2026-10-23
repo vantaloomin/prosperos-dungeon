@@ -606,8 +606,12 @@ Havenbrooke's (car or bus) and BABEL's (the Stair) do. Vallarith's is.
   found when their hex is seen; shrines, caves and lairs are found only by searching their hex. A walk or a journey
   that walks into a hex with a site the character did not know of stops there ("You come upon …"). Found sites
   (`story_sites`, branched with the story) show on the map and are somewhere to set out for ("I head back to Hatch's
-  Tower"), which ends out in the wild at the site. Not yet: the intensity filter on site tables, and a hamlet built
-  out as a place on the Road.
+  Tower"), which ends out in the wild at the site. An entry's `intensity` (`{category: level}`, as cards have) leaves
+  it out when the levels in play are lower (dungeon/tone.py), and a found site is kept as it was found (its `site`
+  JSON), so lowering the levels later never changes it. A found hamlet is a place of its own in the wild's Road city
+  (`hamlet-<q>-<r>`, added by story.py `city_for` from the found sites, so it is branched too): reaching it puts the
+  scene there under its own name, with its own people, while the character's hex stays the hamlet's. Places tagged
+  `wild` (the wild and hamlets) are reached by travel, never by an across-town "I go to …".
 - **Searching.** Out in the wild, "I search the area" (search, scour, explore, look around, scout) takes the hex's
   crossing time and a Mind roll; a success finds a hidden site there, if there is one.
 - **Havenbrooke's woods.** Havenbrooke's trips between towns stay on its roads, by car or bus. Its woods are a hex
