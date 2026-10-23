@@ -414,10 +414,21 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
   in ("I punch him", "I hit the big logger"), fights a stand-in named as the line names them (not on the line straight after a fight ended: the one beaten is gone). Mid-fight every line
   goes to the Referee, told who the character is fighting, so "I go for the nearest one" or "I keep at him" is an
   attack, not a walk or a question.
+- **Surprise.** As a fight begins, stealth is rolled against awareness. An attack the line makes by stealth ("I creep
+  up behind him", "I stab him in his sleep") rolls the character's Vitality against the foe's Resolve; a danger's foe
+  rolls its Vitality against the character's Mind. Whoever rolls the better band takes the other unawares (a tie goes
+  to the one watching). Surprised foes don't strike back in the first round; a surprised character's actions come to
+  nothing while the foes close and strike. Both rolls show as roll cards ("Sneak up unseen", "Spot the ambush"), none
+  under Narrative Only. Under Ironsworn, a surprise also hands over initiative.
 - **A round.** The player's rolled actions land first. An attack that succeeds wounds its target by the band (a
   success with a cost one level, a success two, a critical three), plus one with a sword or felling axe and minus
   one bare-handed. A successful dodge, block or parry makes the foes' attacks hard this round; a successful flight
   ends the fight. Foes at a distance close in; engaged foes roll Vitality to hit back the same way.
+- **Fight on my plan.** A line that sets a plan and says to keep at it ("I hold the door and cut down whoever comes,
+  fight on until they break", "I fight it out") plays its round, then fights on that plan a round at a time, each
+  with its own roll card (Vitality, or the ruleset's attack), until a turning point: someone falls, a foe breaks, the
+  character is Wounded or worse, the fight ends, or five rounds pass. The narrator gets every round and why it
+  stopped; the player decides what next. A plan with no attack or guard in it stops at once.
 - **Morale.** A foe at Maimed is down. When one falls or is badly hurt, the rest roll Resolve, and on a failure they
   break: they flee or give up. The fight is won when nobody is left standing and unbroken.
 - **Wounds.** Grazed, Hurt, Wounded, Maimed, Dying. Wounded makes physical actions a step harder; Maimed makes every

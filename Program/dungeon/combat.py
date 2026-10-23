@@ -22,6 +22,17 @@ Under 5E the same fight runs on hit points, Armor Class and SRD stat blocks (dun
 on health, harm, initiative and progress tracks (dungeon/combat_iron.py); under BRP on skills, the Attack and Defense
 Matrix, hit points and major wounds (dungeon/combat_brp.py).
 
+Surprise is rolled as a fight begins (requirements "Surprise and ambushes are rolled"): an attack the player's line
+makes by stealth ("I creep up behind him") rolls the character's Vitality against the foe's awareness, and a danger's
+foe rolls its stealth against the character's Mind. A side taken unawares loses the first round: surprised foes don't
+strike back, a surprised character's actions come to nothing while the foes close and strike. Both rolls are roll
+cards.
+
+Fight on my plan (requirements "Pacing"): a line that sets a plan ("I hold the door and cut down whoever comes, fight
+on until they break") plays its round, then keeps fighting on that plan, a roll a round (each a roll card), until a
+turning point: someone falls, a foe breaks, the character is badly hurt, the fight ends, or PLAN_ROUNDS rounds pass.
+A plan with no attack or guard in it stops at once.
+
 Gear wears: an attack that fails critically damages the weapon swung (dungeon/inventory.py wear), and a damaged weapon
 hits a step softer. A fight won leaves its fallen foes' bodies where it was fought, with what they carried (coins, their
 weapon) for the character to search (dungeon/finds.py spoils); a beast carries nothing.
@@ -36,7 +47,7 @@ import re
 from dungeon import combat5e, combat_brp, combat_iron, inventory, record, referee, sheet, timeline
 from dungeon import table as campaign_table
 from dungeon.database import encode, identifier, optional
-from dungeon.rules import marvel
+from dungeon.rules import ladder, marvel, narrative
 
 LEVELS = ('unhurt', 'grazed', 'hurt', 'wounded', 'maimed', 'dying')
 DOWN, DYING = 4, 5
@@ -56,6 +67,12 @@ ARMED = re.compile(r'\b(sword|blade|axe|hatchet|knife|dagger|cudgel|club|crowbar
 SOMEONE = re.compile(r'\b(him|her|them|man|woman|men|women|fellow|lad|boy|girl|stranger|drunk|thug|brute|logger|'
                      r'cutter|guard|bandit|thief|sailor|soldier|bully)\b', re.I)
 OPPONENT = 'their opponent'
+SNEAK = re.compile(r"\b(sneak\w*|snuck|creep\w*|crept|from behind|unseen|unawares|ambush\w*|by surprise|quietly|"
+                   r"silently|stealthily|stalk\w*|in (his|her|their) sleep|while (he|she|they)('s|'re| is| are) "
+                   r"(asleep|sleeping|unaware|distracted|not looking))\b", re.I)
+PLAN = re.compile(r"\b(on my plan|fight it out|fight on|keep fighting|fight until|until (they|he|she|it)('s| is| are)? "
+                  r"(down|done|beaten|dead|yields?|gives? up|flees?|runs?|breaks?))\b", re.I)
+PLAN_ROUNDS = 5
 GUARD = re.compile(r'\b(dodge|block|parry|defend|duck|guard)\w*', re.I)
 FREE = re.compile(r'\b(free|untie|slip (?:the|my|out)|loosen|pick the lock|break (?:the|my) (?:bonds|ropes|chains)|'
                   r'cut (?:the|my) (?:bonds|ropes)|bribe|break out)\w*', re.I)
@@ -438,7 +455,12 @@ def play_round(connection, state: dict, rolls: list[dict], items: list[dict], rn
     it ended: '' while it goes on, else 'escaped', 'won' or 'dying'."""
     rng = rng or random.SystemRandom()
     lines, state = [], state | {'round': state['round'] + 1}
-    escaped, guarded = player_moves(connection, state, rolls, items, rng, lines)
+    caught = state['round'] == 1 and state.get('surprised')
+    if caught == 'player':
+        escaped, guarded = False, False
+        lines.append("Taken unawares, the player's character can do nothing this round.")
+    else:
+        escaped, guarded = player_moves(connection, state, rolls, items, rng, lines)
     if escaped:
         return state, lines, 'escaped'
     five, iron, percent = fifth(connection), sworn(connection), basic(connection)
@@ -451,6 +473,9 @@ def play_round(connection, state: dict, rolls: list[dict], items: list[dict], rn
     if not standing(state):
         lines.append('No foe is left standing: the fight is won.')
         return state, lines, 'won'
+    if caught == 'foes':
+        lines.append('Taken unawares, the foes do nothing this round.')
+        return state, lines, ''
     if five or iron or percent:
         level = (combat5e if five else combat_brp if percent else combat_iron).foes_attack(connection, state, standing,
                                                                                          guarded, rng, lines)
@@ -517,13 +542,14 @@ def saved_round(connection, message_id: str) -> list[str] | None:
 
 
 def turn(connection, message_id: str, people: list[dict], rolls: list[dict], start: dict | None, items: list[dict],
-         rng, now: str, aftermath=None, spoils=None) -> list[str]:
+         rng, now: str, aftermath=None, spoils=None, plan: str = '') -> list[str]:
     """The fight's part of a turn, decided once: start a fight if one begins, play the round, and keep the lines.
     `aftermath(events)` deals with what the round did to the character, [(event, who)]: 'horror' when a fight with
     something dreadful starts, 'kill' when the character kills, 'fled' when a foe gets away from a fight the character
     won, 'maimed' when a hit calls for a lasting injury, and
     the defeat table's outcome; it says what that left (dungeon/stress.py). `spoils(foes, wants)` leaves the bodies of a
-    fight won, with what they carried (dungeon/finds.py)."""
+    fight won, with what they carried (dungeon/finds.py). `plan`, the line itself when it fights on a plan, plays on
+    past this round to a turning point."""
     if (kept := saved_round(connection, message_id)) is not None:
         return kept
     rng = rng or random.SystemRandom()
@@ -535,8 +561,10 @@ def turn(connection, message_id: str, people: list[dict], rolls: list[dict], sta
         return freed
     before = {foe['id']: foe['wound'] for foe in state['foes']}
     events = [('horror', foe['name']) for foe in state['foes'][:1] if foe.get('horror') and not state['round']]
+    marked = mark(connection, state)
     state, lines, ending = play_round(connection, state, rolls, items, rng)
     lines = freed + lines + worn(connection, rolls, state, items)
+    state, ending = fight_on(connection, message_id, state, plan, items, rng, now, (marked, ending), lines)
     events += [('kill', foe['name']) for foe in state['foes'] if foe['wound'] >= DYING > before[foe['id']]]
     # A foe who broke and got away alive (the story director may make a nemesis of them).
     events += [('fled', foe['name']) for foe in state['foes'] if ending == 'won' and foe['broken'] and not down(foe)]
@@ -557,17 +585,66 @@ def turn(connection, message_id: str, people: list[dict], rolls: list[dict], sta
     return lines
 
 
-def card_for(connection, message_id: str, card: dict, now: str):
-    """A roll the fight itself made (Ironsworn's Endure Harm and Face Death), as a roll card after the line's own."""
+def mark(connection, state: dict) -> tuple[int, int, int]:
+    """Where a fight stands, to tell a turning point: foes down, foes broken, and the character's wound level."""
+    return (sum(down(foe) for foe in state['foes']), sum(bool(foe['broken']) for foe in state['foes']),
+            condition(connection)['level'])
+
+
+def turning(connection, state: dict, before: tuple[int, int, int], ending: str) -> str:
+    """Why a fight on the player's plan stops here, if it does."""
+    fallen, broken, level = mark(connection, state)
+    reasons = ((ending, 'the fight is over'), (fallen > before[0], 'someone falls'), (broken > before[1], 'a foe breaks'),
+               (level > before[2] and level >= DOWN - 1, "the player's character is badly hurt"))
+    return next((reason for found, reason in reasons if found), '')
+
+
+def fight_on(connection, message_id: str, state: dict, plan: str, items: list[dict], rng, now: str,
+             after: tuple[tuple, str], lines: list[str]) -> tuple[dict, str]:
+    """Fight on the player's plan: more rounds, a roll each, until a turning point (or PLAN_ROUNDS in all)."""
+    before, ending = after
+    if not plan:
+        return state, ending
+    why = turning(connection, state, before, ending)
+    if not why and not (attacks(plan) or GUARD.search(plan)):
+        why = 'the plan no longer makes sense'
+    last = state['round'] + PLAN_ROUNDS - 1
+    while not why and state['round'] < last:
+        before = mark(connection, state)
+        roll = planned(connection, message_id, plan, rng, now)
+        state, more, ending = play_round(connection, state, [roll], items, rng)
+        lines += [f"Round {state['round']}, fighting on the player's plan:", *more]
+        why = turning(connection, state, before, ending)
+    lines.append(f"The fight on the player's plan stops here: {why or 'enough rounds for one telling'}. The player "
+                 'decides what next.')
+    return state, ending
+
+
+def planned(connection, message_id: str, plan: str, rng, now: str) -> dict:
+    """A round's roll on the player's plan, as a roll card the fight can rewrite (an attack on AC, a skill)."""
+    result = sheet.check(connection, 'Vitality', 'normal', plan, rng)
+    roll = {'action': plan, 'stat': 'Vitality'} | {key: result.get(key) for key in (
+        'band', 'natural', 'die', 'bonus', 'shift', 'total', 'target', 'skill')}
+    roll['id'] = card_for(connection, message_id, {'action': plan, 'stat': 'Vitality', 'result': result}, now)
+    return roll
+
+
+def card_for(connection, message_id: str, card: dict, now: str) -> str | None:
+    """A roll the fight itself made (surprise, Ironsworn's Endure Harm and Face Death), as a roll card after the line's
+    own; returns its id. Narrative Only rolls nothing, so it shows no card."""
     result = card['result']
+    if result.get('ruleset') == narrative.ID:
+        return None
+    found = identifier()
     position = optional(connection, 'SELECT COUNT(*) AS n FROM story_rolls WHERE message_id=?', (message_id,))['n']
     connection.execute(
         'INSERT INTO story_rolls (id, message_id, position, actor, action, said, stat, difficulty, die, natural, bonus, '
         'shift, total, band, threat, ruleset, target, skill, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, '
         '?, NULL, ?, ?, ?, ?)',
-        (identifier(), message_id, position, sheet.PERSONA, card['action'], card['stat'], 'normal', result['die'],
-         result['natural'], result['bonus'], result['shift'], result['total'], result['band'], sheet.ruleset(connection),
-         result['target'], result['skill'], now))
+        (found, message_id, position, sheet.PERSONA, card['action'], card['stat'], 'normal', result['die'],
+         result['natural'], result.get('bonus', 0), result.get('shift', 0), result['total'], result['band'],
+         sheet.ruleset(connection), result.get('target'), result.get('skill'), now))
+    return found
 
 
 def just_ended(connection, message_id: str) -> bool:
@@ -599,8 +676,33 @@ def begin(connection, people: list[dict], rolls: list[dict], start: dict | None,
     else:
         foes = foes_from(spec, zone)
     # Ironsworn: whoever starts it has the upper hand.
-    return {'round': 0, 'wants': spec.get('wants', 'kill'), 'foes': foes,
-            'initiative': 'foe' if spec is start else 'player'}
+    state = {'round': 0, 'wants': spec.get('wants', 'kill'), 'foes': foes,
+             'initiative': 'foe' if spec is start else 'player'}
+    return surprise(connection, state, spec, rolls, spec is start, rng)
+
+
+def surprise(connection, state: dict, spec: dict, rolls: list[dict], ambushed: bool, rng) -> dict:
+    """Stealth against awareness as a fight begins: a danger's foe tries to ambush the character, and the character's
+    attack by stealth tries to take the foe unawares. The loser loses the first round; both rolls are roll cards."""
+    sneaking = not ambushed and any(SNEAK.search(roll['action']) for roll in rolls if attacks(roll['action']))
+    if not (ambushed or sneaking):
+        return state
+    rank = ladder.BANDS.index
+    if ambushed:
+        noticed = sheet.check(connection, 'Mind', 'normal', 'notice an ambush', rng)
+        hidden = marvel.roll(spec.get('vitality', 10), 'normal', rng)
+        card = {'action': 'Spot the ambush', 'stat': 'Mind', 'result': noticed}
+        caught = rank(hidden['band']) > rank(noticed['band'])
+        if caught:
+            for foe in state['foes']:
+                foe['zone'] = 'engaged'
+        return state | {'surprised': 'player' if caught else None, 'cards': [card]}
+    crept = sheet.check(connection, 'Vitality', 'normal', 'sneak up unseen', rng)
+    aware = marvel.roll(spec.get('resolve', 10), 'normal', rng)
+    card = {'action': 'Sneak up unseen', 'stat': 'Vitality', 'result': crept}
+    caught = rank(crept['band']) > rank(aware['band'])
+    return state | {'surprised': 'foes' if caught else None, 'cards': [card],
+                    'initiative': 'player' if caught else state['initiative']}
 
 
 def fall(connection, state: dict, rng, now: str, lines: list[str], events: list) -> str:

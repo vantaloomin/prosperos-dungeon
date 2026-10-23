@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Surprise and ambushes.** Creep up on someone and attack, and the game rolls your stealth against their awareness:
+  catch them unawares and they can't strike back in the first round. A danger can ambush you too, rolling against
+  your Mind; if it catches you, your first round comes to nothing. Both rolls show as roll cards.
+- **Fight on my plan.** Say how you fight and to keep at it ("I hold the door and cut down whoever comes, fight on
+  until they break") and the game plays round after round on that plan until something changes: someone falls, a
+  foe breaks, you're badly hurt or the fight ends. Then it's your call again.
 - **Wear, repair and the spoils of a fight.** A botched attack can damage your weapon, and a damaged one hits softer;
   shops pay less for worn goods. The Blackwood smithy in Kingswood sells blades and tools and mends what you carry
   ("I have the smith mend my sword"). Win a fight and the fallen lie where they fell: search the body for their purse
