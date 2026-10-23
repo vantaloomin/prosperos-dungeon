@@ -1206,13 +1206,17 @@ def ambush(play):
         connection.execute('UPDATE story_clock SET at=? WHERE id=1', (at[:11] + '20:30:00' + at[19:],))
     play.move('the-sawpit')
     play.say('I creep up behind the loudest drunk in the place and hit him over the head with my sword hilt.')
+    if fight_on(play).get('fight'):
+        play.say('I fight it out, cutting at whatever comes at me.')
+    if not fight_on(play).get('fight'):
+        play.say('I search the body.')
+        play.say('I take the coins.')
+        play.gear()
     play.move('the-heartwood')
     for _ in range(6):
         if fight_on(play).get('fight'):
             break
         play.say('I go deeper into the Heartwood, sword ready.')
-    if fight_on(play).get('fight'):
-        play.say('I fight it out, cutting at whatever comes at me.')
 
 
 SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl, 'road': road,
