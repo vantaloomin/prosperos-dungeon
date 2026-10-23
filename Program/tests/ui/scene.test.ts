@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { hasWidget, peopleHere, sceneWidgets } from '../../src/features/story/scene.ts'
+import { hasWidget, partyOf, peopleHere, sceneWidgets } from '../../src/features/story/scene.ts'
 import type { Story, StoryPerson } from '../../src/types.ts'
 
 const person = (key: string, place: string | null): StoryPerson => ({
@@ -34,6 +34,14 @@ test('the scene picks at most two widgets, the fight first', () => {
 test('the people here are the ones met at this very place', () => {
   const people = [person('Agnes Brill', 'felled-oak'), person('Edda', 'the-mill'), person('Hob', null)]
   assert.deepEqual(peopleHere(story({ people })).map((one) => one.key), ['Agnes Brill'])
+})
+
+test('the party is here wherever the story is, and has its own widget', () => {
+  const people = [person('Agnes Brill', 'felled-oak'), { ...person('Hesk', null), party: true }]
+  assert.deepEqual(peopleHere(story({ people })).map((one) => one.key), ['Agnes Brill', 'Hesk'])
+  assert.deepEqual(partyOf(story({ people })).map((one) => one.key), ['Hesk'])
+  assert.equal(hasWidget(story({ people }), 'party'), true)
+  assert.equal(hasWidget(story({ people: people.slice(0, 1) }), 'party'), false)
 })
 
 test('the drawer leaves out what has nothing to show', () => {

@@ -23,7 +23,7 @@ import { StorySheet } from './StorySheet'
 import { loadGrids, onGrid, useGrids, type Flash } from './grid'
 import { StoryGrid } from './StoryGrid'
 import { foeNumbers, zoneText } from './storyText'
-import { ASK_EVENT, hasWidget, loadPins, MORE, peopleHere, savePins, sceneWidgets, TABS, takeAsked, WIDGET_NAMES, type Widget } from './scene'
+import { ASK_EVENT, hasWidget, loadPins, MORE, partyOf, peopleHere, savePins, sceneWidgets, TABS, takeAsked, WIDGET_NAMES, type Widget } from './scene'
 import { STORY_KEY } from './table'
 
 /** Matches the stylesheet's breakpoint for the side panel. */
@@ -221,6 +221,7 @@ const WIDGETS: Record<Widget, (props: PanelProps, refresh: () => void) => ReactN
   map: ({ story, onTravel, onLine }) => <StoryMap map={story.map} open onTravel={onTravel} onLine={onLine} />,
   town: ({ story, onLine }) => <StoryTown where={`${story.scene.city.id}/${story.scene.place.id}`} open onLine={onLine} />,
   people: ({ story, change }) => <StoryPeople people={story.people} open onFind={(key) => void change(() => api<StoryData>('/story/find', { key }))} />,
+  party: ({ story, change }) => <StoryPeople people={partyOf(story)} title="Your party" open onFind={(key) => void change(() => api<StoryData>('/story/find', { key }))} />,
   powers: ({ story }) => <StoryPowers factions={story.factions ?? []} tier={story.tier} open />,
   chapters: ({ story, change, onBack }) => story.campaign && <StoryChapters campaign={story.campaign} change={change} onBack={onBack} open />,
   branches: ({ story, change }) => <StoryBranches branches={story.branches} open

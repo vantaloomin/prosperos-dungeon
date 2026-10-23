@@ -318,6 +318,8 @@ export interface StoryPerson {
   feelings: string
   /** How they are bonded to your character, if they are (dungeon/bonds.py). */
   bond?: 'earned' | 'sworn' | null
+  /** Whether they travel with your character (dungeon/party.py). */
+  party?: boolean
 }
 /** The character's purse and pack, and the shop window where the story is (dungeon/inventory.py). Money is in hundredths. */
 export interface GearItem { id: string; item_id: string; name: string; category: string; qty: number; slots: number; stolen?: boolean; condition?: 'sound' | 'damaged' | 'broken' }

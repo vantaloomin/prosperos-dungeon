@@ -1185,6 +1185,18 @@ Under "People you've met" each person shows how often the user has met them and 
 now. "Go to …" moves the story to where they are (refused while they are at home, at work elsewhere or on their
 street). Starting a new story clears the people met too.
 
+### Your party
+
+`dungeon/party.py`, `story_party`. A line that asks someone along ("come with me, Hesk", "will you join us?") asks
+the one it names, else the only one there, and they decide for themselves: bonded to the character, or with trust
+and affection adding up to 3 or more, they come; adding up to less than 0, they won't; in between the character's
+Allure is rolled, hard. At most 3 travel with the character. A companion is in every scene with the character, in
+any town or out on the road (their townsfolk sheet travels with them), instead of where their own rules would put
+them, and the narrator is told they act on their own and can be talked round, never ordered. They leave when told
+to ("go home, Hesk", "we part ways"), when trust and affection sink to -2 together, or when an off-page beat takes
+them. The narrator gets "## The party" for whoever joins or leaves. "Here with you" always lists the party, and the
+drawer's Party widget shows them.
+
 ### Secrets and lies
 
 `dungeon/lies.py` (requirements "NPCs keep secrets and lie, and detection is rolled"). When the player's line

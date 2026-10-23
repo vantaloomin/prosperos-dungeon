@@ -38,6 +38,7 @@ from dungeon import (
     lies,
     lore,
     pace,
+    party,
     passages,
     plotting,
     prompt_library,
@@ -198,8 +199,9 @@ def present(connection, data: dict, place_id: str, moment: datetime) -> list[dic
     """Who the townsfolk rules put at the place now: the people seeded there and residents whose rules bring them."""
     day = moment.date()
     seeded = [] if place_id.startswith('~') else townsfolk.at_place(data, place_id, day)
-    # The dead, taken, missing and conscripted are not about (dungeon/beats.py).
-    people, seen = [], beats.gone(connection)
+    # The dead, taken, missing and conscripted are not about (dungeon/beats.py); the party is with the character
+    # (dungeon/party.py), not where their own rules would put them.
+    people, seen = [], beats.gone(connection) | party.keys(connection)
     for sheet in [*seeded, *townsfolk.reaching(data, place_id, day)]:
         if sheet['key'] in seen:
             continue
@@ -208,11 +210,14 @@ def present(connection, data: dict, place_id: str, moment: datetime) -> list[dic
         if found['place'] and found['place']['id'] == place_id:
             # How old they are now (dungeon/life/ages.py).
             people.append({'sheet': {**sheet, 'age': ages.town_age(connection, sheet, day)}, **found})
-    return people
+    place = catalog.find(data, place_id)
+    return people + party.present(connection, townsfolk.view(place) if place else {'id': place_id})
 
 
 def who(sheet: dict, place: dict, data: dict, doing: str = '') -> str:
     """'the barista there', 'a regular at Daily Grind', 'a local from Canton waiting for the bus'."""
+    if doing == party.DOING:
+        return f"travelling with the player's character ({sheet.get('occupation') or sheet['role']})"
     if sheet['kind'] == 'resident':
         local = f"a local from {townsfolk.neighborhood_name(data, sheet['home'])}"
         return f'{local} {doing}' if doing.startswith('waiting for') else local
@@ -372,7 +377,7 @@ def shop_view(connection, view: dict) -> dict | None:
     shop = inventory.shop_at(view['city']['id'], view['place']['id'])
     if shop is None:
         return None
-    staff = [person['sheet'] for person in view['people'] if person['sheet'].get('staff')
+    staff = [person['sheet'] for person in view['people'] if person['sheet'].get('staff') and not person.get('party')
              and person['sheet']['place']['id'] == view['place']['id']]
     keeper = f"the {staff[0].get('occupation') or staff[0]['role']}" if staff else ''
     return inventory.window(connection, view['city']['id'], shop, bool(staff), keeper, story_day(view)) | {
@@ -559,7 +564,7 @@ def bookmark_go(database, bookmark_id: str) -> dict:
 def people(connection, view: dict) -> list[dict]:
     """Everyone the user has met in the story, most recent first, with where their rules put them now; with the
     dice shown, how they feel about the character too."""
-    result, cities, shown = [], {}, dice_shown(connection)
+    result, cities, shown, with_them = [], {}, dice_shown(connection), party.keys(connection)
     for row in view['known'].values():
         if row['city_id'] not in cities:
             try:
@@ -570,11 +575,13 @@ def people(connection, view: dict) -> list[dict]:
         sheet = townsfolk.find(data, row['key']) if data else None
         if sheet is None:
             continue  # Their city is gone, or its townsfolk were seeded anew.
-        now = townsfolk.whereabouts(sheet, data, local_moment(data, view['now']))
+        now = {'doing': 'travelling with you', 'place': None} if row['key'] in with_them else \
+            townsfolk.whereabouts(sheet, data, local_moment(data, view['now']))
         result.append({'key': row['key'], 'name': row['name'], 'role': sheet.get('occupation') or sheet['role'],
                        'city': data['name'], 'meetings': row['meetings'], 'last_met_at': row['last_met_at'],
                        'notes': row['notes'], 'doing': now['doing'],
                        'feelings': feelings.shown(row) if shown else '', 'bond': row.get('bond'),
+                       'party': row['key'] in with_them,
                        'place': now['place'] and {'id': now['place']['id'], 'name': now['place']['name'],
                                                   'city_id': data['id']}})
     return result
@@ -699,7 +706,7 @@ def clear(database) -> dict:
                       'story_inventory', 'story_purse', 'story_stock', 'story_shops', 'story_markets', 'story_services', 'story_appearance', 'story_appearance_turns', 'story_trades', 'story_wounds', 'story_fight',
                       'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
                       'story_rounds', 'story_map', 'story_hexes', 'story_sites', 'story_lots', 'story_position', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
-                      'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_bonds', 'story_beats', 'story_word',
+                      'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_bonds', 'story_party', 'story_beats', 'story_word',
                       'story_offpage', 'story_tier', 'story_marks', 'story_dark',
                       'story_director', 'story_arcs', 'story_threads', 'story_nemeses', 'story_seeds',
                       'story_arc_beats', 'story_sheet', 'story_enrollment', 'story_attendance', 'story_grades', 'story_art'):
@@ -1202,6 +1209,17 @@ def bond_turn(state, user: dict) -> list[str]:
         return lines
 
 
+def party_turn(state, user: dict) -> list[str]:
+    """Asking someone along, or parting ways (dungeon/party.py), once for the line."""
+    database = state.database
+    with database.connect(write=True) as connection:
+        view = scene(connection, story_clock.now(connection, database.clock))
+        if combat.fight(connection):
+            return []
+        return party.turn(connection, user['id'], view, user['text'], view['local_time'][:10], database.now(),
+                          getattr(state, 'dice', None))
+
+
 def counter_text(lines: list[str]) -> str:
     return '## At the counter (decided by the game)\n' + '\n'.join(f'- {line}' for line in lines) if lines else ''
 
@@ -1439,7 +1457,7 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
     meanwhile = beats_turn(state, user) if in_story else []
     noted = director_turn(state, user) + recall_turn(state, rolls) + opening_turn(state, user) if in_story else []
     noted += [labour.prompt_text(labour_turn(state, user)), lies.prompt_text(lie_turn(state, user)),
-              bonds.prompt_text(bond_turn(state, user))] if in_story else []
+              bonds.prompt_text(bond_turn(state, user)), party.prompt_text(party_turn(state, user))] if in_story else []
     fought, traded, tended, looked, looks = (in_scene(state, user, rolls, travelled, rested) if in_story
                                              else ([], [], [], [], []))
     noted = noted + looks
