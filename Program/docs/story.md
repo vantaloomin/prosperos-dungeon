@@ -572,6 +572,11 @@ The same fight, on 5E's numbers from the SRD 5.2.1 pack (`dungeon/combat5e.py`):
   saves; wardens, robbers and brawlers skip them and the defeat table takes what they came for.
 - **A long rest** (a night's sleep) restores every hit point, as written. Lasting injuries still need their own care.
 - The Story screen shows the character's hit points, and the foes' while the dice are shown.
+- **The battle map** (`dungeon/battlemap.py`, the fight card's "Battle map"): the fight on five-foot squares, the
+  character in the middle. It draws the range bands, which code still decides: each foe in a direction of its own
+  (ahead first, then the flanks), engaged 5 ft off, near 20 ft (one move), far 45 ft; companions behind. Distances
+  count every square as five feet, diagonals too. Nothing is saved: the same fight draws the same map. The narrator
+  hears the feet under the round ("On the grid: the bandit 5 ft; the archer 45 ft.").
 
 ### Fights under Ironsworn
 

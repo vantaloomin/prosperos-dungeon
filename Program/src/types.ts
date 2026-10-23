@@ -404,7 +404,14 @@ export interface StoryFight {
   /** `area`: where the character fights from ("the stairs"); each foe's `zone` is its range band. */
   fight: { round: number; area?: string | null; foes: { name: string; state: string; wound: number | null; zone?: Zone | null; hp?: number; max_hp?: number }[]
     /** Companions fighting beside the character (dungeon/allies.py). */
-    allies?: { name: string; state: 'unhurt' | 'hurt' | 'down' }[] } | null
+    allies?: { name: string; state: 'unhurt' | 'hurt' | 'down' }[]
+    /** Under 5E, the fight on five-foot squares around the character at 0, 0 (dungeon/battlemap.py). */
+    grid?: BattleGrid | null } | null
+}
+export interface BattleGrid {
+  square_feet: number; area?: string | null
+  foes: { name: string; x: number; y: number; feet: number; down: boolean }[]
+  allies: { name: string; x: number; y: number; down: boolean }[]
 }
 export type IntensityPreset = 'world' | 'restrained' | 'mature' | 'unflinching'
 /** How far the story goes: `preset` in play, the player's `chosen` one ('world' follows the world), the world's own. */

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **5E battle map.** Fights under 5E now have a battle map in the fight card: you in the middle of a grid of
+  five-foot squares, each foe numbered at its distance (5 ft engaged, 20 ft nearby, 45 ft far off), and companions
+  behind you. The narrator hears the distances too.
 - **Quests in every town.** Haven, the Concourse, Hollin and the Gilded Bazaar now each have three quests (one
   hidden), their own dangerous places with foes to match, and things to find in chests, drawers and pockets.
   Reaching a new town mid-campaign starts its quests, with deadlines counted from when you arrive.
