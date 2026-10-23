@@ -259,6 +259,23 @@ textarea { resize: vertical; line-height: 1.6; }
 .map-place.here circle { fill: var(--accent); stroke: var(--accent); }
 .map-place text { fill: var(--muted); font-size: 10px; }
 .map-place.here text { fill: var(--text); font-weight: 600; }
+/* The hex crawl's map (StoryMap.tsx HexMap): each land a tint of the theme's surface, so every palette keeps it. */
+.hex-map .map-hex polygon { stroke: var(--canvas); stroke-width: 0.8; cursor: pointer; }
+.hex-map .terrain-water polygon { fill: color-mix(in srgb, #4f7aa8 65%, var(--surface)); }
+.hex-map .terrain-plains polygon { fill: color-mix(in srgb, #b9a66a 55%, var(--surface)); }
+.hex-map .terrain-forest polygon { fill: color-mix(in srgb, #3f7a45 70%, var(--surface)); }
+.hex-map .terrain-hills polygon { fill: color-mix(in srgb, #a07a4a 65%, var(--surface)); }
+.hex-map .terrain-mountains polygon { fill: color-mix(in srgb, #8a7a6e 75%, var(--surface)); }
+.hex-map .terrain-waste polygon { fill: color-mix(in srgb, #c09a6a 60%, var(--surface)); }
+.hex-map .terrain-marsh polygon { fill: color-mix(in srgb, #5d7a63 65%, var(--surface)); }
+.hex-map .map-hex:not(.visited) polygon { opacity: 0.8; }
+.hex-map .map-hex-label { fill: var(--text); font-size: 7px; pointer-events: none; paint-order: stroke; stroke: var(--canvas); stroke-width: 2px; }
+.hex-map .map-hex:hover polygon { stroke: var(--accent); }
+.hex-map .map-hex-road { fill: var(--text); opacity: 0.6; pointer-events: none; }
+.hex-map .map-hex-place { fill: var(--text); stroke: var(--canvas); stroke-width: 1; pointer-events: none; }
+.hex-map .map-hex-site { fill: var(--danger); pointer-events: none; }
+.hex-map .map-hex-here { fill: none; stroke: var(--accent); stroke-width: 2; pointer-events: none; }
+.hex-map .map-hex-here.lost { stroke-dasharray: 3 2; }
 .story-people .map-places { gap: 2px; margin: 0; font-size: 0.875rem; }
 .story-people .map-places li { flex-direction: row; justify-content: space-between; align-items: center; gap: 8px; padding: 2px 0; border: 0; border-radius: 0; }
 .story-back { font-size: 0.8125rem; color: var(--muted); }

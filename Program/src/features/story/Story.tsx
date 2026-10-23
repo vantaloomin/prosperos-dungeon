@@ -79,6 +79,7 @@ export function Story({ go }: { go: (view: View) => void }) {
         <NewStory empty={!story.data.messages.length} onClear={() => run(null, () => api<StoryData>('/story', undefined, 'DELETE').then(update))} />
       </div>
       <StoryPanel story={story.data} change={change} onTravel={(name) => setDraft({ text: `I set out for ${name}.`, at: Date.now() })}
+        onLine={(text) => setDraft({ text, at: Date.now() })}
         onBack={(data) => setDraft({ text: data.draft, at: Date.now() })} />
     </section>
     </EntityHost>

@@ -54,7 +54,7 @@ function tiledNow(widget: Widget): boolean {
   return onGrid(saved.layouts[saved.current], widget)
 }
 
-interface PanelProps { story: StoryData; change: (request: () => Promise<StoryData>) => Promise<void>; onTravel: (name: string) => void; onBack: (data: StoryBack) => void }
+interface PanelProps { story: StoryData; change: (request: () => Promise<StoryData>) => Promise<void>; onTravel: (name: string) => void; onLine?: (text: string) => void; onBack: (data: StoryBack) => void }
 type PanelView = 'scene' | 'more' | Widget
 
 /** Beside the story (requirements "Play screen and widgets"): the scene panel, which shows what the scene needs and
@@ -216,7 +216,7 @@ const WIDGETS: Record<Widget, (props: PanelProps, refresh: () => void) => ReactN
   sheet: () => <StorySheet open />,
   pack: (_, refresh) => <StoryGear open onTrade={refresh} />,
   journal: () => <StoryJournal open />,
-  map: ({ story, onTravel }) => <StoryMap map={story.map} open onTravel={onTravel} />,
+  map: ({ story, onTravel, onLine }) => <StoryMap map={story.map} open onTravel={onTravel} onLine={onLine} />,
   people: ({ story, change }) => <StoryPeople people={story.people} open onFind={(key) => void change(() => api<StoryData>('/story/find', { key }))} />,
   powers: ({ story }) => <StoryPowers factions={story.factions ?? []} tier={story.tier} open />,
   chapters: ({ story, change, onBack }) => story.campaign && <StoryChapters campaign={story.campaign} change={change} onBack={onBack} open />,
