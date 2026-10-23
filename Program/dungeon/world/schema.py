@@ -400,6 +400,13 @@ class Intensity(Record):
     drama: Literal['quiet', 'uneasy', 'eventful', 'merciless'] = 'uneasy'
 
 
+class TownMap(Record):
+    """How the town's street map is drawn (dungeon/townmap.py): its look, left out to let the era decide ('none' for a
+    city that is a world's roads or wilds, not a town), and whether a wall rings it."""
+    style: Literal['ink', 'street', 'floor', 'none'] | None = None
+    walls: bool | None = None
+
+
 class City(Record):
     """One city. Minimums are small so a user can start a city of their own with a neighborhood and a place."""
     schema_version: Literal[1]
@@ -453,6 +460,8 @@ class City(Record):
     holidays: list[Holiday] = Field(default_factory=list, max_length=100)
     # Sea, rivers and lakes, drawn on the map of a city without a street map.
     water: list[Water] = Field(default_factory=list, max_length=12)
+    # The town's street map (dungeon/townmap.py): laid out from the neighborhoods, places and water above.
+    town_map: TownMap | None = None
     # Named people placed in town (a pack's characters), beside the seeded townsfolk.
     notables: list[Notable] = Field(default_factory=list, max_length=200)
     # Quirks and goals of the city's own for its townsfolk (dungeon/world/townsfolk.py).

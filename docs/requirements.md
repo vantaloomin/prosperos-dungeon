@@ -343,6 +343,28 @@ map; the narrator describes what code says is there.
 - **The map widget.** Draws the known hexes with their terrain, roads, rivers, towns and found sites; the rest
   stays dark. Where the character thinks they are is marked when they are lost.
 
+### Town maps
+
+Asked 2026-10-23 (Vanta: city maps that look good, with destinations and stores, "without having to pre-gen
+every single aspect"). Code lays a town's street map out from its data and the campaign seed, like the hex
+crawl; nothing is drawn by hand or by an image model, and only what the player looks at is filled in.
+
+- **From the town's data.** Neighborhood positions, places, employers, colleges and water already in the city
+  file are enough. The town is cut into patches (a Voronoi diagram, spread from the middle out, or a grid for a
+  modern town); each patch belongs to the nearest neighborhood, weighted so a busy neighborhood gets more; patch
+  edges are streets, and main roads run from the square to the map's edge. A neighborhood far out of town is a
+  road off the map. A sea is a coast past the town's last neighborhood on its side; a lake and a river take no
+  buildings.
+- **Seeded and stable.** The same town and seed give the same map, so it is never stored. Authored places,
+  employers and colleges are given lots in their own neighborhood (a park or square takes a whole patch); every
+  other lot is blank until the character looks at it, when code fills it from the town's trades and prices and
+  keeps it.
+- **Looks.** 'ink' (an old hand-inked town, for fantasy and past eras), 'street' (a modern grid) or 'floor' (a
+  town on one floor of BABEL's tower, walled by it). The era chooses unless the city's `town_map.style` says
+  otherwise; a world's road or wilds says `"none"` and has no town map.
+- **The Town widget.** Shows the map of the town the story is in (separate from the travel Map widget), with
+  where the character is; clicking a place shows it and offers to go there.
+
 ## Inventory and equipment
 
 Decided 2026-10-21. Code owns every item; the narrator can't add, remove or invent gear.

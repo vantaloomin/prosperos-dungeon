@@ -73,6 +73,7 @@ def build() -> dict:
         'era': city['era'], 'category': city['category'], 'basis': 'The travel nodes of Vanta\'s Vallarith that are '
         'not yet built out as towns.', 'region': 'Vallarith', 'country': 'Vallarith', 'timezone': city['timezone'],
         'aliases': [], 'summary': 'On the road in Vallarith, between towns: a gate, an edge, a ruin to arrive at.',
+        'town_map': {'style': 'none'},
         'lat': city['lat'], 'lon': city['lon'], 'intensity': city['intensity'], 'currency': city['currency'],
         'rent_period': city['rent_period'], 'speeds': city['speeds'], 'sources': city['sources'],
         'neighborhoods': [{'id': region, 'name': name, 'summary': summary, 'vibe': vibe, 'lat': hood['lat'],
