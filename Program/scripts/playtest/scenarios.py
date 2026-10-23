@@ -1542,10 +1542,16 @@ def fivee_cleric(play):
     play.sheet()
     play.move('the-ford')
     set_fight(play, {'name': 'road thug', 'count': 1, 'vitality': 10, 'resolve': 8, 'weapon': 0, 'wants': 'rob'})
-    play.say('A thug comes at me by the ford. I cast Guiding Bolt at him with a 2nd-level slot.')
+    sqlite3 = __import__('sqlite3')
+    with sqlite3.connect(play.dungeon.data_dir / 'dungeon.sqlite3') as connection:  # hurt again, for Healing Word
+        sheet = json.loads(connection.execute('SELECT data FROM story_sheet WHERE id=1').fetchone()[0])
+        sheet['hp'] = max(1, sheet['hp'] - 10)
+        connection.execute('UPDATE story_sheet SET data=? WHERE id=1', (json.dumps(sheet),))
+    play.write(f"- hurt to {sheet['hp']} hit points\n")
+    play.say('A thug comes at me by the ford. I cast Healing Word on myself and hit the thug with my mace.')
     play.write(f"- fight: {json.dumps(fight_on(play).get('fight'))}\n")
     if fight_on(play).get('fight'):
-        play.say('I cast Healing Word on myself and hit the thug with my mace.')
+        play.say('I cast Guiding Bolt at the thug with a 2nd-level slot.')
     play.sheet()
 
 
