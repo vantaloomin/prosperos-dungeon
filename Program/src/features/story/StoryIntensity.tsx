@@ -3,13 +3,14 @@ import type { DramaLevel, IntensityPreset, StoryIntensity as Intensity, TableRul
 import { Field, Toggle } from '../../components/Fields'
 import { Notice } from '../../components/Feedback'
 import { dramaChoices, intensityChoices, LEVEL_NAMES, TONE_CATEGORIES, toggledVeil, VEIL_TOPICS, VOICES } from './storyText'
+import { NarrationFormat } from './NarrationFormat'
 import { useTable } from './table'
 
 /** How far the story goes on the page (dungeon/story.py intensity) and how eventful it is (dungeon/happenings.py):
  * the world's own, or the player's, at any time; and whether off-page beats are shown (dungeon/beats.py). This
  * campaign's rules, kept at the Table (./table.ts). */
 export function StoryIntensity({ intensity, onSaved }: { intensity: Intensity; onSaved: () => void }) {
-  const { save: keep } = useTable()
+  const { rules, save: keep } = useTable()
   const [error, setError] = useState('')
   const save = async (change: Partial<TableRules>) => {
     setError('')
@@ -24,6 +25,10 @@ export function StoryIntensity({ intensity, onSaved }: { intensity: Intensity; o
       </select>}
     </Field>
     <ToneDetails intensity={intensity} save={(change) => void save(change)} />
+    {rules && <details className="tone-details">
+      <summary>How it's written</summary>
+      <NarrationFormat rules={rules} onChange={(change) => void save(change)} />
+    </details>}
     <Field label="How eventful" hint="How often the world throws something at you: news, trouble, a stranger at the fire. It never changes the dice.">
       {(id, describedBy) => <select id={id} value={intensity.drama_chosen ?? 'world'} aria-describedby={describedBy}
         onChange={(event) => void save({ drama: event.target.value as DramaLevel })}>

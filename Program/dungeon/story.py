@@ -80,8 +80,6 @@ CHARS_PER_TOKEN = 4
 # The kinds a story starts at when nothing else is chosen: somewhere people sit and talk.
 OPENING_KINDS = ('cafe', 'tavern', 'bar', 'restaurant', 'market', 'park')
 
-# Story mode's player has no persona yet, so the narrator speaks to them as "you", as Story mode always has.
-NARRATION = narration_prompt.Format(pov='second', tense='present', length='short')
 # An OOC line is a question for the game master. Companion's note had the model answer as the AI, and it then
 # announced itself unasked; here it answers as the table's game master, from what the game holds.
 OUT_OF_CHARACTER = (
@@ -434,6 +432,12 @@ def messages(connection, limit: int = HISTORY_LIMIT) -> list[dict]:
             for row in reversed(rows)]
 
 
+def narration_format(connection) -> narration_prompt.Format:
+    """The player's narration format, kept at the Table (dungeon/table.py): point of view, tense and length."""
+    rules = table.rules(connection)
+    return narration_prompt.Format(pov=rules['pov'], tense=rules['tense'], length=rules['length'])
+
+
 def dice_shown(connection) -> bool:
     """Roll visibility (Story > Tone and rules > Dice and hidden values): hidden unless the player shows them."""
     # Narrative Only shows no roll card at all; the GM view still shows its verdicts.
@@ -761,7 +765,7 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
                                                  shelf)
                              if part)
         system = narration_prompt.system(prompt_library.text(connection, 'story-narrator'), craft, scene=place_text,
-                                         persona=who_text, persona_name=name, memory=memory, narration=NARRATION,
+                                         persona=who_text, persona_name=name, memory=memory, narration=narration_format(connection),
                                          intensity=tone.narration(level),
                                          outcomes=outcomes, rolls_shown=dice_shown(connection))
         if len(system) <= (window - config['max_output_tokens']) * CHARS_PER_TOKEN // 2:

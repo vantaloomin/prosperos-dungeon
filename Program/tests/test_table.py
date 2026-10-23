@@ -19,7 +19,8 @@ def test_a_new_campaign_takes_the_worlds_tone_and_the_players_last_taste(client)
     assert rules == {'intensity': 'world', 'drama': 'world', 'injury_persistence': 'permanent', 'defeat': 'as_written',
                      'show_odds': False,
                      'roll_dice': False, 'show_adult_side': False, 'gm_view': False, 'cutaways': False,
-                     'levels': None, 'veils': None, 'voice': 'world'}
+                     'levels': None, 'veils': None, 'voice': 'world',
+                     'pov': 'second', 'tense': 'present', 'length': 'short'}
     begin(client)
     rules = ok(client.put('/api/story/table', json={'intensity': 'restrained', 'show_odds': True, 'roll_dice': True}))
     assert (rules['intensity'], rules['show_odds'], rules['roll_dice']) == ('restrained', True, True)
@@ -91,3 +92,28 @@ def test_session_zero_sets_how_a_5e_defeat_goes(client):
     # A defeat is tone: the next campaign starts as written again.
     ok(client.delete('/api/story'))
     assert ok(client.get('/api/story/start'))['table']['defeat'] == 'as_written'
+
+
+def test_a_new_campaign_is_told_in_close_third_past_and_the_player_can_change_it(client):
+    # Before a campaign starts, Story mode speaks to the player as "you"; session zero offers a new campaign's format.
+    assert ok(client.get('/api/story/start'))['table']['pov'] == 'third'
+    begin(client)
+    rules = ok(client.get('/api/story/table'))
+    assert (rules['pov'], rules['tense'], rules['length']) == ('third', 'past', 'short')
+    rules = ok(client.put('/api/story/table', json={'pov': 'first', 'tense': 'present', 'length': 'long'}))
+    assert (rules['pov'], rules['tense'], rules['length']) == ('first', 'present', 'long')
+    assert client.put('/api/story/table', json={'pov': 'fourth'}).status_code == 422
+
+
+def test_a_format_chosen_at_session_zero_is_kept(client):
+    ok(client.post('/api/story/start', json={'persona': ASH, 'stats': STATS, 'table': {'pov': 'second'}}))
+    assert ok(client.get('/api/story/table'))['pov'] == 'second'
+
+
+def test_the_narrator_is_told_the_format(app):
+    from dungeon import story
+    with app.state.database.connect(write=True) as connection:
+        assert story.narration_format(connection).pov == 'second'
+        table.begin(connection)
+        assert story.narration_format(connection).text('Ash Ward').startswith(
+            'Narration: close third person on Ash Ward, past tense')

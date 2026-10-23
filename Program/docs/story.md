@@ -63,6 +63,12 @@ the campaign begins is kept. A campaign from before the Table keeps the rules it
 `timeline.SAVED`, so going back never undoes one. The Story screen's "Tone and rules" fold sets them
 (`PUT /api/story/table`); `PUT /api/settings` still sets them for the campaign being played too.
 
+**How it's written** (Tone and rules, and session zero's Fine-tune) is the narration format: point of view (close
+third, second or first person), tense (past or present) and length (short, medium or long), the Table's `pov`,
+`tense` and `length`. A new campaign starts in close third person, past tense, short; a story with no campaign start,
+or a campaign from before the format could be chosen, keeps second person and present tense. The next line follows a
+change (`story.narration_format`).
+
 ## Rulesets
 
 The campaign's ruleset is picked on the start screen ("Rules") and locked for the whole campaign
@@ -1047,7 +1053,7 @@ free grid of widgets is an optional mode late in Milestone 6.
 | `PATCH /api/story/journal/{id}` `{text}` / `DELETE /api/story/journal/{id}` | Corrects or removes a fact, logged; 404 for hidden truth or a fact not in the journal. |
 | `GET /api/story/gear` | `{coins, currency, slots: {used, max}, items, shop}`. `shop` is null away from a shop, else `{place_id, open, keeper, stock, offers}`; `offers` maps the character's items to what the shop pays. |
 | `POST /api/story/shop/buy` `{item_id, qty?}` / `POST /api/story/shop/sell` `{inventory_id, qty?}` | Trades at the counter. 404 with no shop here or no such item, 409 when closed, out of stock, too dear, too heavy, or not something the shop buys. |
-| `GET /api/story/table` / `PUT /api/story/table` | This campaign's rules (`intensity`, `drama`, `injury_persistence`, `show_odds`, `roll_dice`, `show_adult_side`, `gm_view`, `cutaways`, `defeat`, `levels`, `veils`, `voice`); a change to what is shown is remembered for the next campaign. `GET /api/story` carries them as `table`. |
+| `GET /api/story/table` / `PUT /api/story/table` | This campaign's rules (`intensity`, `drama`, `injury_persistence`, `show_odds`, `roll_dice`, `show_adult_side`, `gm_view`, `cutaways`, `defeat`, `levels`, `veils`, `voice`, `pov`, `tense`, `length`); a change to what is shown is remembered for the next campaign. `GET /api/story` carries them as `table`. |
 | `DELETE /api/story` | Starts a new story: the history, every branch, the record and the people met go, the scene stays. |
 
 ## People you've met

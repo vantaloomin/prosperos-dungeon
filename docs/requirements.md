@@ -836,8 +836,8 @@ them. Code is `Program/dungeon/narration/`.
     in code blocks are left alone. A setting will skip the rewrite pass for slow local models
     (the dash fix always runs). Vanta chose this strictness (rewrite strong tells only) on
     2026-10-21.
-- **Not yet wired:** the narration format, intensity and rewrite settings arrive with the player
-  settings in Milestone 1; until then Story mode uses the defaults above.
+- **Wired (2026-10-23):** the narration format is a Table rule (`pov`, `tense`, `length`), set at session zero or
+  any time under Tone and rules. A new campaign starts in close third person, past tense, short.
 
 ### What the model CLIs send
 

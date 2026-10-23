@@ -1,4 +1,4 @@
-import type { ReceiptChip, StoryMessage, Srd52Spells, BandStep, HiddenRoll, TurnAction, TurnEvent, TurnSoFar, Gear, JournalEntry, JournalQuest, JournalInstitution, Premade, StoryBranch, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryFight, IntensityPreset, DramaLevel, TurnPace, StoryArc, StoryPace, StoryTier, SheetGrowth, StoryHand, JournalThread, StoryChapter, LegacyRole, ToneCategory, ToneVoice, VeilTopic } from '../../types'
+import type { BandStep, DramaLevel, Gear, HiddenRoll, IntensityPreset, JournalEntry, JournalInstitution, JournalQuest, JournalThread, LegacyRole, NarrationLength, NarrationPov, NarrationTense, Premade, ReceiptChip, SheetGrowth, Srd52Spells, StoryArc, StoryBranch, StoryChapter, StoryFight, StoryHand, StoryMessage, StoryPace, StoryPerson, StoryPlace, StoryRoll, StoryScene, StoryStart, StoryTier, ToneCategory, ToneVoice, TurnAction, TurnEvent, TurnPace, TurnSoFar, VeilTopic } from '../../types'
 
 /** "Tuesday, 9:40 am" from the scene's local time, which is the city's own clock with no offset. */
 export function sceneTime(localTime: string): string {
@@ -247,6 +247,13 @@ export const LEVEL_NAMES = ['Off the page', 'Restrained', 'Mature', 'Unflinching
 export const VEIL_TOPICS: [VeilTopic, string][] = [['torture', 'Torture'], ['sexual-violence', 'Sexual violence'], ['child-harm', 'Harm to children'],
   ['self-harm', 'Self-harm'], ['mutilation', 'Mutilation'], ['execution', 'Executions'], ['slavery', 'Slavery'], ['sacrifice', 'Sacrifice'],
   ['addiction', 'Addiction'], ['disease', 'Disease']]
+/** The narration format's choices (dungeon/narration/prompt.py Format). */
+export const POVS: [NarrationPov, string][] = [['third', 'Close third person ("she draws her knife")'],
+  ['second', 'Second person ("you draw your knife")'], ['first', 'First person ("I draw my knife")']]
+export const TENSES: [NarrationTense, string][] = [['past', 'Past tense'], ['present', 'Present tense']]
+export const LENGTHS: [NarrationLength, string][] = [['short', 'Short (about 200 words a turn)'],
+  ['medium', 'Medium (about 400 words)'], ['long', 'Long (800 words or more)']]
+
 export const VOICES: [ToneVoice, string][] = [['grim', 'Grim'], ['wry', 'Wry'], ['romantic', 'Romantic'], ['hopeful', 'Hopeful'],
   ['lyrical', 'Lyrical'], ['plain', 'Plain']]
 
