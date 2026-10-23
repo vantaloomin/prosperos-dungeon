@@ -788,6 +788,8 @@ def fall(connection, state: dict, rng, now: str, lines: list[str], events: list)
     """The character dropped: under 5E the death saves first (a natural 20 is back up and fighting), then the defeat
     table. With the Table's defeat 'by_aim', only foes out to kill bring the death saves; for the rest the table decides. Returns how the fight stands: '' when it goes on, else 'dying'."""
     saved = None
+    # Captors beat the character down at Maimed; they are not dying.
+    fell = 'is beaten down' if condition(connection)['level'] < DYING else 'falls, dying'
     if fifth(connection) and (state['wants'] == 'kill' or campaign_table.rule(connection, 'defeat') == 'as_written'):
         saved, up, saves = combat5e.death_saves(rng)
         rolled = ', '.join(str(natural) for natural in saves)
@@ -805,7 +807,7 @@ def fall(connection, state: dict, rng, now: str, lines: list[str], events: list)
         saved, how = combat_iron.face_death(connection, state, rng)
         lines.append(f"The player's character is brought to the brink of death and faces it: {how or 'it takes them.'}")
     outcome, said = defeat(connection, state, rng, now, saved)
-    lines.append(f"The player's character falls, dying. {said}")
+    lines.append(f"The player's character {fell}. {said}")
     events.append((outcome, state['foes'][0]['name']))
     return 'dying'
 

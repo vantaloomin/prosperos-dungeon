@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Recheck fixes.** "Cut at him with my sword" or "hit him over the head" always starts the fight, even when
+  the referee skipped the line or called it Luck. Handing over your purse or surrendering no longer rolls. Captors
+  beat you down rather than leave you dying. "Sell her everything I can spare" sells stolen goods, curios and spare
+  copies, and keeps your food, clothes and one of each thing.
+- **People lie.** Ask someone with something to hide (the reeve, the fence, whoever gave you shady work) and they
+  lie to you. The game rolls your Mind in secret: catch it and you see the tell, miss it and the lie reads true and
+  goes in your journal as what you believe. Someone who trusts you tells you the truth.
 - **Range and position in a fight.** Foes can be far off, nearby or at arm's length, and close a step a round.
   Archers shoot from where they stand (the Heartwood wardens now loose from the trees). You can't cut someone across
   a clearing, but a bow or a thrown knife reaches. "I fall back to the stairs" breaks away, and the fight card shows

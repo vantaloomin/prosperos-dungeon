@@ -66,6 +66,9 @@ def test_robbers_demand_the_purse_and_captors_take_the_character_whole(app, clie
         captors = {'round': 1, 'wants': 'capture', 'foes': [foe(name='the warden', weapon=1)]}
         _, lines, ending = combat.play_round(connection, captors, [], [], Dice(99))
         assert combat.condition(connection)['level'] == combat.DOWN and ending == 'dying'
+        lines = []
+        combat.fall(connection, captors, Dice(1), NOW, lines, [])
+        assert lines[-1].startswith("The player's character is beaten down.")
 
 
 def test_paying_robbers_off_in_the_story_ends_the_fight(client, connected, provider, app):

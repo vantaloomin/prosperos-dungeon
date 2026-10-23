@@ -490,8 +490,29 @@ def sell_in_story(connection, city_id: str, shop: dict, text: str, day: str, now
     return lines
 
 
+# "Sell her everything I can spare": what the character can do without. "Everything": all but the clothes on them.
+SPARE = re.compile(r"\b((can|could) spare|to spare|don'?t need|do without|can live without)\b", re.I)
+EVERYTHING = re.compile(r"\b(everything|all (of )?my (stuff|things|gear|goods|loot)|the lot)\b", re.I)
+KEPT = ('clothing',)
+# Spared, the character keeps their food and one of each other thing; stolen goods and curios all go.
+NEEDED = ('clothing', 'food')
+
+
+def spared(text: str, pack: list[dict]) -> list[tuple[dict, int]]:
+    """What "everything I can spare" or "everything" offers, stolen goods first."""
+    rows = sorted(pack, key=lambda row: not row['stolen'])
+    if SPARE.search(text):
+        spare = [(row, row['qty'] if row['stolen'] or row['category'] == 'curio' else
+                  0 if row['category'] in NEEDED else row['qty'] - 1) for row in rows]
+        return [(row, qty) for row, qty in spare if qty > 0]
+    if EVERYTHING.search(text):
+        return [(row, row['qty']) for row in rows if row['category'] not in KEPT]
+    return []
+
+
 def offered(text: str, pack: list[dict]) -> list[tuple[dict, int]]:
-    """The pack's things a selling line names, with how many (all of them for "all my ..."), stolen ones first."""
+    """The pack's things a selling line names, with how many (all of them for "all my ..."), stolen ones first; or
+    everything it can spare."""
     found, named = [], set()
     for row in sorted(pack, key=lambda row: not row['stolen']):
         if row['item_id'] in named:
@@ -505,7 +526,7 @@ def offered(text: str, pack: list[dict]) -> list[tuple[dict, int]]:
                 found.append((row, min(qty, row['qty'])))
                 named.add(row['item_id'])
                 break
-    return found
+    return found or spared(text, pack)
 
 
 # The shop window ---------------------------------------------------------------------------------
