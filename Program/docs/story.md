@@ -543,6 +543,10 @@ settlements): a gate, an edge or a ruin to arrive at, until that town is built o
   hours each). Each day eats one food from the pack (bread, then dried meat, then cheese); the days without go
   hungry. The story clock moves by all of it, so deadlines pass on the way; walking is no rest, so wounds do not
   mend on the road.
+- **A modern world goes by car or bus.** A map with `by` (Havenbrooke's: "car or bus") gives each road its hours on
+  the road instead, in fractions where it is short (Haven to Ithaca is 0.7, forty-two minutes), and with no `food`
+  a trip eats nothing from the pack. Havenbrooke's places away from Haven are one city,
+  `world/data/cities/havenbrooke-road.json` (`scripts/world/havenbrooke_road.py`).
 - The narrator gets "## The journey" with what happened, and the scene opens with "You arrive at …". The places
   known (`story_map`) are branched with the story; each line's journey is kept (`story_journeys`), so telling it
   again walks no further.

@@ -1,0 +1,15 @@
+{
+ "about": "Havenbrooke's tier track (dungeon/tiers.py): standing, what campus and the institutions think of the character, on the shared ladder; the arc and pace a campaign starts with unless the player picks others; and the day the story clock starts (Monday of the second week of Fall 2009).",
+ "track": "standing",
+ "name": "Standing",
+ "arc": "classic",
+ "pace": "slow",
+ "start": "2009-08-31T08:00",
+ "words": [
+  "known on their floor",
+  "a name on campus",
+  "a name in Haven and the courts",
+  "a name in Washington",
+  "a name the old powers know"
+ ]
+}
