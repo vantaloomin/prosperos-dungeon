@@ -11,7 +11,8 @@ campaign's seed, never drawn by hand or by an image model.
 - **Lots, filled as they are needed.** Each patch is split into lots, the town's buildings. The town's own places,
   employers and colleges are given lots in their own neighborhood when the map is laid out (an open place, a park or
   a square, takes a whole patch). Every other lot is blank: what is in it is decided when the character first looks
-  (a later step), then kept.
+  (`look`), from the town's names and its look's table (world/data/town_lots.json) at the intensity levels in
+  play, then kept as found.
 - **Style.** The era picks the look unless the town's `town_map` says otherwise: 'ink' (a hand-inked old town, for
   fantasy and the past), 'street' (a modern grid) or 'floor' (a town on one floor of BABEL's tower, walled by it).
 """
@@ -22,7 +23,9 @@ import json
 import math
 from collections import Counter
 
-from dungeon import hexes, story
+from dungeon import hexes, packages, story
+from dungeon.database import many
+from dungeon.errors import require
 from dungeon.hexes import unit
 
 # How far out the map runs, in its own units: the town fills the middle 100 and the country runs on to 160.
@@ -207,9 +210,10 @@ def _layout(town_id: str, seed: str, digest: str, data_json: str) -> dict:
 
 def layout(data: dict, seed: str) -> dict:
     """The town's map for this seed, worked out once and kept while the town's data is unchanged."""
-    text = json.dumps({key: data.get(key) for key in ('id', 'era', 'lat', 'lon', 'neighborhoods', 'places',
-                                                       'employers', 'colleges', 'water', 'transit', 'town_map')},
-                      sort_keys=True, default=str)
+    kept = {key: data.get(key) for key in ('id', 'era', 'lat', 'lon', 'neighborhoods', 'employers', 'colleges', 'water',
+                                           'transit', 'town_map')}
+    kept['places'] = [place for place in data.get('places', []) if 'lot' not in place.get('tags', [])]
+    text = json.dumps(kept, sort_keys=True, default=str)
     return _layout(data['id'], seed, hashlib.blake2b(text.encode(), digest_size=8).hexdigest(), text)
 
 
@@ -233,7 +237,9 @@ class Town:
         self.rivers = [(project(data, water['points']), water) for water in data.get('water', [])
                        if water['kind'] == 'river']
         # The town's own places, employers and colleges, each to be given a lot or a patch in its neighborhood.
-        things = [(place, 'place') for place in data.get('places', []) if 'hamlet' not in place.get('tags', [])]
+        # A lot looked at is a place of the town (lot_places), but it already has its lot.
+        things = [(place, 'place') for place in data.get('places', [])
+                  if not {'hamlet', 'lot'} & set(place.get('tags', []))]
         # An employer that is also a place (Varro's Mill the workplace and the place) is the one building.
         named = {place['name'].casefold() for place, _ in things}
         things += [(employer, 'employer') for employer in data.get('employers', [])
@@ -512,13 +518,105 @@ def route(graph: dict, starts: list[tuple], goal: tuple) -> list[tuple] | None:
 # In play ------------------------------------------------------------------------------------------
 
 def view(connection) -> dict | None:
-    """The map of the town the story is in, and where in it the character is; None in a place with no map (the
-    road between towns, the wilds)."""
+    """The map of the town the story is in, the lots looked at so far, and where in it the character is; None in a
+    place with no map (the road between towns, the wilds)."""
     where = story.scene_row(connection)
     data = story.city_data(connection, where['city_id'])
     if not has_map(data):
         return None
     board = layout(data, hexes.seed(connection))
+    known = looked(connection, data['id'])
     here = where['place_id']
     place = next((item for item in data['places'] if item['id'] == here), None)
-    return board | {'name': data['name'], 'here': {'place': here, 'neighborhood': place and place.get('neighborhood')}}
+    return board | {'lots': [lot | {'found': known.get(lot['id'])} for lot in board['lots']], 'name': data['name'],
+                    'here': {'place': here, 'neighborhood': place and place.get('neighborhood')}}
+
+
+def looked(connection, town: str) -> dict[str, dict]:
+    return {row['lot']: json.loads(row['found'])
+            for row in many(connection, 'SELECT lot, found FROM story_lots WHERE town=?', (town,))}
+
+
+def look(connection, lot_id: str) -> dict:
+    """The character looks at a blank lot in the town they are in: what stands there is decided now and kept."""
+    where = story.scene_row(connection)
+    data = story.city_data(connection, where['city_id'])
+    require(has_map(data), 'There is no street map here.')
+    seed = hexes.seed(connection)
+    lot = next((found for found in layout(data, seed)['lots'] if found['id'] == lot_id), None)
+    require(lot is not None, f'No lot {lot_id!r} in {data["name"]}.', 404)
+    require(lot['place'] is None, f'{lot["place"] and lot["place"]["name"]} is already on the map.')
+    if found := looked(connection, data['id']).get(lot_id):
+        return found
+    found = contents(data, seed, lot, hexes.levels(connection))
+    connection.execute('INSERT INTO story_lots (town, lot, found) VALUES (?, ?, ?)',
+                       (data['id'], lot_id, json.dumps(found)))
+    return found
+
+
+# Opening hours and the like for a lot's place, by its kind; a home is someone's, so it is open whenever they are in.
+LOT_PLACES = {
+    'home': {'cost': 'free', 'setting': 'indoor', 'good_for': ['solo'], 'day_parts': ['morning', 'afternoon', 'evening', 'late']},
+    'shop': {'cost': '$', 'setting': 'indoor', 'good_for': ['solo', 'friends'], 'day_parts': ['morning', 'afternoon']},
+    'workshop': {'cost': '$', 'setting': 'indoor', 'good_for': ['solo'], 'day_parts': ['morning', 'afternoon']},
+    'nightlife': {'cost': '$$', 'setting': 'indoor', 'good_for': ['solo', 'friends'], 'day_parts': ['evening', 'late']},
+    'bar': {'cost': '$', 'setting': 'indoor', 'good_for': ['solo', 'friends'], 'day_parts': ['afternoon', 'evening', 'late']},
+    'tavern': {'cost': '$', 'setting': 'indoor', 'good_for': ['solo', 'friends'], 'day_parts': ['afternoon', 'evening', 'late']},
+}
+OTHER_PLACE = {'cost': '$', 'setting': 'indoor', 'good_for': ['solo', 'friends'], 'day_parts': ['morning', 'afternoon', 'evening']}
+
+
+def lot_places(connection, data: dict) -> dict:
+    """The lots looked at in this town, as places of it (story.city_for): the referee can take the character there
+    and the narrator knows what they are."""
+    if not has_map(data):
+        return {}
+    source = next(iter(data.get('sources') or {}), 'curated')
+    found = [{'id': lot['id'], 'name': lot['name'], 'kind': lot['kind'], 'neighborhood': lot['neighborhood'],
+              'summary': lot['summary'], 'tags': ['lot', lot['entry']], 'seasons': [], 'cuisine': '', 'spots': [],
+              'source': source} | LOT_PLACES.get(lot['kind'], OTHER_PLACE)
+             for lot in looked(connection, data['id']).values()]
+    return {'places': [*data['places'], *found]} if found else {}
+
+
+# What stands on a blank lot -----------------------------------------------------------------------
+
+@functools.cache
+def tables() -> dict:
+    return json.loads((packages.DATA / 'town_lots.json').read_text(encoding='utf-8'))
+
+
+def contents(data: dict, seed: str, lot: dict, levels: dict[str, int] | None) -> dict:
+    """What stands on a lot, decided by the seed alone from the look's table: on a main road a shop is likelier
+    than a house. An entry the intensity levels do not allow is passed over."""
+    entries = [entry for entry in tables()['street' if style(data) == 'street' else 'ink']
+               if hexes.allowed(entry, levels)]
+    weights = [entry.get('front', entry['weight']) if lot['front'] else entry['weight'] for entry in entries]
+    key = (data['id'], lot['id'])
+    roll, running = unit(seed, 'lot', *key) * sum(weights), 0.0
+    entry = entries[-1]
+    for candidate, weight in zip(entries, weights):
+        running += weight
+        if roll < running:
+            entry = candidate
+            break
+    given, families = names(data)
+    template = entry['names'][int(unit(seed, 'lot-name', *key) * len(entry['names']))]
+    name = template.format(family=families[int(unit(seed, 'lot-family', *key) * len(families))],
+                           given=given[int(unit(seed, 'lot-given', *key) * len(given))])
+    return {'id': f'lot-{lot["id"]}', 'name': name, 'kind': entry['kind'], 'entry': entry['id'],
+            'summary': entry['summary'], 'neighborhood': lot['neighborhood']}
+
+
+def names(data: dict) -> tuple[list[str], list[str]]:
+    """Given and family names for a town's signs: its own name groups, else its era's commonest bank."""
+    groups = list(((data.get('names') or {}).get('groups') or {}).values())
+    given = [name for group in groups for gender in ('feminine', 'masculine') for name in group.get(gender, [])]
+    families = [name for group in groups for name in group.get('family', [])]
+    if given and families:
+        return given, families
+    shipped = json.loads((packages.DATA / 'names.json').read_text(encoding='utf-8'))
+    era = shipped['eras'].get(data.get('era', 'modern')) or shipped['eras']['modern']
+    bank = shipped['banks'][era['bank']]
+    culture = bank[max(era['mix'], key=era['mix'].get) if era['mix'] else next(iter(bank))]
+    return culture['feminine'] + culture['masculine'], culture['family']

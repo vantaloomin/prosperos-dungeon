@@ -277,6 +277,7 @@ textarea { resize: vertical; line-height: 1.6; }
 .town-map .town-wall line { stroke: var(--ink); stroke-width: 2.2; stroke-linecap: round; }
 .town-map .town-lot { fill: color-mix(in srgb, var(--ink) 45%, var(--paper)); stroke: var(--ink); stroke-width: calc(0.35px * var(--town-scale, 1)); cursor: pointer; }
 .town-map .town-lot.named { fill: color-mix(in srgb, var(--accent) 55%, var(--ink)); }
+.town-map .town-lot.found { fill: color-mix(in srgb, var(--accent) 25%, var(--ink)); }
 .town-map .town-lot.here, .town-map .town-lot.picked { fill: var(--accent); }
 .town-map.town-street .town-lot { fill: color-mix(in srgb, var(--muted) 40%, var(--surface)); stroke: color-mix(in srgb, var(--muted) 70%, transparent); }
 .town-map.town-street .town-road { stroke: color-mix(in srgb, #d9b45a 60%, var(--surface)); }

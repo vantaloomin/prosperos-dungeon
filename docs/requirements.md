@@ -357,8 +357,10 @@ crawl; nothing is drawn by hand or by an image model, and only what the player l
   buildings.
 - **Seeded and stable.** The same town and seed give the same map, so it is never stored. Authored places,
   employers and colleges are given lots in their own neighborhood (a park or square takes a whole patch); every
-  other lot is blank until the character looks at it, when code fills it from the town's trades and prices and
-  keeps it.
+  other lot is blank until the character looks at it, when code decides what stands there from the seed and the
+  look's table (world/data/town_lots.json: homes, trades, shops, taverns, and vice gated by the intensity
+  levels; a shop is likelier on a main road), names it from the town's own names, and keeps it as found. A lot
+  looked at is a place of the town from then on: the player can walk there by name and the narrator knows it.
 - **Looks.** 'ink' (an old hand-inked town, for fantasy and past eras), 'street' (a modern grid) or 'floor' (a
   town on one floor of BABEL's tower, walled by it). The era chooses unless the city's `town_map.style` says
   otherwise; a world's road or wilds says `"none"` and has no town map.

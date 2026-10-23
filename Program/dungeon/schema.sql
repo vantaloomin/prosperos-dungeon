@@ -764,6 +764,16 @@ CREATE TABLE IF NOT EXISTS story_sites (
   PRIMARY KEY (map, q, r)
 );
 
+-- The lots of a town map the character has looked at (dungeon/townmap.py), and what stands there (`found`, JSON),
+-- kept as found whatever the intensity levels are later. Branched with the story; the map itself comes from the
+-- town's data and the campaign's seed.
+CREATE TABLE IF NOT EXISTS story_lots (
+  town TEXT NOT NULL,
+  lot TEXT NOT NULL,
+  found TEXT NOT NULL,
+  PRIMARY KEY (town, lot)
+);
+
 -- Where the character is when a hex crawl leaves them out in the wild, between places (dungeon/hexes.py): the hex,
 -- and the hex they believe they are in when they have lost their way. Branched with the story.
 CREATE TABLE IF NOT EXISTS story_position (

@@ -35,4 +35,10 @@ test('the named places are listed by name, open ground and lots alike; blank lot
   assert.deepEqual(namedPlaces(town()).map(({ thing }) => thing.id), ['the-green', 'varro-mill'])
   assert.equal(lotClass(town().lots[0], town(), 'varro-mill'), 'town-lot named picked')
   assert.equal(lotClass(town().lots[1], town()), 'town-lot')
+  const looked = town()
+  looked.lots[1].found = { id: 'lot-1b', name: "Hesk's bakery", kind: 'shop', summary: 'Bread at dawn.' }
+  looked.here = { place: 'lot-1b', neighborhood: 'mill-row' }
+  assert.equal(lotClass(looked.lots[1], looked), 'town-lot found here')
+  assert.deepEqual(whereOnMap(looked), [8 / 3, 64 / 3])
+  assert.deepEqual(namedPlaces(looked).map(({ thing }) => thing.id), ['lot-1b', 'the-green', 'varro-mill'])
 })
