@@ -429,6 +429,11 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
   with its own roll card (Vitality, or the ruleset's attack), until a turning point: someone falls, a foe breaks, the
   character is Wounded or worse, the fight ends, or five rounds pass. The narrator gets every round and why it
   stopped; the player decides what next. A plan with no attack or guard in it stops at once.
+- **What the foes want.** Foes fight for it. Robbers who have hurt the character demand their purse; a line that
+  hands it over ("I toss him my purse") ends the fight with the purse gone. Captors fight to take the character
+  whole: their blows stop at Maimed (MARVEL), which ends the fight on the defeat table, and a surrender ("I drop my
+  sword and surrender") makes the character their prisoner at once. A brawler lets a character who backs off or
+  yields go. Killers give no quarter: the narrator is told the plea fails and the round goes on.
 - **Morale.** A foe at Maimed is down. When one falls or is badly hurt, the rest roll Resolve, and on a failure they
   break: they flee or give up. The fight is won when nobody is left standing and unbroken.
 - **Wounds.** Grazed, Hurt, Wounded, Maimed, Dying. Wounded makes physical actions a step harder; Maimed makes every
