@@ -1457,6 +1457,52 @@ def fate_stress(play):
     play.sheet()
 
 
+def away(play, hours: float):
+    """Pretend the player closed the app this many hours ago (the real-time mark, story_real, moved back)."""
+    from datetime import datetime, timedelta
+    sqlite3 = __import__('sqlite3')
+    with sqlite3.connect(play.dungeon.data_dir / 'dungeon.sqlite3') as connection:
+        row = connection.execute('SELECT at FROM story_real WHERE id=1').fetchone()
+        if row:
+            at = datetime.fromisoformat(row[0]) - timedelta(hours=hours)
+            connection.execute('UPDATE story_real SET at=? WHERE id=1', (at.isoformat(),))
+    play.write(f"- away for {hours} hours ({'mark moved back' if row else 'no real-time mark kept'})\n")
+    return bool(row)
+
+
+def real_time(play):
+    """Real-time worlds: Havenbrooke keeps moving while the app is closed (time since the last line passes before the
+    next, and the narrator hears about the gap); the Table's World clock set to story time stops it."""
+    play.dungeon.call('PUT', '/api/story/scene', {'city_id': 'haven', 'place_id': 'nexus-housing'})
+    play.dungeon.call('DELETE', '/api/story')
+    premades = play.dungeon.call('GET', '/api/story/start').get('premades') or []
+    if not premades:
+        play.flag('No Havenbrooke premades offered in Haven.')
+        return
+    play.start(premades[0]['id'])
+    rules = play.dungeon.call('GET', '/api/story/table')
+    play.write(f"- World clock: {rules.get('clock')}\n")
+    play.say('I unpack the last of my boxes and put my posters up.')
+    before = play.story()['scene']['local_time']
+    if away(play, 5):
+        play.clock = None
+        play.say('I check my phone and head down to the dining hall.')
+        after = play.story()['scene']['local_time']
+        play.write(f'- story time {before} then {after}\n')
+        if after[:13] <= before[:13]:
+            play.flag(f'Five hours away passed no time in a real-time world: {before} then {after}.')
+    else:
+        play.flag('Havenbrooke keeps no real-time mark.')
+    play.attempt('World clock: story time', 'PUT', '/api/story/table', {'clock': 'story'})
+    before = play.story()['scene']['local_time']
+    away(play, 5)
+    play.say('I grab a tray and find a table.')
+    after = play.story()['scene']['local_time']
+    play.write(f'- story time {before} then {after} with the clock on story time\n')
+    if after[:13] > before[:13]:
+        play.flag(f'With the World clock on story time, five hours away still passed: {before} then {after}.')
+
+
 SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl, 'road': road,
              'director': director, 'chapters': chapters, 'ironman': ironman, 'gm_view': gm_view, 'memory': memory,
              'legacy': legacy, 'fivee_checks': fivee_checks, 'fivee_fight': fivee_fight,
@@ -1472,4 +1518,4 @@ SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl,
              'robbers': robbers, 'captors': captors, 'brawler': brawler, 'ambush': ambush,
              'lies': lies, 'labour': labour, 'ranges': ranges, 'shut_shop': shut_shop,
              'dice_log': dice_log, 'haggling': haggling, 'life_cards': life_cards, 'bonds': bonds, 'party': party,
-             'ironsworn_vows': ironsworn_vows, 'fate_stress': fate_stress}
+             'ironsworn_vows': ironsworn_vows, 'fate_stress': fate_stress, 'real_time': real_time}
