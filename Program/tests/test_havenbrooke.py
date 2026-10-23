@@ -33,6 +33,11 @@ def test_a_campaign_starts_in_fall_2009_enrolled_in_the_premades_classes(client,
     journal = ok(client.get('/api/story/journal'))['institutions']
     assert [item['term'] for item in journal] == ['Fall 2009']
     assert {item['id'] for item in journal[0]['classes']} == {'cs-230', 'cs-215', 'bus-210', 'hum-101'}
+    # Michael has no car; the kit says how he gets about, as Austin's says he drives.
+    carried = {item['item_id'] for item in ok(client.get('/api/story/gear'))['items']}
+    assert 'shuttle-pass' in carried and 'truck-keys' not in carried
+    begin(client, 'austin-hallward')
+    assert 'truck-keys' in {item['item_id'] for item in ok(client.get('/api/story/gear'))['items']}
 
 
 def test_a_trip_goes_by_car_or_bus_and_eats_nothing_from_the_pack(client, connected, provider, app):

@@ -234,6 +234,33 @@
    "slots": 0.1,
    "rarity": "rare",
    "legal": false
+  },
+  {
+   "id": "truck-keys",
+   "name": "Keys to Austin's 1998 Ford Ranger",
+   "category": "gear",
+   "price": 0,
+   "slots": 0,
+   "rarity": "common",
+   "legal": true
+  },
+  {
+   "id": "audi-keys",
+   "name": "Keys to Christine's black Audi A4",
+   "category": "gear",
+   "price": 0,
+   "slots": 0,
+   "rarity": "uncommon",
+   "legal": true
+  },
+  {
+   "id": "shuttle-pass",
+   "name": "Havenbrooke ID with a shuttle pass",
+   "category": "gear",
+   "price": 0,
+   "slots": 0,
+   "rarity": "common",
+   "legal": true
   }
  ],
  "shops": [
@@ -298,7 +325,8 @@
     "flip-phone": 1,
     "backpack": 1,
     "notebook": 2,
-    "winter-coat": 1
+    "winter-coat": 1,
+    "shuttle-pass": 1
    }
   },
   "piper-marsh": {
@@ -309,7 +337,8 @@
     "winter-coat": 1,
     "flip-phone": 1,
     "licensed-charm": 2,
-    "chalk": 1
+    "chalk": 1,
+    "shuttle-pass": 1
    }
   },
   "jason-kessler": {
@@ -319,7 +348,8 @@
     "notebook": 1,
     "winter-coat": 1,
     "flip-phone": 1,
-    "textbook": 1
+    "textbook": 1,
+    "shuttle-pass": 1
    }
   },
   "austin-hallward": {
@@ -330,7 +360,9 @@
     "winter-coat": 1,
     "flip-phone": 1,
     "hoodie": 1,
-    "first-aid-kit": 1
+    "first-aid-kit": 1,
+    "shuttle-pass": 1,
+    "truck-keys": 1
    }
   },
   "rina-aldwyn": {
@@ -340,7 +372,8 @@
     "notebook": 1,
     "winter-coat": 1,
     "flip-phone": 1,
-    "umbrella": 1
+    "umbrella": 1,
+    "shuttle-pass": 1
    }
   },
   "kimberly-corwin": {
@@ -352,7 +385,8 @@
     "flip-phone": 1,
     "chalk": 2,
     "sage-bundle": 1,
-    "laptop": 1
+    "laptop": 1,
+    "shuttle-pass": 1
    }
   },
   "michael-reeves": {
@@ -363,7 +397,8 @@
     "winter-coat": 1,
     "flip-phone": 1,
     "laptop": 1,
-    "ramen": 1
+    "ramen": 1,
+    "shuttle-pass": 1
    }
   },
   "christine-kessler": {
@@ -372,7 +407,9 @@
     "backpack": 1,
     "notebook": 1,
     "winter-coat": 1,
-    "iphone": 1
+    "iphone": 1,
+    "shuttle-pass": 1,
+    "audi-keys": 1
    }
   },
   "paula-mercer": {
@@ -382,7 +419,8 @@
     "notebook": 1,
     "winter-coat": 1,
     "flip-phone": 1,
-    "blood-pack": 2
+    "blood-pack": 2,
+    "shuttle-pass": 1
    }
   },
   "amanda-rhodes": {
@@ -391,7 +429,8 @@
     "backpack": 1,
     "notebook": 1,
     "winter-coat": 1,
-    "iphone": 1
+    "iphone": 1,
+    "shuttle-pass": 1
    }
   }
  }

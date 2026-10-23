@@ -48,6 +48,10 @@ factions for Havenbrooke (listed in [README.md](README.md)). The school file in
 `engine/institutions/` is read once the institutions engine lands; until then the package
 validator skips it.
 
+## Who drives
+
+Austin drives (the source has him driving four hours for Paula and up to campus with Jason); this draft gives him an old Ford Ranger. Christine's black Audi is a draft. Everyone else rides the shuttle, the bus or with Austin, and every kit carries a Havenbrooke ID with a shuttle pass.
+
 ## Extrapolated in this draft, for Vanta to keep or change
 
 Entries marked `"origin": "draft"` fill gaps: later terms' dates, class meeting times not in the
