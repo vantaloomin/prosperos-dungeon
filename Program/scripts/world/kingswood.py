@@ -266,6 +266,12 @@ notables = [
     {'id': 'corin-ashby', 'name': 'Corin Ashby', 'given': 'Corin', 'pronouns': 'he/him', 'age': 31, 'place': 'felled-oak',
      'role': 'tavern keeper', 'staff': True, 'about': 'Keeps the Felled Oak, fences whatever the crews steal and sells '
      'what he overhears to whoever pays: the reeve, the watch, and lately an elf.', 'wants': 'to sell what he hears this week to the highest bidder', 'source': SRC},
+    # Mag keeps her front room alone, every evening: the fence is open whenever Low Ford drinks.
+    {'id': 'mag-hollin', 'name': 'Mag Hollin', 'given': 'Mother Mag', 'pronouns': 'she/her', 'age': 63,
+     'place': 'mother-mags', 'role': 'keeper', 'staff': True, 'days': [0, 1, 2, 3, 4, 5, 6], 'about': 'Keeps the '
+     'front room at Low Ford: plum spirit, cures, the odd curse, and quiet money for whatever the crews bring her that '
+     "they shouldn't have. She asks no questions and pays a quarter of what a thing is worth.",
+     'wants': 'to buy cheap and keep the watch looking the other way', 'source': SRC},
     {'id': 'sereth', 'name': 'Sereth of the Ford', 'given': 'Sereth', 'pronouns': 'they/them', 'age': 142, 'kind': 'half-elf',
      'place': 'crossroads-market', 'role': 'herb seller', 'staff': False, 'about': 'A half-elf who sells herbs at the '
      'market and lives at the ford. In truth a Brynwyr warden\'s eyes in Kingswood. They have been told that if the '

@@ -192,7 +192,26 @@ async def decide(state, text: str, config: dict | None, decisions: dict | None =
             judged_actions = None
         if judged_actions is not None:
             said = {'said': True} if actions is None else {}
-            return [{**action, **said} for action in judged_actions if action['roll']]
+            return armed(text, [{**action, **said} for action in judged_actions if action['roll']], fight)
     if actions is not None:
-        return [action for action in actions if action['roll']]
-    return by_keywords(text, fight)
+        return armed(text, [action for action in actions if action['roll']], fight)
+    return armed(text, by_keywords(text, fight), fight)
+
+
+# A blow that is plainly an attack whatever the Referee says, so a fight always starts (dungeon/combat.py stand_in).
+VIOLENT = re.compile(r'\b(stab\w*|slash\w*|punch\w*|kick\w*|shoot\w*|attack\w*|kill\w*|hack\w* at|run\w* \w+ '
+                     r'through|lunge\w* at|strike\w* at|swing\w* at|cut\w* (him|her|them|down)|headbutt\w*|'
+                     r'strangl\w*|throttl\w*)', re.I)
+
+
+def armed(text: str, actions: list[dict], fight: str | None = None) -> list[dict]:
+    """The rolled actions, with an attack the Referee let pass unrolled added back: a line that attacks someone
+    ("I draw my sword and cut down the foreman") always rolls Vitality, so the fight starts."""
+    from dungeon import combat
+    if any(action.get('stat') == 'Vitality' for action in actions) or len(actions) >= MOST_ACTIONS:
+        return actions
+    for part in sentences(text):
+        if VIOLENT.search(part) and (fight or combat.SOMEONE.search(part)):
+            return [*actions, {'action': part, 'roll': True, 'stat': 'Vitality', 'difficulty': 'normal',
+                               'said': True}]
+    return actions

@@ -14,7 +14,8 @@ before anyone looked.
 
 - A fight won leaves the fallen where they fell (spoils): their bodies hold what they carried, decided as they fall
   and unseen until searched: a person's coins (more on a robber), and their weapon when the town sells its like; a
-  beast, the dead or a fiend, nothing. Every town knows a body, with or without a finds table.
+  beast, the dead or a fiend, nothing. Every town knows a body, with or without a finds table, and there is no body
+  to search where nobody has fallen.
 
 All of it is game state, branched with the story (dungeon/timeline.py SAVED).
 """
@@ -119,6 +120,9 @@ def look(connection, city: dict, place: dict, text: str, rolls: list[dict], rng,
     key = f"{city['id']}:{place['id']}:{word.lower()}"
     where = f"the {word.lower()} at {place['name']}"
     row = stored(connection, key)
+    if row is None and kind == NEVER_STOLEN:
+        # A body is only where someone fell: a fight won leaves one (spoils); nothing else does.
+        return [f"There is no body at {place['name']}: nobody has fallen here. Describe no corpse."]
     if row is None:
         contents = roll(city['id'], tables(city['id'])[kind], rng or random.SystemRandom())
         connection.execute('INSERT INTO story_finds (key, city_id, place_id, word, contents, seen, created_at) '

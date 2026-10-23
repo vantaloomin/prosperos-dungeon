@@ -197,6 +197,16 @@
       "authoritative": "Program/dungeon/world/data/cities/kingswood.json"
     },
     {
+      "id": "mag-hollin",
+      "name": "Mag Hollin",
+      "role": "Keeper of Mother Mag's at Low Ford, fence",
+      "settlement": "kingswood",
+      "tier": "local",
+      "stats": null,
+      "origin": "m1-slice",
+      "authoritative": "Program/dungeon/world/data/cities/kingswood.json"
+    },
+    {
       "id": "sereth-of-the-ford",
       "name": "Sereth of the Ford",
       "role": "Half-elf herb seller, 142 years old",

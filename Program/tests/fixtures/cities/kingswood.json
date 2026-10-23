@@ -1989,6 +1989,28 @@
    "source": "curated-2026-10"
   },
   {
+   "id": "mag-hollin",
+   "name": "Mag Hollin",
+   "given": "Mother Mag",
+   "pronouns": "she/her",
+   "age": 63,
+   "place": "mother-mags",
+   "role": "keeper",
+   "staff": true,
+   "days": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "about": "Keeps the front room at Low Ford: plum spirit, cures, the odd curse, and quiet money for whatever the crews bring her that they shouldn't have. She asks no questions and pays a quarter of what a thing is worth.",
+   "wants": "to buy cheap and keep the watch looking the other way",
+   "source": "curated-2026-10"
+  },
+  {
    "id": "sereth",
    "name": "Sereth of the Ford",
    "given": "Sereth",

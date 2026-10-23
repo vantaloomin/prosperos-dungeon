@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Playtest fixes.** "I take a private room" books it. Selling something you don't have, or trading at a shut shop,
+  no longer goes through in the story. Mother Mag keeps her front room every evening. You can shoplift (and get
+  caught). "I put my shirt and coat back on" dresses you. An attack on someone the narrator brought in always rolls
+  and starts the fight. There's no body to search where nobody fell. "I wait until evening" waits until evening.
 - **Foes who want something.** Bandits who have drawn blood demand your purse, and handing it over ends the fight.
   Wardens and slavers want you alive: they beat you down rather than kill you, and you can surrender. Back off from
   a brawl and they let you go. Beasts and killers won't take surrender.

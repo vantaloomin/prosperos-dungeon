@@ -33,6 +33,8 @@ OFF = re.compile(r'\b(undress\w*|strip\w*|take\w* off|took off|pull\w* off|shed\
                  r'peel\w* off|shrug\w* off)\b', re.I)
 ON = re.compile(r'\b(get dressed|gets dressed|dress\w* again|put\w* (on|back on)|pull\w* on|button\w* up|'
                 r'lace\w* up|re-?dress\w*)\b', re.I)
+# "I put my shirt and coat back on": dresses only the layers it names.
+PUT_ON = re.compile(r'\b(put\w*|pull\w*|slip\w*|shrug\w*)\b(\s+[\w,\']+){1,8}?\s+(back\s+)?on\b', re.I)
 LOOSEN = re.compile(r'\b(loosen\w*|unbutton\w*|unlace\w*|undo\w*)\b', re.I)
 WASH = re.compile(r'\b(wash\w*|bath(e|es|ing)?|scrub\w*|rins\w*|clean (myself|up|off)|swim\w*)\b', re.I)
 WORK = re.compile(r'\b(spend\w* the (day|morning|afternoon) (felling|chopping|digging|hauling|working|labou?ring)|'
@@ -83,7 +85,7 @@ def dressing(look: dict, text: str, where: str) -> dict:
         for layer in (named or ('outer', 'under')):
             if dress[layer] == 'worn':
                 dress[layer] = 'loosened'
-    elif ON.search(text):
+    elif ON.search(text) or (named and PUT_ON.search(text)):
         for layer in (named or LAYERS):
             dress[layer] = 'worn'
     return look | {'dress': dress}

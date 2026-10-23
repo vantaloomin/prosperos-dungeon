@@ -340,6 +340,9 @@ class Notable(Record):
     # Whether they can move away or retire like other townsfolk (dungeon/world/turnover.py). A setting's own
     # characters stay put unless the pack says otherwise.
     can_leave: bool = False
+    # The weekdays a staff notable works (0 is Monday); two drawn days off when left out. A one-person shop's keeper
+    # works every day, so the shop is open whenever its place is.
+    days: list[Annotated[int, Field(ge=0, le=6)]] | None = None
 
 
 # Where a townsperson goes to work on a goal (dungeon/world/townsfolk.py GOAL_KINDS).

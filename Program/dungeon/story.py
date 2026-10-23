@@ -827,17 +827,28 @@ def counter_turn(state, user: dict, rolls: list[dict]) -> list[str]:
             return decode(kept['lines'])
         view = scene(connection, story_clock.now(connection, database.clock))
         found = shop_view(connection, view)
-        if not found or not found['open']:
+        if not found:
             return []
+        if not found['open']:
+            lines = [] if not trading(user['text']) else [
+                'The shop is shut: nobody is behind the counter, so nothing is bought, sold or haggled over.']
+            connection.execute('INSERT INTO story_counter (message_id, lines) VALUES (?, ?)', (user['id'], encode(lines)))
+            return lines
         city, shop, day = view['city']['id'], inventory.shop_at(view['city']['id'], view['place']['id']), story_day(view)
         lines = haggle_lines(connection, city, shop, day, rolls, found['keeper_key'])
         stock_rows = inventory.window(connection, city, shop, True, '', day)['stock']
+        lines += inventory.lift(connection, city, shop, user['text'], rolls, stock_rows)
         lines += inventory.buy_in_story(connection, city, shop, user['text'], stock_rows, day, database.now(),
                                         view['data']['currency'])
         lines += inventory.sell_in_story(connection, city, shop, user['text'], day, database.now(),
                                          view['data']['currency'])
         connection.execute('INSERT INTO story_counter (message_id, lines) VALUES (?, ?)', (user['id'], encode(lines)))
         return lines
+
+
+def trading(text: str) -> bool:
+    """Whether a line deals at the counter: buys, sells or haggles."""
+    return any(pattern.search(text) for pattern in (inventory.BUY, inventory.SELL, inventory.HAGGLE))
 
 
 def haggle_lines(connection, city: str, shop: dict, day: str, rolls: list[dict], keeper_key: str) -> list[str]:
@@ -1432,7 +1443,10 @@ def received(database, text: str, client_id: str) -> tuple[dict, dict | None]:
                 # A rest passes its own nights (dungeon/rest.py), and a journey its own hours (dungeon/travel.py).
                 elif not rest.resting(text) and not travel.setting_out(connection, user['city_id'],
                                                                        user['place_id'], text):
-                    pass_time(database, connection, story_clock.minutes_for(text, bool(referee.by_keywords(text))))
+                    local = local_moment(city_data(connection, user['city_id']),
+                                         story_clock.now(connection, database.clock))
+                    pass_time(database, connection, story_clock.minutes_for(text, bool(referee.by_keywords(text)),
+                                                                            local))
         reply = optional(connection, "SELECT * FROM story_messages WHERE reply_to=? AND status='complete'",
                          (user['id'],))
         return user, reply
