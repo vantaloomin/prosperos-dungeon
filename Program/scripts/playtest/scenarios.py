@@ -1380,6 +1380,32 @@ def bonds(play):
     play.say('I ask Corin to watch my back tomorrow at the border stones.')
 
 
+def party(play):
+    """Companions: someone bonded comes along when asked, is in every scene with the character, fights beside them,
+    and leaves when told to go home."""
+    play.start('agna-holt')
+    play.say('I take a seat at the bar and talk with Corin Ashby about the Heartwood contract.')
+    play.say('I clasp Corin\'s hand. "I swear to stand by you, Corin."')
+    play.say('"Come with me, Corin. I could use someone at my back."')
+    view = play.story()
+    play.write(f"- party: {[person.get('name') for person in view.get('people') or [] if person.get('party')]}\n")
+    play.move('the-sawpit')
+    around = [str(person) for person in play.story()['scene'].get('around') or []]
+    play.write(f'- around at the Sawpit: {around}\n')
+    if not any('Corin' in person for person in around):
+        play.flag(f'Corin did not come along to the Sawpit: {around}')
+    set_fight(play, {'name': 'drunk brawler', 'count': 2, 'vitality': 9, 'resolve': 9, 'weapon': 0, 'wants': 'kill'},
+              zone='engaged')
+    for line in ('Two drunks come at us with knives. I draw my sword and go for the nearer one.',
+                 'I keep at the nearer drunk.', 'I keep fighting.'):
+        if not fight_on(play).get('fight'):
+            break
+        play.say(line)
+    play.say('"Go home, Corin. I can take it from here."')
+    view = play.story()
+    play.write(f"- party after: {[person.get('name') for person in view.get('people') or [] if person.get('party')]}\n")
+
+
 SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl, 'road': road,
              'director': director, 'chapters': chapters, 'ironman': ironman, 'gm_view': gm_view, 'memory': memory,
              'legacy': legacy, 'fivee_checks': fivee_checks, 'fivee_fight': fivee_fight,
@@ -1394,4 +1420,4 @@ SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl,
              'spoils': spoils, 'mending': mending, 'town_map': town_map,
              'robbers': robbers, 'captors': captors, 'brawler': brawler, 'ambush': ambush,
              'lies': lies, 'labour': labour, 'ranges': ranges, 'shut_shop': shut_shop,
-             'dice_log': dice_log, 'haggling': haggling, 'life_cards': life_cards, 'bonds': bonds}
+             'dice_log': dice_log, 'haggling': haggling, 'life_cards': life_cards, 'bonds': bonds, 'party': party}
