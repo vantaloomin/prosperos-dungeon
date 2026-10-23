@@ -1314,6 +1314,72 @@ def shut_shop(play):
         play.flag(f"Money moved at a shut shop: {before.get('coins')} to {after.get('coins')}.")
 
 
+def dice_log(play):
+    """The dice log: every roll of the branch, turn by turn, newest first, with a tally; nothing while the dice are
+    hidden."""
+    play.start('agna-holt')
+    play.say('I arm-wrestle the biggest logger in the Felled Oak for a round of drinks.')
+    play.say('I try to talk the keeper into a free bowl of stew.')
+    play.say('I take a seat by the fire.')
+    log = play.dungeon.call('GET', '/api/story/dice-log')
+    turns = log.get('turns') or []
+    play.write(f"- dice log: shown {log.get('shown')}, {len(turns)} turns, tally {json.dumps(log.get('tally'))}\n")
+    for turn in turns:
+        play.write(f'  - {json.dumps(turn, ensure_ascii=False)[:400]}\n')
+    rolled = sum(len(turn.get('rolls') or []) for turn in turns)
+    if not turns or not rolled:
+        play.flag('The dice log shows no rolls after two rolling lines.')
+    play.attempt('Hide the dice', 'PUT', '/api/story/table', {'show_odds': False})
+    hidden = play.dungeon.call('GET', '/api/story/dice-log')
+    play.write(f"- hidden: shown {hidden.get('shown')}, {len(hidden.get('turns') or [])} turns\n")
+    if hidden.get('turns'):
+        play.flag('The dice log still lists rolls with the dice hidden.')
+
+
+def haggling(play):
+    """Opposed haggling: the keeper's Resolve against the character's Allure, held at the counter for the day."""
+    play.start('tobin-pell')
+    play.move('pell-provisions')
+    play.gear()
+    play.say('I haggle hard over the hooded lantern, reminding Margery I am family and the Guild pays late.',
+             {'roll': True})
+    gear = play.gear()
+    play.write(f"- haggled: {(gear.get('shop') or {}).get('haggled')}\n")
+    play.say('I buy the hooded lantern at that price.')
+    play.gear()
+
+
+def life_cards(play):
+    """Life Cards that do what they say: several days in Kingswood, with every card drawn logged, and the journal and
+    sheet after (quests, rumors, fates, pursuers)."""
+    play.start('agna-holt')
+    for line in ('I spend the day around the Felled Oak, listening for work.',
+                 'I sleep until morning.',
+                 'I spend the day at the Crossroads market, asking after news.',
+                 'I sleep until morning.',
+                 'I spend the day on the green, watching who signs the contract.',
+                 'I sleep until morning.'):
+        play.say(line)
+    play.journal()
+    play.sheet()
+
+
+def bonds(play):
+    """Bonds: swearing to stand by someone there forges a bond; it shows on the sheet and in People you've met."""
+    play.start('agna-holt')
+    play.say('I take a seat at the bar and talk with Corin Ashby about the Heartwood contract.')
+    play.say('I clasp Corin\'s hand. "I swear to stand by you, Corin, whatever comes of this contract."')
+    view = play.story()
+    bonded = [person.get('name') for person in view.get('people') or [] if person.get('bond')]
+    play.write(f'- bonded in People: {bonded}\n')
+    sheet = play.sheet()
+    if not bonded:
+        play.flag('Swearing to stand by Corin made no bond in People you have met.')
+    if 'bond' not in json.dumps(sheet).lower():
+        play.flag('The sheet shows no Bonds track after swearing a bond.')
+    play.say('I ask Corin to watch my back tomorrow at the border stones.')
+
+
 SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl, 'road': road,
              'director': director, 'chapters': chapters, 'ironman': ironman, 'gm_view': gm_view, 'memory': memory,
              'legacy': legacy, 'fivee_checks': fivee_checks, 'fivee_fight': fivee_fight,
@@ -1327,4 +1393,5 @@ SCENARIOS = {'town': town, 'shop': shop, 'heartwood': heartwood, 'brawl': brawl,
              'narration_format': narration_format, 'selling': selling, 'wayhouse': wayhouse, 'grime': grime,
              'spoils': spoils, 'mending': mending, 'town_map': town_map,
              'robbers': robbers, 'captors': captors, 'brawler': brawler, 'ambush': ambush,
-             'lies': lies, 'labour': labour, 'ranges': ranges, 'shut_shop': shut_shop}
+             'lies': lies, 'labour': labour, 'ranges': ranges, 'shut_shop': shut_shop,
+             'dice_log': dice_log, 'haggling': haggling, 'life_cards': life_cards, 'bonds': bonds}
