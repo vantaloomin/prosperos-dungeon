@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Range and position in a fight.** Foes can be far off, nearby or at arm's length, and close a step a round.
+  Archers shoot from where they stand (the Heartwood wardens now loose from the trees). You can't cut someone across
+  a clearing, but a bow or a thrown knife reaches. "I fall back to the stairs" breaks away, and the fight card shows
+  where you are and how far off each foe is.
 - **Day labour pays.** A day hauling logs or a few hours at the saws pays the town's day wage, so you can earn your
   keep. An empty tavern stays empty: the narrator no longer fills it with patrons.
 - **Playtest fixes.** "I take a private room" books it. Selling something you don't have, or trading at a shut shop,

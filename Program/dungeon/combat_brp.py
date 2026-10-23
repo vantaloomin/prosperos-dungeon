@@ -25,7 +25,7 @@ import random
 import re
 from functools import cache
 
-from dungeon import combat5e, sheet
+from dungeon import combat5e, ranges, sheet
 from dungeon.rules import brp
 
 # Foes by the words of their name, the more specific first.
@@ -235,9 +235,7 @@ def foes_attack(connection, state: dict, standing, guarded: bool, rng, lines: li
     armor = (brp.by_id('armor').get(found.get('armor') or '') or {}).get('av', 0)
     dodged = False
     for foe in standing(state):
-        if foe['zone'] != 'engaged':
-            foe['zone'] = 'engaged'
-            lines.append(f"{foe['name'].capitalize()} closes in.")
+        if ranges.close(foe, lines):
             continue
         attack = brp.level(rng.randint(1, 100), foe['attack']['skill'])
         dodge = None
