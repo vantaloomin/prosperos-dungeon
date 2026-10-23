@@ -320,9 +320,9 @@ map; the narrator describes what code says is there.
   every table). Some sites can be seen from a distance (a tower, smoke), others are hidden and are only found
   by searching their hex. A found site becomes a place on the map one can travel to, and a generated hamlet
   becomes a place on the Road with a generated name until it is built out.
-- **Moving.** "I set out for Eriane" plans the fastest way over known hexes (roads first) and walks it hex by
-  hex. "I head north-east" or "I strike out east into the hills" walks one day in that direction ("north" or
-  "south" picks the nearer flat-top direction). "I search the area" spends the hex's crossing time to look for
+- **Moving.** "I set out for Eriane" plans the quickest way (along roads, across country where that
+  is quicker) and walks it hex by hex. "I head north-east" or "I strike out east into the hills" walks
+  one day in that direction ("north" or "south" picks the nearer flat-top direction). "I search the area" spends the hex's crossing time to look for
   hidden sites (a Mind roll). Clicking a known hex on the map puts the line in the box.
 - **Each hex entered.** It is revealed with the ring around it (two rings from hills, three from a mountain,
   only itself in forest or marsh), rolls an encounter against its region's danger (one step safer on a road),

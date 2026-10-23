@@ -1,5 +1,6 @@
 {
  "about": "Havenbrooke's travel map (dungeon/travel.py, docs/story.md \"Journeys\"): Haven and the places a trip from it reaches, joined by roads with their hours by car or bus, each region's encounters on the way and at night away from home, and the world and region its Life Cards draw from (dungeon/happenings.py). Haven is a whole town (world/data/cities/haven.json); the rest are places of world/data/cities/havenbrooke-road.json. Positions are a rough projection of the Northeast.",
+ "travel": "roads",
  "world": "havenbrooke",
  "by": "car or bus",
  "hours_a_day": 16,
