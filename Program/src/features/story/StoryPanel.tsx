@@ -4,7 +4,7 @@ import { BookOpenText, Ellipsis, PanelRight, Pin, PinOff, Swords, X } from 'luci
 import { api } from '../../api'
 import type { Gear, Story as StoryData, StoryBack, StoryFight } from '../../types'
 import { HiddenValues } from '../settings/HiddenValues'
-import { saveLook, useDeviceLook } from '../settings/deviceLook'
+import { readLook, saveLook, useDeviceLook } from '../settings/deviceLook'
 import { StoryBranches } from './StoryBranches'
 import { StoryChapters } from './StoryChapters'
 import { StoryExport } from './StoryExport'
@@ -18,6 +18,8 @@ import { StoryNotebook } from './StoryNotebook'
 import { StoryPeople } from './StoryPeople'
 import { StoryPowers } from './StoryPowers'
 import { StorySheet } from './StorySheet'
+import { loadGrids, onGrid, useGrids, type Flash } from './grid'
+import { StoryGrid } from './StoryGrid'
 import { foeNumbers } from './storyText'
 import { ASK_EVENT, hasWidget, loadPins, MORE, peopleHere, savePins, sceneWidgets, TABS, takeAsked, WIDGET_NAMES, type Widget } from './scene'
 import { STORY_KEY } from './table'
@@ -35,11 +37,19 @@ function useWide() {
   return useSyncExternalStore(subscribe, () => window.matchMedia?.(WIDE).matches ?? false, () => false)
 }
 
-/** Whether the panel sits beside the story: a wide screen, in the Classic layout (Reader keeps it in tabs). */
+/** Whether the panel sits beside the story (a wide screen, in Classic or Custom; Reader keeps it in tabs), and whether
+ *  it is the player's own grid. */
 function useBeside() {
   const wide = useWide()
   const { layout } = useDeviceLook()
-  return wide && layout === 'classic'
+  return { wide: wide && layout !== 'reader', custom: wide && layout === 'custom' }
+}
+
+/** Whether a widget is a tile of the Custom grid on screen now (read fresh, since it is asked for from elsewhere). */
+function tiledNow(widget: Widget): boolean {
+  if (readLook().layout !== 'custom' || !window.matchMedia?.(WIDE).matches) return false
+  const saved = loadGrids()
+  return onGrid(saved.layouts[saved.current], widget)
 }
 
 interface PanelProps { story: StoryData; change: (request: () => Promise<StoryData>) => Promise<void>; onTravel: (name: string) => void; onBack: (data: StoryBack) => void }
@@ -53,7 +63,7 @@ export function StoryPanel(props: PanelProps) {
   const panel = usePanel(props.story)
   if (!props.story.messages.length) return <BeforeTheStory {...props} />
   return (
-    <aside className={panel.open ? 'story-panel open' : 'story-panel'} aria-label="The scene and your character">
+    <aside className={`story-panel${panel.open ? ' open' : ''}${panel.custom ? ' custom' : ''}`} aria-label="The scene and your character">
       {panel.showing && <PanelBody {...props} panel={panel} />}
       <PanelTabs story={props.story} panel={panel} />
     </aside>
@@ -63,18 +73,30 @@ export function StoryPanel(props: PanelProps) {
 type Panel = ReturnType<typeof usePanel>
 
 function usePanel(story: StoryData) {
-  const wide = useBeside()
+  const { wide, custom } = useBeside()
   const roomy = useWide()
+  const grids = useGrids()
   const gear = useQuery({ queryKey: ['story-gear'], queryFn: () => api<Gear>('/story/gear'), enabled: story.messages.length > 0 })
   const [view, setView] = useState<PanelView>('scene')
   const [open, setOpen] = useState(false)
-  // Opened to a widget asked for from elsewhere: before this screen was shown, or while it is.
+  const [flash, setFlash] = useState<Flash | null>(null)
+  // Opened to a widget asked for from elsewhere: before this screen was shown, or while it is. In Custom, a widget
+  // already on the grid is shown where it is, for a moment, rather than opened in the drawer.
   useEffect(() => {
-    const take = () => { const widget = takeAsked(); if (widget) { setView(widget); setOpen(true) } }
+    const take = () => {
+      const widget = takeAsked()
+      if (!widget) return
+      if (tiledNow(widget)) { setView('scene'); setFlash({ widget, at: Date.now() }) } else { setView(widget); setOpen(true) }
+    }
     take()
     window.addEventListener(ASK_EVENT, take)
     return () => window.removeEventListener(ASK_EVENT, take)
   }, [])
+  useEffect(() => {
+    if (!flash) return
+    const timer = window.setTimeout(() => setFlash(null), 1600)
+    return () => window.clearTimeout(timer)
+  }, [flash])
   const [pins, setPins] = useState(loadPins)
   const picked = sceneWidgets(story, !!gear.data?.shop)
   const showing = wide || open
@@ -90,7 +112,7 @@ function usePanel(story: StoryData) {
     setPins(next)
     savePins(next)
   }
-  return { wide, roomy, view, open, close: () => setOpen(false), pins, picked, showing, changed: seen !== picked.join(), pick, pin }
+  return { wide, custom, grids, flash, roomy, view, open, close: () => setOpen(false), pins, picked, showing, changed: seen !== picked.join(), pick, pin }
 }
 
 function PanelBody({ panel, ...props }: PanelProps & { panel: Panel }) {
@@ -99,7 +121,9 @@ function PanelBody({ panel, ...props }: PanelProps & { panel: Panel }) {
   return (
     <div className="story-panel-body">
       {!panel.wide && <button type="button" className="icon-button story-panel-close" aria-label="Close" onClick={panel.close}><X aria-hidden="true" /></button>}
-      {view === 'scene' && <SceneView {...props} picked={picked} pins={pins.filter((item) => !picked.includes(item) && hasWidget(story, item))} onUnpin={pin} />}
+      {view === 'scene' && panel.custom && <StoryGrid story={story} grids={panel.grids} picked={picked} flash={panel.flash}
+        render={(widget) => <PanelWidget widget={widget} {...props} />} />}
+      {view === 'scene' && !panel.custom && <SceneView {...props} picked={picked} pins={pins.filter((item) => !picked.includes(item) && hasWidget(story, item))} onUnpin={pin} />}
       {view === 'more' && <MoreList story={story} onPick={panel.pick} />}
       {view !== 'scene' && view !== 'more' && <DrawerView {...props} widget={view} pinned={pins.includes(view)} onPin={() => pin(view)} />}
     </div>
@@ -119,11 +143,13 @@ function PanelTabs({ story, panel }: { story: StoryData; panel: Panel }) {
   )
 }
 
-/** Classic or Reader, from the tabs on a wide screen (Settings > General > Appearance keeps it too). */
+/** Reader, or back to the layout with the panel beside the story (Classic or Custom), from the tabs on a wide screen
+ *  (Settings > General > Appearance keeps it too). */
 function LayoutSwitch({ reader }: { reader: boolean }) {
+  const { lastBeside } = useDeviceLook()
   const label = reader ? 'Show the scene panel beside the story' : 'Reader layout: give the story the room'
   return <button type="button" className="icon-button story-layout" aria-label={label} title={label}
-    onClick={() => saveLook({ layout: reader ? 'classic' : 'reader' })}>{reader ? <PanelRight aria-hidden="true" /> : <BookOpenText aria-hidden="true" />}</button>
+    onClick={() => saveLook({ layout: reader ? lastBeside : 'reader' })}>{reader ? <PanelRight aria-hidden="true" /> : <BookOpenText aria-hidden="true" />}</button>
 }
 
 /** Before the first line there is no scene yet; only the ways back into other stories are worth showing. */
