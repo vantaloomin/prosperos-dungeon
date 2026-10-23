@@ -17,6 +17,13 @@ in. `dungeon/packages.py` does both.
 | `engine/<kind>/<key>.json` | `engine`: the game's own data (`adventures`, `arcs`, `cities`, `factions`, `finds`, `items`, `premades`, `tiers`, `travel`) |
 | `assets/**` | `assets`: bytes and media type |
 
+`world.json` may carry a `theme`: `{"name": "Ember and soot", "palette": {"accent", "background", "surface", "text"}}`,
+each a `#rrggbb` color (`dungeon/world_theme.py`). The story screen wears it while the story is in that world, unless
+the player turns off Settings > General > Appearance > "Use the world's colors". The rest of the app keeps the
+player's scheme. A theme with a color missing, or one whose text or accent would not read (4.5:1 and 3:1, as a
+custom palette must), is not used. Vallarith ships "Ember and soot", Havenbrooke "Autumn quad" (light) and BABEL
+"Tower glass".
+
 An entry hides a truth when its section is `hidden-truths` or it has a `secret`, `secrets`, `guise`,
 `mortal_life`, `truth` or `hidden` field. The editor will mark those rows.
 

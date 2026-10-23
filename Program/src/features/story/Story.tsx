@@ -19,6 +19,7 @@ import { StoryStart } from './StoryStart'
 import { StoryNarration } from './StoryNarration'
 import { StoryPanel } from './StoryPanel'
 import { StoryStage } from './StoryArt'
+import { useWorldTheme } from './useWorldTheme'
 import { EntityHost } from './EntityCard'
 import { STORY_KEY } from './table'
 
@@ -37,6 +38,7 @@ export function Story({ go }: { go: (view: View) => void }) {
   // How many lines the story had when the turn began: once the saved story has more, the turn is in it.
   const [since, setSince] = useState(0)
   const [draft, setDraft] = useState({ text: '', at: 0 })
+  const look = useWorldTheme(story.data)
   if (story.isPending) return <Loading label="Opening your story" />
   if (story.isError) return <ErrorNotice error={story.error} />
   const update = (data: StoryData) => client.setQueryData(STORY_KEY, data)
@@ -61,7 +63,7 @@ export function Story({ go }: { go: (view: View) => void }) {
   const draftLine = (text: string) => setDraft({ text, at: Date.now() })
   return (
     <EntityHost story={story.data} onDraft={draftLine} onFind={(key) => void change(() => api<StoryData>('/story/find', { key }))}>
-    <section className="story" aria-labelledby="story-heading">
+    <section className={look.className} style={look.style} aria-labelledby="story-heading">
       <div className="story-main">
         <StoryHeader story={story.data} change={change} onDraft={(text) => setDraft({ text, at: Date.now() })} />
         {!story.data.ready && <NoModel go={go} />}

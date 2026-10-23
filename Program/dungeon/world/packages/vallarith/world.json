@@ -177,6 +177,15 @@
     "drama": "eventful",
     "note": "See canon/tone-and-house-rules.md."
   },
+  "theme": {
+    "name": "Ember and soot",
+    "palette": {
+      "accent": "#c4623f",
+      "background": "#15110e",
+      "surface": "#1d1814",
+      "text": "#e8ddcb"
+    }
+  },
   "personas": {
     "custom_allowed": true,
     "file": "personas.json"

@@ -9,11 +9,12 @@ export type Motion = 'system' | 'reduce' | 'full'
  *  free grid the player arranges (src/features/story/grid.ts), never the default. */
 export type Layout = 'classic' | 'reader' | 'custom'
 /** `stageArt`: the place's picture behind the story and portraits of who is here, when they have been made.
- *  `lastBeside`: the layout with the panel beside the story that Reader goes back to. */
-export interface DeviceLook { textScale: number; font: ReadingFont; fontEverywhere: boolean; motion: Motion; layout: Layout; lastBeside: 'classic' | 'custom'; stageArt: boolean }
+ *  `lastBeside`: the layout with the panel beside the story that Reader goes back to. `worldColors`: the story screen
+ *  wears the colors its world ships (dungeon/world_theme.py), when they read well. */
+export interface DeviceLook { textScale: number; font: ReadingFont; fontEverywhere: boolean; motion: Motion; layout: Layout; lastBeside: 'classic' | 'custom'; stageArt: boolean; worldColors: boolean }
 
 export const TEXT_SCALE = { min: 85, max: 200, step: 5 } as const
-export const DEFAULT_LOOK: DeviceLook = { textScale: 100, font: 'default', fontEverywhere: false, motion: 'system', layout: 'classic', lastBeside: 'classic', stageArt: true }
+export const DEFAULT_LOOK: DeviceLook = { textScale: 100, font: 'default', fontEverywhere: false, motion: 'system', layout: 'classic', lastBeside: 'classic', stageArt: true, worldColors: true }
 const KEY = 'dungeon-device-look'
 const FONTS: ReadingFont[] = ['default', 'atkinson', 'opendyslexic']
 const MOTIONS: Motion[] = ['system', 'reduce', 'full']
@@ -36,6 +37,7 @@ export function cleanLook(value: unknown): DeviceLook {
     layout: LAYOUTS.includes(saved.layout as Layout) ? saved.layout as Layout : DEFAULT_LOOK.layout,
     lastBeside: saved.lastBeside === 'custom' ? 'custom' : 'classic',
     stageArt: saved.stageArt !== false,
+    worldColors: saved.worldColors !== false,
   }
 }
 
