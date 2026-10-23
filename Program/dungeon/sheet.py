@@ -158,3 +158,11 @@ def refresh_fate(connection, nights: int) -> list[str]:
     if found:
         set_native(connection, fate.refreshed(found), '')
     return []
+
+
+def compel_line(connection, text: str, rolls: list[dict]):
+    """Under Fate, the player's line acting on the trouble is a compel even when no roll was (one a turn: a roll that
+    already compelled pays it)."""
+    found = native(connection) if ruleset(connection) == fate.ID else None
+    if found and not any('compelled' in (row.get('skill') or '') for row in rolls) and fate.compelled(found, text):
+        set_native(connection, found | {'fate_points': found['fate_points'] + 1}, '')

@@ -63,6 +63,7 @@ from dungeon.narration import prose
 from dungeon.providers.chat import INCOMPLETE
 from dungeon.providers.scheduling import CONVERSATION
 from dungeon.rules import brp, fate, ironsworn, marvel, narrative, srd52
+from dungeon.sheet import compel_line
 from dungeon.sheet import native as native_sheet
 from dungeon.sheet import ruleset as ruleset_of
 from dungeon.sheet import stats as sheet_stats
@@ -1142,8 +1143,12 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
         ask = None if turn.saved(connection, user['id']) else judge.asking(
             connection, persona_text(connection)[0], scene_text(scene(connection, moment)), user['text'], actions)
         if ask is None:
-            return turn.saved(connection, user['id']) or turn.store(connection, user['id'], actions, database.now(),
-                                                                    getattr(state, 'dice', None))
+            if saved := turn.saved(connection, user['id']):
+                return saved
+            rolls = turn.store(connection, user['id'], actions, database.now(), getattr(state, 'dice', None))
+            # Under Fate, a line that acts on the trouble earns its Fate point even with nothing rolled.
+            compel_line(connection, user['text'], rolls)
+            return rolls
     actions = await judge.judged(state, actions, ask)
     with database.connect(write=True) as connection:
         return turn.saved(connection, user['id']) or turn.store(connection, user['id'], actions, database.now(),
