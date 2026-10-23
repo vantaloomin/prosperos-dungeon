@@ -204,6 +204,8 @@ class TableUpdate(Input):
     pov: Literal['first', 'second', 'third'] | None = None
     tense: Literal['past', 'present'] | None = None
     length: Literal['short', 'medium', 'long'] | None = None
+    # Whether shopkeepers have finite cash (dungeon/inventory.py).
+    shop_cash: Literal['finite', 'unlimited'] | None = None
 
 
 class IronswornBuild(Input):

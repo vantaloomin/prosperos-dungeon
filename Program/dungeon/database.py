@@ -184,7 +184,8 @@ ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"
                  ('story_rolls', 'skill', 'TEXT'),
                  ('story_campaign', 'pov', "TEXT CHECK (pov IN ('first', 'second', 'third'))"),
                  ('story_campaign', 'tense', "TEXT CHECK (tense IN ('past', 'present'))"),
-                 ('story_campaign', 'length', "TEXT CHECK (length IN ('short', 'medium', 'long'))"))
+                 ('story_campaign', 'length', "TEXT CHECK (length IN ('short', 'medium', 'long'))"),
+                 ('story_campaign', 'shop_cash', "TEXT CHECK (shop_cash IN ('finite', 'unlimited'))"))
 
 
 # Tables renamed since they were made: (old, new). Renamed before the schema runs, so their rows carry over.

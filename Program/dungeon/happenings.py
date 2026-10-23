@@ -13,8 +13,8 @@ touches roll odds.
 A drawn card's hidden truth goes in the record as the world's (and what the character sees, as their belief when
 it is not the whole truth); the narrator gets what the character sees and any choice it puts to them. Code applies
 the effects the game can keep so far: stress, a wound, coin in an unskilled day's wages, food gained or lost, time,
-someone's feelings, and a fight. Market, rumor, quest, faction, fate and pursuer effects wait for their systems
-(factions, off-page beats, word gets around); their truth is kept in the record meanwhile.
+someone's feelings, a fight, and markets (dungeon/inventory.py). Rumor, quest, faction, fate and pursuer effects wait
+for their systems (factions, off-page beats, word gets around); their truth is kept in the record meanwhile.
 
 Draws are game state (story_cards), branched with the story; each line's draw is kept with it, so telling the turn
 again draws nothing new.
@@ -210,13 +210,24 @@ def feared(connection, effect: dict, context: dict) -> list[str]:
                       amount=effect['amount'], cause='what just happened')
 
 
+def marketed(connection, effect: dict, context: dict) -> list[str]:
+    """A shortage or a glut: a kind of goods' prices in this town move for some days (dungeon/inventory.py)."""
+    if not context.get('city') or not effect['shift']:
+        return []
+    until = (date.fromisoformat(context['day']) + timedelta(days=effect['days'] - 1)).isoformat()
+    inventory.move_market(connection, context['city'], effect['goods'], effect['shift'], until)
+    goods = 'everything' if effect['goods'] == 'any' else effect['goods']
+    return [f"Prices of {goods} here are {abs(effect['shift'])}% {'up' if effect['shift'] > 0 else 'down'} for "
+            f"{effect['days']} day{'s' if effect['days'] != 1 else ''}."]
+
+
 def corrupted(connection, effect: dict, context: dict) -> list[str]:
     return growth.darken(connection, 'corruption', effect['shift'], context.get('levels'),
                          context['logged'], context['rng'])
 
 
 APPLY = {'coin': coin, 'supply': supply, 'wound': wound, 'feeling': feeling, 'fight': fight, 'stress': feared,
-         'clock': clocked, 'reputation': reputed, 'corruption': corrupted}
+         'clock': clocked, 'reputation': reputed, 'corruption': corrupted, 'market': marketed}
 
 
 def play(connection, drawn: dict, context: dict) -> tuple[list[str], int]:

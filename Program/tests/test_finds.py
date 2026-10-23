@@ -72,8 +72,9 @@ def test_what_is_inside_is_rolled_once_described_and_can_be_taken(client, connec
 
     tell(client, 'I take the plum spirit.', 'story-0003')
     assert "takes 2 × Bottle of plum spirit from the chest" in provider.requests[-1]['system']
-    items = {row['item_id']: row['qty'] for row in ok(client.get('/api/story/gear'))['items']}
-    assert items['plum-spirit'] == 2
+    items = {row['item_id']: row for row in ok(client.get('/api/story/gear'))['items']}
+    # Taken from a chest at the tavern, someone else's: stolen, so only a fence will buy it.
+    assert items['plum-spirit']['qty'] == 2 and items['plum-spirit']['stolen']
     tell(client, 'I open the chest.', 'story-0004')
     assert 'Inside the chest at the Felled Oak: nothing of use.' in provider.requests[-1]['system']
 
@@ -99,3 +100,9 @@ def test_taking_a_seat_takes_nothing_and_going_back_puts_it_back(client, connect
     assert any(row['item_id'] == 'plum-spirit' for row in ok(client.get('/api/story/gear'))['items'])
     ok(client.post('/api/story/back', json={'message_id': first['message']['id']}))
     assert not any(row['item_id'] == 'plum-spirit' for row in ok(client.get('/api/story/gear'))['items'])
+
+
+def test_what_is_stolen_depends_on_whose_it_was():
+    tavern, wilds = {'kind': 'tavern'}, {'kind': 'trail'}
+    assert finds.stolen_from('kingswood', tavern, 'chest') and finds.stolen_from('kingswood', wilds, 'purse')
+    assert not finds.stolen_from('kingswood', wilds, 'chest') and not finds.stolen_from('kingswood', tavern, 'body')

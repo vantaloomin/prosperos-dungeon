@@ -42,7 +42,7 @@ function ShopWindow({ shop, currency, onBuy }: { shop: Shop; currency: Gear['cur
   return (
     <details className="story-people" open>
       <summary>The counter{shop.open ? (shop.haggled ? ` (${haggleText(shop.haggled)})` : '') : ' (closed)'}</summary>
-      {shop.open && <p className="subtle">Buy here, or in the story (&ldquo;I buy two loaves&rdquo;). Haggling is an Allure roll, once a day.</p>}
+      {shop.open && <CounterNotes shop={shop} currency={currency} />}
       {shop.open ? <ul aria-label="For sale">
         {shop.stock.map((row) => <li key={row.item_id}>
           <p>{row.name} <span className="subtle">{moneyText(row.price, currency)} · {row.qty} left</span></p>
@@ -53,4 +53,14 @@ function ShopWindow({ shop, currency, onBuy }: { shop: Shop; currency: Gear['cur
       </ul> : <p className="subtle">Nobody is behind the counter. Come back in shop hours.</p>}
     </details>
   )
+}
+
+/** What to know at an open counter: how to trade, a fence, prices moved by events, the keeper's cash. */
+function CounterNotes({ shop, currency }: { shop: Shop; currency: Gear['currency'] }) {
+  return (<>
+    <p className="subtle">Buy or sell here, or in the story (&ldquo;I buy two loaves&rdquo;, &ldquo;I sell the knife&rdquo;). Haggling is an Allure roll, once a day.</p>
+    {shop.fence && <p className="subtle">The keeper fences stolen goods, and pays little for them.</p>}
+    {shop.market && <p className="subtle">{shop.market}</p>}
+    {shop.cash != null && <p className="subtle">The keeper has {moneyText(shop.cash, currency)} to buy with.</p>}
+  </>)
 }

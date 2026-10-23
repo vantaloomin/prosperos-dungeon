@@ -85,6 +85,7 @@ test('money, gear and slots read plainly', () => {
   assert.equal(moneyText(5, { code: 'crown', name: 'silver crowns' }), '0.05 silver crowns')
   assert.equal(gearLine({ name: 'Rope, fifty feet', qty: 2 }), 'Rope, fifty feet × 2')
   assert.equal(gearLine({ name: 'Belt knife', qty: 1 }), 'Belt knife')
+  assert.equal(gearLine({ name: 'Signet ring', qty: 1, stolen: true }), 'Signet ring (stolen)')
   assert.equal(slotsText({ used: 3.35, max: 13 }), '3.35 of 13 slots')
   assert.equal(slotsText({ used: 2.5, max: 10 }), '2.5 of 10 slots')
 })

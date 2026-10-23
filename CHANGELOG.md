@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Shops that run like shops.** Sell in the story ("I sell the blanket"). Shops restock every week or so, and their
+  keepers only have so much money to buy with (Tone and rules can turn that off). What you take from other people's
+  things is stolen: honest shops won't touch it, but Mother Mag's in Kingswood will, for a quarter of its worth.
+  Shortages and gluts from the world's events move prices for a while.
 - **How it's written.** Tone and rules (and session zero's Fine-tune) let you choose the narration's point of view
   (close third, second or first person), tense (past or present) and length (short, medium or long), and change them
   at any time. New campaigns start in close third person, past tense; stories already under way keep "you" and the

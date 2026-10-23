@@ -6,7 +6,7 @@ each world's campaign plays by its own.
 
 - **Tone** (intensity, drama, injury_persistence, defeat, levels, veils, voice) is the world's at the start of every
   campaign: 'world' for the dials and the voice, no categories moved off the preset, the world's veils, permanent
-  injuries, a 5E defeat as written (death saves). Picking a preset clears the categories moved off it.
+  injuries, a 5E defeat as written (death saves), shopkeepers with finite cash. Picking a preset clears the categories moved off it.
 - **Narration format** (pov, tense, length) is the player's at any time. A new campaign starts in close third person,
   past tense (requirements "Narrator prompting": the default for a persona); a story with no campaign start, or a
   campaign from before the format could be chosen, keeps second person and present tense, as Story mode always had.
@@ -21,7 +21,7 @@ stays changed.
 from dungeon.database import decode, encode, optional, settings
 
 TONE = {'intensity': 'world', 'drama': 'world', 'injury_persistence': 'permanent', 'defeat': 'as_written',
-        'levels': None, 'veils': None, 'voice': 'world'}
+        'levels': None, 'veils': None, 'voice': 'world', 'shop_cash': 'finite'}
 # Kept as JSON: the categories the player moved off the preset (dungeon/tone.py), and the veiled topics (None: the
 # world's own).
 JSON_RULES = ('levels', 'veils')

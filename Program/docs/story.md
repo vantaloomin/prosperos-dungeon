@@ -348,9 +348,27 @@ its shops with their starting stock, and each premade's starting kit (plus a def
   nothing and a critical failure makes everything 20% dearer. One haggle a shop a day; asking again gets nowhere.
   Cold feelings make it harder, like any persuasion. Haggles are kept in `story_haggles`, and what happened at the
   counter on a line in `story_counter`, so "Tell it again" retells it the same.
+- **Selling in the story.** A line that sells something ("I sell the blanket", "I fence the ring", "all my candles")
+  sells it at what the shop pays today before the narrator writes; a refusal (it doesn't buy that, stolen goods, no
+  money left) goes to the narrator too.
+- **Restocking.** Every `restock_days` of story time (7 unless the shop says), what was sold comes back up to the file's
+  stock (`story_shops.restocked`); what the player sold the shop stays on its shelves to be sold again.
+- **Shopkeeper cash.** Each shop has a till (`story_shops.cash`): its file's `cash`, else half its starting stock's
+  worth (Pell's: 29.28 cr.). What it sells adds to it, what it buys takes from it, and a restock tops it back up. A
+  shop can't buy past its till ("The keeper hasn't the money for that"). Tone and rules > "Shopkeepers' cash runs out"
+  (the Table's `shop_cash`, 'finite' or 'unlimited') turns it off.
+- **Stolen goods and fences.** What the character takes from someone's things (`dungeon/finds.py`: a purse or pocket
+  always, anything at a place someone owns; a body or a place out in the open gives freely) is stolen
+  (`story_inventory.stolen`), shown "(stolen)" in the pack and told to the narrator. An honest shop won't buy stolen
+  goods or anything illegal; a fence (a shop with `fence`) buys both, and anything else, at its own low rate.
+  Kingswood's fence is Mother Mag's (a quarter of the price, 6 cr. in the till); BABEL's is the Fence Rows.
+- **Markets.** A Life Card's market effect (`dungeon/happenings.py`) moves a kind of goods' prices in the town for some
+  days (`story_markets`: food, drink, medicine, arms, cloth, ley goods or everything), both what shops charge and what
+  they pay. The counter and the narrator are told.
 - Everything branches with the story and is cleared by a new story.
 
-Not in v0: an opposed roll against the keeper's Resolve, selling in the story, restocking, shopkeeper cash, stolen goods and fences, wear, loot, appearance state.
+Not yet: an opposed roll against the keeper's Resolve, priced services (lodging, baths, hirelings), wear, loot from
+bodies, appearance state.
 
 ## Fights
 
@@ -728,8 +746,8 @@ story, with the deck and region from the travel map (`world`, `regions.*.cards`)
 - **Played by code.** The record keeps the card's truth as the world's, and what the character sees as their
   belief when it is not the whole truth. The narrator gets "## What the world brings": what the character sees,
   the choice it puts to them, and what code applied: stress (against Resolve), a wound, coin in day wages (the
-  town's `day-wage` price), food gained or lost, time, the feelings of someone there, a fight (`FOES`). Market,
-  rumor, quest, faction, fate and pursuer effects wait for their systems.
+  town's `day-wage` price), food gained or lost, time, the feelings of someone there, a fight (`FOES`), and the
+  town's market (see "Gear and the shop"). Rumor, quest, faction, fate and pursuer effects wait for their systems.
 - Each draw is kept (`story_cards`, branched with the story), so telling a turn again draws nothing new, and a
   card is not drawn again within the deck's `repeat_days`.
 

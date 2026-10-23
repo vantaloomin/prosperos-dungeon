@@ -311,10 +311,11 @@ export interface StoryPerson {
   feelings: string
 }
 /** The character's purse and pack, and the shop window where the story is (dungeon/inventory.py). Money is in hundredths. */
-export interface GearItem { id: string; item_id: string; name: string; category: string; qty: number; slots: number }
+export interface GearItem { id: string; item_id: string; name: string; category: string; qty: number; slots: number; stolen?: boolean }
 export interface ShopRow { item_id: string; name: string; category: string; price: number; qty: number; slots: number }
 /** `haggled`: today's prices after a haggle, in percent off (negative) or on; 0 without one. */
-export interface Shop { place_id: string; open: boolean; keeper: string; haggled: number; stock: ShopRow[]; offers: Record<string, number> }
+/** `fence`: buys stolen goods; `cash`: what the keeper has to buy with (null: unlimited); `market`: prices moved by events. */
+export interface Shop { place_id: string; open: boolean; keeper: string; haggled: number; stock: ShopRow[]; offers: Record<string, number>; fence?: boolean; cash?: number | null; market?: string }
 export interface Gear {
   coins: number; currency: { code: string; symbol?: string; name?: string }; slots: { used: number; max: number }
   items: GearItem[]; shop: Shop | null
@@ -402,6 +403,8 @@ export interface TableRules {
   levels?: Partial<Record<ToneCategory, number>> | null; veils?: VeilTopic[] | null; voice?: ToneVoice
   /** The narration format (dungeon/narration/prompt.py Format): point of view, tense and length. */
   pov?: NarrationPov; tense?: NarrationTense; length?: NarrationLength
+  /** Whether shopkeepers have finite cash to buy with (dungeon/inventory.py). */
+  shop_cash?: 'finite' | 'unlimited'
 }
 export type NarrationPov = 'first' | 'second' | 'third'
 export type NarrationTense = 'past' | 'present'

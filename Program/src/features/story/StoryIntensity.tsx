@@ -35,6 +35,8 @@ export function StoryIntensity({ intensity, onSaved }: { intensity: Intensity; o
         {dramaChoices(intensity.drama_world ?? 'uneasy').map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </select>}
     </Field>
+    {rules && <Toggle label="Shopkeepers' cash runs out" hint="On: a shop can only buy what its till can pay for, until it restocks. Off: shops always have the money."
+      checked={rules.shop_cash !== 'unlimited'} onChange={(checked) => void save({ shop_cash: checked ? 'finite' : 'unlimited' })} />}
     <Toggle label="Meanwhile cutaways" hint="Short scenes of what happens to the people you know while you are elsewhere. Your character still only learns it when word reaches them."
       checked={Boolean(intensity.cutaways)} onChange={(checked) => void save({ cutaways: checked })} />
     {intensity.ruleset === 'srd52' && <Toggle label="Foes decide a defeat" hint="Off: at 0 hit points the death saves decide, as written. On: only foes out to kill bring the death saves; others take what they came for, a prisoner, a purse or a beaten stranger thrown out."

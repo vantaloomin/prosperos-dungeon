@@ -8,7 +8,9 @@ before anyone looked.
 
 - A failed search roll (Mind) misses what is there: the contents stay as rolled, unseen, for a better look later.
 - Taking what was found ("I take the coins", "I pocket the knife") moves it into the pack and purse, within carry
-  slots; what does not fit stays.
+  slots; what does not fit stays. What is taken from someone's things is stolen (story_inventory.stolen): a purse or
+  a pocket always, anything else at a place someone owns. Only a body, or a place out in the open (UNOWNED), gives
+  what it holds freely. Honest shops won't buy stolen goods; a fence will (dungeon/inventory.py).
 
 All of it is game state, branched with the story (dungeon/timeline.py SAVED).
 """
@@ -26,6 +28,9 @@ LOOK = re.compile(r'\b(search\w*|open\w*|look(s|ing)? (in|into|inside|through|un
 TAKE = re.compile(r'\b(take|takes|grab\w*|pocket\w*|pick\w* up|help (myself|yourself)|keep|scoop\w* up|stuff\w*)\b',
                   re.I)
 MISSED = ('failure', 'failure_upside', 'critical_failure')
+# Places nobody owns, where what is found is free to take.
+UNOWNED = ('trail', 'garden', 'park')
+ALWAYS_STOLEN, NEVER_STOLEN = 'purse', 'body'
 MONEY = re.compile(r'\b(coins?|money|crowns?|silver|everything|all of it|the lot|what\w*|it|them)\b', re.I)
 
 
@@ -126,15 +131,16 @@ def take(connection, city: dict, place: dict, text: str, now: str) -> list[str]:
         if not mentioned(city['id'], row, text):
             continue
         kept, moved = [], []
+        stolen = stolen_from(city['id'], place, row['word'])
         for thing in row['contents']:
-            if not moved_thing(connection, city, thing, moved):
+            if not moved_thing(connection, city, thing, moved, stolen):
                 kept.append(thing)
         if moved:
             connection.execute('UPDATE story_finds SET contents=? WHERE key=?', (encode(kept), row['key']))
             lines.append(f"The player's character takes {'; '.join(moved)} from the {row['word']}; it is in their "
                          'pack or purse now.')
-            record.add(connection, 'item', "the player's character", f"Took {'; '.join(moved)} from the "
-                          f"{row['word']} at {place['name']}.", now)
+            record.add(connection, 'item', "the player's character", f"{'Stole' if stolen else 'Took'} "
+                       f"{'; '.join(moved)} from the {row['word']} at {place['name']}.", now)
     return lines
 
 
@@ -146,7 +152,16 @@ def mentioned(city_id: str, row: dict, text: str) -> bool:
     return bool(MONEY.search(text)) or any(re.search(rf'\b{re.escape(noun)}(e?s)?\b', text, re.I) for noun in nouns)
 
 
-def moved_thing(connection, city: dict, thing: dict, moved: list[str]) -> bool:
+def stolen_from(city_id: str, place: dict, word: str) -> bool:
+    """Whether what is taken from this container here is stolen: a purse always, a body never, anything else unless the
+    place is one nobody owns."""
+    kind = next((kind for kind, spec in tables(city_id).items() if word in spec['words']), '')
+    if kind in (ALWAYS_STOLEN, NEVER_STOLEN):
+        return kind == ALWAYS_STOLEN
+    return place.get('kind') not in UNOWNED
+
+
+def moved_thing(connection, city: dict, thing: dict, moved: list[str], stolen: bool = False) -> bool:
     """Move one found thing to the character if it can be carried; notes stay where they are."""
     if 'coins' in thing:
         inventory.set_purse(connection, inventory.purse(connection) + thing['coins'])
@@ -158,7 +173,7 @@ def moved_thing(connection, city: dict, thing: dict, moved: list[str]) -> bool:
     room = inventory.capacity(connection) - inventory.used(inventory.carried(connection, city['id']))
     if entry['slots'] * thing['qty'] > room:
         return False
-    inventory.add_item(connection, city['id'], thing['item_id'], thing['qty'])
+    inventory.add_item(connection, city['id'], thing['item_id'], thing['qty'], stolen)
     moved.append(entry['name'] if thing['qty'] == 1 else f"{thing['qty']} × {entry['name']}")
     return True
 

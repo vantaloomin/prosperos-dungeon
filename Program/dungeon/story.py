@@ -381,7 +381,8 @@ def gear(database) -> dict:
         rows = inventory.carried(connection, city)
         return {'coins': inventory.purse(connection), 'currency': view['data']['currency'],
                 'slots': {'used': inventory.used(rows), 'max': inventory.capacity(connection)},
-                'items': [{key: row[key] for key in ('id', 'item_id', 'name', 'category', 'qty', 'slots')}
+                'items': [{key: row[key] for key in ('id', 'item_id', 'name', 'category', 'qty', 'slots')} |
+                          {'stolen': bool(row['stolen'])}
                           for row in rows],
                 'shop': shop_view(connection, view)}
 
@@ -395,7 +396,7 @@ def trade(database, kind: str, key: str, qty: int) -> dict:
         require(shop is not None, 'There is no shop here.', 404)
         require(shop_view(connection, view)['open'], 'The shop is closed; nobody is behind the counter.', 409)
         done = (inventory.buy(connection, city, shop, key, qty, database.now(), story_day(view)) if kind == 'buy'
-                else inventory.sell(connection, city, shop, key, qty, database.now()))
+                else inventory.sell(connection, city, shop, key, qty, database.now(), story_day(view)))
         what = done['name'] if done['qty'] == 1 else f"{done['qty']} × {done['name']}"
         verb = 'buy' if kind == 'buy' else 'sell'
         price = inventory.money_text(done['amount'], view['data']['currency'])
@@ -682,7 +683,7 @@ def clear(database) -> dict:
         connection.execute('DELETE FROM story_messages')
         connection.execute('DELETE FROM story_people')
         for name in ('record_entries', 'record_corrections', 'story_summary', 'story_clock', 'story_quests',
-                      'story_inventory', 'story_purse', 'story_stock', 'story_trades', 'story_wounds', 'story_fight',
+                      'story_inventory', 'story_purse', 'story_stock', 'story_shops', 'story_markets', 'story_trades', 'story_wounds', 'story_fight',
                       'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
                       'story_rounds', 'story_map', 'story_hexes', 'story_sites', 'story_lots', 'story_position', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
                       'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_beats', 'story_word',
@@ -814,7 +815,7 @@ async def complete(state, config: dict, system: str, messages: list[dict]) -> st
 
 def counter_turn(state, user: dict, rolls: list[dict]) -> list[str]:
     """The shop's part of the turn (dungeon/inventory.py), decided once: a haggle settled by the player's Allure roll,
-    then anything the line buys, at today's price."""
+    then anything the line buys or sells, at today's price."""
     database = state.database
     with database.connect(write=True) as connection:
         if (kept := optional(connection, 'SELECT lines FROM story_counter WHERE message_id=?', (user['id'],))):
@@ -828,6 +829,8 @@ def counter_turn(state, user: dict, rolls: list[dict]) -> list[str]:
         stock_rows = inventory.window(connection, city, shop, True, '', day)['stock']
         lines += inventory.buy_in_story(connection, city, shop, user['text'], stock_rows, day, database.now(),
                                         view['data']['currency'])
+        lines += inventory.sell_in_story(connection, city, shop, user['text'], day, database.now(),
+                                         view['data']['currency'])
         connection.execute('INSERT INTO story_counter (message_id, lines) VALUES (?, ?)', (user['id'], encode(lines)))
         return lines
 
@@ -1003,7 +1006,8 @@ def life_card(database, connection, kind: str, message_id: str) -> tuple[list[st
     lines, minutes = happenings.play(connection, drawn, {
         'people': view['people'], 'name': persona and persona['name'], 'data': data, 'map': drawn['map'],
         'now': story_clock.now(connection, database.clock), 'logged': database.now(),
-        'rng': None, 'levels': intensity(connection, data)['levels']}) if drawn else ([], 0)
+        'rng': None, 'levels': intensity(connection, data)['levels'], 'city': view['city']['id'],
+        'day': day.isoformat()}) if drawn else ([], 0)
     happenings.keep(connection, message_id, kind, day, drawn and drawn['card']['id'], lines)
     return lines, minutes
 
