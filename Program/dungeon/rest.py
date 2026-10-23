@@ -67,21 +67,24 @@ def ground(city_id: str, place_id: str) -> tuple[dict | None, dict | None]:
     return found
 
 
-def plan(city_id: str, place_id: str, text: str, rng=None) -> dict:
+def plan(city_id: str, place_id: str, text: str, rng=None, connection=None) -> dict:
     nights = nights_in(text)
     precautions = [name for name, words, _ in PRECAUTIONS if words.search(text)]
     travel_map, node = ground(city_id, place_id)
     safe = travel_map is None and not quests.danger(city_id, place_id)
     if travel_map is None:
         return {'nights': nights, 'safe': safe, 'precautions': precautions, 'interrupted': None}
-    odds = travel_map['odds'][travel_map['regions'][node['region']]['danger']]
+    # Out in the wild on a hex crawl, the land the character stopped in decides (dungeon/hexes.py).
+    region = travel.region_of(connection, travel_map, node) if connection is not None else node['region']
+    odds = travel_map['odds'][travel_map['regions'].get(region, travel_map['regions'][node['region']])['danger']]
     for name, _, left in PRECAUTIONS:
         odds = odds * left if name in precautions else odds
     rng = rng or random.SystemRandom()
     interrupted = None
     for night in range(nights):
         if rng.randint(1, 100) <= round(odds):
-            interrupted = {'night': night, 'entry': travel.pick(travel_map['camp'][node['region']], rng)}
+            interrupted = {'night': night, 'entry': travel.pick(travel_map['camp'].get(region) or
+                                                                travel_map['camp'][node['region']], rng)}
             break
     return {'nights': nights, 'safe': False, 'outside': True, 'precautions': precautions, 'interrupted': interrupted,
             'food': travel_map['food']}
@@ -94,7 +97,7 @@ def decide(connection, message_id: str, city_id: str, place_id: str, text: str, 
     if row is None:
         if not resting(text) or optional(connection, 'SELECT 1 FROM story_journeys WHERE message_id=?', (message_id,)):
             return None
-        rest = {'fighting': True} if combat.fight(connection) else plan(city_id, place_id, text, rng)
+        rest = {'fighting': True} if combat.fight(connection) else plan(city_id, place_id, text, rng, connection)
         if combat.captors(connection):
             # A prisoner sleeps under their captors' eyes: no beast comes for them in the night.
             rest['interrupted'] = None

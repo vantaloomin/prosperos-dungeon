@@ -25,6 +25,8 @@ REGIONS = {
                         'marble towers paid for with crystal.', ['rich', 'magic', 'crowded']),
     'badlands': ('the Badlands', 'Broken hills and dead forts past the Bastion line, held by the tribes, where the '
                  'old hordes came through.', ['wild', 'dangerous', 'border']),
+    'wilds': ('the wilds', 'Off the roads, out in the open country between the towns, wherever the walking has led.',
+              ['wild', 'remote', 'open']),
     'brynwyr-forest': ('the forest of Brynwyr', "The high elves' forest past Kingswood's border stones: closed, old and watched.",
                 ['wild', 'elven', 'closed']),
 }
@@ -54,6 +56,14 @@ def node_place(settlement: dict, kind: str, arrival: str, spots: list[str]) -> d
             'cuisine': '', 'spots': spots, 'source': SRC}
 
 
+# Out in the wild, off the map's places (dungeon/hexes.py): where a hex crawl leaves the character between towns.
+WILD = {'id': 'the-wilds', 'name': 'the wilds', 'kind': 'trail', 'neighborhood': 'wilds',
+        'summary': 'Out in the open country, off the roads and away from any town: the land itself, whatever it is '
+                   'where the walking stopped.', 'tags': ['travel', 'wild'], 'cost': 'free', 'setting': 'outdoor',
+        'good_for': ['solo', 'friends'], 'day_parts': list(ALL_DAY), 'seasons': [], 'cuisine': '',
+        'spots': ['the open ground', 'a sheltered hollow', 'a rise with a view'], 'source': SRC}
+
+
 def build() -> dict:
     settlements = {item['id']: item for item in json.loads(SETTLEMENTS.read_text(encoding='utf-8'))['settlements']}
     city = kingswood.CITY
@@ -68,7 +78,7 @@ def build() -> dict:
         'neighborhoods': [{'id': region, 'name': name, 'summary': summary, 'vibe': vibe, 'lat': hood['lat'],
                            'lon': hood['lon'], 'rent_tier': 'low', 'housing': ['inn-room'], 'walkability': 'low',
                            'transit': ['on-foot'], 'source': SRC} for region, (name, summary, vibe) in REGIONS.items()],
-        'places': [node_place(settlements[node], kind, arrival, spots) for node, kind, arrival, spots in NODES],
+        'places': [node_place(settlements[node], kind, arrival, spots) for node, kind, arrival, spots in NODES] + [WILD],
         'transit': [item for item in city['transit'] if item['id'] == 'on-foot'],
         'careers': city['careers'], 'work_by_gender': city['work_by_gender'], 'employers': [], 'career_hubs': [],
         'climate': city['climate'], 'annual_events': [], 'local_color': [], 'names': city['names'],

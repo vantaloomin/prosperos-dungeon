@@ -658,7 +658,7 @@ def clear(database) -> dict:
         for name in ('record_entries', 'record_corrections', 'story_summary', 'story_clock', 'story_quests',
                       'story_inventory', 'story_purse', 'story_stock', 'story_trades', 'story_wounds', 'story_fight',
                       'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
-                      'story_rounds', 'story_map', 'story_hexes', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
+                      'story_rounds', 'story_map', 'story_hexes', 'story_position', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
                       'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_beats', 'story_word',
                       'story_offpage', 'story_tier', 'story_marks', 'story_dark',
                       'story_director', 'story_arcs', 'story_threads', 'story_nemeses', 'story_seeds',
@@ -718,6 +718,9 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
     focus = ' '.join([latest['text'], view['place']['name'], *(person['sheet']['name'] for person in view['people']),
                       *(row['text'] for row in rows[-2:])])
     place_text = scene_text(view) + (f"\n\n{inventory.shop_prompt(shop, view['data']['currency'])}" if shop else '')
+    if wild := travel.wild_text(connection, view['city']['id'], view['place']['id']):
+        place_text += f'\n\n{wild}'
+
     window = remembering.room(connection, config)
     # Lorebook entries switched on: always-on ones, those named lately and those that fit the moment (dungeon/lore.py).
     lore_text = lore.prompt_text(connection, view['data'], view['place']['id'], local_moment(view['data'], now),
@@ -930,14 +933,17 @@ def walk(database, connection, planned: dict, rolls: list[dict], message_id: str
     if planned.get('unknown'):
         return [f"The player's character does not know the way to {travel.nodes(travel_map)[planned['to']]['name']}: "
                 'it is on no road they know of, and nobody has told them how to get there.']
+    if not planned['legs']:
+        return travel.blocked(planned)
     legs, happened = travel.travelled(planned, rolls)
     spent, nights, days = travel.minutes(legs, travel_map['hours_a_day'])
     eaten, hungry = travel.eat(connection, travel_map['food'], days)
     pass_time(database, connection, spent)
     travel.walked(connection, travel_map, planned, legs)
-    end = travel.nodes(travel_map)[travel.end_of(planned, legs)]
+    end, opening, ended = travel.ending(connection, travel_map, planned, legs, rolls)
+    happened += ended
     place_scene(connection, end['city'], end['place'], database.now())
-    add(connection, database.now(), 'scene', f"You arrive at {end['name']}.", scene_row(connection))
+    add(connection, database.now(), 'scene', opening, scene_row(connection))
     # Signs warn when the road ends somewhere above the character (dungeon/tiers.py).
     found = happenings.where(end['city'], end['place'])
     happened += [warned] if found and (warned := tiers.warning(connection, found)) else []
@@ -1112,9 +1118,8 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
     if not held and (hazard := quests.danger_action(user['city_id'], user['place_id'], getattr(state, 'dice', None))):
         actions = [*actions, hazard]
     with database.connect(write=True) as connection:
-        if road := travel.decide(connection, user['id'], user['city_id'], user['place_id'], user['text'],
-                                 getattr(state, 'dice', None)):
-            actions = [*actions, road]
+        actions = [*actions, *travel.decide(connection, user['id'], user['city_id'], user['place_id'], user['text'],
+                                            getattr(state, 'dice', None))]
         if camp := rest.decide(connection, user['id'], user['city_id'], user['place_id'], user['text'],
                                getattr(state, 'dice', None)):
             actions = [*actions, camp]

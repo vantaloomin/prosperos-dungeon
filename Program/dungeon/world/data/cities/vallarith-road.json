@@ -103,6 +103,27 @@
    "source": "curated-2026-10"
   },
   {
+   "id": "wilds",
+   "name": "the wilds",
+   "summary": "Off the roads, out in the open country between the towns, wherever the walking has led.",
+   "vibe": [
+    "wild",
+    "remote",
+    "open"
+   ],
+   "lat": 52.012,
+   "lon": -2.004,
+   "rent_tier": "low",
+   "housing": [
+    "inn-room"
+   ],
+   "walkability": "low",
+   "transit": [
+    "on-foot"
+   ],
+   "source": "curated-2026-10"
+  },
+  {
    "id": "brynwyr-forest",
    "name": "the forest of Brynwyr",
    "summary": "The high elves' forest past Kingswood's border stones: closed, old and watched.",
@@ -401,6 +422,37 @@
     "the first trees",
     "the warden path",
     "the silent glade"
+   ],
+   "source": "curated-2026-10"
+  },
+  {
+   "id": "the-wilds",
+   "name": "the wilds",
+   "kind": "trail",
+   "neighborhood": "wilds",
+   "summary": "Out in the open country, off the roads and away from any town: the land itself, whatever it is where the walking stopped.",
+   "tags": [
+    "travel",
+    "wild"
+   ],
+   "cost": "free",
+   "setting": "outdoor",
+   "good_for": [
+    "solo",
+    "friends"
+   ],
+   "day_parts": [
+    "morning",
+    "afternoon",
+    "evening",
+    "late"
+   ],
+   "seasons": [],
+   "cuisine": "",
+   "spots": [
+    "the open ground",
+    "a sheltered hollow",
+    "a rise with a view"
    ],
    "source": "curated-2026-10"
   }

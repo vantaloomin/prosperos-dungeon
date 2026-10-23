@@ -96,3 +96,67 @@ def test_a_journey_shows_the_hexes_it_crosses(client, connected, provider, app):
     with app.state.database.connect() as connection:
         seed = connection.execute('SELECT seed FROM story_campaign WHERE id=1').fetchone()[0]
     assert seed
+
+
+def test_a_line_strikes_out_in_a_direction_from_town_only_when_it_leaves():
+    assert travel.heading('I head north-east.', True) == 'north-east'
+    assert travel.heading('We keep walking west.', True) == 'west'
+    assert travel.heading('I walk north down the street to the well.', False) is None
+    assert travel.heading('I leave town and strike out southwest.', False) == 'south-west'
+    assert travel.heading('I set out east at dawn.', False) == 'east'
+
+
+def test_due_east_zigzags_between_the_two_sides_of_a_hex():
+    board = hexes.Grid(vallarith(), 'seed')
+    legs, _ = board.heading(board.places['kingswood'], 'east', 40, 'clear')
+    steps = {tuple(leg['to'])[0] - tuple(leg['from'])[0] for leg in legs}
+    assert steps == {1} and len({leg['to'][1] - leg['from'][1] for leg in legs}) == 2
+
+
+def strike(app, text: str):
+    with app.state.database.connect(write=True) as connection:
+        connection.execute("UPDATE story_campaign SET seed='fixed' WHERE id=1")
+        return travel.plan(connection, 'kingswood', 'pell-provisions', text, Road())
+
+
+def test_striking_out_ends_the_day_out_in_the_wild(client, connected, provider, app):
+    begin(client)
+    direction = next(word for word in ('south-east', 'north-east', 'south', 'north', 'east', 'west')
+                     if (found := strike(app, f'I set out {word}.')) and found['legs']
+                     and not found['legs'][-1].get('place'))
+    app.state.dice = Road(99)
+    provider.replies = [[Chunk('The land goes on.'), Chunk('', 'stop')]]
+    with app.state.database.connect(write=True) as connection:
+        connection.execute("UPDATE story_campaign SET seed='fixed' WHERE id=1")
+    tell(client, f'I set out {direction} across country.', 'story-0001')
+    story = ok(client.get('/api/story'))
+    assert story['scene']['place']['id'] == 'the-wilds'
+    assert [message['text'] for message in story['messages'] if message['role'] == 'scene'][-1].startswith('You stop in')
+    narrator = provider.requests[-1]['system']
+    assert f'strikes out {direction} from Kingswood' in narrator and '## Out in the wild' in narrator
+    assert 'The nearest place they know of' in narrator
+    board = hexes.Grid(vallarith(), 'fixed')
+    at = story['map']['at']
+    assert not story['map']['places'] or not any(place['here'] for place in story['map']['places'])
+    assert hexes.distance(board.places['kingswood'], (at['q'], at['r'])) >= 2 and not at['lost']
+    # Out there, a line naming a place walks there from the hex the character is in.
+    provider.replies = [[Chunk('Back.'), Chunk('', 'stop')]]
+    tell(client, 'I head back to Kingswood.', 'story-0002')
+    assert ok(client.get('/api/story'))['scene']['city']['id'] == 'kingswood'
+
+
+def test_losing_the_way_drifts_off_course_and_the_map_shows_where_they_think_they_are(client, connected, provider,
+                                                                                      app, monkeypatch):
+    begin(client)
+    direction = next((word for word in hexes.TURNS
+                      if (found := strike(app, f'I set out {word}.')) and found.get('lost')
+                      and found['lost']['astray'][-1]['to'] != found['legs'][-1]['to']
+                      and not found['legs'][-1].get('place') and not found['lost']['astray'][-1].get('place')), None)
+    assert direction, 'some way out of Kingswood crosses ground one can get lost in'
+    monkeypatch.setattr(travel, 'strayed', lambda plan_, rolls: bool(plan_.get('lost')))
+    app.state.dice = Road(99)
+    provider.replies = [[Chunk('Trees.'), Chunk('', 'stop')]]
+    tell(client, f'I set out {direction}.', 'story-0001')
+    story = ok(client.get('/api/story'))
+    assert story['map']['at']['lost']
+    assert 'lost their bearings' in provider.requests[-1]['system']
