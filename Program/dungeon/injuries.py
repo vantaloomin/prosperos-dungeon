@@ -81,7 +81,11 @@ def roll(connection, now: datetime, cause: str, rng=None, logged: str = '', kind
     if persistence(connection) == 'none':
         return None
     have = {row['injury_id'] for row in many(connection, 'SELECT injury_id FROM story_injuries')}
-    left = [entry for entry in table() if entry['id'] not in have and entry['kind'] == kind]
+    # Lower intensity leaves out the worst of the table (an entry's `intensity`: the level each category needs).
+    from dungeon import tone
+    levels = tone.now(connection)['levels']
+    left = [entry for entry in table() if entry['id'] not in have and entry['kind'] == kind
+            and all(levels.get(category, 3) >= level for category, level in (entry.get('intensity') or {}).items())]
     if not left:
         return None
     rng = rng or random.SystemRandom()

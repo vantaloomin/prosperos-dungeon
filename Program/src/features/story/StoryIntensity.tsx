@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import type { DefeatRule, DramaLevel, IntensityPreset, StoryIntensity as Intensity } from '../../types'
+import type { DramaLevel, IntensityPreset, StoryIntensity as Intensity, TableRules, ToneVoice } from '../../types'
 import { Field, Toggle } from '../../components/Fields'
 import { Notice } from '../../components/Feedback'
-import { dramaChoices, intensityChoices } from './storyText'
+import { dramaChoices, intensityChoices, LEVEL_NAMES, TONE_CATEGORIES, toggledVeil, VEIL_TOPICS, VOICES } from './storyText'
 import { useTable } from './table'
 
 /** How far the story goes on the page (dungeon/story.py intensity) and how eventful it is (dungeon/happenings.py):
@@ -11,7 +11,7 @@ import { useTable } from './table'
 export function StoryIntensity({ intensity, onSaved }: { intensity: Intensity; onSaved: () => void }) {
   const { save: keep } = useTable()
   const [error, setError] = useState('')
-  const save = async (change: { intensity: IntensityPreset } | { drama: DramaLevel } | { cutaways: boolean } | { defeat: DefeatRule }) => {
+  const save = async (change: Partial<TableRules>) => {
     setError('')
     try { await keep(change); onSaved() }
     catch (failure) { setError(failure instanceof Error ? failure.message : 'That setting was not saved.') }
@@ -23,6 +23,7 @@ export function StoryIntensity({ intensity, onSaved }: { intensity: Intensity; o
         {intensityChoices(intensity.world).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </select>}
     </Field>
+    <ToneDetails intensity={intensity} save={(change) => void save(change)} />
     <Field label="How eventful" hint="How often the world throws something at you: news, trouble, a stranger at the fire. It never changes the dice.">
       {(id, describedBy) => <select id={id} value={intensity.drama_chosen ?? 'world'} aria-describedby={describedBy}
         onChange={(event) => void save({ drama: event.target.value as DramaLevel })}>
@@ -35,4 +36,36 @@ export function StoryIntensity({ intensity, onSaved }: { intensity: Intensity; o
       checked={intensity.defeat === 'by_aim'} onChange={(checked) => void save({ defeat: checked ? 'by_aim' : 'as_written' })} />}
     {error && <Notice tone="error">{error}</Notice>}
   </>)
+}
+
+/** Each category on its own slider, the veils, and the narrator's voice (dungeon/tone.py). A preset above sets every
+ *  category again; the veils and the voice stay. */
+function ToneDetails({ intensity, save }: { intensity: Intensity; save: (change: Partial<TableRules>) => void }) {
+  const levels = intensity.levels
+  const veils = intensity.veils ?? []
+  if (!levels) return null
+  return (
+    <details className="tone-details" open={intensity.custom || veils.length > 0}>
+      <summary>Each kind on its own{intensity.custom ? ' (changed)' : ''}</summary>
+      {TONE_CATEGORIES.map(([id, label]) => <Field key={id} label={`${label}: ${LEVEL_NAMES[levels[id]]}`}>
+        {(fieldId) => <input id={fieldId} type="range" min={0} max={3} step={1} value={levels[id]}
+          aria-valuetext={LEVEL_NAMES[levels[id]]} onChange={(event) => save({ levels: { ...levels, [id]: Number(event.target.value) } })} />}
+      </Field>)}
+      <fieldset className="tone-veils">
+        <legend className="field-label">Veils</legend>
+        <p className="subtle">These can still happen, but the page fades to black.</p>
+        {VEIL_TOPICS.map(([id, label]) => <label key={id} className="checkbox-row">
+          <input type="checkbox" checked={veils.includes(id)} onChange={(event) => save({ veils: toggledVeil(veils, id, event.target.checked) })} />
+          {label}
+        </label>)}
+      </fieldset>
+      <Field label="Voice" hint="How the narrator writes. It never changes the dice.">
+        {(id, describedBy) => <select id={id} value={intensity.voice_chosen ?? 'world'} aria-describedby={describedBy}
+          onChange={(event) => save({ voice: event.target.value as ToneVoice })}>
+          <option value="world">The world's own</option>
+          {VOICES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>}
+      </Field>
+    </details>
+  )
 }

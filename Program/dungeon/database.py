@@ -178,6 +178,8 @@ ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"
                  ('story_campaign', 'show_adult_side', 'INTEGER'), ('story_campaign', 'gm_view', 'INTEGER'),
                  ('story_campaign', 'cutaways', 'INTEGER'),
                  ('story_campaign', 'defeat', "TEXT CHECK (defeat IN ('as_written', 'by_aim'))"),
+                 ('story_campaign', 'levels', 'TEXT'), ('story_campaign', 'veils', 'TEXT'),
+                 ('story_campaign', 'voice', 'TEXT'),
                  ('story_rolls', 'ruleset', "TEXT NOT NULL DEFAULT 'marvel'"), ('story_rolls', 'target', 'INTEGER'),
                  ('story_rolls', 'skill', 'TEXT'))
 

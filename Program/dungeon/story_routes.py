@@ -1,7 +1,7 @@
 """The story API (dungeon/story.py, docs/story.md)."""
 import asyncio
 import json
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
@@ -179,6 +179,11 @@ class TableUpdate(Input):
     gm_view: bool | None = None
     cutaways: bool | None = None
     defeat: Literal['as_written', 'by_aim'] | None = None
+    # dungeon/tone.py: categories moved off the preset (0 off the page to 3 unflinching), veiled topics, the voice.
+    levels: dict[Literal['violence', 'sex', 'horror', 'cruelty', 'drugs'], Annotated[int, Field(ge=0, le=3)]] | None = None
+    veils: list[Literal['execution', 'slavery', 'mutilation', 'disease', 'self-harm', 'addiction', 'torture',
+                        'sexual-violence', 'sacrifice', 'child-harm']] | None = Field(default=None, max_length=10)
+    voice: Literal['world', 'grim', 'wry', 'romantic', 'hopeful', 'lyrical', 'plain'] | None = None
 
 
 class IronswornBuild(Input):

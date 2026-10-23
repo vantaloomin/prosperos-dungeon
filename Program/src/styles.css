@@ -212,6 +212,11 @@ textarea { resize: vertical; line-height: 1.6; }
 .story-pace { color: var(--muted); line-height: 0; cursor: help; }
 .story-pace svg { width: 13px; height: 13px; }
 .story-dials { display: flex; flex-direction: column; gap: 10px; }
+.tone-details { display: flex; flex-direction: column; gap: 10px; }
+.tone-details > summary { cursor: pointer; font-weight: 600; margin-bottom: 4px; }
+.tone-details input[type="range"] { width: 100%; }
+.tone-veils { border: 0; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 2px 12px; }
+.tone-veils legend, .tone-veils p { grid-column: 1 / -1; margin: 0; }
 .story-narration p { white-space: pre-wrap; margin-bottom: 1em; }
 .story-flagged { margin: 0 -8px 1em; padding: 4px 8px; border-radius: 6px; background: var(--accent-tint); }
 .story-flagged p { margin-bottom: 0.25em; }

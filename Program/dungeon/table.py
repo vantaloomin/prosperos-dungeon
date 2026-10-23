@@ -4,8 +4,9 @@ Settings follow the user from world to world (dungeon/restore.py KEPT_SETTINGS),
 dice on in one campaign and they were on in every other. The Table keeps them with the campaign (story_campaign), so
 each world's campaign plays by its own.
 
-- **Tone** (intensity, drama, injury_persistence, defeat) is the world's at the start of every campaign: 'world' for
-  the dials, permanent injuries, a 5E defeat as written (death saves).
+- **Tone** (intensity, drama, injury_persistence, defeat, levels, veils, voice) is the world's at the start of every
+  campaign: 'world' for the dials and the voice, no categories moved off the preset, the world's veils, permanent
+  injuries, a 5E defeat as written (death saves). Picking a preset clears the categories moved off it.
 - **Display taste** (show_odds, roll_dice, show_adult_side, gm_view, cutaways) starts where the player last left it,
   which the workspace settings remember.
 
@@ -14,9 +15,13 @@ Both also remember the choice in the workspace settings, which a new campaign's 
 story_campaign, so a new story begins with a fresh table. Not in timeline.SAVED: a rule changed and then a line rewound
 stays changed.
 """
-from dungeon.database import optional, settings
+from dungeon.database import decode, encode, optional, settings
 
-TONE = {'intensity': 'world', 'drama': 'world', 'injury_persistence': 'permanent', 'defeat': 'as_written'}
+TONE = {'intensity': 'world', 'drama': 'world', 'injury_persistence': 'permanent', 'defeat': 'as_written',
+        'levels': None, 'veils': None, 'voice': 'world'}
+# Kept as JSON: the categories the player moved off the preset (dungeon/tone.py), and the veiled topics (None: the
+# world's own).
+JSON_RULES = ('levels', 'veils')
 TASTE = ('show_odds', 'roll_dice', 'show_adult_side', 'gm_view', 'cutaways')
 RULES = (*TONE, *TASTE)
 
@@ -45,8 +50,9 @@ def rules(connection) -> dict:
     """Each rule as the campaign sets it; one it has not set yet is the world's tone or the player's last taste."""
     row, last = stored(connection), settings(connection)
     fallback = TONE | {key: last[key] for key in TASTE}
-    return {key: (bool(value) if key in FLAGS else value)
-            for key, value in ((key, fallback[key] if row[key] is None else row[key]) for key in RULES)}
+    found = {key: (bool(value) if key in FLAGS else value)
+             for key, value in ((key, fallback[key] if row[key] is None else row[key]) for key in RULES)}
+    return found | {key: decode(found[key]) if isinstance(found[key], str) else found[key] for key in JSON_RULES}
 
 
 def rule(connection, key: str):
@@ -55,7 +61,8 @@ def rule(connection, key: str):
 
 def change(connection, changes: dict):
     """Sets rules for this campaign; taste is remembered for the next one too."""
-    chosen = {key: int(value) if isinstance(value, bool) else value for key, value in changes.items() if key in RULES}
+    chosen = {key: int(value) if isinstance(value, bool) else encode(value) if key in JSON_RULES and value is not None
+              else value for key, value in changes.items() if key in RULES}
     if not chosen:
         return
     columns = ', '.join(chosen)
@@ -65,7 +72,10 @@ def change(connection, changes: dict):
 
 
 def choose(connection, changes: dict, now: str):
-    """The player sets rules at the table: this campaign's, with taste remembered for the next campaign."""
+    """The player sets rules at the table: this campaign's, with taste remembered for the next campaign. A preset
+    picked sets every category again."""
+    if 'intensity' in changes and 'levels' not in changes:
+        changes = changes | {'levels': {}}
     change(connection, changes)
     taste = {key: int(value) for key, value in changes.items() if key in FLAGS}
     if taste:

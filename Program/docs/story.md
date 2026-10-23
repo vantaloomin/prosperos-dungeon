@@ -625,7 +625,7 @@ story, with the deck and region from the travel map (`world`, `regions.*.cards`)
   the open draws once; a card that brings foes ends the rest like a bad night.
 - **How eventful.** Beside the story, "How eventful": the world's own (Kingswood's is Eventful) or Quiet, Uneasy,
   Eventful, Merciless (`workspace_settings.drama`; worlds set `intensity.drama`). It sets how often a scene draws
-  and which cards can turn up; the intensity preset leaves out what it does not allow. It never changes the dice.
+  and which cards can turn up; the intensity levels leave out what they do not allow. It never changes the dice.
   Cards that need someone the game cannot name yet ({bond}, {them}, {faction}) are left out until companions,
   beats and factions exist.
 - **Played by code.** The record keeps the card's truth as the world's, and what the character sees as their
@@ -880,17 +880,24 @@ fix is flagged for the player instead of lost.
 
 ## How far the story goes
 
-Intensity v0 (`dungeon/story.py` `intensity`, requirements "Intensity and tone"). The narrator is told how far
-violence, sex, horror, cruelty and drugs go on the page: restrained (implied, little detail), mature (shown plainly)
-or unflinching (explicit, in full). One preset covers every category for now.
+`dungeon/tone.py` (requirements "Intensity and tone"). The narrator is told how far each category goes on the page:
+violence, sex, horror, cruelty and drugs, each from 0 (off the page: it happens between scenes) through restrained
+(implied) and mature (shown plainly) to 3 (unflinching: explicit, in full).
 
-- **The world's own.** A city may set its `intensity`: a preset and the narrator's voice there. Kingswood, like
-  Vallarith, is unflinching and grim. A city without one is unflinching with no voice.
-- **The player's choice.** "How far the story goes" in the side panel picks the world's own or another preset
-  (`workspace_settings.intensity`), at any time, mid-scene included; the next line follows it. The world's voice
-  stays whatever the preset.
-
-Not in v0: per-category sliders, veils, tone and drama settings, and lower settings removing outcomes from the tables.
+- **The world's own.** A city may set its `intensity`: a `preset`, optional `levels` per category and `veils`, the
+  narrator's `voice` and `drama`. Kingswood, like Vallarith, is unflinching and grim. A city without one is
+  unflinching with no voice.
+- **The player's choice, at the Table** (Story, More, Tone and rules; `PUT /api/story/table`), at any time, mid-scene
+  included; the next line follows it. "How far the story goes" picks the world's own or a preset, which sets every
+  category. "Each kind on its own" moves single categories (`levels`), veils topics (`veils`, from
+  `cards.TOPICS`) and picks the voice (`voice`: the world's own, grim, wry, romantic, hopeful, lyrical, plain).
+  Picking a preset again clears the categories moved off it; the veils and the voice stay.
+- **Veils** fade to black: a card with a veiled topic is still drawn (`cards.draw` `veiled`), and the narrator is
+  told to keep it off the page.
+- **Lower levels change what can happen**, not only how it reads: Life Cards and off-page beats (`cards.allowed`),
+  the changes a dark track brings (`growth.darken`), and the lasting-injury table (`injuries.roll`: an entry's
+  `intensity`, so a lost eye or a ruined hand needs violence at mature or above) leave out what the levels do not
+  allow. At the top, every outcome stays in play. Neither the voice nor drama ever changes the dice.
 
 ## The screen
 
@@ -948,7 +955,7 @@ free grid of widgets is an optional mode late in Milestone 6.
 | `PATCH /api/story/journal/{id}` `{text}` / `DELETE /api/story/journal/{id}` | Corrects or removes a fact, logged; 404 for hidden truth or a fact not in the journal. |
 | `GET /api/story/gear` | `{coins, currency, slots: {used, max}, items, shop}`. `shop` is null away from a shop, else `{place_id, open, keeper, stock, offers}`; `offers` maps the character's items to what the shop pays. |
 | `POST /api/story/shop/buy` `{item_id, qty?}` / `POST /api/story/shop/sell` `{inventory_id, qty?}` | Trades at the counter. 404 with no shop here or no such item, 409 when closed, out of stock, too dear, too heavy, or not something the shop buys. |
-| `GET /api/story/table` / `PUT /api/story/table` | This campaign's rules (`intensity`, `drama`, `injury_persistence`, `show_odds`, `roll_dice`, `show_adult_side`, `gm_view`, `cutaways`, `defeat`); a change to what is shown is remembered for the next campaign. `GET /api/story` carries them as `table`. |
+| `GET /api/story/table` / `PUT /api/story/table` | This campaign's rules (`intensity`, `drama`, `injury_persistence`, `show_odds`, `roll_dice`, `show_adult_side`, `gm_view`, `cutaways`, `defeat`, `levels`, `veils`, `voice`); a change to what is shown is remembered for the next campaign. `GET /api/story` carries them as `table`. |
 | `DELETE /api/story` | Starts a new story: the history, every branch, the record and the people met go, the scene stays. |
 
 ## People you've met

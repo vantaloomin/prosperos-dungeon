@@ -7,7 +7,7 @@ The world's deck (dungeon/life/cards.py) is drawn into the story by code, with t
 - **A rest out in the open** draws once; a card that brings foes ends the rest like a bad night.
 
 How often a scene draws anything, and which cards can turn up, follow the **drama** level (the world's own, or the
-player's: quiet, uneasy, eventful, merciless); the intensity preset leaves out cards it does not allow. Drama never
+player's: quiet, uneasy, eventful, merciless); the intensity levels leave out cards it does not allow. Drama never
 touches roll odds.
 
 A drawn card's hidden truth goes in the record as the world's (and what the character sees, as their belief when
@@ -89,7 +89,7 @@ def recent(connection, world: str, day: date) -> set[str]:
                                                        'IS NOT NULL', (since,))}
 
 
-def draw(connection, scene: str, seed: str, city_id: str, place_id: str, data: dict, preset: str,
+def draw(connection, scene: str, seed: str, city_id: str, place_id: str, data: dict, level: dict,
          day: date, has: set[str] | None = None, skip: set[str] | None = None, forced: bool = False) -> dict | None:
     """One draw for a scene at a place: {'card', 'veiled', 'map'}, or None when nothing happens. A beat names
     `has` (its character's needs, such as captive) and `skip` (the cards drawn lately); `forced` skips the roll for
@@ -102,8 +102,9 @@ def draw(connection, scene: str, seed: str, city_id: str, place_id: str, data: d
     has = has if beat else ({'injured'} if combat.condition(connection)['level'] else set())
     powers = factions.local(world, found['node'])
     skipped = (skip or set()) if beat else recent(connection, world, day)
-    drawn = cards.draw(world, scene, seed, cards.DRAMA.index(drama(connection, data)), cards.PRESETS[preset],
-                       has or set(), skipped | unnamed(world, bool(powers), beat), found['region'], forced=forced)
+    drawn = cards.draw(world, scene, seed, cards.DRAMA.index(drama(connection, data)), level['levels'],
+                       has or set(), skipped | unnamed(world, bool(powers), beat), found['region'],
+                       veils=frozenset(level['veils']), forced=forced)
     if not drawn['card']:
         return None
     faction = powers[sum(map(ord, seed)) % len(powers)] if powers else None
@@ -210,7 +211,7 @@ def feared(connection, effect: dict, context: dict) -> list[str]:
 
 
 def corrupted(connection, effect: dict, context: dict) -> list[str]:
-    return growth.darken(connection, 'corruption', effect['shift'], context.get('preset') or 'unflinching',
+    return growth.darken(connection, 'corruption', effect['shift'], context.get('levels'),
                          context['logged'], context['rng'])
 
 

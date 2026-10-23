@@ -123,7 +123,7 @@ def play(connection, person: dict, drawn: dict, town: str, now: datetime, logged
     return truth[:1].upper() + truth[1:]
 
 
-def fire(connection, message_id: str, view: dict, preset: str, now: datetime, logged: str, rng=None,
+def fire(connection, message_id: str, view: dict, level: dict, now: datetime, logged: str, rng=None,
          pressure: str | None = None) -> list[str]:
     """The beats a line brings, and the cutaways the narrator may show of them."""
     rng = rng or random.SystemRandom()
@@ -143,7 +143,7 @@ def fire(connection, message_id: str, view: dict, preset: str, now: datetime, lo
             break
         captive = {'captive'} if fates(connection).get(person['key'], {}).get('state') == 'captured' else set()
         drawn = happenings.draw(connection, 'beat', seed, view['city']['id'], view['place']['id'], view['data'],
-                                preset, now.date(), has=captive, skip=recent(connection, now.date()), forced=force)
+                                level, now.date(), has=captive, skip=recent(connection, now.date()), forced=force)
         if drawn:
             happened.append(play(connection, person, drawn, view['city']['name'], now, logged, message_id))
             pressure = None

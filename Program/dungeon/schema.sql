@@ -820,7 +820,11 @@ CREATE TABLE IF NOT EXISTS story_campaign (
   show_adult_side INTEGER,
   gm_view INTEGER,
   cutaways INTEGER,
-  defeat TEXT CHECK (defeat IN ('as_written', 'by_aim'))
+  defeat TEXT CHECK (defeat IN ('as_written', 'by_aim')),
+  -- dungeon/tone.py: categories moved off the preset and veiled topics (JSON), and the narrator's voice.
+  levels TEXT,
+  veils TEXT,
+  voice TEXT
 );
 
 -- The persona's sheet under a ruleset other than MARVEL (dungeon/sheet.py), as that ruleset keeps it.
