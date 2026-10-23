@@ -232,3 +232,14 @@ def test_a_notable_who_runs_the_place_is_named_while_away():
                                       'place stands in; Corin Ashby is still the tavern keeper, so invent no other.']
     assert story.away_lines(view | {'people': [{'sheet': {'full': 'Corin Ashby'}}]}) == []
     assert story.away_lines(view | {'dead': {'corin ashby'}}) == []
+
+
+def test_a_line_that_goes_out_through_a_place_moves_there(client, clock, provider):
+    connect(client)
+    ok(client.put('/api/story/scene', json={'city_id': 'the-concourse', 'place_id': 'the-plaza'}))
+    ok(client.delete('/api/story'))
+    premade = ok(client.get('/api/story/start'))['premades'][0]['id']
+    ok(client.post('/api/story/start', json={'premade_id': premade}))
+    provider.replies = [[Chunk('Up and up.'), Chunk('', 'stop')]]
+    say(client, 'I go out through the gate arch onto the Stair and look up.', 'story-0001')
+    assert ok(client.get('/api/story'))['scene']['place']['id'] == 'the-gate-arch'

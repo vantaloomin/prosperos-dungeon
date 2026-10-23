@@ -577,7 +577,7 @@ def move(database, city_id: str, place_id: str | None) -> dict:
 # A line that goes somewhere by name: the words after "go to", "head over to" and the like.
 GOING = re.compile(r'\b(?:go|goes|going|head|heads|heading|walk|walks|walking|make (?:my|our) way|wander|wanders|'
                    r'stroll|strolls|hurry|hurries|return|returns|cross|crosses)\b(?:\s+(?:back|over|down|up|across|'
-                   r'out|on|off|straight))*\s+(?:to|towards?|into|in at)\s+(?P<where>[^.!?;,]+)', re.I)
+                   r'out|on|off|straight))*\s+(?:to|towards?|into|in at|onto|through)\s+(?P<where>[^.!?;,]+)', re.I)
 # Where a rest is taken: "I sleep at the bunkhouses".
 SLEEPING_AT = re.compile(r'\b(?:at|in)\s+(?P<where>[^.!?;,]+)', re.I)
 PLACE_FILLER = {'the', 'of', 'a', 'an', 's', 'old', 'and'}
@@ -600,9 +600,12 @@ def walked_to(connection, text: str, clock=None) -> dict | None:
         spans += [found.group('where') for found in SLEEPING_AT.finditer(text)]
     for where in spans:
         # Only the place itself: "the shrine", not "the shrine and ask Mother Rook".
-        where = re.split(r'\b(?:and|then|to|so|where|while|with|for|until|because)\b', where, maxsplit=1)[0]
+        where = re.split(r'\b(?:and|then|to|so|where|while|with|for|until|because|onto|into|through)\b', where,
+                         maxsplit=1)[0]
         words = place_words(where)
-        scored = [(len(words & (place_words(place['name']) | {place['kind']})), place) for place in data['places']]
+        # A place's words: its name, its kind and its id ("the-gate-arch" is "the east gate" to the player too).
+        scored = [(len(words & (place_words(place['name']) | place_words(place['id']) | {place['kind']})), place)
+                  for place in data['places']]
         best = max((hits for hits, _ in scored), default=0)
         top = [place for hits, place in scored if hits == best]
         if best and len(top) == 1:
