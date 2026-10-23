@@ -365,9 +365,20 @@ narrator gets that summary as "The story so far" in their place. The summary cal
 ## What is happening
 
 A town's adventure file (`dungeon/world/data/adventures/<city>.json`, `dungeon/quests.py`) lists its quests and its
-dangerous places. Kingswood ships "The Heartwood contract" and a hidden one, "The wardens' eyes".
+dangerous places, and its finds file (`finds/<city>.json`) what is inside things there. Every town ships one:
+- **Kingswood** (Vallarith): "The Heartwood contract" and a hidden one, "The wardens' eyes".
+- **Haven** (Havenbrooke): "Mairead's sealskin", "Recon loops in Ironroot", and the hidden "The Velvet Spire's middle
+  floor"; Ironroot Woods, the back woods and the old cemetery are dangerous.
+- **The Concourse** (BABEL, a safe zone with no dangers): "The name off the Roll", "Sallis's first week", and the
+  hidden "What Hamid saw".
+- **Hollin** (BABEL, Varrow): "Rats in the mill cellar", "The patch before the cold", and the hidden "The autumn
+  weighing"; the ditch below the patch, Burners' Wood and the bone-cellar are dangerous.
+- **The Gilded Bazaar** (BABEL): "Nell's paper", "The night cage", and the hidden "Out is not down"; the fence rows
+  and the freight wharf are dangerous.
 
-- **Quests** start with the story (campaign start), each with a hook, a hidden truth and a deadline in days of story
+- **Quests** start with the story (campaign start) in the starting town; a town first reached mid-campaign (a
+  journey's end) begins its own then, deadlines counted from the arrival, and only once (`quests.reach`). Each comes
+  with a hook, a hidden truth and a deadline in days of story
   time. The narrator gets "What is happening" every turn: each open quest, its truth, how long is left and whether
   the character knows of it yet. It lets them press on the scene and never ends one itself.
 - **Deadlines** are code's: when the story clock passes one with the quest still open, the quest is missed, its
