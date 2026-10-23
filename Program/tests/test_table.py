@@ -21,7 +21,7 @@ def test_a_new_campaign_takes_the_worlds_tone_and_the_players_last_taste(client)
                      'roll_dice': False, 'show_adult_side': False, 'gm_view': False, 'cutaways': False,
                      'levels': None, 'veils': None, 'voice': 'world',
                      'pov': 'second', 'tense': 'present', 'length': 'short', 'shop_cash': 'finite',
-                     'carry_limit': 'slots'}
+                     'carry_limit': 'slots', 'clock': 'world'}
     begin(client)
     rules = ok(client.put('/api/story/table', json={'intensity': 'restrained', 'show_odds': True, 'roll_dice': True}))
     assert (rules['intensity'], rules['show_odds'], rules['roll_dice']) == ('restrained', True, True)

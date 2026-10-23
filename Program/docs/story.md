@@ -19,6 +19,13 @@ The app decides the scene (`dungeon/story.py`):
   the nights of a rest (see "Rest"), 20 minutes to cross town and 6 hours to
   reach another city. Out-of-character lines take no time. A story with no campaign start runs on the app clock
   (debug time included), as Companion's did. The clock is branched with the story.
+- **Real-time worlds:** a world can live in real time instead (its tier file's `clock`: Havenbrooke does; the
+  Table's World clock, `clock`, picks story time or real time for the campaign, 'world' leaving it to the world).
+  Then the real time since the last line also passes before the next one, deadlines, factions, arcs and classes
+  with it, so the world keeps moving while the app is closed (at most 30 days at once). A gap of an hour or more
+  reaches the narrator under "## While the player was away". The mark it counts from (`story_real`) is not
+  branched: going back to an earlier line does not bring back the hours since. Turned on later, it counts from
+  then.
 - **Weather:** the city's typical weather for the date (`generators.conditions`).
 - **Who is there:** the townsfolk rules at that moment (`story.present`): people seeded at the place and
   residents whose routines bring them there. Each world's town has its own seed (`persona.town_seed`), so the

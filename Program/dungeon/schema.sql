@@ -691,6 +691,13 @@ CREATE TABLE IF NOT EXISTS story_clock (
   at TEXT NOT NULL
 );
 
+-- The app clock when the story last caught up with real time (dungeon/story_clock.py caught_up). Not branched: a
+-- rewound line does not bring back the hours since.
+CREATE TABLE IF NOT EXISTS story_real (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  at TEXT NOT NULL
+);
+
 -- MARVEL stats per actor (dungeon/sheet.py); 'persona' is the player's character.
 CREATE TABLE IF NOT EXISTS character_stats (
   actor TEXT NOT NULL,
@@ -939,6 +946,8 @@ CREATE TABLE IF NOT EXISTS story_campaign (
   shop_cash TEXT CHECK (shop_cash IN ('finite', 'unlimited')),
   -- Whether carrying is limited by slots (dungeon/inventory.py capacity).
   carry_limit TEXT CHECK (carry_limit IN ('slots', 'off')),
+  -- Story time, or real time while the app is closed too ('world': the world's own; dungeon/story_clock.py).
+  clock TEXT CHECK (clock IN ('world', 'story', 'real_time')),
   -- The world seed the land past a hex map's authored edge is generated from (dungeon/hexes.py).
   seed TEXT
 );

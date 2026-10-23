@@ -39,6 +39,14 @@ export function StoryIntensity({ intensity, onSaved }: { intensity: Intensity; o
       checked={rules.shop_cash !== 'unlimited'} onChange={(checked) => void save({ shop_cash: checked ? 'finite' : 'unlimited' })} />}
     {rules && <Toggle label="Carrying limits" hint="On: what you carry is counted in slots, more with Vitality. Off: carry anything."
       checked={rules.carry_limit !== 'off'} onChange={(checked) => void save({ carry_limit: checked ? 'slots' : 'off' })} />}
+    {rules && <Field label="World clock" hint="Story time moves only as you play. Real time keeps the world moving while the app is closed: come back tomorrow and a day has passed.">
+      {(id, describedBy) => <select id={id} value={rules.clock ?? 'world'} aria-describedby={describedBy}
+        onChange={(event) => void save({ clock: event.target.value as TableRules['clock'] })}>
+        <option value="world">As the world keeps it</option>
+        <option value="story">Story time</option>
+        <option value="real_time">Real time</option>
+      </select>}
+    </Field>}
     <Toggle label="Meanwhile cutaways" hint="Short scenes of what happens to the people you know while you are elsewhere. Your character still only learns it when word reaches them."
       checked={Boolean(intensity.cutaways)} onChange={(checked) => void save({ cutaways: checked })} />
     {intensity.ruleset === 'srd52' && <Toggle label="Foes decide a defeat" hint="Off: at 0 hit points the death saves decide, as written. On: only foes out to kill bring the death saves; others take what they came for, a prisoner, a purse or a beaten stranger thrown out."
