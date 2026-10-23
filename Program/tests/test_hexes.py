@@ -198,7 +198,9 @@ def test_a_walk_stops_at_a_site_it_comes_upon_but_not_at_one_it_knows():
 
 def out_in_the_wild(app, at: tuple[int, int]):
     with app.state.database.connect(write=True) as connection:
-        connection.execute("UPDATE story_campaign SET seed='fixed' WHERE id=1")
+        # The campaign row may not exist yet when no story was started, and the seed would then be a new one.
+        connection.execute("INSERT INTO story_campaign (id, seed) VALUES (1, 'fixed') "
+                           "ON CONFLICT(id) DO UPDATE SET seed='fixed'")
         connection.execute("UPDATE story_scene SET city_id='vallarith-road', place_id='the-wilds' WHERE id=1")
         connection.execute("INSERT INTO story_position (id, map, q, r, believed_q, believed_r) "
                            "VALUES (1, 'vallarith', ?, ?, ?, ?)", (*at, *at))
