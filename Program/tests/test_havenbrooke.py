@@ -95,6 +95,14 @@ def test_the_woods_are_a_hex_crawl_of_mile_hexes_and_the_roads_stay_roads():
     assert board.hours(forest, False) == 0.5 and board.text(forest, False) == 'the woods'
 
 
+def test_whatever_the_seed_no_lake_shuts_a_trailhead_in():
+    from dungeon import hexes
+    for seed in ('31', '44', '61', 'fixed'):
+        board = hexes.Grid(woods(), seed)
+        for place in ('ironroot-trailhead', 'riverwalk-end'):
+            assert all(board.heading(board.places[place], way, 5, 'clear')[0] for way in hexes.DIRECTIONS)
+
+
 def test_from_ironroot_a_walk_goes_into_the_woods_and_a_drive_still_takes_the_road(client, connected, provider, app):
     begin(client, place='ironroot-woods')
     app.state.dice = Road(99)

@@ -179,6 +179,10 @@ class Grid:
                 region = self.region_of_place[at]
             if terrain == 'water' and (at in self.roads or at in self.at_place):
                 terrain = 'plains'
+            # Generated land never shuts a place in: every way out of it is walkable for a step.
+            elif terrain == 'water' and at not in self.authored and any(
+                    other in self.at_place for other in neighbours(*at)):
+                terrain = self.generate.get('swap', {}).get('plains', 'plains')
             self.cache[at] = {'q': at[0], 'r': at[1], 'terrain': terrain, 'region': region,
                               'road': self.roads.get(at), 'place': self.at_place.get(at)}
         return self.cache[at]
