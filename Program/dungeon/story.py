@@ -972,7 +972,8 @@ def walk(database, connection, planned: dict, rolls: list[dict], message_id: str
     # Signs warn when the road ends somewhere above the character (dungeon/tiers.py).
     found = happenings.where(end['city'], end['place'])
     happened += [warned] if found and (warned := tiers.warning(connection, found)) else []
-    if not any(travel.STOPPED in line for line in happened):
+    # A map can keep the road's cards off it: a ramble in Havenbrooke's woods meets no late bus.
+    if not any(travel.STOPPED in line for line in happened) and travel_map.get('road_cards', True):
         drawn, minutes = life_card(database, connection, 'road', message_id)
         happened += drawn
         pass_time(database, connection, minutes)

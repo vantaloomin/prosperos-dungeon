@@ -348,8 +348,22 @@ def test_a_walk_stops_at_a_hamlet_it_knows_on_the_way_and_waits_for_light_at_nig
     with app.state.database.connect(write=True) as connection:
         hexes.find_site(connection, board, at, board.site(at))
         planned = travel.plan(connection, 'vallarith-road', 'the-wilds', f'I strike out {way}.', Road())
-    assert tuple(planned['legs'][-1]['to']) == at and planned['stop'] == 'site'
+        assert tuple(planned['legs'][-1]['to']) == at and planned['stop'] == 'site'
+        end, opening, lines = travel.ending(connection, vallarith(), planned, planned['legs'], [])
+    # Seen from afar, it is reached as somewhere known, not come upon.
+    assert end['place'] == hexes.hamlet_id(at) and opening.startswith('You reach') and 'already knew of' in lines[-1]
     late = datetime(2026, 10, 5, 22, 28)
     assert travel.till_light(late, planned) == 7 * 60 + 32
     assert travel.till_light(late.replace(hour=9), planned) == 0
     assert travel.till_light(late, planned | {'dark': True}) == 0
+
+
+def test_a_day_s_walk_ends_at_dusk_unless_the_line_walks_on_in_the_dark(client, connected, app):
+    begin(client)
+    with app.state.database.connect(write=True) as connection:
+        connection.execute("UPDATE story_clock SET at='2026-10-05T17:00:00' WHERE id=1")
+    late = strike(app, 'I set out west.')
+    assert sum(leg['hours'] for leg in late['legs'][:-1]) < 4
+    assert late['stop'] in ('dusk', 'water', 'place', 'site')
+    through = strike(app, 'I set out west and walk through the night.')
+    assert sum(leg['hours'] for leg in through['legs']) > sum(leg['hours'] for leg in late['legs'])
