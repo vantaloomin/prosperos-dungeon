@@ -24,6 +24,7 @@ from dungeon import (
     finds,
     growth,
     happenings,
+    hexes,
     in_character,
     injuries,
     institutions,
@@ -134,7 +135,18 @@ def city_for(connection, city_id: str, town: str) -> dict:
     data = changes.resolve(city_id, custom.all_cities(connection))
     if data is None:
         raise DomainError(f'No world data for city {city_id!r}.', 404, 'unknown_city')
-    return data | {'kin': [], 'town': town, 'you': you(connection, town), 'kept': ()}
+    return data | {'kin': [], 'town': town, 'you': you(connection, town), 'kept': ()} | hamlets(connection, data)
+
+
+def hamlets(connection, data: dict) -> dict:
+    """The hamlets the character has found out in the wild, as places of the Road city the wild is on
+    (dungeon/hexes.py hamlets): each one the wild place's setting, under its own name, with its own people."""
+    found = []
+    for travel_map in travel.maps():
+        wild = travel_map.get('wild')
+        if wild and wild['city'] == data['id'] and (template := catalog.find(data, wild['place'])):
+            found += [template | hamlet for hamlet in hexes.hamlets(connection, travel_map)]
+    return {'places': [*data['places'], *found]} if found else {}
 
 
 def you(connection, town: str) -> str:
@@ -605,8 +617,9 @@ def walked_to(connection, text: str, clock=None) -> dict | None:
                          maxsplit=1)[0]
         words = place_words(where)
         # A place's words: its name, its kind and its id ("the-gate-arch" is "the east gate" to the player too).
+        # Out in the wild and the hamlets found there are reached by travel (dungeon/travel.py), not across town.
         scored = [(len(words & (place_words(place['name']) | place_words(place['id']) | {place['kind']})), place)
-                  for place in data['places']]
+                  for place in data['places'] if 'wild' not in place.get('tags', ())]
         best = max((hits for hits, _ in scored), default=0)
         top = [place for hits, place in scored if hits == best]
         if best and len(top) == 1:

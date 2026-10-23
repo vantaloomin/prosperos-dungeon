@@ -68,7 +68,7 @@ def nodes_at(city_id: str, place_id: str) -> list[tuple[dict, dict]]:
     exact, town = [], []
     for travel_map in maps():
         wild = travel_map.get('wild')
-        if wild and wild['city'] == city_id and wild['place'] == place_id:
+        if wild and wild['city'] == city_id and (wild['place'] == place_id or place_id.startswith('hamlet-')):
             exact.append((travel_map, wild))
         elif found := next((node for node in travel_map['nodes'] if node['city'] == city_id
                             and node['place'] == place_id), None):
@@ -234,7 +234,7 @@ def strike_out(connection, travel_map: dict, here: dict, direction: str, rng) ->
     weather = today(connection, board, start)
     found = set(hexes.found_sites(connection, board))
     legs, stop = board.heading(start, direction, travel_map['hours_a_day'], weather)
-    legs, site = board.came_upon(legs, found)
+    legs, site = board.came_upon(legs, found, hexes.levels(connection))
     stop = 'site' if site else stop
     plan_ = {'from': here['id'], 'start': list(start), 'mode': 'hex', 'direction': direction, 'weather': weather,
              'legs': legs, 'stop': stop, 'encounter': encounter_on(travel_map, legs, True, rng)}
@@ -285,7 +285,7 @@ def plan_on(connection, travel_map: dict, here: dict, text: str, rng) -> dict | 
         return {'from': here['id'], 'to': goal['id'], 'unknown': True}
     site = None
     if crawl:
-        legs, site = board.came_upon(legs, set(hexes.found_sites(connection, board)))
+        legs, site = board.came_upon(legs, set(hexes.found_sites(connection, board)), hexes.levels(connection))
     return {'from': here['id'], 'to': goal['id'], 'legs': legs, 'encounter': encounter_on(travel_map, legs, crawl, rng)} | (
         {'mode': 'hex', 'start': list(start)} if crawl else {}) | ({'stop': 'site'} if site else {})
 
@@ -322,7 +322,7 @@ def journey_to(connection, travel_map: dict, board: hexes.Grid, here: dict, star
                rng) -> dict:
     """The way to a site the character knows, across country, ending out in the wild at it."""
     legs = board.way(start, (site['q'], site['r']), today(connection, board, start)) or []
-    legs, _ = board.came_upon(legs, set(hexes.found_sites(connection, board)))
+    legs, _ = board.came_upon(legs, set(hexes.found_sites(connection, board)), hexes.levels(connection))
     return {'from': here['id'], 'start': list(start), 'mode': 'hex', 'site': site['name'], 'legs': legs,
             'encounter': encounter_on(travel_map, legs, True, rng), 'stop': 'arrived'}
 
@@ -428,11 +428,14 @@ def ending(connection, travel_map: dict, plan_: dict, legs: list[dict], rolls: l
     cell = board.cell(actual)
     region = (travel_map['regions'].get(cell['region']) or {}).get('name', 'country nobody has named')
     stop = (plan_.get('lost') or {}).get('stop') if strayed(plan_, rolls) else plan_.get('stop')
-    site = board.site(actual)
+    site = hexes.site(connection, board, actual)
     if stop in ('site', 'arrived') and site:
-        hexes.find_site(connection, board, actual)
+        hexes.find_site(connection, board, actual, site)
         lines.append(f"They {'reach' if stop == 'arrived' else 'come upon'} {site['name']}: {site['text']}")
-        return travel_map['wild'], f"You {'reach' if stop == 'arrived' else 'come upon'} {site['name']}.", lines
+        # A hamlet is a place of its own on the Road, with its own people (dungeon/story.py hamlets).
+        end = travel_map['wild'] | ({'place': hexes.hamlet_id(actual), 'name': site['name']}
+                                    if site['kind'] == 'hamlet' else {})
+        return end, f"You {'reach' if stop == 'arrived' else 'come upon'} {site['name']}.", lines
     if stop == 'water':
         lines.append(f"Open water stops them: there is no walking further {plan_.get('direction', 'that way')}.")
     elif stop == 'day':
@@ -455,11 +458,11 @@ def search(connection, plan_: dict, rolls: list[dict]) -> tuple[int, list[str]]:
     if any(roll.get('threat') == NOTHING and roll['band'] in BITES for roll in rolls):
         return minutes_, [f"The character searches the area for {duration(plan_['search']['hours'])} and finds "
                           'nothing worth the trouble.']
-    site = board.site(at)
+    site = board.site(at, hexes.levels(connection))
     if site is None or at in hexes.found_sites(connection, board):
         return minutes_, [f"The character searches the area for {duration(plan_['search']['hours'])}: there is "
                           'nothing hidden here to find.']
-    hexes.find_site(connection, board, at)
+    hexes.find_site(connection, board, at, site)
     return minutes_, [f"Searching the area, the character finds {site['name']}: {site['text']}"]
 
 
@@ -520,7 +523,7 @@ def lines_for(travel_map: dict, plan_: dict, legs: list[dict], nights: int, eate
                  f"{way}."]
     else:
         lines = [f"The player's character travels from {places[plan_['from']]['name']} to "
-                 f"{places[end_of(plan_, legs)]['name']} {way}"
+                 f"{plan_.get('site') or places[end_of(plan_, legs)]['name']} {way}"
                  + (f", {nights} night{'s' if nights > 1 else ''} camped on the road." if nights else '.')]
     if eaten:
         lines.append(f"They eat from their pack on the way: {', '.join(eaten)}.")

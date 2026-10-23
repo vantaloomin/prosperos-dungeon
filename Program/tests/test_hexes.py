@@ -217,3 +217,44 @@ def test_searching_a_hex_turns_up_what_is_hidden_there(client, connected, provid
     story = ok(client.get('/api/story'))
     assert story['scene']['place']['id'] == 'the-wilds' and (story['map']['at']['q'], story['map']['at']['r']) == at
     assert f"Here: {board.site(at)['name']}" in provider.requests[-1]['system']
+
+
+def test_lower_intensity_leaves_out_sites_it_does_not_allow_and_a_found_site_stays_as_found(app):
+    board = hexes.Grid(vallarith(), 'fixed')
+    around = hexes.ring(board.places['kingswood'], 25)
+    gentle = dict.fromkeys(('violence', 'sex', 'horror', 'cruelty', 'drugs'), 1)
+    harsh = [at for at in around if (site := board.site(at)) and site['kind'] == 'lair']
+    assert harsh, 'some lair near Kingswood to leave out'
+    softer = [board.site(at, gentle) for at in around]
+    assert all(site is None or site['kind'] != 'lair' for site in softer if site)
+    assert any(softer), 'the gentler table still has ruins, camps and hamlets'
+    with app.state.database.connect(write=True) as connection:
+        hexes.find_site(connection, board, harsh[0], board.site(harsh[0]))
+        # Found at full intensity, it is still the lair after the levels go down.
+        assert hexes.found_sites(connection, board)[harsh[0]]['kind'] == 'lair'
+
+
+def test_a_hamlet_found_out_in_the_wild_is_a_place_of_its_own_on_the_road(client, connected, provider, app):
+    begin(client)
+    board = hexes.Grid(vallarith(), 'fixed')
+    at = next(at for radius in range(2, 30) for at in hexes.ring(board.places['kingswood'], radius)
+              if (site := board.site(at)) and site['kind'] == 'hamlet')
+    hamlet = board.site(at)
+    beside = next(other for other in hexes.neighbours(*at) if board.cell(other)['terrain'] != 'water'
+                  and not board.cell(other)['place'] and not board.site(other))
+    out_in_the_wild(app, beside)
+    with app.state.database.connect(write=True) as connection:
+        hexes.find_site(connection, board, at, hamlet)
+        connection.execute("INSERT INTO story_map (node_id, visited) VALUES ('kingswood', 1)")
+    app.state.dice = Road(99)
+    provider.replies = [[Chunk('Smoke from a few chimneys.'), Chunk('', 'stop')]]
+    tell(client, f"I head over to {hamlet['name']}.", 'story-0001')
+    story = ok(client.get('/api/story'))
+    place = story['scene']['place']
+    assert place['id'] == hexes.hamlet_id(at) and place['name'] == hamlet['name']
+    assert (story['map']['at']['q'], story['map']['at']['r']) == at
+    assert f"Here: {hamlet['name']}" in provider.requests[-1]['system']
+    # It is somewhere one can leave again by road or across country.
+    provider.replies = [[Chunk('Back to Kingswood.'), Chunk('', 'stop')]]
+    tell(client, 'I set out for Kingswood.', 'story-0002')
+    assert ok(client.get('/api/story'))['scene']['place']['id'] != hexes.hamlet_id(at)

@@ -142,15 +142,15 @@
    {"weight": 3, "kind": "ruin", "visible": true, "names": ["{owner}'s Tower", "the old keep at {owner}'s Rise", "the burnt hall of {owner}"], "text": "A ruin from before the Reform: fallen walls, a stair going up to nothing, and cellars that go further down than they should."},
    {"weight": 2, "kind": "shrine", "visible": false, "names": ["the {owner} stone", "{owner}'s well", "the hanged-man shrine"], "text": "A shrine to a god nobody names any more: a cut stone, old offerings, and new ones that someone left not long ago."},
    {"weight": 2, "kind": "cave", "visible": false, "names": ["{owner}'s Hole", "the dripping cave", "the long cave under {owner}'s Knoll"], "text": "A cave mouth behind brush, cold air breathing out of it, with old soot on the roof from fires long out."},
-   {"weight": 2, "kind": "lair", "visible": false, "names": ["the bone ground", "the {owner} den", "the gnawed hollow"], "text": "A lair: bones cracked for marrow, a smell that sticks to clothes, and tracks too big for wolves."},
+   {"weight": 2, "kind": "lair", "visible": false, "intensity": {"horror": 2}, "names": ["the bone ground", "the {owner} den", "the gnawed hollow"], "text": "A lair: bones cracked for marrow, a smell that sticks to clothes, and tracks too big for wolves."},
    {"weight": 1, "kind": "battlefield", "visible": true, "names": ["{owner}'s Field", "the field of crows", "the rusting ground"], "text": "An old battlefield gone to grass, the barrows in rows and the odd rusted blade turned up by the plough nobody uses here."},
    {"weight": 2, "kind": "camp", "visible": true, "names": ["{owner}'s camp", "a charcoal burners' camp", "a deserters' camp"], "text": "A camp of people who would rather not be found: smoke, lean dogs, and watchers who saw the character first."},
    {"weight": 2, "kind": "hamlet", "visible": true, "names": ["{owner}'s End", "Little {owner}", "{owner}'s Ford"], "text": "A hamlet that is on no map: a handful of houses, a well, and people who stop talking when a stranger walks in."}
   ],
   "badlands": [
    {"weight": 3, "kind": "ruin", "visible": true, "names": ["the ward-fort at {owner}'s Gap", "the broken ward tower", "{owner}'s Watch"], "text": "One of the old ward forts from the horde wars, the wards long failed, the gate down, and something living in the gatehouse."},
-   {"weight": 2, "kind": "camp", "visible": true, "names": ["an Unguruk camp", "a raiders' camp"], "text": "A raiders' camp: hide tents, horses on a picket line, and trophies on poles."},
-   {"weight": 1, "kind": "lair", "visible": false, "names": ["the shale pits", "the dead ground"], "text": "Ground where the wards failed badly: the shale is warm, nothing grows, and the dead do not stay down."}
+   {"weight": 2, "kind": "camp", "visible": true, "intensity": {"violence": 2}, "names": ["an Unguruk camp", "a raiders' camp"], "text": "A raiders' camp: hide tents, horses on a picket line, and trophies on poles."},
+   {"weight": 1, "kind": "lair", "visible": false, "intensity": {"horror": 2}, "names": ["the shale pits", "the dead ground"], "text": "Ground where the wards failed badly: the shale is warm, nothing grows, and the dead do not stay down."}
   ],
   "wilds": [
    {"weight": 2, "kind": "ruin", "visible": true, "names": ["the black spire", "the toppled towers", "the stone ring"], "text": "Stonework older than anything in the Kingdoms, in a style nobody in Kingswood would recognise."}
