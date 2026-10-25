@@ -8,8 +8,9 @@ An image is written to the package's assets/backdrops/<id>.webp at 1200x800; an 
 Program/.tools/backdrops-raw. Images already there are skipped, so the run can be stopped and started again; delete
 one to have it made again.
 
-Requests are spaced to at most --per-hour (60 by default). A sign-in, quota or missing-CLI error stops the run; a
-refused or failed image is reported and skipped.
+Requests are spaced to at most --per-hour (60 by default). A sign-in, quota or missing-CLI error stops the run, and
+so do STREAK failures in a row for the same reason (a ChatGPT plan without image generation fails every image alike);
+a single refused or failed image is reported and skipped.
 
     python scripts/art/backdrops.py                      # every world
     python scripts/art/backdrops.py --world havenbrooke  # one world
@@ -39,6 +40,8 @@ SAVED = (1200, 800)
 QUALITY = 80
 # Errors after which no later request can succeed until you do something.
 STOPPING = {'auth', 'rate_limited', 'unavailable', 'incompatible'}
+# Failures in a row for the same reason that stop the run: something is wrong with every request, not one prompt.
+STREAK = 3
 NIGHT = ('The attached picture shows this place by day. Make the same place, from the same viewpoint with the same '
          'composition, at night: moonlight and starlight, warm lamplight or firelight from windows, lanterns or street '
          'lights where the place would have them, deep blue shadows.')
@@ -94,7 +97,7 @@ async def run(args) -> int:
         for job in queue:
             print(f"  {job['world']}/{job['id']}: {job['prompt'][:110]}...")
         return 0
-    adapter, gap, last, made, skipped = CodexAdapter(), 3600 / args.per_hour, 0.0, 0, []
+    adapter, gap, last, made, skipped, streak = CodexAdapter(), 3600 / args.per_hour, 0.0, 0, [], []
     for index, job in enumerate(queue, 1):
         if job['reference'] and not job['reference'].exists():
             skipped.append(f"{job['world']}/{job['id']} (no day picture)")
@@ -112,7 +115,14 @@ async def run(args) -> int:
                 print('Stopped. Fix that, then run this again; finished images are kept.')
                 return 1
             skipped.append(f"{job['world']}/{job['id']} ({error.code})")
+            streak = [*streak, error.message] if streak and streak[-1] == error.message else [error.message]
+            if len(streak) >= STREAK:
+                print(f'Stopped: the last {STREAK} images all failed the same way:\n  {error.message}\n'
+                      'Check that your ChatGPT plan includes image generation in Codex (a Free plan may not), then '
+                      'run this again; finished images are kept.')
+                return 1
             continue
+        streak = []
         made += 1
         print(f"  saved {job['out']}")
     print(f'Done: {made} made.' + (f' Not made: {", ".join(skipped)}.' if skipped else ''))
