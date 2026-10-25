@@ -520,6 +520,7 @@ export interface TownsfolkMix {
 }
 /** What the story's stage shows (dungeon/art.py stage): the place's picture and portraits of who is here. */
 export interface ArtStage {
-  background: { url: string; width: number | null; height: number | null } | null
+  /** A made picture of the place, or the world's default backdrop (`default`) in the hour's `light`. */
+  background: { url: string; width: number | null; height: number | null; default?: boolean; light?: 'dawn' | 'day' | 'dusk' | 'night' } | null
   portraits: { key: string; name: string; url: string; width: number | null; height: number | null }[]
 }

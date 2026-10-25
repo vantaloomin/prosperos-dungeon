@@ -11,6 +11,13 @@ import { askForDrawer } from './scene'
 const ART_KEY = ['story-art']
 // Passive art finishes after the turn, so the stage looks again now and then.
 const STAGE_REFRESH = 20_000
+// A default backdrop is a daytime picture: dawn and dusk warm it, and night darkens one with no night picture of its own.
+const TINTS: Record<string, string> = {
+  day: '',
+  dawn: 'linear-gradient(rgba(255, 170, 140, 0.18), rgba(90, 70, 120, 0.22))',
+  dusk: 'linear-gradient(rgba(255, 140, 60, 0.2), rgba(60, 30, 80, 0.32))',
+  night: 'linear-gradient(rgba(8, 14, 40, 0.58), rgba(8, 14, 40, 0.66))',
+}
 
 /** Pictures on request (dungeon/art.py): you, someone you met, this place, or the whole scene. Each is built from what
  *  the game tracks and made by the image backends in Settings; one goes out of date when what it shows changes. */
@@ -76,9 +83,9 @@ export function IllustrateButton({ messageId }: { messageId: string }) {
     title="Make a picture of this passage with your image backend."><Image aria-hidden="true" />{busy ? 'Picturing…' : 'Picture this'}</button>
 }
 
-/** The stage over the story (VN style): the place's picture behind, the portraits of who is here in front. Shown
- *  only once pictures are made, and only when this device has "Show pictures on the story" on. In the Visual novel
- *  layout the picture fills the story column and the portraits stand on its own row above the text box
+/** The stage over the story (VN style): the place's picture behind (a made one, else the world's default backdrop),
+ *  the portraits of who is here in front. Shown only when there is a picture, and only when this device has "Show
+ *  pictures on the story" on. In the Visual novel layout the picture fills the story column and the portraits stand on its own row above the text box
  *  (styles.css `data-layout='novel'`), so they come apart. */
 export function StoryStage({ turn }: { turn: string }) {
   const look = useDeviceLook()
@@ -88,7 +95,7 @@ export function StoryStage({ turn }: { turn: string }) {
   if (!shown || (!shown.background && !shown.portraits.length)) return null
   const portraits = <StagePortraits portraits={shown.portraits} />
   return <>
-    <figure className="story-stage" style={shown.background ? { backgroundImage: `url(${shown.background.url})` } : undefined}>
+    <figure className="story-stage" style={shown.background ? { backgroundImage: [TINTS[shown.background.light ?? 'day'], `url(${shown.background.url})`].filter(Boolean).join(', ') } : undefined}>
       {look.layout !== 'novel' && portraits}
       {shown.background && <figcaption className="visually-hidden">A picture of this place</figcaption>}
     </figure>

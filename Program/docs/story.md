@@ -1035,6 +1035,18 @@ Settings (`dungeon/images`), and never hold up the story.
 - **The stage** (`GET /api/story/art/stage`, `art.stage`): above the story, the place's newest picture as a
   background and the newest portrait of each person here who has one, VN style. Shown only once pictures exist, and
   only while this device has "Show pictures on the story" on (General > Appearance, `stageArt`, on by default).
+- **Default backdrops** (`art.backdrop`): with no picture made of the place, the stage shows the world's stock
+  picture of that kind of place, so it has one with no image backend. Each world lists them in its package
+  (`engine/art/<world>.json` `backdrops`: id, prompt and what picks it) with the images in `assets/backdrops`
+  (`<id>.webp`, and `<id>-night.webp` for an `outdoor` one), served from `GET /api/story/art/backdrop/<world>/<file>`.
+  The first that fits: the place's own `backdrop`; out in the wild on a hex crawl, the found site in the hex
+  (`sites`), else its terrain or the road (`terrains`); a blank lot's entry (`lots`); the backdrop sharing the most
+  `tags` with the place; the place's `kind` (`kinds`); out and about in a neighborhood, the `street` one; else the
+  world's `default`. At night an outdoor backdrop shows its night picture (darkened, without one); dawn and dusk
+  tint it. Indoor ones stay as they are. The images are made once with `Windows/backdrops.bat`
+  (`scripts/art/backdrops.py`): ChatGPT images through the Codex adapter, in each world's `backdrop_style`, at most 60
+  an hour, skipping what is made; a night picture is made from its day one. Defaults are never in the gallery or
+  the book.
 
 ## Off-page beats and word getting around
 

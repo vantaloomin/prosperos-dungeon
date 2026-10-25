@@ -21,6 +21,11 @@ when the player asks, through the image backends in Settings (dungeon/images).
   then a portrait of someone here that has gone out of date (live-state portraits), then the place when it has no
   picture, then the scene when a chapter is about to close.
 - **The stage** (`stage`) shows the place's picture behind the story and the portraits of who is here, VN style.
+- **Default backdrops** (`backdrop`): with no picture made of the place, the stage shows the world's stock picture of
+  that kind of place (engine/art/<world>.json `backdrops`, images in the package's assets/backdrops, made once by
+  scripts/art/backdrops.py), so it has a picture with no image backend at all. Picked by the place's own `backdrop`,
+  then out in the wild the hex's site or terrain, a blank lot's entry, the most tags shared, the place's kind, the
+  street for out and about, else the world's default. An outdoor one has a night image; dawn and dusk tint it.
 
 Pictures are not game state: going back in the story keeps them.
 """
@@ -29,13 +34,25 @@ import hashlib
 import random
 from datetime import datetime
 
-from dungeon import chapters, combat, feelings, injuries, inventory, story, story_clock, tiers, world_data
+from dungeon import (
+    chapters,
+    combat,
+    feelings,
+    hexes,
+    injuries,
+    inventory,
+    story,
+    story_clock,
+    tiers,
+    travel,
+    world_data,
+)
 from dungeon.database import decode, identifier, many, one, optional
 from dungeon.errors import require
 from dungeon.images import backends as image_backends
 from dungeon.images import content, routing, storage
 from dungeon.images.adapters.base import AdapterError, ImageRequest, size_for
-from dungeon.world import townsfolk
+from dungeon.world import catalog, townsfolk
 
 KINDS = ('portrait', 'place', 'scene', 'passage')
 PASSIVE_CAP = 6
@@ -44,6 +61,8 @@ STYLE = 'Detailed painterly illustration, natural light, grounded and realistic,
 NEGATIVE = 'text, watermark, signature, caption, logo, extra fingers, deformed hands, blurry'
 PASSAGE_CHARS = 700
 GEAR = ('weapon', 'weapons', 'armour', 'armor', 'clothing', 'clothes', 'shield')
+# The light a default backdrop is shown in, by the hour it starts.
+LIGHTS = ((5, 'dawn'), (8, 'day'), (18, 'dusk'), (21, 'night'))
 HOURS = ((5, 'at dawn'), (8, 'in the morning'), (12, 'at midday'), (15, 'in the afternoon'), (18, 'at dusk'),
          (21, 'at night'))
 
@@ -285,14 +304,83 @@ def stage(database) -> dict:
         present = [person['sheet']['key'] for person in view['people'] if person['sheet'].get('key') in known]
         done = many(connection, "SELECT * FROM story_art WHERE status='done' AND file IS NOT NULL AND "
                                 "kind IN ('place', 'portrait') ORDER BY created_at DESC, rowid DESC")
-    place = next((row for row in done if row['kind'] == 'place' and row['subject'] == here), None)
+        place = next((row for row in done if row['kind'] == 'place' and row['subject'] == here), None)
+        fallback = None if place else backdrop(connection, view)
     portraits = []
     for key in present:
         if row := next((row for row in done if row['kind'] == 'portrait' and row['subject'] == key), None):
             portraits.append({'key': key, 'name': known[key], 'url': f"/api/story/art/{row['id']}/file",
                               'width': row['width'], 'height': row['height']})
-    return {'background': place and {'url': f"/api/story/art/{place['id']}/file", 'width': place['width'],
-                                     'height': place['height']}, 'portraits': portraits}
+    made = place and {'url': f"/api/story/art/{place['id']}/file", 'width': place['width'], 'height': place['height']}
+    return {'background': made or fallback, 'portraits': portraits}
+
+
+# Default backdrops ---------------------------------------------------------------------------------
+
+def backdrops(world: str | None) -> list[dict]:
+    return ((world_data.read('art', world) if world else None) or {}).get('backdrops', [])
+
+
+def light(moment: datetime) -> str:
+    return next((word for start, word in reversed(LIGHTS) if moment.hour >= start), 'night')
+
+
+def out_in_the_wild(connection, world: str, city_id: str, place_id: str) -> tuple[str | None, str] | None:
+    """Out in the wild on a hex crawl: the found site's kind in this hex (or None), and its terrain ('road' on one)."""
+    for travel_map in travel.maps():
+        wild = travel_map.get('wild') if travel_map.get('world') == world and hexes.is_hex(travel_map) else None
+        if not wild or (wild.get('city'), wild.get('place')) != (city_id, place_id):
+            continue
+        board = hexes.grid(connection, travel_map)
+        if where := hexes.position(connection, board):
+            cell, site = board.cell(where['at']), hexes.found_sites(connection, board).get(where['at'])
+            return site and site['kind'], 'road' if cell['road'] else cell['terrain']
+    return None
+
+
+def pick(entries: list[dict], place: dict | None, wild: tuple[str | None, str] | None, street: bool) -> dict | None:
+    """The backdrop for a place, in the order the module notes give."""
+    place = place or {}
+    by_id = {entry['id']: entry for entry in entries}
+    tags = [tag for tag in place.get('tags', []) if tag != 'lot']
+    lot = tags[0] if 'lot' in place.get('tags', []) and tags else None
+    shared = max(entries, key=lambda entry: len(set(entry.get('tags', [])) & set(tags)), default=None)
+    steps = (by_id.get(place.get('backdrop')),
+             wild and next((entry for entry in entries if wild[0] in entry.get('sites', [])), None),
+             wild and next((entry for entry in entries if wild[1] in entry.get('terrains', [])), None),
+             lot and next((entry for entry in entries if lot in entry.get('lots', [])), None),
+             shared if shared and set(shared.get('tags', [])) & set(tags) else None,
+             next((entry for entry in entries if place.get('kind') in entry.get('kinds', [])), None) if not street else None,
+             next((entry for entry in entries if entry.get('street')), None) if street else None,
+             next((entry for entry in entries if entry.get('default')), None))
+    return next((entry for entry in steps if entry), None)
+
+
+def backdrop(connection, view: dict) -> dict | None:
+    """The world's stock picture of this kind of place, for the stage when none is made, in the hour's light."""
+    world = tiers.world_of(view['city']['id'])
+    entries = backdrops(world)
+    if not entries:
+        return None
+    place_id = view['place']['id']
+    wild = out_in_the_wild(connection, world, view['city']['id'], place_id)
+    entry = pick(entries, catalog.find(view['data'], place_id), wild, place_id.startswith('~'))
+    if entry is None:
+        return None
+    owner = entry.get('from') or world
+    shade = light(datetime.fromisoformat(view['local_time']))
+    night = entry.get('outdoor') and shade == 'night' and world_data.asset(owner, f"backdrops/{entry['id']}-night.webp")
+    name = f"{entry['id']}-night.webp" if night else f"{entry['id']}.webp"
+    if not night and not world_data.asset(owner, f'backdrops/{name}'):
+        return None
+    return {'url': f'/api/story/art/backdrop/{owner}/{name}', 'width': None, 'height': None, 'default': True,
+            'light': shade if entry.get('outdoor') and not night else 'day'}
+
+
+def backdrop_file(world: str, name: str) -> bytes:
+    found = world_data.asset(world, f'backdrops/{name}') if name.endswith('.webp') and '/' not in name else None
+    require(found is not None, 'There is no such backdrop.', 404)
+    return found
 
 
 def file_of(database, art_id: str):
