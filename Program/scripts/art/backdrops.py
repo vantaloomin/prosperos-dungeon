@@ -8,6 +8,10 @@ An image is written to the package's assets/backdrops/<id>.webp at 1200x800; an 
 Program/.tools/backdrops-raw. Images already there are skipped, so the run can be stopped and started again; delete
 one to have it made again.
 
+`--backend openai` sends the same requests to the OpenAI Images API instead (dungeon/images/adapters/hosted.py), with
+the key in CHATGPT_API_KEY or OPENAI_API_KEY; a night picture goes through /images/edits with the day one attached.
+The key is read from the environment only and never printed.
+
 Requests are spaced to at most --per-hour (60 by default). A sign-in, quota or missing-CLI error stops the run, and
 so do STREAK failures in a row for the same reason (a ChatGPT plan without image generation fails every image alike);
 a single refused or failed image is reported and skipped.
@@ -16,6 +20,7 @@ a single refused or failed image is reported and skipped.
     python scripts/art/backdrops.py --world havenbrooke  # one world
     python scripts/art/backdrops.py --only smithy tavern # some backdrops
     python scripts/art/backdrops.py --list               # what would be made, nothing sent
+    python scripts/art/backdrops.py --backend openai     # through the OpenAI API (--model to pick the image model)
 
 Windows/backdrops.bat runs it with the app's Python and Pillow (which the app itself does not need).
 """
@@ -23,6 +28,7 @@ import argparse
 import asyncio
 import io
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -32,6 +38,7 @@ sys.path.insert(0, str(ROOT))
 
 from dungeon.images.adapters.base import AdapterError, ImageRequest  # noqa: E402
 from dungeon.images.adapters.codex import CodexAdapter  # noqa: E402
+from dungeon.images.adapters.hosted import HostedAdapter  # noqa: E402
 
 PACKAGES = ROOT / 'dungeon' / 'world' / 'packages'
 RAW = ROOT / '.tools' / 'backdrops-raw'
@@ -42,6 +49,8 @@ QUALITY = 80
 STOPPING = {'auth', 'rate_limited', 'unavailable', 'incompatible'}
 # Failures in a row for the same reason that stop the run: something is wrong with every request, not one prompt.
 STREAK = 3
+KEYS = ('CHATGPT_API_KEY', 'OPENAI_API_KEY')
+OPENAI = 'https://api.openai.com/v1'
 NIGHT = ('The attached picture shows this place by day. Make the same place, from the same viewpoint with the same '
          'composition, at night: moonlight and starlight, warm lamplight or firelight from windows, lanterns or street '
          'lights where the place would have them, deep blue shadows.')
@@ -79,14 +88,24 @@ def save(png: bytes, out: Path):
     picture.save(out, 'WEBP', quality=QUALITY, method=6)
 
 
-async def make(adapter: CodexAdapter, job: dict, codex: str | None) -> bytes:
+def api_key() -> str | None:
+    return next((os.environ[name] for name in KEYS if os.environ.get(name)), None)
+
+
+async def make(adapter, job: dict, args) -> bytes:
     raw = RAW / job['world']
     raw.mkdir(parents=True, exist_ok=True)
     reference = job['reference'].read_bytes() if job['reference'] else None
+    if args.backend == 'openai':
+        backend, config, key = {'kind': 'hosted', 'provider': 'openai'}, {'base_url': OPENAI, 'model': args.model}, api_key()
+    else:
+        backend, config, key = {'kind': 'codex'}, {'cli_path': args.codex or ''}, None
     request = ImageRequest(job_id=job['id'], prompt=job['prompt'], negative=job['avoid'], seed=0, width=SIZE[0],
-                           height=SIZE[1], backend={'kind': 'codex'}, config={'cli_path': codex or ''}, raw_dir=raw,
-                           reference=reference)
-    return (await adapter.generate(request)).data
+                           height=SIZE[1], backend=backend, config=config, key=key, raw_dir=raw, reference=reference)
+    data = (await adapter.generate(request)).data
+    if args.backend == 'openai':
+        (raw / f"{job['id']}.png").write_bytes(data)
+    return data
 
 
 async def run(args) -> int:
@@ -97,7 +116,11 @@ async def run(args) -> int:
         for job in queue:
             print(f"  {job['world']}/{job['id']}: {job['prompt'][:110]}...")
         return 0
-    adapter, gap, last, made, skipped, streak = CodexAdapter(), 3600 / args.per_hour, 0.0, 0, [], []
+    if args.backend == 'openai' and not api_key():
+        print(f'Set {" or ".join(KEYS)} to an OpenAI API key first.')
+        return 1
+    adapter = HostedAdapter() if args.backend == 'openai' else CodexAdapter()
+    gap, last, made, skipped, streak = 3600 / args.per_hour, 0.0, 0, [], []
     for index, job in enumerate(queue, 1):
         if job['reference'] and not job['reference'].exists():
             skipped.append(f"{job['world']}/{job['id']} (no day picture)")
@@ -108,7 +131,7 @@ async def run(args) -> int:
         last = time.monotonic()
         print(f"[{index}/{len(queue)}] {job['world']}/{job['id']}")
         try:
-            save(await make(adapter, job, args.codex), job['out'])
+            save(await make(adapter, job, args), job['out'])
         except AdapterError as error:
             print(f'  failed ({error.code}): {error.message}')
             if error.code in STOPPING:
@@ -134,6 +157,9 @@ def main() -> int:
     parser.add_argument('--world', action='append', choices=worlds(), help='only this world (repeatable)')
     parser.add_argument('--only', nargs='+', metavar='ID', help='only these backdrop ids (a night one comes with its day)')
     parser.add_argument('--per-hour', type=float, default=60, help='most images to ask for in an hour (default 60)')
+    parser.add_argument('--backend', choices=('codex', 'openai'), default='codex',
+                        help='codex: your ChatGPT sign-in (default); openai: the OpenAI API with CHATGPT_API_KEY')
+    parser.add_argument('--model', default='gpt-image-1.5', help='OpenAI image model for --backend openai')
     parser.add_argument('--codex', help='where the Codex CLI is, if it is not on PATH')
     parser.add_argument('--list', action='store_true', help='show what would be made and send nothing')
     args = parser.parse_args()
