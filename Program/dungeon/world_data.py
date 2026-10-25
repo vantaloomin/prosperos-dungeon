@@ -79,6 +79,35 @@ def read(kind: str, key: str) -> dict | None:
     return json.loads(path.read_text(encoding='utf-8')) if path.is_file() else None
 
 
+def asset(world: str, name: str) -> bytes | None:
+    """One of a world's assets (a map, a backdrop: `name` under assets/), from the first package of that world that
+    holds it, else the built-in world's own folder."""
+    for path, stamp in version():
+        held, names = _assets(path, stamp)
+        if held == world and name in names:
+            try:
+                with closing(packages.connect(Path(path))) as connection:
+                    row = connection.execute('SELECT bytes FROM assets WHERE path=?', (f'assets/{name}',)).fetchone()
+            except sqlite3.Error:
+                row = None
+            if row is not None:
+                return bytes(row['bytes'])
+    shipped = packages.BUILTIN / world / 'assets' / name
+    return shipped.read_bytes() if world in packages.builtin_ids() and shipped.is_file() else None
+
+
+@functools.lru_cache(maxsize=32)
+def _assets(path: str, stamp: int) -> tuple[str | None, frozenset[str]]:
+    """The world a package is of, and the names of its assets."""
+    try:
+        with closing(packages.connect(Path(path))) as connection:
+            world = json.loads(connection.execute("SELECT value FROM meta WHERE key='world'").fetchone()['value'])
+            return world.get('id'), frozenset(row['path'].removeprefix('assets/')
+                                              for row in connection.execute('SELECT path FROM assets'))
+    except (sqlite3.Error, TypeError):
+        return None, frozenset()
+
+
 def keys(kind: str) -> list[str]:
     """The keys there is `kind` data for, in a package or shipped, sorted."""
     shipped = {path.stem for path in (packages.DATA / kind).glob('*.json')}

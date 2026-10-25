@@ -138,7 +138,7 @@ def test_someone_here_in_the_scene_can_be_pictured_before_the_record_has_met_the
 def test_the_stage_shows_the_places_picture_and_portraits_of_who_is_here(client, adapters):
     from dungeon import story, story_clock
     local_comfy(client)
-    assert ok(client.get('/api/story/art/stage')) == {'background': None, 'portraits': []}
+    assert ok(client.get('/api/story/art/stage'))['portraits'] == []
     with client.app.state.database.connect(write=True) as connection:
         view = story.scene(connection, story_clock.now(connection, client.app.state.database.clock))
         here = view['people'][0]['sheet']
@@ -155,3 +155,70 @@ def test_the_stage_shows_the_places_picture_and_portraits_of_who_is_here(client,
         connection.execute('UPDATE story_people SET fear=4 WHERE key=?', (here['key'],))
         assert art.stale_portrait(connection, client.app.state.database, here['key'])
         assert art.wanted(connection, client.app.state.database, [here['key']]) == ('portrait', here['key'])
+
+
+# Default backdrops ---------------------------------------------------------------------------------
+
+def test_every_world_lists_backdrops_that_can_be_picked():
+    import json
+
+    from dungeon import packages
+    lots = json.loads((packages.DATA / 'town_lots.json').read_text(encoding='utf-8'))
+    for world in ('vallarith', 'havenbrooke', 'babel'):
+        entries = art.backdrops(world)
+        ids = [entry['id'] for entry in entries]
+        assert len(ids) == len(set(ids)) and sum(bool(entry.get('default')) for entry in entries) == 1
+        assert all(entry['prompt'] for entry in entries)
+        look = 'street' if world == 'havenbrooke' else 'ink'
+        known = {item['id'] for item in lots[look]}
+        assert {lot for entry in entries for lot in entry.get('lots', [])} <= known
+    # Every blank-lot entry of the fantasy and modern maps has its own picture.
+    assert {item['id'] for item in lots['ink']} <= {lot for entry in art.backdrops('vallarith') for lot in entry.get('lots', [])}
+    assert {item['id'] for item in lots['street']} <= {lot for entry in art.backdrops('havenbrooke')
+                                                       for lot in entry.get('lots', [])}
+
+
+def test_a_backdrop_is_picked_by_the_place_then_wild_lot_tags_kind_street_default():
+    entries = art.backdrops('vallarith')
+    pick = lambda place, wild=None, street=False: art.pick(entries, place, wild, street)['id']  # noqa: E731
+    smithy = {'kind': 'workshop', 'tags': ['smith', 'weapons', 'tools']}
+    assert pick(smithy) == 'smithy'
+    assert pick(smithy | {'backdrop': 'tannery'}) == 'tannery'
+    assert pick({'kind': 'workshop', 'tags': ['lot', 'cooper']}) == 'cooper'
+    assert pick({'kind': 'workshop', 'tags': ['hidden']}) == 'workshop'
+    assert pick({'kind': 'trail', 'tags': []}, wild=('ruin', 'hills')) == 'ruin'
+    assert pick({'kind': 'trail', 'tags': []}, wild=(None, 'marsh')) == 'marsh'
+    assert pick({'kind': 'landmark', 'tags': []}, street=True) == 'town-street'
+    assert pick({'kind': 'nowhere', 'tags': []}) == 'road'
+    assert art.pick(art.backdrops('havenbrooke'), {'kind': 'landmark', 'tags': ['esoteric-sciences', 'classes']},
+                    None, False)['id'] == 'esoteric-classroom'
+
+
+def test_with_no_picture_made_the_stage_shows_the_default_backdrop_in_the_hours_light(client, adapters, monkeypatch):
+    from dungeon import world_data
+    real = world_data.asset
+    monkeypatch.setattr(world_data, 'asset', lambda world, name: b'RIFF0000WEBP' if name.startswith('backdrops/')
+                        and not name.endswith('-night.webp') else real(world, name))
+    background = ok(client.get('/api/story/art/stage'))['background']
+    # Pell's Provisions is a general store.
+    assert background['default'] and background['url'] == '/api/story/art/backdrop/vallarith/general-store.webp'
+    served = client.get(background['url'])
+    assert served.status_code == 200 and served.content == b'RIFF0000WEBP'
+    assert client.get('/api/story/art/backdrop/vallarith/..%2Fmaps%2Fvallarith.jpg').status_code == 404
+    # A picture made of the place wins over the default.
+    local_comfy(client)
+    ask(client, 'place')
+    assert ok(client.get('/api/story/art/stage'))['background']['url'].endswith('/file')
+
+
+def test_a_worlds_assets_are_read_from_its_package(client):
+    from dungeon import packages, world_data
+    shipped = (packages.BUILTIN / 'vallarith' / 'assets' / 'maps' / 'vallarith.jpg').read_bytes()
+    assert world_data.paths() and world_data.asset('vallarith', 'maps/vallarith.jpg') == shipped
+    assert world_data.asset('babel', 'maps/vallarith.jpg') is None
+
+
+def test_an_outdoor_backdrop_has_night_and_dusk_light():
+    from datetime import datetime
+    assert [art.light(datetime(2009, 9, 1, hour)) for hour in (3, 6, 12, 19, 22)] == ['night', 'dawn', 'day', 'dusk',
+                                                                                         'night']

@@ -638,6 +638,13 @@ async def ask_art(request: Request, body: ArtAsk):
     return {'art': art.gallery(request.app.state.database), 'asked': made['id']}
 
 
+@router.get('/art/backdrop/{world}/{name}')
+def art_backdrop(world: str, name: str):
+    """A world's stock picture of a kind of place (dungeon/art.py backdrop)."""
+    return Response(art.backdrop_file(world, name), media_type='image/webp',
+                    headers={'Cache-Control': 'max-age=86400'})
+
+
 @router.get('/art/{art_id}/file')
 def art_file(request: Request, art_id: str):
     return FileResponse(art.file_of(request.app.state.database, art_id))

@@ -10,6 +10,8 @@ Other scripts in this folder:
   stop.bat             Stops the Dungeon if you lost its window.
   create-shortcut.bat  Puts a Prospero Dungeon shortcut on your desktop.
   dev.bat              Development mode, for working on the code.
+  backdrops.bat        Makes the worlds' default place pictures with ChatGPT images (needs the
+                       Codex CLI signed in: npm i -g @openai/codex, then codex login).
 
 Your data is normally not in this folder. It lives in %LOCALAPPDATA%\ProsperoDungeon,
 so updating or re-downloading the program keeps it. To keep it with the app instead (for example
