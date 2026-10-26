@@ -331,6 +331,27 @@ textarea { resize: vertical; line-height: 1.6; }
 .story-back svg { width: 14px; height: 14px; }
 .story-note-form { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; margin-top: 8px; }
 .story-people textarea { width: 100%; }
+/* The title screen before a campaign starts (src/features/story/TitleScreen.tsx): key art, then a card per world. */
+/* The scene line waits until the campaign begins. */
+.story-main:has(> .title-screen) > .story-header { display: none; }
+.title-screen { flex: 1; overflow-y: auto; width: 100%; max-width: 1100px; margin: 0 auto; padding: 20px 32px 32px; display: flex; flex-direction: column; gap: 20px; }
+.title-hero, .title-worlds { flex-shrink: 0; }
+.title-hero { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); background: #0d0c0b; }
+.title-hero img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 1; max-height: 40vh; object-fit: cover; object-position: 50% 45%; }
+.title-words { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; padding: 28px 32px;
+  background: linear-gradient(to top, rgb(0 0 0 / .78), rgb(0 0 0 / .15) 55%, transparent); color: #f3ead9; }
+.title-words h2 { margin: 0; font-size: clamp(2rem, 5vw, 3.4rem); line-height: 1.05; text-shadow: 0 2px 12px rgb(0 0 0 / .7); }
+.title-words p { margin: 6px 0 0; font-family: var(--read-font); font-size: 1.1rem; color: #e2d6c0; text-shadow: 0 1px 6px rgb(0 0 0 / .8); }
+.title-worlds { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.title-world { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.title-world.here { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.title-world img, .title-world-blank { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; background: var(--raised); }
+.title-world-text { flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 16px; }
+.title-world-text h3 { margin: 0; font-size: 1.35rem; }
+.title-world-text p { margin: 0; line-height: 1.5; }
+.title-world-genre { color: var(--muted); font-size: .9rem; }
+.title-world-pitch { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; line-clamp: 5; overflow: hidden; }
+.title-world-text .button { margin-top: auto; align-self: flex-start; }
 .story-start, .session-zero { flex: 1; overflow-y: auto; max-width: 760px; width: 100%; margin: 0 auto; padding: 20px 32px; }
 .story-start h2, .session-zero h2 { margin: 0 0 6px; }
 .session-zero { display: flex; flex-direction: column; gap: 14px; }
@@ -406,7 +427,8 @@ textarea { resize: vertical; line-height: 1.6; }
   .page-header { flex-wrap: wrap; }
   .composer { padding: 10px 12px 12px; }
   .story-note-form { grid-template-columns: 1fr; }
-  .story-header, .story-log, .story-start, .session-zero, .story-notice, .story-footer { padding-left: 16px; padding-right: 16px; }
+  .story-header, .story-log, .story-start, .session-zero, .story-notice, .story-footer, .title-screen { padding-left: 16px; padding-right: 16px; }
+  .title-words { padding: 18px 18px; }
 }
 @media (prefers-reduced-motion: reduce) { :root:not([data-motion='full']) *, :root:not([data-motion='full']) *::before, :root:not([data-motion='full']) *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
 :root[data-motion='reduce'] *, :root[data-motion='reduce'] *::before, :root[data-motion='reduce'] *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }

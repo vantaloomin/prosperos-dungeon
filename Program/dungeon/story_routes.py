@@ -27,6 +27,7 @@ from dungeon import (
     table,
     tiers,
     townmap,
+    world_select,
     world_theme,
 )
 from dungeon.errors import DomainError, require
@@ -643,6 +644,24 @@ def art_backdrop(world: str, name: str):
     """A world's stock picture of a kind of place (dungeon/art.py backdrop)."""
     return Response(art.backdrop_file(world, name), media_type='image/webp',
                     headers={'Cache-Control': 'max-age=86400'})
+
+
+@router.get('/art/keyart/{world}')
+def art_keyart(world: str):
+    """A world's key art, on the title screen (dungeon/world_select.py)."""
+    return Response(world_select.keyart(world), media_type='image/webp', headers={'Cache-Control': 'max-age=86400'})
+
+
+@router.get('/worlds')
+def title_worlds(request: Request):
+    """The worlds the title screen offers, the one the story is in marked (dungeon/world_select.py)."""
+    return world_select.choices(request.app.state.database)
+
+
+@router.post('/worlds/{world}/enter')
+async def enter_world(request: Request, world: str):
+    """Into the persona's world there, made first when they have none. Runs on the event loop, like a switch."""
+    return world_select.enter(request.app.state, world)
 
 
 @router.get('/art/{art_id}/file')

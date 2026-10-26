@@ -16,6 +16,7 @@ import { RollCard, TurnLive } from './StoryTurn'
 import { CityOptions } from '../world/CityOptions'
 import { AuthorsNote } from './AuthorsNote'
 import { StoryStart } from './StoryStart'
+import { TitleScreen } from './TitleScreen'
 import { StoryNarration } from './StoryNarration'
 import { StoryPanel } from './StoryPanel'
 import { StoryStage } from './StoryArt'
@@ -38,6 +39,8 @@ export function Story({ go }: { go: (view: View) => void }) {
   // How many lines the story had when the turn began: once the saved story has more, the turn is in it.
   const [since, setSince] = useState(0)
   const [draft, setDraft] = useState({ text: '', at: 0 })
+  // Past the title screen (./TitleScreen.tsx), which shows before a campaign starts.
+  const [begun, setBegun] = useState(false)
   const look = useWorldTheme(story.data)
   if (story.isPending) return <Loading label="Opening your story" />
   if (story.isError) return <ErrorNotice error={story.error} />
@@ -61,13 +64,15 @@ export function Story({ go }: { go: (view: View) => void }) {
   const send = (text: string) => run(text, () => streamApi('/story/messages/stream', { text, client_id: newId() }, grow, note))
   const change = (request: () => Promise<StoryData>) => run(null, () => request().then(update))
   const draftLine = (text: string) => setDraft({ text, at: Date.now() })
+  const opening = openingOf(story.data, pending, begun)
   return (
     <EntityHost story={story.data} onDraft={draftLine} onFind={(key) => void change(() => api<StoryData>('/story/find', { key }))}>
     <section className={look.className} style={look.style} aria-labelledby="story-heading">
       <div className="story-main">
         <StoryHeader story={story.data} change={change} onDraft={(text) => setDraft({ text, at: Date.now() })} />
         {!story.data.ready && <NoModel go={go} />}
-        {!story.data.messages.length && pending === null ? <StoryStart onStarted={update} intensity={story.data.intensity} /> : <>
+        {opening === 'title' ? <TitleScreen onBegin={() => setBegun(true)} />
+          : opening === 'start' ? <StoryStart onStarted={update} intensity={story.data.intensity} /> : <>
           <StoryStage turn={`${story.data.scene.city.id}/${story.data.scene.place.id}/${story.data.messages.length}`} />
           <StoryLog messages={story.data.messages} pending={story.data.messages.length > since ? null : pending} streamed={streamed} turn={turn} bands={story.data.bands}
             onRetry={() => void run('', () => streamApi('/story/retry/stream', {}, grow, note))}
@@ -78,7 +83,7 @@ export function Story({ go }: { go: (view: View) => void }) {
           {error && <div className="story-notice"><Notice tone="error">{error}</Notice></div>}
           <StoryComposer key={draft.at} busy={pending !== null} draft={draft.text} onSend={(text) => void send(text)} />
         </>}
-        <NewStory empty={!story.data.messages.length} onClear={() => run(null, () => api<StoryData>('/story', undefined, 'DELETE').then(update))} />
+        <NewStory empty={!story.data.messages.length} onClear={() => run(null, () => api<StoryData>('/story', undefined, 'DELETE').then((data) => { update(data); setBegun(false) }))} />
       </div>
       <StoryPanel story={story.data} change={change} onTravel={(name) => setDraft({ text: `I set out for ${name}.`, at: Date.now() })}
         onLine={(text) => setDraft({ text, at: Date.now() })}
@@ -86,6 +91,12 @@ export function Story({ go }: { go: (view: View) => void }) {
     </section>
     </EntityHost>
   )
+}
+
+/** Before a campaign starts: the title screen (./TitleScreen.tsx) until the player begins, then the start form. */
+function openingOf(story: StoryData, pending: string | null, begun: boolean): 'title' | 'start' | null {
+  if (story.messages.length || pending !== null) return null
+  return begun ? 'start' : 'title'
 }
 
 function NoModel({ go }: { go: (view: View) => void }) {
