@@ -46,7 +46,7 @@ the game holds and the travel map as the character knows it; it names the model 
 ## Campaign start
 
 A new story opens on "Who are you?" (`dungeon/campaign.py`). The player picks one of the town's premade characters
-(`dungeon/world/data/premades/<city>.json`; Kingswood and Haddon Harbor ship three each) or makes their own: a name, gender, age, a
+(`dungeon/world/data/premades/<city>.json`; Kingswood ships three) or makes their own: a name, gender, age, a
 few lines about them, and Prospero stats bought from 60 points, each from 4 to 18. Either way the world's persona takes
 on that name and those lines, the stats go on the sheet, and the story opens with "You arrive at …".
 

@@ -48,7 +48,7 @@ def allowed(world_city: dict, city: dict) -> bool:
 
 
 def fits(home: dict, other: dict) -> bool:
-    """Same era and the same world: real cities and towns invented in our world (Haddon Harbor in Maine, Pellmouth)
+    """Same era and the same world: real cities and towns invented in our world (Pellmouth)
     mix, as do the cities of a made-up world; a user's own city visits real ones."""
     if other['id'] == home['id'] or other.get('era', 'modern') != home.get('era', 'modern'):
         return False

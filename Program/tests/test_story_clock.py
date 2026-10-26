@@ -30,9 +30,9 @@ def test_how_long_a_line_takes():
 
 
 def test_the_story_keeps_its_own_time_once_it_starts(client, connected, clock, provider):
-    ok(client.put('/api/story/scene', json={'city_id': 'haddon-harbor'}))
+    ok(client.put('/api/story/scene', json={'city_id': 'kingswood'}))
     ok(client.delete('/api/story'))
-    started = at(ok(client.post('/api/story/start', json={'premade_id': 'theo-marsh'})))
+    started = at(ok(client.post('/api/story/start', json={'premade_id': 'tobin-pell'})))
     # The app clock moving on does not move the story.
     clock.instant = clock.now() + timedelta(hours=5)
     assert at(ok(client.get('/api/story'))) == started
@@ -45,7 +45,7 @@ def test_the_story_keeps_its_own_time_once_it_starts(client, connected, clock, p
     # Out of character takes no time, and moving across town does.
     ok(client.post('/api/story/messages', json={'text': 'OOC: what time is it?', 'client_id': 'story-0003'}))
     places = ok(client.get('/api/story'))['scene']['places']
-    moved = ok(client.put('/api/story/scene', json={'city_id': 'haddon-harbor', 'place_id': places[-1]['id']}))
+    moved = ok(client.put('/api/story/scene', json={'city_id': 'kingswood', 'place_id': places[-1]['id']}))
     assert at(moved) == started + timedelta(minutes=205)
 
     # Going back puts the clock back too.

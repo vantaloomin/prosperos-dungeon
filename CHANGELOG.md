@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Each world lists its own cities.** Worlds > Cities shows only the cities of the world you're in, plus your own;
+  "Show other worlds' cities" brings the rest back. Haddon Harbor, the modern Maine town left over from Companion, no
+  longer ships: a world already set there keeps it as one of your own cities, under Custom.
 - **Magic and towns playtest fixes.** Casting a healing spell on yourself outside a fight now works: it spends the
   slot and heals you, and so does a spell cast beside a blow ("I cast Healing Word on myself and hit the thug").
   "At 2nd level" counts wherever it falls in the line. Casting a spell you haven't prepared no

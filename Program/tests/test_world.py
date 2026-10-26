@@ -9,7 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from dungeon.errors import DomainError
-from dungeon.world import catalog, generators
+from dungeon.world import catalog, custom, generators
 from dungeon.world.check import FOOD
 from dungeon.world.schema import City, Featured
 
@@ -636,3 +636,22 @@ def test_a_city_without_work_rules_keeps_its_data_and_one_with_them_reads_them()
                        'pay': '$', 'summary': 'Lighting the gas lamps.', 'themes': ['dusk'], 'worked_by': 'boys'}]
     with pytest.raises(ValidationError, match='worked_by'):
         City.model_validate(raw)
+
+
+def test_a_world_set_in_a_retired_city_keeps_it_as_its_own(app, client, monkeypatch):
+    from dungeon.world import retired
+    database = app.state.database
+    with database.connect(write=True) as connection:
+        retired.keep(connection, database.now())  # Nothing here names Haddon Harbor yet.
+        assert not connection.execute('SELECT 1 FROM world_cities').fetchone()
+    assert client.put('/api/story/scene', json={'city_id': 'haddon-harbor'}).status_code == 200
+    # The tests ship Haddon Harbor as a built-in city; the app retired it (dungeon/world/data/retired).
+    shipped = catalog.cities()
+    monkeypatch.setattr(catalog, 'cities', lambda: {key: city for key, city in shipped.items() if key != 'haddon-harbor'})
+    with database.connect(write=True) as connection:
+        retired.keep(connection, database.now())
+        retired.keep(connection, database.now())
+        mine = custom.all_cities(connection)
+    assert list(mine) == ['haddon-harbor'] and mine['haddon-harbor']['origin'] == 'user'
+    story = client.get('/api/story')
+    assert story.status_code == 200 and 'Haddon Harbor' in story.text
