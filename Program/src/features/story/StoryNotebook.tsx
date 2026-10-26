@@ -29,8 +29,8 @@ export function StoryNotebook({ open }: { open?: boolean }) {
           onSave={(changed) => change(() => api<Notes>(`/story/notebook/${note.id}`, { text: changed }, 'PATCH'))}
           onRemove={() => void change(() => api<Notes>(`/story/notebook/${note.id}`, undefined, 'DELETE'))} />)}
       </ul>
-      <form className="story-note-form" onSubmit={(event) => { event.preventDefault(); if (text.trim()) void change(() => api<Notes>('/story/notebook', { text: text.trim() })).then(() => setText('')) }}>
-        <textarea aria-label="A note for yourself" rows={2} maxLength={4000} value={text} onChange={(event) => setText(event.target.value)} />
+      <form className="story-add-form" onSubmit={(event) => { event.preventDefault(); if (text.trim()) void change(() => api<Notes>('/story/notebook', { text: text.trim() })).then(() => setText('')) }}>
+        <textarea aria-label="A note for yourself" placeholder="A note for yourself" rows={3} maxLength={4000} value={text} onChange={(event) => setText(event.target.value)} />
         <button type="submit" className="button" disabled={!text.trim()}>Add</button>
       </form>
       {error && <Notice tone="error">{error}</Notice>}

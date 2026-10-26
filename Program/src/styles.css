@@ -106,7 +106,7 @@ textarea { resize: vertical; line-height: 1.6; }
 .message > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; min-height: 28px; }
 .message time { font-size: 0.75rem; color: var(--faint); white-space: nowrap; }
 .typing { font-style: italic; }
-.composer { display: flex; align-items: flex-end; gap: 10px; max-width: 760px; width: 100%; margin: 0 auto; padding: 12px 32px 22px; }
+.composer { display: flex; align-items: flex-end; gap: 10px; max-width: var(--story-width); width: 100%; margin: 0 auto; padding: 12px 32px 22px; }
 .composer textarea { flex: 1; min-height: 52px; max-height: 40dvh; overflow-y: auto; }
 
 /* Story mode (src/features/story): one reading column of narration, the user's lines set apart. */
@@ -135,10 +135,20 @@ textarea { resize: vertical; line-height: 1.6; }
 .story-tab[aria-pressed='true'] { background: var(--accent-tint); color: var(--text); }
 .story-tab svg { width: 15px; height: 15px; }
 .story-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
+/* The story column's width: a reading width on smaller screens, and more of the room on big ones, so the story is not
+   a narrow strip with empty space either side. */
+:root { --story-width: 760px; }
+@media (min-width: 1500px) { :root { --story-width: clamp(760px, 58vw, 1120px); } }
 @media (min-width: 1100px) {
   .story { flex-direction: row; }
   .story-main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
-  .story-panel { order: 0; flex: 0 0 360px; max-width: 360px; min-height: 0; border-top: 0; border-left: 1px solid var(--border); background: none; }
+  .story-panel { order: 0; flex: 0 0 var(--story-panel-width, 360px); max-width: max(280px, calc(100% - 520px)); min-width: 0; min-height: 0; border-top: 0; border-left: 1px solid var(--border); background: none; }
+  .story-panel-body { overflow-x: hidden; }
+  /* StoryPanel.tsx PanelResize: a strip over the panel's left border that widens or narrows it. */
+  .story-panel-resize { position: absolute; top: 0; bottom: 0; left: -4px; z-index: 30; width: 8px; cursor: col-resize; touch-action: none; }
+  .story-panel-resize::after { content: ''; position: absolute; top: 0; bottom: 0; left: 3px; width: 2px; background: transparent; transition: background .15s; }
+  .story-panel-resize:hover::after, .story-panel-resize:focus-visible::after, .story-panel-resize:active::after { background: var(--accent); }
+  .story-panel-resize:focus-visible { outline: none; }
   .story-panel-body, .story-panel-before .story-panel-body { position: static; flex: 1; max-height: none; padding: 18px 20px; background: none; border-top: 0; box-shadow: none; }
   .story-panel-title { padding-right: 0; }
   .story-panel .story-people ul { max-height: none; }
@@ -146,14 +156,14 @@ textarea { resize: vertical; line-height: 1.6; }
   /* Reader (deviceLook.ts layout): the story keeps the width, and the panel opens over it from the tabs, as on a phone. */
   :root[data-layout='reader'] .story { flex-direction: column; }
   :root[data-layout='reader'] .story-main { display: contents; }
-  :root[data-layout='reader'] .story-panel { order: 3; flex: none; width: 100%; max-width: 760px; margin: 0 auto; border-left: 0; border-top: 1px solid var(--border); background: var(--canvas); }
+  :root[data-layout='reader'] .story-panel { order: 3; flex: none; width: 100%; max-width: var(--story-width); margin: 0 auto; border-left: 0; border-top: 1px solid var(--border); background: var(--canvas); }
   :root[data-layout='reader'] .story-panel-body { position: absolute; left: 0; right: 0; bottom: 100%; max-height: 70dvh; padding: 14px 16px 16px;
     background: var(--surface); border: 1px solid var(--border); border-bottom: 0; border-radius: 12px 12px 0 0; box-shadow: 0 -8px 24px var(--shadow); }
   :root[data-layout='reader'] .story-panel-before .story-panel-body { position: static; max-height: 45dvh; background: none; border: 0; box-shadow: none; }
   :root[data-layout='reader'] .story-tabs { border-top: 0; padding: 6px 8px; }
   :root[data-layout='reader'] .story-panel-title { padding-right: 36px; }
   /* Custom (deviceLook.ts layout, StoryGrid.tsx): a wider panel holding the player's own grid of tiles. */
-  :root[data-layout='custom'] .story-panel { flex-basis: 600px; max-width: 600px; }
+  :root[data-layout='custom'] .story-panel { flex-basis: var(--story-panel-width, 600px); max-width: max(440px, calc(100% - 480px)); }
   /* Visual novel (deviceLook.ts layout, StoryArt.tsx StoryStage): once the scene has a picture, it fills the story
      column; the portraits stand above a text box that holds the story, and the header and composer sit on glass.
      With no picture yet, nothing here applies and the layout is Classic. */
@@ -184,7 +194,8 @@ textarea { resize: vertical; line-height: 1.6; }
 .story-tile.tall { grid-row: span 2; }
 .story-tile.tall .story-tile-body { max-height: 80dvh; overflow-y: auto; }
 .story-tile-body { min-width: 0; }
-.story-tile:not(.wide) .story-note-form { grid-template-columns: 1fr; }
+.story-tile:not(.wide) .story-note-form { grid-template-columns: minmax(0, 1fr); }
+.story-tile:not(.wide) .story-note-form .button { justify-self: start; }
 .story-tile-body input, .story-tile-body textarea, .story-tile-body select { min-width: 0; max-width: 100%; }
 .story-tile-tools { display: flex; align-items: center; gap: 4px; }
 .story-tile-tools .story-panel-heading { flex: 1; }
@@ -196,7 +207,7 @@ textarea { resize: vertical; line-height: 1.6; }
 :root[data-motion='reduce'] .story-tile.flash { animation: none; box-shadow: 0 0 0 3px var(--accent); }
 .story-layout { flex: none; align-self: center; }
 .story-layout svg { width: 16px; height: 16px; }
-.story-header { max-width: 760px; width: 100%; margin: 0 auto; padding: 18px 32px 12px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--border); }
+.story-header { max-width: var(--story-width); width: 100%; margin: 0 auto; padding: 18px 32px 12px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--border); }
 .story-where { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
 .story-where .text-button { padding: 0; }
 .story-scene { display: flex; flex-direction: column; gap: 4px; }
@@ -205,7 +216,7 @@ textarea { resize: vertical; line-height: 1.6; }
 .story-go { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px 20px; align-items: start; margin-top: 6px; }
 .story-go svg { max-height: 340px; }
 .story-go .story-go-towns > p { margin: 0; }
-.story-log { flex: 1; overflow-y: auto; max-width: 760px; width: 100%; margin: 0 auto; padding: 20px 32px; }
+.story-log { flex: 1; overflow-y: auto; max-width: var(--story-width); width: 100%; margin: 0 auto; padding: 20px 32px; }
 .story-narration { position: relative; font-family: var(--read-font); font-size: 1.0625rem; line-height: 1.75; margin-bottom: 20px; overflow-wrap: anywhere; }
 /* The chip that offers to rewrite a selected passage; it sits just under the selection's end. */
 .story-rewrite-chip { position: absolute; z-index: 2; font-family: var(--ui-font, inherit); font-size: 0.8125rem; padding: 4px 10px; box-shadow: 0 2px 8px rgb(0 0 0 / 0.18); }
@@ -341,7 +352,14 @@ textarea { resize: vertical; line-height: 1.6; }
 .story-people .map-places li { flex-direction: row; justify-content: space-between; align-items: center; gap: 8px; padding: 2px 0; border: 0; border-radius: 0; }
 .story-back { font-size: 0.8125rem; color: var(--muted); }
 .story-back svg { width: 14px; height: 14px; }
-.story-note-form { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; margin-top: 8px; }
+.story-note-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; gap: 8px; margin-top: 8px; }
+.story-note-form input { min-width: 0; }
+/* In the panel beside the story the form stacks unless the panel was dragged wide enough to hold it in a row. */
+.story-panel { container-type: inline-size; }
+@container (max-width: 520px) { .story-note-form { grid-template-columns: minmax(0, 1fr); } .story-note-form .button { justify-self: start; } }
+/* StoryNotebook.tsx, StoryChapters.tsx: a full-width box to write in, and the button under it. */
+.story-add-form { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 8px; }
+.story-add-form textarea, .story-add-form input { width: 100%; min-width: 0; }
 .story-people textarea { width: 100%; }
 /* The title screen before a campaign starts (src/features/story/TitleScreen.tsx): key art, then a card per world. */
 /* The scene line waits until the campaign begins. */
@@ -364,7 +382,7 @@ textarea { resize: vertical; line-height: 1.6; }
 .title-world-genre { color: var(--muted); font-size: .9rem; }
 .title-world-pitch { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; line-clamp: 5; overflow: hidden; }
 .title-world-text .button { margin-top: auto; align-self: flex-start; }
-.story-start, .session-zero { flex: 1; overflow-y: auto; max-width: 760px; width: 100%; margin: 0 auto; padding: 20px 32px; }
+.story-start, .session-zero { flex: 1; overflow-y: auto; max-width: var(--story-width); width: 100%; margin: 0 auto; padding: 20px 32px; }
 .story-start h2, .session-zero h2 { margin: 0 0 6px; }
 .session-zero { display: flex; flex-direction: column; gap: 14px; }
 .session-presets { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
@@ -417,7 +435,7 @@ textarea { resize: vertical; line-height: 1.6; }
 .story-battle-map .down { opacity: 0.4; }
 .story-battle-legend { margin: 6px 0 0; padding-left: 0; list-style: none; font-size: 0.8125rem; color: var(--muted); }
 .story-fight { padding: 8px 12px; border: 1px solid var(--danger-border); border-radius: 10px; background: var(--danger-tint); color: var(--danger); font-weight: 600; }
-.story-notice, .story-footer { max-width: 760px; width: 100%; margin: 0 auto; padding: 0 32px 10px; }
+.story-notice, .story-footer { max-width: var(--story-width); width: 100%; margin: 0 auto; padding: 0 32px 10px; }
 .story-notice { padding-top: 12px; }
 .story-footer { padding-bottom: 16px; display: flex; flex-wrap: wrap; gap: 4px 16px; }
 @media (min-width: 721px) { .phone-only { display: none !important; } }
@@ -829,7 +847,7 @@ img.avatar, img.portrait { object-fit: cover; object-position: center top; paddi
 .text-button.danger { color: var(--danger); }
 
 /* Safety (docs/safety.md): the line under every message box, the app's crisis note and the first-run notice. */
-.ai-footer { max-width: 760px; width: 100%; margin: 0 auto; padding: 0 32px 10px; text-align: center; font-size: 0.75rem; line-height: 1.4; color: var(--faint); }
+.ai-footer { max-width: var(--story-width); width: 100%; margin: 0 auto; padding: 0 32px 10px; text-align: center; font-size: 0.75rem; line-height: 1.4; color: var(--faint); }
 .composer:has(+ .ai-footer) { padding-bottom: 6px; }
 .crisis-note { display: flex; align-items: flex-start; gap: 10px; max-width: 560px; margin: 4px auto 16px; padding: 12px 14px; border: 1px solid var(--accent); border-radius: 10px;
   background: var(--accent-tint); color: var(--text); font-family: var(--ui-font); font-size: 0.875rem; font-style: normal; line-height: 1.55; }
@@ -906,7 +924,7 @@ img.avatar, img.portrait { object-fit: cover; object-position: center top; paddi
 .dice-stage canvas { width: 100% !important; height: 100% !important; }
 
 /* Ideas over the composer (src/features/story/ideas.ts): tap one to put it in the composer. */
-.story-ideas { display: flex; flex-wrap: wrap; gap: 6px; max-width: 760px; width: 100%; margin: 0 auto; padding: 0 32px; }
+.story-ideas { display: flex; flex-wrap: wrap; gap: 6px; max-width: var(--story-width); width: 100%; margin: 0 auto; padding: 0 32px; }
 .story-ideas .receipt-chip { text-align: left; }
 @media (max-width: 720px) { .story-ideas { padding: 0 12px; } .story-ideas-button .label { display: none; } }
 
@@ -970,7 +988,7 @@ img.avatar, img.portrait { object-fit: cover; object-position: center top; paddi
 .art-card { display: grid; gap: 4px; min-width: 0; }
 .art-card img { width: 100%; height: auto; border-radius: 6px; border: 1px solid var(--border); background: var(--canvas); }
 .art-card p { margin: 0; font-size: 0.8125rem; }
-.story-stage { width: calc(100% - 64px); max-width: 696px; margin: 12px auto 0; flex: 0 0 auto; min-height: 9rem; border-radius: 8px; border: 1px solid var(--border); background: var(--canvas) center / cover no-repeat; display: flex; align-items: flex-end; overflow: hidden; }
+.story-stage { width: calc(100% - 64px); max-width: calc(var(--story-width) - 64px); margin: 12px auto 0; flex: 0 0 auto; min-height: 9rem; border-radius: 8px; border: 1px solid var(--border); background: var(--canvas) center / cover no-repeat; display: flex; align-items: flex-end; overflow: hidden; }
 .stage-portraits { list-style: none; margin: 0; padding: 8px; display: flex; gap: 8px; overflow-x: auto; }
 .stage-portraits li { display: grid; gap: 2px; justify-items: center; flex: 0 0 auto; }
 .stage-portraits img { width: 4.5rem; height: 6rem; object-fit: cover; border-radius: 6px; border: 2px solid var(--surface); box-shadow: 0 1px 4px rgb(0 0 0 / 35%); }

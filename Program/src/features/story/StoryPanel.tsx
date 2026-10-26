@@ -1,10 +1,10 @@
-import { Fragment, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { BookOpenText, Ellipsis, PanelRight, Pin, PinOff, Swords, X } from 'lucide-react'
 import { api } from '../../api'
 import type { Gear, Story as StoryData, StoryBack, StoryFight } from '../../types'
 import { HiddenValues } from '../settings/HiddenValues'
-import { readLook, saveLook, useDeviceLook } from '../settings/deviceLook'
+import { clampWidth, GRID_WIDTH, PANEL_WIDTH, readLook, saveLook, useDeviceLook } from '../settings/deviceLook'
 import { StoryBranches } from './StoryBranches'
 import { StoryChapters } from './StoryChapters'
 import { StoryExport } from './StoryExport'
@@ -66,16 +66,70 @@ type PanelView = 'scene' | 'more' | Widget
  *  the scene changes (a fight starts), so nothing opens over the reading. */
 export function StoryPanel(props: PanelProps) {
   const panel = usePanel(props.story)
+  const width = usePanelWidth(panel.custom)
   if (!props.story.messages.length) return <BeforeTheStory {...props} />
   return (
-    <aside className={`story-panel${panel.open ? ' open' : ''}${panel.custom ? ' custom' : ''}`} aria-label="The scene and your character">
+    <aside className={`story-panel${panel.open ? ' open' : ''}${panel.custom ? ' custom' : ''}`} aria-label="The scene and your character"
+      style={panel.wide ? { '--story-panel-width': `${width.shown}px` } as CSSProperties : undefined}>
       {panel.showing && <PanelBody {...props} panel={panel} />}
       <PanelTabs story={props.story} panel={panel} />
+      {panel.wide && <PanelResize width={width} />}
     </aside>
   )
 }
 
 type Panel = ReturnType<typeof usePanel>
+
+/** How wide the panel beside the story is: Classic and Visual novel share one width, Custom's grid keeps its own. While
+ *  the handle is dragged the width lives here, and it is saved for this device when the drag ends. */
+function usePanelWidth(custom: boolean) {
+  const look = useDeviceLook()
+  const bounds = custom ? GRID_WIDTH : PANEL_WIDTH
+  const saved = custom ? look.gridWidth : look.panelWidth
+  const [dragging, setDragging] = useState<number | null>(null)
+  const clamp = (value: number) => clampWidth(value, bounds)
+  return {
+    shown: dragging ?? saved,
+    bounds,
+    drag: (value: number) => setDragging(clamp(value)),
+    save: (value: number) => { setDragging(null); saveLook(custom ? { gridWidth: clamp(value) } : { panelWidth: clamp(value) }) },
+  }
+}
+
+/** The handle on the panel's inner edge: drag it to widen or narrow the panel, use the arrow keys when it has focus,
+ *  or double-click it to go back to the usual width. */
+function PanelResize({ width }: { width: ReturnType<typeof usePanelWidth> }) {
+  const start = useRef<{ x: number; width: number } | null>(null)
+  const down = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    // From the width on screen, which the stylesheet can hold below the saved one on a smaller window.
+    const panel = event.currentTarget.parentElement?.getBoundingClientRect().width
+    start.current = { x: event.clientX, width: panel ? Math.round(panel) : width.shown }
+  }
+  // The panel is on the right, so moving left makes it wider.
+  const at = (event: PointerEvent<HTMLDivElement>) => start.current ? start.current.width + start.current.x - event.clientX : width.shown
+  const move = (event: PointerEvent<HTMLDivElement>) => { if (start.current) width.drag(at(event)) }
+  const up = (event: PointerEvent<HTMLDivElement>) => {
+    if (!start.current) return
+    width.save(at(event))
+    start.current = null
+  }
+  const key = (event: KeyboardEvent<HTMLDivElement>) => {
+    const step = event.shiftKey ? 80 : 20
+    const next = event.key === 'ArrowLeft' ? width.shown + step : event.key === 'ArrowRight' ? width.shown - step
+      : event.key === 'Home' ? width.bounds.min : event.key === 'End' ? width.bounds.max : null
+    if (next === null) return
+    event.preventDefault()
+    width.save(next)
+  }
+  return <div className="story-panel-resize" role="separator" aria-orientation="vertical" aria-label="Panel width" tabIndex={0}
+    aria-valuemin={width.bounds.min} aria-valuemax={width.bounds.max} aria-valuenow={width.shown}
+    title="Drag to resize the panel; double-click for the usual width"
+    onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onKeyDown={key}
+    onDoubleClick={() => width.save(width.bounds.default)} />
+}
 
 function usePanel(story: StoryData) {
   const { wide, custom } = useBeside()
