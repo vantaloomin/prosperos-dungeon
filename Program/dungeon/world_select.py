@@ -69,26 +69,33 @@ def choices(database) -> dict:
 
 
 def enter(state, world_id: str) -> dict:
-    """Into the persona's world there, made first when they have none. Already there: nothing changes."""
+    """Into the persona's world there, made first when they have none. Already there: nothing changes. A world whose
+    story is not yet in it (made on the Worlds page, which places no scene) opens where its campaign starts."""
     database = state.database
     require(world_id in playable(), 'There is no such world.', 404)
     if here(database) == world_id:
         return worlds.view(database)
-    if (found := theirs(database, world_id)) is not None:
-        return worlds.switch(state, found['id'])
     place = settings(database.root, world_id).get('starting_place') or {}
+    if (found := theirs(database, world_id)) is not None:
+        worlds.switch(state, found['id'])
+        if here(database) != world_id:
+            arrive(database, found['city_id'], place)
+        return worlds.view(database)
     city = start_city(world_id, place)
     require(city is not None, 'That world has no town to start in.', 409)
     reason = worlds.busy(state)
     require(reason is None, reason or '', 409)
-    made = worlds.create_world(database, city_id=city)
-    worlds.switch(state, made['id'])
-    # A new world's story opens where the world's campaign starts, not in the app's default town.
+    worlds.switch(state, worlds.create_world(database, city_id=city)['id'])
+    arrive(database, city, place)
+    return worlds.view(database)
+
+
+def arrive(database, city: str, place: dict):
+    """The story opens in `city`, at the world's starting place when it is there, not in the app's default town."""
     with database.connect(write=True) as connection:
         data = story.city_data(connection, city)
         opening = place.get('place') if catalog.find(data, place.get('place')) in data['places'] else None
         story.place_scene(connection, city, opening or story.opening_place(data)['id'], database.now())
-    return worlds.view(database)
 
 
 def keyart(world_id: str) -> bytes:

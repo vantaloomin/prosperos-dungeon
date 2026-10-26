@@ -40,3 +40,15 @@ def test_going_to_a_world_makes_one_once_then_goes_back_to_it(client, app):
     assert ok(client.post('/api/story/worlds/babel/enter'))['world']['id'] == babel['id']
     assert ok(client.post('/api/story/worlds/havenbrooke/enter'))['world']['id'] == haven['id']
     assert client.post('/api/story/worlds/nowhere/enter').status_code == 404
+
+
+def test_a_world_made_on_the_worlds_page_opens_in_its_own_town(client, app):
+    """Playtest 2026-10-26: a Havenbrooke world made on the Worlds page had no scene there, so going to it left the
+    story outside Havenbrooke and the title screen came back each time."""
+    ok(client.put('/api/story/scene', json={'city_id': 'kingswood'}))
+    persona = ok(client.get('/api/worlds'))['active_persona_id']
+    made = ok(client.post('/api/worlds', json={'persona_id': persona, 'city_id': 'haven'}))
+    assert ok(client.post('/api/story/worlds/havenbrooke/enter'))['world']['id'] == made['id']
+    with app.state.database.connect() as connection:
+        assert story.scene_row(connection)['city_id'] == 'haven'
+    assert ok(client.get('/api/story/worlds'))['here'] == 'havenbrooke'
