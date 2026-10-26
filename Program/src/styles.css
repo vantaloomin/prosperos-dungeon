@@ -904,6 +904,11 @@ img.avatar, img.portrait { object-fit: cover; object-position: center top; paddi
 .dice-stage.rolling { opacity: 1; transition-duration: 0.1s; }
 .dice-stage canvas { width: 100% !important; height: 100% !important; }
 
+/* Ideas over the composer (src/features/story/ideas.ts): tap one to put it in the composer. */
+.story-ideas { display: flex; flex-wrap: wrap; gap: 6px; max-width: 760px; width: 100%; margin: 0 auto; padding: 0 32px; }
+.story-ideas .receipt-chip { text-align: left; }
+@media (max-width: 720px) { .story-ideas { padding: 0 12px; } .story-ideas-button .label { display: none; } }
+
 /* The turn receipt (src/features/story/StoryReceipt.tsx): what a turn changed, in quiet chips under its narration. */
 .turn-receipt { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 14px; padding: 0; }
 .receipt-chip { font: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border: 1px solid var(--border); border-radius: 999px; font-size: 0.82rem; color: var(--muted); background: var(--surface); }

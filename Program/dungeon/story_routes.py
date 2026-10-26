@@ -18,6 +18,7 @@ from dungeon import (
     growth,
     happenings,
     icons,
+    ideas,
     institutions,
     legacy,
     plotting,
@@ -84,6 +85,12 @@ async def retry(request: Request, background: BackgroundTasks):
 class StoryRewrite(Input):
     passage: str = Field(min_length=1, max_length=20000)
     note: str = Field('', max_length=300)
+
+
+@router.post('/ideas')
+async def suggest(request: Request):
+    """Two or three things the character could do now (dungeon/ideas.py). Used once: nothing is stored."""
+    return await ideas.ideas(request.app.state, request.app.state.database)
 
 
 @router.post('/messages/{message_id}/rewrite')

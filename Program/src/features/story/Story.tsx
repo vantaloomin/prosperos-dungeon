@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowDown, Bookmark, MapPin, RotateCcw, Send, Timer, Undo2 } from 'lucide-react'
+import { ArrowDown, Bookmark, Lightbulb, MapPin, RotateCcw, Send, Timer, Undo2 } from 'lucide-react'
 import { api, newId, streamApi } from '../../api'
 import type { View } from '../../workspace'
 import type { BandStep, CitySummary, Story as StoryData, StoryBack, StoryMessage, StoryScene, TurnEvent, TurnSoFar } from '../../types'
@@ -24,6 +24,7 @@ import { StoryStage } from './StoryArt'
 import { useWorldTheme } from './useWorldTheme'
 import { EntityHost } from './EntityCard'
 import { STORY_KEY } from './table'
+import { freshIdeas, withIdea, type Ideas } from './ideas'
 
 const OUT_OF_STORY = 'To step out of the story, start a message with OOC: or wrap it in ((double parentheses)).'
 
@@ -82,7 +83,7 @@ export function Story({ go }: { go: (view: View) => void }) {
             onBack={story.data.campaign?.ironman ? undefined : (id) => void run(null, () => api<StoryBack>('/story/back', { message_id: id }).then((data) => { update(data); setDraft({ text: data.draft, at: Date.now() }) }))}
             onBookmark={(id, name) => change(() => api<StoryData>('/story/bookmarks', { message_id: id, name }))} />
           {error && <div className="story-notice"><Notice tone="error">{error}</Notice></div>}
-          <StoryComposer key={draft.at} busy={pending !== null} draft={draft.text} onSend={(text) => void send(text)} />
+          <StoryComposer key={draft.at} busy={pending !== null} draft={draft.text} turn={story.data.messages.length} onSend={(text) => void send(text)} />
         </>}
         <NewStory empty={!story.data.messages.length} onClear={() => run(null, () => api<StoryData>('/story', undefined, 'DELETE').then((data) => { update(data); setBegun(false) }))} />
       </div>
@@ -261,20 +262,32 @@ function BookmarkButton({ onSave }: { onSave: (name: string) => Promise<void> })
   )
 }
 
-/** `draft` is a line taken back to send again; a new draft remounts the composer with it. */
-function StoryComposer({ busy, draft, onSend }: { busy: boolean; draft: string; onSend: (text: string) => void }) {
+/** `draft` is a line taken back to send again; a new draft remounts the composer with it, which also drops any
+ * ideas (./ideas.ts), as sending a line does. */
+function StoryComposer({ busy, draft, turn, onSend }: { busy: boolean; draft: string; turn: number; onSend: (text: string) => void }) {
   const [text, setText] = useState(draft)
-  const submit = () => { if (text.trim() && !busy) { onSend(text.trim()); setText('') } }
+  const [found, setFound] = useState<Ideas | null>(null)
+  const [thinking, setThinking] = useState(false)
+  const shown = freshIdeas(found, turn)
+  const submit = () => { if (text.trim() && !busy) { onSend(text.trim()); setText(''); setFound(null) } }
+  const askIdeas = () => {
+    setThinking(true)
+    api<Ideas>('/story/ideas', {}).then(setFound, () => setFound(null)).finally(() => setThinking(false))
+  }
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit() }
   }
   return (<>
+    {shown.length > 0 && <div className="story-ideas" role="group" aria-label="Ideas">
+      {shown.map((idea) => <button key={idea} type="button" className="receipt-chip" onClick={() => { setText((before) => withIdea(before, idea)); setFound(null) }}>{idea}</button>)}
+    </div>}
     <form className="composer story-composer" onSubmit={(event) => { event.preventDefault(); submit() }}>
       <AuthorsNote chat="story" name="The narrator" story />
       <label className="visually-hidden" htmlFor="story-text">What you do or say</label>
       <textarea id="story-text" rows={2} value={text} maxLength={40000} placeholder="What do you do or say?"
         onChange={(event) => setText(event.target.value)} onKeyDown={onKeyDown} />
       <InfoTip id="story-tip" label="the story" above text={`Enter sends, Shift+Enter adds a new line. ${OUT_OF_STORY}`} />
+      <button type="button" className="button story-ideas-button" disabled={busy || thinking} onClick={askIdeas} aria-label="Ideas" title="Two or three things you could do now. They are not kept."><Lightbulb aria-hidden="true" /><span className="label">{thinking ? 'Thinking…' : 'Ideas'}</span></button>
       <button type="submit" className="button primary" disabled={busy || !text.trim()}><Send aria-hidden="true" />Send</button>
     </form>
     <AiFooter />
