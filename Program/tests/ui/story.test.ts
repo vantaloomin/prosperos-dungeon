@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, foesText, zoneText, tallyText, statusItems, haggleText, paceText, intensityChoices, dramaChoices, gearLine, looksText, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, unrolled, fateFaces, fateLadder, challengeDice, brpCost, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, bondsText, bondLine, threadKind, receiptsByReply, institutionLine, todayLine, toggledVeil } from '../../src/features/story/storyText.ts'
+import { actionLine, aroundText, diceFaces, diceNotation, tumbleFace, bandSpans, branchLine, journeyTo, markerAt, nearMiss, NO_TURN, turnAfter, reworded, sentences, foesText, zoneText, tallyText, statusItems, haggleText, paceText, intensityChoices, dramaChoices, gearLine, looksText, journalKind, moneyText, questState, slotsText, personLine, placeGroups, pointsLeft, pointsText, premadeLine, rollText, rollWhat, unrolled, fateFaces, fateLadder, challengeDice, brpCost, xpLine, spellLine, sceneTime, abilityLine, signed, arrayPlaced, skillChoices, skillId, startingStats, tierText, darkText, bondsText, bondLine, threadKind, otherTowns, receiptsByReply, institutionLine, todayLine, toggledVeil } from '../../src/features/story/storyText.ts'
 import { artLabel, artStatus, making, pictureChoices } from '../../src/features/story/artText.ts'
 
 test('the scene time is the city clock as written', () => {
@@ -366,4 +366,15 @@ test('a Fate roll shows its four faces, its line and where it lands on the ladde
   assert.equal(rollText(roll), 'Sneaky +3 vs Fair (+2) (stunt +2): +1 + 5 = Fantastic (+6), Critical success')
   assert.equal(fateLadder(-5), 'Terrible')
   assert.ok(['−', '0', '+'].includes(tumbleFace(diceFaces(roll)[0], 0.5)))
+})
+
+test('otherTowns offers only this world\'s towns off the travel map, never a road between towns', () => {
+  const cities = [
+    { id: 'kingswood', name: 'Kingswood', world: 'vallarith' }, { id: 'hollin', name: 'Hollin', world: 'vallarith' },
+    { id: 'vallarith-road', name: 'the Road', world: 'vallarith', home: false }, { id: 'eriane', name: 'Eriane', world: 'vallarith' },
+    { id: 'haven', name: 'Haven', world: 'havenbrooke' }, { id: 'haddon', name: 'Haddon Harbor', world: null },
+  ]
+  assert.deepEqual(otherTowns(cities, 'kingswood', ['Hollin']).map((city) => city.id), ['eriane'])
+  assert.deepEqual(otherTowns(cities, 'haddon', []).map((city) => city.id), [])
+  assert.deepEqual(otherTowns(cities, 'nowhere', []), [])
 })

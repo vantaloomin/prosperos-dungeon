@@ -202,8 +202,9 @@ textarea { resize: vertical; line-height: 1.6; }
 .story-scene { display: flex; flex-direction: column; gap: 4px; }
 .story-scene svg { width: 16px; height: 16px; vertical-align: -3px; color: var(--accent); }
 .story-scene .button { align-self: flex-start; margin-top: 6px; }
-.story-go { flex-wrap: wrap; align-items: flex-end; margin-top: 6px; }
-.story-go label { display: flex; flex-direction: column; gap: 4px; font-size: 0.8125rem; color: var(--muted); }
+.story-go { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px 20px; align-items: start; margin-top: 6px; }
+.story-go svg { max-height: 340px; }
+.story-go .story-go-towns > p { margin: 0; }
 .story-log { flex: 1; overflow-y: auto; max-width: 760px; width: 100%; margin: 0 auto; padding: 20px 32px; }
 .story-narration { position: relative; font-family: var(--read-font); font-size: 1.0625rem; line-height: 1.75; margin-bottom: 20px; overflow-wrap: anywhere; }
 /* The chip that offers to rewrite a selected passage; it sits just under the selection's end. */
