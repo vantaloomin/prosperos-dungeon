@@ -2,6 +2,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from functools import partial
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -16,6 +17,7 @@ from dungeon import (
     logs,
     model_calls,
     story_routes,
+    text_models,
     troubleshoot,
     workspace,
     world_data,
@@ -130,6 +132,7 @@ def create_app(database_path: str | Path | None = None, *, clock=None, vault=Non
     app.state.hardware = hardware or Hardware()
     app.state.builtin_chat = BuiltinChat(app.state.database, builtin_spawn, builtin_transport)
     app.state.provider.inner.builtin_chat = app.state.builtin_chat
+    app.state.provider.inner.learned_effort = partial(text_models.learn_effort, app.state.database)
     # Decision models for the Referee (dungeon/providers/decisions.py), on the same built-in server when chosen.
     app.state.decider = decider or DecisionProvider()
     app.state.decider.builtin_chat = app.state.builtin_chat
