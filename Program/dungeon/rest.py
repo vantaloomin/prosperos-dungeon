@@ -10,7 +10,7 @@ writes it:
   narrator weaves in, or a danger to get past (a Luck roll, a step harder asleep with no watch). One that comes true
   costs that night's rest; one that brings foes starts a fight in the dark, and the rest ends there.
 - **Time passes and wounds mend.** The nights pass on the story clock (deadlines land), and each good night counts
-  toward the wound's mending (dungeon/combat.py `mend`, gritty MARVEL healing). Out in the open each day after the
+  toward the wound's mending (dungeon/combat.py `mend`, gritty Prospero healing). Out in the open each day after the
   first eats one food from the pack; a hungry night does not mend.
 
 Each line's rest is kept with it (story_rests), so telling the turn again changes nothing.

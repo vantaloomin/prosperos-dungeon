@@ -21,16 +21,19 @@ decisions; the language model narrates them.
 
 - **Start from a clean copy of Companion's code** (no git history carried over), then grow from there.
 - **Rule systems are selectable** (Vanta, 2026-10-21): the player can pick from several built-in
-  TTRPG rulesets, including MARVEL and open-licensed systems. See "Rulesets" below.
+  TTRPG rulesets, including Prospero and open-licensed systems. See "Rulesets" below.
   - Each world names a default ruleset. The player can change it when starting a campaign; after
     that it is locked, so sheets never need converting.
   - Each ruleset ships with its full open content from the start (classes, spells, monsters, items,
     oracles), not resolution only.
-  - First three: **MARVEL**, **D&D 5e via SRD 5.2** (2024 rules), **Ironsworn/Starforged**.
+  - First three: **Prospero**, **D&D 5e via SRD 5.2** (2024 rules), **Ironsworn/Starforged**.
     Basic Roleplaying is next.
-- **MARVEL dice (the house ruleset):** d100 plus a stat-based bonus, with a difficulty shift, landing in six bands:
+- **Prospero is the house ruleset** (called MARVEL until 2026-10-26, Vanta's rename; its six stats still
+  spell MARVEL, and the code keeps the id `marvel` so saves and world files load unchanged. BABEL's
+  in-world System still calls its stats MARVEL).
+- **Prospero dice:** d100 plus a stat-based bonus, with a difficulty shift, landing in six bands:
   Critical failure, Fail, Fail with an upside, Success at a cost, Success, Critical success.
-- **MARVEL stats:** Mind, Allure, Resolve, Vitality, Essence, Luck.
+- **Prospero stats:** Mind, Allure, Resolve, Vitality, Essence, Luck.
 - **Roll visibility:** a toggle between hidden (felt only through the story) and exposed.
 - **Worlds:** Dungeon's own versions built from Vanta's bases: **Vallarith** (grimdark D&D-style),
   **Havenbrooke** (modern fantasy, supernatural university, 2009), and Mabry Curve's **BABEL** tower.
@@ -68,7 +71,7 @@ pluggable module that supplies:
 - **Outcome mapping:** every result is translated onto one shared outcome ladder (Critical failure
   through Critical success), so the narrator, Life Cards, continuity and the UI work the same way
   under any ruleset.
-- **Referee questions:** what the Referee and Jev must decide per action (MARVEL: stat + difficulty;
+- **Referee questions:** what the Referee and Jev must decide per action (Prospero: stat + difficulty;
   5e: ability, skill and DC; Ironsworn: which move; PbtA: which move and stat).
 - **Progression:** which tracks it uses (levels and XP, ranks, milestones, momentum).
 - **Content packs (data, not code):** classes, spells, monsters, items, oracles, where the license
@@ -105,7 +108,7 @@ what the barmaid wants, not because of a number on a sheet.
   looks; she does laugh at the joke") go to the narrator only, and the story just tells what happened. The GM view
   can show the verdicts for debugging. Plain acts with nothing at stake get no verdict, as obvious actions get no
   roll now.
-- **Fights, harm and death** use the shared wound levels (MARVEL's), judged the same way per exchange: who has the
+- **Fights, harm and death** use the shared wound levels (Prospero's), judged the same way per exchange: who has the
   upper hand, weapons, numbers, injuries. Defeat follows the foes' aim, as the defeat table has it.
 - **Progression is narrative.** No XP. What the character does well, often, and in front of people becomes part of
   who they are (the record and reputation), which moves the judge's verdicts next time. The Referee sees "known for:
@@ -145,11 +148,11 @@ allow commercial use and adult content; they require attribution and no DRM on t
 
 | System | License | Fit | Notes |
 | --- | --- | --- | --- |
-| **MARVEL d100** | Vanta's own | House default | Mabry Curve's system. |
+| **Prospero d100** | Vanta's own | House default | Mabry Curve's system. |
 | **Narrative Only** | Dungeon's own | Asked for | No stats; a judge sets odds from the character, the words and the NPC (see above). |
 | **D&D 5e: SRD 5.2** (2024 rules) | CC-BY-4.0, irrevocable (Apr 2025) | Strong | One attribution sentence. Excludes D&D Beyond Basic Rules and WotC trademarks. |
 | **D&D 5e: SRD 5.1** (2014 rules) | CC-BY-4.0 | Strong | Pick 5.1 or 5.2, or both. |
-| **Basic Roleplaying (Chaosium)** | ORC (2023 Universal Game Engine) | Strong | d100 percentile skills, close kin to MARVEL. |
+| **Basic Roleplaying (Chaosium)** | ORC (2023 Universal Game Engine) | Strong | d100 percentile skills, close kin to Prospero. |
 | **Pathfinder 2e Remaster** | ORC (Archives of Nethys is the official SRD) | Medium | Very crunchy; big lift to do well. |
 | **Ironsworn / Starforged** | CC-BY-4.0 for SRD, moves, assets, oracles | Strong | Built for solo play with oracles; fits an AI GM. |
 | **Fate Core / Accelerated / Condensed** | CC-BY-3.0 Unported (verified; OGL route also offered) | Medium | Narrative; aspects map well to LLM play. Use the official CC-BY SRD ZIP, not the website text. Attribution: "This work is based on Fate Core System and Fate Accelerated Edition, products of Evil Hat Productions, LLC..." (Condensed has its own line). "Powered by Fate" logo and Fate font optional, with their own notices. Source: fate-srd.com/official-licensing-fate |
@@ -175,7 +178,7 @@ seeded `price()` picker. Dungeon extends this rather than starting over.
   shop can be closed, or the owner out sick.
 - **Item catalog per world and ruleset.** Each item has a base price in the world's currency,
   category, rarity, legality, and its rules stats for the active ruleset. 5e uses SRD 5.2's
-  equipment and price lists as written (in gp). MARVEL items are priced in the world's own currency;
+  equipment and price lists as written (in gp). Prospero items are priced in the world's own currency;
   Havenbrooke uses real 2009 prices.
 - **Realism check.** Base prices are anchored to the world's wages and rents (what a day's work
   buys), and a data test flags items that are out of line.
@@ -199,7 +202,7 @@ seeded `price()` picker. Dungeon extends this rather than starting over.
 - **Life Cards and world events move markets.** A shortage, a caravan raid, a festival, a war or a
   plague changes stock and prices for a while. Shops can open and close as Companion's cities
   already do.
-- **Haggling is a roll.** An opposed check in the active ruleset (MARVEL: Allure vs the owner's
+- **Haggling is a roll.** An opposed check in the active ruleset (Prospero: Allure vs the owner's
   Resolve; 5e: Persuasion, Deception or Intimidation vs Insight; Ironsworn: Compel) mapped onto the
   outcome ladder. Success lowers the price; success at a cost gets the price but the owner
   remembers; a critical failure can raise prices or get the player thrown out.
@@ -235,14 +238,14 @@ attack, save and morale check is rolled by code and mapped onto the shared outco
 - **Surprise and ambushes are rolled.** Before a fight, code rolls stealth against awareness for
   both sides, including ambushes on the player while travelling or asleep. The surprised side
   loses its first round or acts last.
-- **Damage per ruleset.** 5e keeps HP; Ironsworn keeps Health and harm. **MARVEL uses wound
+- **Damage per ruleset.** 5e keeps HP; Ironsworn keeps Health and harm. **Prospero uses wound
   levels:** a hit lands as Grazed, Hurt, Wounded, Maimed or Dying, set by the roll band and the
   weapon, and each level carries penalties until treated.
 - **Enemy status visibility follows the roll toggle.** With rolls exposed, the combat widget shows
   exact HP, wounds and conditions; with rolls hidden, only descriptive states ("bloodied",
   "staggering", "won't last").
 - **Losing a fight: the defeat table.** The ruleset's own rules apply first (5e death saves,
-  Ironsworn's Face Death, MARVEL's Dying level). If those are lost, code rolls the outcome,
+  Ironsworn's Face Death, Prospero's Dying level). If those are lost, code rolls the outcome,
   weighted by what the winners want: death, capture, robbed and left for dead, or rescued.
   Slavers capture, bandits rob, beasts kill. Death stays possible, and the player can always
   branch back.
@@ -259,7 +262,7 @@ Decided 2026-10-21. Code tracks every wound, treatment and condition; the narrat
 
 - **Healing speed: as written, with a gritty toggle.** Each ruleset heals as written by default
   (5e long rests, Ironsworn's recovery moves). A campaign setting switches on gritty healing, where
-  serious wounds take days to weeks of in-game time in any ruleset. **MARVEL is gritty by
+  serious wounds take days to weeks of in-game time in any ruleset. **Prospero is gritty by
   default:** a wound drops one level after a stretch of rest set by its severity.
 - **Permanent injuries are rolled.** A Maimed result, a critical hit or a failed death save rolls
   on a lasting-injury table (a lost eye, a limp, a ruined hand, a disfiguring scar). Each has a
@@ -271,7 +274,7 @@ Decided 2026-10-21. Code tracks every wound, treatment and condition; the narrat
   under that world's rules. Healers and medical supplies are shop and service items with real
   prices, and Life Cards can bring plague or contaminated supplies.
 - **Mental harm: a stress track.** Code tracks stress from traumatic events: horror, torture,
-  loss, a first kill, betrayal. MARVEL resists with Resolve; other rulesets use their nearest
+  loss, a first kill, betrayal. Prospero resists with Resolve; other rulesets use their nearest
   equivalent (5e Wisdom saves, Ironsworn's Spirit). Past thresholds, code rolls a lasting condition
   such as nightmares, a phobia, numbness or a compulsion. Conditions can ease with rest, support
   and time, and the narrator plays them consistently across the campaign.
@@ -610,7 +613,7 @@ them sets the player's tier (see "Scaling and tiers").
   Milestones, Corruption, use-based skill growth and Wealth. Wealth reads from the economy and
   Time from the world clock, rather than being separate counters, so a merchant-prince or
   race-the-curse campaign can use either as its tier track.
-- **MARVEL characters grow by use, plus milestones.** A stat used under pressure (a rolled action
+- **Prospero characters grow by use, plus milestones.** A stat used under pressure (a rolled action
   that mattered) gets marked. At rest, code rolls to raise each marked stat, Basic Roleplaying
   style. Hitting a milestone or rising a tier also grants a bigger boost or a new ability. 5e and
   Ironsworn keep their own growth rules (levels, legacy tracks).
@@ -929,7 +932,7 @@ picks up whatever they didn't fix.
 - Its own model slot. A cheap text model (Haiku or local 3–4B) splits actions.
 - **Referee decisions** (decided 2026-10-22, Vanta: "allow both") is a second slot for a decision model, which
   answers per-action questions with probabilities: needs a roll (yes/no), which stat (choice of six), difficulty
-  (score over MARVEL's five steps, easy to extreme). It takes a decisions profile (**Jev** via OpenRouter, OpenAI
+  (score over Prospero's five steps, easy to extreme). It takes a decisions profile (**Jev** via OpenRouter, OpenAI
   Decisions, or a local/compatible model) or any text profile on a local or compatible server, including the
   narrator's own. Local models are scored by the odds of each answer's letter from one token's log probabilities,
   so they write nothing. Without a Referee profile, each sentence of the turn is an action. Close stat calls can

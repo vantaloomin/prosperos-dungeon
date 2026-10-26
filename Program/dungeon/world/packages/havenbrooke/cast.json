@@ -2,7 +2,7 @@
   "schema_version": 1,
   "fields": {
     "core": "one of the nine leads; each is also a playable persona (personas.json)",
-    "stats": "MARVEL: Mind, Allure, Resolve, Vitality, Essence, Luck, 1 to 30 with 10 an ordinary adult (Essence near 1 for a mundane human). Null where none is set yet.",
+    "stats": "Prospero: Mind, Allure, Resolve, Vitality, Essence, Luck, 1 to 30 with 10 an ordinary adult (Essence near 1 for a mundane human). Null where none is set yet.",
     "tier": "the NPC's weight on the shared ladder",
     "secret": "hidden from the player character; an importer marks it hidden",
     "desires": "what they want in bed, for the narrator at the sex intensity level",

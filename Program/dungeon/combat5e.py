@@ -3,7 +3,7 @@
 The fight runs as dungeon/combat.py does (one player line is one round, foes close in and attack, morale, the defeat
 table by what the foes want), with 5E's numbers from the SRD 5.2.1 pack:
 - **Foes are SRD stat blocks.** A foe names its monster (`srd52` in its spec), else one is read from its name ("road
-  bandit" is a Bandit, "ward-ghoul" a Ghoul), else picked by how tough the MARVEL spec is. Each foe has its AC, hit
+  bandit" is a Bandit, "ward-ghoul" a Ghoul), else picked by how tough the Prospero spec is. Each foe has its AC, hit
   points rolled from the block's formula, and the block's first attack.
 - **The player's attack** keeps the dice the turn already rolled for it: the natural d20 plus the attack bonus
   (Strength, or Dexterity for a finesse or ranged weapon, plus proficiency when the class has the weapon) against the
@@ -39,7 +39,7 @@ FOE_WORDS = (('ghoul', 'ghoul'), ('skeleton', 'skeleton'), ('zombie', 'zombie'),
              ('bear', 'brown-bear'), ('warden', 'scout'), ('scout', 'scout'), ('raider', 'warrior-infantry'),
              ('soldier', 'warrior-infantry'), ('guard', 'guard'), ('press-gang', 'tough'), ('thug', 'tough'),
              ('bandit', 'bandit'), ('thief', 'bandit'), ('cultist', 'cultist'))
-# Else by the MARVEL spec's Vitality: (most, monster).
+# Else by the Prospero spec's Vitality: (most, monster).
 BY_VITALITY = ((8, 'commoner'), (11, 'bandit'), (13, 'tough'), (99, 'bandit-captain'))
 # What the Kingswood pack's weapons are in 5E.
 WEAPONS = {'sword': 'longsword', 'felling-axe': 'battleaxe', 'hatchet': 'handaxe', 'knife': 'dagger',
@@ -47,7 +47,7 @@ WEAPONS = {'sword': 'longsword', 'felling-axe': 'battleaxe', 'hatchet': 'handaxe
 # An attack with the body: an unarmed strike, whatever is carried.
 BARE = re.compile(r'\b(punch|kick|headbutt|head-butt|elbow|knee|fist|slap|shove|tackle|wrestle|grapple|throttle|'
                   r'strangle|bite|bare hands?|stamp)\w*', re.I)
-# What hit points read as, by the wound level they map to (level_for): never MARVEL's wounds.
+# What hit points read as, by the wound level they map to (level_for): never Prospero's wounds.
 WORDS = ('unhurt', 'lightly hurt', 'bloodied', 'badly hurt', 'barely standing', 'at 0 hit points')
 MORALE_DC = 10
 DEATH_SAVE = 10

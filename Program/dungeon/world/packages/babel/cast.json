@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "fields": {
-    "stats": "MARVEL: Mind, Allure, Resolve, Vitality, Essence, Luck, 1 to 30 with 10 an ordinary adult (BABEL puts an ordinary adult at 5 to 15 and about 30 as notable at F). Null where the character is beyond stats or another file is the authority.",
+    "stats": "Prospero: Mind, Allure, Resolve, Vitality, Essence, Luck, 1 to 30 with 10 an ordinary adult (BABEL puts an ordinary adult at 5 to 15 and about 30 as notable at F). Null where the character is beyond stats or another file is the authority.",
     "rank": "the letter rank over their head; veterans from before the Turning show their old level beside it",
     "lineage": "Human, Nephil, Auric, Delver, Therian, Hollow, Lit, Lilim or Watcher (canon/lineages.md)",
     "tier": "the character's weight on the shared ladder",

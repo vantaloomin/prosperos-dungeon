@@ -1,6 +1,6 @@
 # The System
 
-What arrivals see, what BABEL promised, and where the tower differs. In play the engine's MARVEL
+What arrivals see, what BABEL promised, and where the tower differs. In play the engine's Prospero ruleset
 ruleset handles the dice; this is the fiction the narrator dresses them in.
 
 ## Creation
@@ -22,7 +22,7 @@ hesitate, not rolled. Logout is unavailable, and there is no rig to pull off.
 | Luck | Crits, drops, chance events, the odds of a Hidden class quest |
 
 An ordinary adult starts at 5 to 15 in each. Around 30 is notable at F; around 100 is S-rank
-territory. Dungeon's MARVEL runs 1 to 30 with 10 as an ordinary adult, so starting sheets carry
+territory. Dungeon's Prospero ruleset runs 1 to 30 with 10 as an ordinary adult, so starting sheets carry
 over as they are.
 
 ## Ranks and death

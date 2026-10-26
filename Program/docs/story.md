@@ -47,7 +47,7 @@ the game holds and the travel map as the character knows it; it names the model 
 
 A new story opens on "Who are you?" (`dungeon/campaign.py`). The player picks one of the town's premade characters
 (`dungeon/world/data/premades/<city>.json`; Kingswood and Haddon Harbor ship three each) or makes their own: a name, gender, age, a
-few lines about them, and MARVEL stats bought from 60 points, each from 4 to 18. Either way the world's persona takes
+few lines about them, and Prospero stats bought from 60 points, each from 4 to 18. Either way the world's persona takes
 on that name and those lines, the stats go on the sheet, and the story opens with "You arrive at …".
 
 The narrator gets the persona in its own layer, "The player's character": their name, what the player wrote, and
@@ -80,12 +80,12 @@ change (`story.narration_format`).
 ## Rulesets
 
 The campaign's ruleset is picked on the start screen ("Rules") and locked for the whole campaign
-(`story_campaign.ruleset`, `dungeon/sheet.py`). A world names its default; every built-in world plays MARVEL for
-now. Whatever the ruleset, the Referee still names an approach (one of MARVEL's six stats) and a difficulty, and
+(`story_campaign.ruleset`, `dungeon/sheet.py`). A world names its default; every built-in world plays Prospero for
+now. Whatever the ruleset, the Referee still names an approach (one of Prospero's six stats) and a difficulty, and
 `sheet.check` rolls the persona's checks the ruleset's way, on the shared outcome ladder. Everyone else (foes,
-healers, townsfolk) keeps MARVEL stats for now.
+healers, townsfolk) keeps Prospero stats for now.
 
-- **MARVEL** (`dungeon/rules/marvel.py`): see "Who decides what".
+- **Prospero** (`dungeon/rules/marvel.py`): see "Who decides what".
 - **5E via the SRD 5.2.1** (`dungeon/rules/srd52.py`, content in `dungeon/rules/packs/srd52`, CC-BY-4.0; the
   attribution shows on the start screen and the sheet). A character is a class, species and background from the pack,
   the standard array placed on the six abilities with the background's +2 and +1, the background's skills and the
@@ -93,9 +93,9 @@ healers, townsfolk) keeps MARVEL stats for now.
   Chain Mail, AC 16). A premade has its own 5E build (`srd52` in its premade
   data), or one from its strongest stat. A check is a d20 plus the ability modifier, plus proficiency in the skill,
   against a DC (10 easy, 12 normal, 15 hard, 20 very hard, 25 extreme, set so a hard check passes about half the time
-  for a starting character, as MARVEL's does): pass or fail as written. The skill comes from
+  for a starting character, as Prospero's does): pass or fail as written. The skill comes from
   the action's words ("climb" is Athletics), else the approach's ability. Resisting stress and clinging on in a
-  fight are saving throws (Wisdom, Constitution). The roll card reads "Athletics · DC 15" and lands a single d20. Growth by use is MARVEL's
+  fight are saving throws (Wisdom, Constitution). The roll card reads "Athletics · DC 15" and lands a single d20. Growth by use is Prospero's
   and does not run under 5E.
 
 ### 5E levels and spells
@@ -139,7 +139,7 @@ Attack, Second Wind), areas (a spell hits one foe) and concentration.
 - **Ironsworn** (`dungeon/rules/ironsworn.py`, content in `dungeon/rules/packs/ironsworn`: Datasworn's Ironsworn
   data, CC-BY-4.0; the attribution shows on the start screen and the sheet). A character places 3, 2, 2, 1 and 1 on
   edge, heart, iron, shadow and wits and chooses three assets (paths, companions, combat talents, rituals); a
-  premade leans on the stat its strongest MARVEL stat maps to, with assets that fit. Health, spirit and supply start
+  premade leans on the stat its strongest Prospero stat maps to, with assets that fit. Health, spirit and supply start
   at 5, momentum at 2. Each action is a move read from its words (searching is Gather Information, talking someone
   round Compel, preparing Secure an Advantage, else Face Danger), on the stat the move or the words name (sneaking
   and lying are shadow), else the approach's. The action roll is a d6 plus the stat against two d10s: a strong hit
@@ -166,7 +166,7 @@ images are non-commercial).
   Evil Hat attribution on the start screen and the sheet). A character is a high concept, a trouble, up to three
   more aspects and up to three stunts, all in the player's words, and the six approaches (Careful, Clever, Flashy,
   Forceful, Quick, Sneaky) at +3, +2, +2, +1, +1, +0. A premade's high concept is the first sentence of its About,
-  its best approach from its strongest MARVEL stat. Each action rolls 4dF plus the approach its words name (else the
+  its best approach from its strongest Prospero stat. Each action rolls 4dF plus the approach its words name (else the
   Referee's stat's equivalent), plus 2 for a stunt that shares a word with the action, against the difficulty on the
   ladder (easy Average +1, normal Fair +2, hard Good +3, very hard Great +4, extreme Fantastic +6). Fail is failure,
   a tie success at a cost, success success, three or more shifts critical success. Code spends a Fate point to
@@ -190,7 +190,7 @@ images are non-commercial).
   character buys STR, CON, SIZ, INT, POW, DEX and CHA point-based as written (all at 10, 24 points, DEX, INT and POW
   3 a point, each 3 to 21) and picks a profession and a personality type; code spreads the skill points (the
   personality's +20s, the profession's 250 and INT x10 personal points over the profession's skills, none past 75).
-  A premade takes a profession from its strongest MARVEL stat. Each action rolls d100 under the skill its words name
+  A premade takes a profession from its strongest Prospero stat. Each action rolls d100 under the skill its words name
   (climbing is Climb, haggling Bargain, looking about Spot), else a characteristic roll (Idea, Charm, Luck, Effort).
   The roll card never shows a chance over 95% (96-00 always fails), though the full chance still sets criticals
   and specials. Easy doubles the chance, hard halves it, very hard and extreme take 20 and 40 more off the half. Critical (1/20),
@@ -230,7 +230,7 @@ weapon or a shield, training and research.
 Each line the user sends is one turn (`dungeon/turn.py`). Code settles what happens before the narrator writes:
 
 1. **The Referee** (`dungeon/referee.py`) splits the line into the things the character tries, at most four, and
-   decides for each whether the outcome is uncertain, which MARVEL stat it tests and how hard it is. A text model
+   decides for each whether the outcome is uncertain, which Prospero stat it tests and how hard it is. A text model
    does this only when one is chosen for the **Referee** job in Settings > Models; it answers in JSON and
    anything malformed is dropped. Without one, or when its answer cannot be read, keyword rules decide (each
    sentence naming something risky, at normal difficulty). Talking, looking around and OOC lines roll nothing.
@@ -516,16 +516,16 @@ Code runs the fight and the narrator writes it (`dungeon/combat.py`). One line o
   stopped; the player decides what next. A plan with no attack or guard in it stops at once.
 - **What the foes want.** Foes fight for it. Robbers who have hurt the character demand their purse; a line that
   hands it over ("I toss him my purse") ends the fight with the purse gone. Captors fight to take the character
-  whole: their blows stop at Maimed (MARVEL), which ends the fight on the defeat table, and a surrender ("I drop my
+  whole: their blows stop at Maimed (Prospero), which ends the fight on the defeat table, and a surrender ("I drop my
   sword and surrender") makes the character their prisoner at once. A brawler lets a character who backs off or
   yields go. Killers give no quarter: the narrator is told the plea fails and the round goes on.
-- **How hard a blow lands (MARVEL).** A foe's hit deals wound levels by its band (1, 2, 3 for a critical) plus its
+- **How hard a blow lands (Prospero).** A foe's hit deals wound levels by its band (1, 2, 3 for a critical) plus its
   weapon, at least one; bare hands or a poor weapon deal at most two. One round of blows takes a character on their
   feet no further than Maimed: they go down first, and only a blow on someone already down can leave them dying.
 - **Morale.** A foe at Maimed is down. When one falls or is badly hurt, the rest roll Resolve, and on a failure they
   break: they flee or give up. The fight is won when nobody is left standing and unbroken.
 - **Wounds.** Grazed, Hurt, Wounded, Maimed, Dying. Wounded makes physical actions a step harder; Maimed makes every
-  action a step harder and physical ones two. MARVEL heals gritty: a wound drops one level after nights of rest set
+  action a step harder and physical ones two. Prospero heals gritty: a wound drops one level after nights of rest set
   by its severity (Grazed 1, Hurt 2, Wounded 4, Maimed 7; see "Rest"), and a new wound starts the count again. The narrator is told the character's condition every turn.
 - **Defeat.** At Dying the character rolls their Vitality (hard) to cling on (which rules death out), then the defeat table is
   weighted by what the foes want: beasts kill, wardens capture, robbers rob, a brawl ends with the character
@@ -556,7 +556,7 @@ The same fight, on 5E's numbers from the SRD 5.2.1 pack (`dungeon/combat5e.py`):
 
 - **Foes are SRD stat blocks.** A foe's spec can name its monster (`"srd52": "giant-boar"` on the ley-mad boar), else
   one is read from its name (a bandit or thief is a Bandit, a press-gang thug a Tough, a warden a Scout, a ghoul a
-  Ghoul), else picked by how tough the MARVEL spec is. Each has its AC, hit points rolled from the block's formula,
+  Ghoul), else picked by how tough the Prospero spec is. Each has its AC, hit points rolled from the block's formula,
   and the block's first attack.
 - **The player's attack** (an unarmed strike for a punch, a kick or a shove, and for every blow after it until a
   line names a weapon; else the weapon the line names, else the best carried) keeps the d20 the turn already rolled: the natural plus the attack bonus (Strength, or
@@ -587,7 +587,7 @@ The same fight, on 5E's numbers from the SRD 5.2.1 pack (`dungeon/combat5e.py`):
 The same fight on Ironsworn's moves (`dungeon/combat_iron.py`):
 
 - **Foes are the pack's NPCs**, read from the foe's name (a raider is a Raider, a warden a Hunter, the ley-mad boar
-  a Boar), else by how tough the MARVEL spec is. Each has its rank, deals harm equal to it, and has a progress track
+  a Boar), else by how tough the Prospero spec is. Each has its rank, deals harm equal to it, and has a progress track
   of ten boxes the character's harm fills (3 boxes a harm for a troublesome foe, 2 dangerous, 1 formidable, less for
   extreme and epic).
 - **Initiative.** Whoever starts the fight has it (`story_fight.initiative`). With it the character's attack is
@@ -614,7 +614,7 @@ effects, healers and medicine, a fight started by an NPC without a danger roll.
 The same fight on BRP's rules (`dungeon/combat_brp.py`):
 
 - **Foes are the pack's sample characters and animals**, read from the foe's name (a thug or bandit is a Thug, a
-  raider or guard a Viking, a wolf a Wolf), else by how tough the MARVEL spec is: hit points, armour, Dodge and their
+  raider or guard a Viking, a wolf a Wolf), else by how tough the Prospero spec is: hit points, armour, Dodge and their
   first attack.
 - **The character's attack** keeps the turn's d100 against the carried weapon's skill (a sword is Melee Weapon
   (Sword), bare hands Brawl), and the foe dodges. A line that dodges and attacks ("I dodge his swing and cut at
@@ -658,7 +658,7 @@ The same fight on BRP's rules (`dungeon/combat_brp.py`):
   then the filled boxes go against the two challenge dice, with no action die and no momentum. A strong hit gives
   experience as written, 1 for troublesome to 5 for epic; a weak hit one less; a miss none (the story already says
   it ended, but the vow is not what was sworn). Code spends it: 2 upgrades an asset (its next ability), else 3 buys
-  a new asset that fits the character's best stat. MARVEL's milestones give Ironsworn nothing; its growth is its
+  a new asset that fits the character's best stat. Prospero's milestones give Ironsworn nothing; its growth is its
   vows.
 - **Bonds** is a progress track too: each bond forged (dungeon/bonds.py) marks a tick, and the narrator hears the
   count with the bond. The sheet lists every open vow's progress and the bonds track.
@@ -1113,7 +1113,7 @@ The track is game state (`story_tier`, in `timeline.SAVED`).
 
 ## Progression
 
-`dungeon/growth.py`, with the dark tracks in `dungeon/rules/dark.json`. MARVEL characters grow by use, plus
+`dungeon/growth.py`, with the dark tracks in `dungeon/rules/dark.json`. Prospero characters grow by use, plus
 milestones (5e and Ironsworn will keep their own growth rules).
 
 - **Use.** A roll of the character's that mattered (one that succeeded, or one with a danger riding on it) marks
@@ -1288,7 +1288,7 @@ free grid of widgets is an optional mode late in Milestone 6.
 | `POST /api/story/messages/stream` / `POST /api/story/retry/stream` | The same, streamed as newline-delimited JSON: `{"text": piece}` as the narration is written, then `{"done": {message, reply}}` once the reply is saved, or `{"error", "code", "status"}`. Fact extraction runs after `done`. |
 | `GET /api/story/start` | `{premades, points, range, stat_names, meanings}` for "Who are you?" in the scene's city. |
 | `POST /api/story/start` `{premade_id}` or `{persona, stats}` | Starts the story as a premade or a made character; 409 once the story has begun, 404 for a premade not in this town, 422 for a missing name or stats outside the point-buy. |
-| `GET /api/story/sheet` | `{stats, stat_names, range, dice}`: the character's MARVEL stats and the die each one adds. |
+| `GET /api/story/sheet` | `{stats, stat_names, range, dice}`: the character's Prospero stats and the die each one adds. |
 | `PUT /api/story/sheet` `{stats}` | Changes some or all stats; 422 for an unknown stat or a value outside 1 to 30. |
 | `POST /api/story/back` `{message_id}` | Back to before one of the player's lines, as a new branch; the story comes back with `draft`, the line to send again. 404 for a line not in the branch being played. |
 | `POST /api/story/branches/{id}/switch` | Plays on in another branch, where it was left. 404 for a branch not in this story. |

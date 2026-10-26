@@ -23,7 +23,7 @@ treats them that way.
 - **The stilt villages** as a settlement on the Marches, and the place names on the town files that
   the story doesn't give (Concourse streets, Hollin lanes, Bazaar rows). Each is marked draft.
 - **Ages** for NPCs the story doesn't age (Hamid, Ruth Ann, Pia, Coll, the Margrave and others).
-- **MARVEL stats** for Bri, Chase and the NPCs. Grant's and Kenzie's are Vanta's base sheets at
+- **Prospero stats** for Bri, Chase and the NPCs. Grant's and Kenzie's are Vanta's base sheets at
   creation.
 - **Tier mapping** of BABEL's ranks onto Dungeon's ladder: Unranked to E Local, D and C Regional,
   B and A Realm, S and SS World, SSS and Ultra Mythic.

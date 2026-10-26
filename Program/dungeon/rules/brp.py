@@ -83,7 +83,7 @@ SKILL_WORDS = (
 )
 POWER_LEVEL = {'professional': 250, 'cap': 75}
 SPREAD_AFTER = ('dodge', 'spot', 'listen', 'stealth')
-# A premade's profession, and where its 24 points go, by its strongest MARVEL stat.
+# A premade's profession, and where its 24 points go, by its strongest Prospero stat.
 QUICK = {'Vitality': ('warrior', 'brutal', {'str': 15, 'con': 14, 'siz': 13, 'dex': 14}),
          'Mind': ('scholar', 'cunning', {'int': 16, 'con': 12, 'siz': 11, 'cha': 13}),
          'Allure': ('entertainer', 'charming', {'cha': 16, 'dex': 15, 'con': 12, 'siz': 11}),
@@ -204,7 +204,7 @@ def build(characteristics: dict[str, int], profession_id: str, personality_id: s
 
 
 def suggested(top: str) -> dict:
-    """A quick build from a MARVEL stat: a profession, a personality and where the 24 points go."""
+    """A quick build from a Prospero stat: a profession, a personality and where the 24 points go."""
     profession, personality, spread = QUICK[top]
     return {'characteristics': {stat: pack()['creation']['start'] for stat in CHARACTERISTICS} | spread,
             'profession': profession, 'personality': personality}

@@ -237,7 +237,7 @@ export interface DiceLog {
 }
 export interface TurnPace { steps: Record<string, number>; skipped: string[]; budget: number; total: number }
 export type Band = 'critical_failure' | 'failure' | 'failure_upside' | 'success_cost' | 'success' | 'critical_success'
-/** One roll: MARVEL's d100 plus the stat die, less the difficulty shift (dungeon/rules/marvel.py); or, under 5E, a d20
+/** One roll: Prospero's d100 plus the stat die, less the difficulty shift (dungeon/rules/marvel.py); or, under 5E, a d20
  *  plus the skill's bonus against a DC (`target`, dungeon/rules/srd52.py), `skill` naming what it tested. */
 export interface StoryRoll {
   action: string; stat: string; difficulty: string; die: number | null; natural: number; bonus: number; shift: number
@@ -254,7 +254,7 @@ export interface TurnAction { action: string; stat: string; difficulty?: string 
 export type TurnEvent = { stage: 'reading' | 'writing' } | { actions: TurnAction[]; bands?: BandStep[] } | { roll: StoryRoll | HiddenRoll }
 /** What a turn under way has shown so far. */
 export interface TurnSoFar { stage: 'reading' | 'writing' | null; actions: TurnAction[]; bands: BandStep[] | null; rolls: (StoryRoll | HiddenRoll)[] }
-/** The persona's MARVEL stats (dungeon/sheet.py) and the die each one rolls; or their 5E sheet (Srd52Sheet). */
+/** The persona's Prospero stats (dungeon/sheet.py) and the die each one rolls; or their 5E sheet (Srd52Sheet). */
 /** A Narrative Only sheet (dungeon/rules/narrative.py): no stats, only what the player says the character is good and bad at. */
 export interface NarrativeSheet { ruleset: 'narrative'; ruleset_name: string; good_at: string[]; bad_at: string[]; growth?: SheetGrowth }
 /** A Fate sheet (dungeon/rules/fate.py): aspects, approaches, stunts, Fate points, stress and consequences. */

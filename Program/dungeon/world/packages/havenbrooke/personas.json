@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "note": "Any of the nine leads is playable (Vanta's call), and every world allows a persona of the player's own: a freshman, a transfer, a townie, faculty, a Crane. Stats are MARVEL (1 to 30, 10 an ordinary adult). The premades the game starts from, with their classes, are in world/data/premades/haven.json. Playing a lead means that lead's secrets are the player's to keep or spill; the other eight keep theirs.",
+  "note": "Any of the nine leads is playable (Vanta's call), and every world allows a persona of the player's own: a freshman, a transfer, a townie, faculty, a Crane. Stats are Prospero (1 to 30, 10 an ordinary adult). The premades the game starts from, with their classes, are in world/data/premades/haven.json. Playing a lead means that lead's secrets are the player's to keep or spill; the other eight keep theirs.",
   "custom_allowed": true,
   "personas": [
     {

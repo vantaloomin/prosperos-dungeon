@@ -8,7 +8,7 @@ import { abilityLine, bondLine, bondsText, darkText, signed, spellLine, xpLine }
 
 const SHEET_KEY = ['story-sheet']
 
-/** Your character in the campaign's ruleset (dungeon/sheet.py): MARVEL's stats, each rolling a bigger die as it
+/** Your character in the campaign's ruleset (dungeon/sheet.py): Prospero's stats, each rolling a bigger die as it
  * grows, one used under pressure marked to grow at the next rest (dungeon/growth.py); or a 5E sheet. And the dark
  * tracks they are on. */
 export function StorySheet({ open }: { open?: boolean }) {

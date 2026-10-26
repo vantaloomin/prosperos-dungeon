@@ -163,7 +163,7 @@ def test_wounds_mend_with_nights_of_rest(client, connected, provider, app):
     with app.state.database.connect(write=True) as connection:
         combat.set_condition(connection, 3)
     provider.replies = [reply('Morning.'), reply('Three mornings.')]
-    # Gritty MARVEL healing: Wounded takes four nights to mend to Hurt.
+    # Gritty Prospero healing: Wounded takes four nights to mend to Hurt.
     tell(client, 'I go to bed and sleep.', 'story-0001')
     assert ok(client.get('/api/story'))['fight']['condition'] == 'wounded'
     assert 'still wounded: 3 more nights of rest to mend' in provider.requests[-1]['system']
@@ -186,7 +186,7 @@ def test_an_attack_on_someone_the_scene_does_not_hold_brings_a_stand_in():
 
 
 def test_a_prisoner_stays_held_until_they_get_free(client, connected, provider, app):
-    # Playtest 5E finding 4 (MARVEL too): a capture leaves the character held.
+    # Playtest 5E finding 4 (Prospero too): a capture leaves the character held.
     kingswood(client, 'felled-oak')
     with app.state.database.connect(write=True) as connection:
         state = {'round': 2, 'wants': 'capture', 'foes': [foe(name='warden of Brynwyr')]}

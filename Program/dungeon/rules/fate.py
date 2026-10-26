@@ -44,7 +44,7 @@ LADDER = {-2: 'Terrible', -1: 'Poor', 0: 'Mediocre', 1: 'Average', 2: 'Fair', 3:
           6: 'Fantastic', 7: 'Epic', 8: 'Legendary'}
 # The Referee's difficulty as passive opposition on the ladder.
 OPPOSITION = {'easy': 1, 'normal': 2, 'hard': 3, 'very_hard': 4, 'extreme': 6}
-# The approach a MARVEL stat leans on when the words name none.
+# The approach a Prospero stat leans on when the words name none.
 EQUIVALENT = {'Mind': 'Clever', 'Allure': 'Flashy', 'Resolve': 'Careful', 'Vitality': 'Forceful', 'Essence': 'Clever',
               'Luck': 'Quick'}
 # Words that name the approach, the more specific first.
@@ -115,7 +115,7 @@ def short(sentence: str) -> str:
 
 def premade(about: str, top_stat: str) -> dict:
     """A premade's Fate character: their description's first sentence as the high concept, the first later one with
-    trouble in it (a debt, a secret, someone hunting them) as the trouble, approaches from their strongest MARVEL
+    trouble in it (a debt, a secret, someone hunting them) as the trouble, approaches from their strongest Prospero
     stat."""
     sentences = [part for part in re.split(r'(?<=[.!?])\s', (about or '').strip()) if part.strip()]
     first = short(sentences[0]) if sentences else 'A stranger in town'

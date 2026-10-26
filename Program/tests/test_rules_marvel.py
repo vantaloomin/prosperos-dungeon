@@ -1,4 +1,4 @@
-"""MARVEL dice (dungeon/rules/marvel.py), checked against rolls from Mabry Curve's roll log."""
+"""Prospero dice (dungeon/rules/marvel.py), checked against rolls from Mabry Curve's roll log."""
 import random
 
 import pytest

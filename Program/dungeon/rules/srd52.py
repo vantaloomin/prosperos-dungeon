@@ -8,7 +8,7 @@
   A new character takes the standard array (15, 14, 13, 12, 10, 8) placed where the player likes, then the
   background's +2 and +1.
 - **A check** is a d20 plus the ability modifier, plus the proficiency bonus when the character is proficient in the
-  skill (or the save), against a DC. The Referee's difficulty is MARVEL's, where a hard check passes about half the
+  skill (or the save), against a DC. The Referee's difficulty is Prospero's, where a hard check passes about half the
   time, so it maps to the DC that does the same for a starting character: 10 easy, 12 normal, 15 hard, 20 very hard,
   25 extreme. Advantage rolls two d20
   and keeps the higher, disadvantage the lower.
@@ -21,7 +21,7 @@
   damaging and healing ones first) and kept as they level. An action that names a known spell is cast with the
   spellcasting ability: an attack is d20 + ability + proficiency, a save's DC 8 + ability + proficiency. A
   levelled spell spends a slot of its level or higher; a long rest gives them back.
-- **The Referee still speaks in approaches** (MARVEL's six stats, which name what an action leans on); code reads
+- **The Referee still speaks in approaches** (Prospero's six stats, which name what an action leans on); code reads
   the skill from the action's words and its ability from the skill, else from the approach (EQUIVALENT).
 """
 import json

@@ -1,10 +1,10 @@
-"""Character sheets: MARVEL stats per actor (dungeon/rules/marvel.py). The player's character is 'persona'; an actor
+"""Character sheets: Prospero stats per actor (dungeon/rules/marvel.py). The player's character is 'persona'; an actor
 with no stats rolls with no die.
 
 The campaign's ruleset is chosen at its start and then locked (story_campaign.ruleset; docs/requirements.md
-"Rulesets"). Under MARVEL the persona's sheet is its six stats. Under another ruleset the persona has that ruleset's
+"Rulesets"). Under Prospero the persona's sheet is its six stats. Under another ruleset the persona has that ruleset's
 own sheet (story_sheet, branched with the story), and `check` rolls the persona's checks its way: the Referee's
-approach (a MARVEL stat) and the action's words decide what the ruleset tests. Everyone else keeps MARVEL stats.
+approach (a Prospero stat) and the action's words decide what the ruleset tests. Everyone else keeps Prospero stats.
 """
 import random
 import re
@@ -33,7 +33,7 @@ def stats(connection, actor: str = PERSONA) -> dict[str, int]:
 def set_stats(connection, values: dict[str, int], now: str, actor: str = PERSONA) -> dict[str, int]:
     low, high = marvel.STAT_RANGE
     for stat, value in values.items():
-        require(stat in marvel.STATS, f'{stat} is not a MARVEL stat.', 422)
+        require(stat in marvel.STATS, f'{stat} is not a Prospero stat.', 422)
         require(isinstance(value, int) and low <= value <= high, f'{stat} must be from {low} to {high}.', 422)
     connection.executemany(
         'INSERT INTO character_stats (actor, stat, value, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(actor, stat) '
@@ -55,7 +55,7 @@ def ruleset(connection) -> str:
 
 
 def default_for(world: str | None) -> str:
-    """The ruleset a world names for its campaigns (every built-in world plays MARVEL for now)."""
+    """The ruleset a world names for its campaigns (every built-in world plays Prospero for now)."""
     return WORLD_RULESETS.get(world or '', marvel.ID)
 
 
@@ -66,7 +66,7 @@ def set_ruleset(connection, ruleset_id: str):
 
 
 def native(connection) -> dict | None:
-    """The persona's sheet under a ruleset other than MARVEL."""
+    """The persona's sheet under a ruleset other than Prospero."""
     row = optional(connection, 'SELECT data FROM story_sheet WHERE id=1')
     return decode(row['data']) if row else None
 
@@ -79,7 +79,7 @@ def set_native(connection, data: dict, now: str):
 
 def check(connection, approach: str, difficulty: str = 'normal', text: str = '', rng: random.Random | None = None,
           save: bool = False, judged: dict | None = None) -> dict:
-    """One of the persona's checks in the campaign's ruleset, on the shared ladder. `approach` is a MARVEL stat;
+    """One of the persona's checks in the campaign's ruleset, on the shared ladder. `approach` is a Prospero stat;
     `save` asks for a saving throw where the ruleset has them (resisting fear, pain, poison). Under Narrative Only
     nothing is rolled: the judge's verdict (`judged`, dungeon/judge.py) stands, else the difficulty decides."""
     played = ruleset(connection)

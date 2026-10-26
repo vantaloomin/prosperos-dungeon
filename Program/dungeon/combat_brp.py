@@ -3,7 +3,7 @@
 The fight runs as dungeon/combat.py does (one player line is one round, foes close in and attack, morale, the defeat
 table by what the foes want), with BRP's numbers from the pack:
 - **Foes** are the pack's sample characters and animals, read from a foe's name (a thug is a Thug, a wolf a Wolf, a
-  raider a Viking), else by how tough the MARVEL spec is. Each has its hit points, armour, Dodge, first attack and
+  raider a Viking), else by how tough the Prospero spec is. Each has its hit points, armour, Dodge, first attack and
   damage modifier.
 - **The player's attack** keeps the turn's own d100, against the skill of the weapon carried (a sword is Melee
   Weapon (Sword), bare hands Brawl). The foe dodges with its Dodge, and the attack and the dodge are read on the

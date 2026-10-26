@@ -99,7 +99,7 @@ function MakeYourOwn({ choices, ruleset, busy, onBegin, onBack }: MakeProps) {
   )
 }
 
-/** Whether the made character's sheet is ready: a 5E or Ironsworn build chosen, else MARVEL's points not overspent. */
+/** Whether the made character's sheet is ready: a 5E or Ironsworn build chosen, else Prospero's points not overspent. */
 function builtFor(build: unknown, left: number): boolean {
   return build === true ? left >= 0 : !!build
 }
@@ -115,7 +115,7 @@ function listed(narrated: Narrated): { good_at: string[]; bad_at: string[] } {
   return { good_at: split(narrated.good_at), bad_at: split(narrated.bad_at) }
 }
 
-/** The ruleset whose build the form shows: one the start choices carry, else MARVEL. */
+/** The ruleset whose build the form shows: one the start choices carry, else Prospero. */
 function rulesKind(ruleset: Ruleset | undefined, choices: StartChoices): RulesKind {
   return ruleset && ruleset !== 'marvel' && choices[ruleset] ? ruleset : 'marvel'
 }
@@ -316,7 +316,7 @@ function adultAge(years: number | null): boolean {
   return years === null || (years >= 18 && years <= 120)
 }
 
-/** MARVEL's stats bought from the pool of points (dungeon/campaign.py bought). */
+/** Prospero's stats bought from the pool of points (dungeon/campaign.py bought). */
 function MarvelStats({ choices, stats, onChange }: { choices: StartChoices; stats: Record<string, number>; onChange: (stats: Record<string, number>) => void }) {
   const [min, max] = choices.range
   const left = pointsLeft(stats, choices.points)

@@ -1,4 +1,4 @@
-"""MARVEL, the house ruleset (Mabry Curve's dice): d100 plus a stat die, less a difficulty shift, onto six bands.
+"""Prospero, the house ruleset (Mabry Curve's dice): d100 plus a stat die, less a difficulty shift, onto six bands.
 
 Read from Mabry Curve's roll log (rng/roll.py itself was not in the archive):
 - A natural 1 to 10 is a critical failure, whatever the bonus.
@@ -10,7 +10,7 @@ Read from Mabry Curve's roll log (rng/roll.py itself was not in the archive):
 import random
 
 ID = 'marvel'
-NAME = 'MARVEL'
+NAME = 'Prospero'
 STATS = ('Mind', 'Allure', 'Resolve', 'Vitality', 'Essence', 'Luck')
 # What each stat covers, for the Referee, the narrator and the sheet.
 MEANINGS = {'Mind': 'reason, perception, knowledge, skill with the hands',

@@ -16,7 +16,7 @@ def saved(connection, message_id: str) -> list[dict]:
 
 def store(connection, message_id: str, actions: list[dict], now: str, rng: random.Random | None = None) -> list[dict]:
     for position, action in enumerate(actions):
-        # The campaign's ruleset rolls it (dungeon/sheet.py check): MARVEL on the stat, 5E on a skill and a DC.
+        # The campaign's ruleset rolls it (dungeon/sheet.py check): Prospero on the stat, 5E on a skill and a DC.
         # A 5E spell's slot the line asked for away from the action's words (dungeon/sheet.py spell_actions).
         said = f"{action['action']} with a {srd52.ordinal(action['slot'])}-level slot" if action.get('slot') else \
             action['action']

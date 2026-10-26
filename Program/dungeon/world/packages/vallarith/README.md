@@ -23,7 +23,7 @@ rewritten in fresh prose; nothing is copied from the source files or from outsid
 | `settlements.json` | Canon | Towns, cities and sites with size, rulers, peoples, Ley dependence, trade and hooks |
 | `factions.json` | Canon, rules | Factions with goals, methods, assets, rivals and clock seeds |
 | `deities.json` | Canon | Creator Dragons, Eternal Dragons, Old Gods, New Gods, Fey powers, archdevils and demon lords |
-| `cast.json` | Cast | NPC seeds with voice, wants, fears, secrets, relationships and MARVEL stats |
+| `cast.json` | Cast | NPC seeds with voice, wants, fears, secrets, relationships and Prospero stats |
 | `personas.json` | Persona(s) | Player persona options for this world |
 | `hidden-truths.json` | Hidden truths | What is true that a player character does not know, who knows it, and how it can surface |
 | `beats.json` | Planned beats | Soft arcs the director can steer toward |
@@ -50,7 +50,7 @@ is set). Entries carry `eras` and `by_era` where facts change. See [canon/eras.m
   (approved by Vanta).
 - **Tiers** use the shared ladder from "Scaling and tiers": `local`, `regional`, `realm`, `world`,
   `mythic`.
-- **MARVEL stats** run 1 to 30 with 10 as an ordinary adult (`Program/dungeon/rules/marvel.py`).
+- **Prospero stats** run 1 to 30 with 10 as an ordinary adult (`Program/dungeon/rules/marvel.py`).
   Gods and Eternal Dragons in their true forms are beyond stats and carry a tier only.
 - **Map positions** (`map: {x, y}`) are fractions of `assets/maps/vallarith.jpg`, from the top
   left, and are approximate.
