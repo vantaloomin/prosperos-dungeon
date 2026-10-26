@@ -36,8 +36,9 @@ AVOID = 'text, lettering, words, numbers, watermark, logo, card border, frame'
 PLAIN = {'pc': 'a traveller', 'npc': 'a local', 'bond': 'a close companion', 'them': 'someone the traveller knows',
          'faction': 'a powerful faction', 'town': 'the town'}
 CARD = ('The illustration for a tall playing card called "{title}". {seen} Show it as one striking moment, close '
-        'enough to read the faces and hands. Imply violence, cruelty and sex rather than showing them outright. No '
-        'text, lettering or card frame in the picture.')
+        'enough to read the faces and hands. No text, lettering or card frame in the picture.')
+# Only for a card that needs some intensity: asking a photographic style to "imply sex" gets an ordinary card refused.
+GRIM = ' Imply violence, cruelty and sex rather than showing them outright.'
 BACK = ('The back of a tall playing card for this world: a symmetrical ornamental pattern around one central emblem '
         'that suits the world, rich but quiet, no text or lettering.')
 
@@ -56,7 +57,8 @@ def jobs(world: str, only: set[str]) -> list[dict]:
     """Every card picture the world's deck asks for that is not made yet, the back first."""
     folder, look = PACKAGES / world / 'assets' / 'cards', style(world)
     wanted = [('back', f'{look}. {BACK}')] + [
-        (item['id'], f"{look}. {CARD.format(title=plain(item['title']), seen=plain(item['seen']))}")
+        (item['id'], f"{look}. {CARD.format(title=plain(item['title']), seen=plain(item['seen']))}"
+                     + (GRIM if item['intensity'] else ''))
         for item in cards.cards(world)]
     return [{'world': world, 'id': key, 'out': folder / f'{key}.webp', 'prompt': prompt}
             for key, prompt in wanted if (not only or key in only) and not (folder / f'{key}.webp').exists()]
