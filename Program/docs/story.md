@@ -1220,6 +1220,22 @@ fix is flagged for the player instead of lost.
   kept: **Switch wording** goes back to it and again to the rewrite.
 - A part told before going back is shared with another branch, so it stays as it was.
 
+## Ideas
+
+`dungeon/ideas.py`, `src/features/story/ideas.ts`. **Ideas** beside Send asks for two or three things the
+character could do now; they show as chips over the composer, and tapping one puts it in the composer (after
+anything already written). Nothing is sent until the player sends.
+
+- **Used once.** Nothing is stored: the list goes back in the response and lives in the composer's memory until
+  the player sends a line, picks one, goes back or the story moves past the turn it was made for. No narrator,
+  Referee, extractor, summary, recall, director or picture prompt can read one, and the next Ideas call is built
+  fresh from the scene. A picked idea that is sent is the player's own line.
+- **What the character knows only:** the scene as shown (people named only once met), the record's known facts,
+  open quests and threads as understood, the persona and the last three lines, plus the intensity limits.
+- **Actions only.** First person, at most twenty words, no results, rolls or odds (`parse` drops them). The
+  Referee's model writes them, else the story's; with no model or an answer that can't be read, code offers some
+  from the scene (talk to someone here, browse the open shop, rest when hurt, ask about a quest, look around).
+
 ## How far the story goes
 
 `dungeon/tone.py` (requirements "Intensity and tone"). The narrator is told how far each category goes on the page:
@@ -1283,6 +1299,7 @@ free grid of widgets is an optional mode late in Milestone 6.
 | `POST /api/story/messages` `{text, client_id}` | Saves the user's line once per `client_id` and returns `{message, reply}`. A failed reply is saved with `status: failed` and its `error`. Sending the same `client_id` again returns the saved reply, or tries again if it failed. 409 `no_connection` without a model; the line stays saved. 409 when the character is dead. |
 | `POST /api/story/find` `{key}` | Moves the story to where someone the user has met is now. 404 if not met, 409 if they are nowhere the story can go. |
 | `POST /api/story/retry` | Tells the reply to the latest user line again, replacing the one there. |
+| `POST /api/story/ideas` | `{ideas, turn}`: two or three things the character could do now, for the turn `turn` (the story's line count). Nothing is stored. |
 | `POST /api/story/messages/{id}/rewrite` | Rewrites `passage` of a narration in new words, with an optional `note`; same dice and facts. Returns the story. |
 | `POST /api/story/messages/{id}/switch` | Switches a rewritten narration to its wording before the rewrite, and back. Returns the story. |
 | `POST /api/story/messages/stream` / `POST /api/story/retry/stream` | The same, streamed as newline-delimited JSON: `{"text": piece}` as the narration is written, then `{"done": {message, reply}}` once the reply is saved, or `{"error", "code", "status"}`. Fact extraction runs after `done`. |

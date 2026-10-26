@@ -927,6 +927,27 @@ picks up whatever they didn't fix.
   goes through the same checks, and the fact extractor reruns on it. The original is kept, so
   the player can switch back.
 
+### Suggested actions
+
+Decided 2026-10-26 (Vanta approved the spec from the competitive research). An **Ideas** button
+beside Send gives two or three short things the character could do now, as chips over the
+composer. Tapping one puts it in the composer for editing; nothing is sent until the player sends.
+
+- **Used once, kept out of every model's history** (Vanta's rule). Ideas are never stored: not in
+  the story, the timeline, the record, the journal, receipts, the dice log, exports or browser
+  storage. No other prompt can see them, and each Ideas call is built fresh from the scene, never
+  from an earlier list. An idea the player sends is their own line from then on; the rest go
+  nowhere. The only copy is the model-call log in Settings > Developer when the player has turned
+  it on (off by default), which no model reads.
+- **Only what the character knows.** The prompt holds the scene as the screen shows it, what the
+  record says the character knows, the quests and threads they have come across, who they are and
+  the last few lines; never hidden truth, the director's note, off-page beats or secrets.
+- **Actions, not outcomes:** first person, under twenty words, no results, rolls or odds, within
+  the player's intensity levels and veils. The Referee's model writes them, else the story's;
+  with no model, code offers some from the scene.
+- The ideas go when the player sends a line, goes back or the story moves on. Showing them on
+  their own after a minute idle was left out for now (the spec's default was off).
+
 ## Referee model
 
 - Its own model slot. A cheap text model (Haiku or local 3–4B) splits actions.
