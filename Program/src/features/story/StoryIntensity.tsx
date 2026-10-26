@@ -47,6 +47,7 @@ export function StoryIntensity({ intensity, onSaved }: { intensity: Intensity; o
         <option value="real_time">Real time</option>
       </select>}
     </Field>}
+    <LeavingRule rules={rules} save={(change) => void save(change)} />
     {rules && ['ironsworn', 'srd52', 'brp'].includes(intensity.ruleset ?? '') && <Toggle label="Give the narrator rule text"
       hint="A few lines from the rules each turn, such as the move you rolled or a condition a foe took, so the story describes the result the way the rules mean it. The dice still decide."
       checked={rules.rule_text !== 'off'} onChange={(checked) => void save({ rule_text: checked ? 'on' : 'off' })} />}
@@ -56,6 +57,20 @@ export function StoryIntensity({ intensity, onSaved }: { intensity: Intensity; o
       checked={intensity.defeat === 'by_aim'} onChange={(checked) => void save({ defeat: checked ? 'by_aim' : 'as_written' })} />}
     {error && <Notice tone="error">{error}</Notice>}
   </>)
+}
+
+
+/** Who can stop the character leaving a scene (dungeon/leaving.py): anyone with a reason, only a fight, or nobody. */
+function LeavingRule({ rules, save }: { rules?: TableRules | null; save: (change: Partial<TableRules>) => void }) {
+  if (!rules) return null
+  return <Field label="Who can stop you leaving" hint="Anyone with a reason: someone there who hates you and isn't afraid of you blocks the way, someone fond of you begs you to stay, and a fight holds you until you flee. Each is a roll to get away. Only fights: conversations never hold you. Nobody: you can walk out of a fight too.">
+    {(id, describedBy) => <select id={id} value={rules.leaving ?? 'anyone'} aria-describedby={describedBy}
+      onChange={(event) => void save({ leaving: event.target.value as TableRules['leaving'] })}>
+      <option value="anyone">Anyone with a reason</option>
+      <option value="fights">Only fights</option>
+      <option value="nobody">Nobody</option>
+    </select>}
+  </Field>
 }
 
 /** Each category on its own slider, the veils, and the narrator's voice (dungeon/tone.py). A preset above sets every

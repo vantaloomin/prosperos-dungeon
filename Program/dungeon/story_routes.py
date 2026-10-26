@@ -224,6 +224,8 @@ class TableUpdate(Input):
     clock: Literal['world', 'story', 'real_time'] | None = None
     # Whether the narrator gets the rule text that fits the turn (dungeon/rules/passages.py).
     rule_text: Literal['on', 'off'] | None = None
+    # Who can stop the character leaving a scene (dungeon/leaving.py).
+    leaving: Literal['anyone', 'fights', 'nobody'] | None = None
 
 
 class IronswornBuild(Input):

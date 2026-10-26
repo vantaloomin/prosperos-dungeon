@@ -969,6 +969,8 @@ CREATE TABLE IF NOT EXISTS story_campaign (
   clock TEXT CHECK (clock IN ('world', 'story', 'real_time')),
   -- Whether the narrator gets the rule text that fits the turn (dungeon/rules/passages.py).
   rule_text TEXT CHECK (rule_text IN ('on', 'off')),
+  -- Who can stop the character leaving a scene: anyone with a reason, only a fight, nobody (dungeon/leaving.py).
+  leaving TEXT CHECK (leaving IN ('anyone', 'fights', 'nobody')),
   -- The world seed the land past a hex map's authored edge is generated from (dungeon/hexes.py).
   seed TEXT
 );

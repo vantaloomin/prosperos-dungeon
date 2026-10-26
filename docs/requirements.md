@@ -459,6 +459,13 @@ state; the Referee and narrator read it and never contradict it.
 - **NPCs have their own lives.** Key NPCs pursue their goals and follow life-sim schedules when
   they are off-scene (Companion's townsfolk and life engine), so they are somewhere, doing
   something, when the player looks for them.
+- **Leaving a scene: NPCs can stop you, and the Table can turn it off.** Decided 2026-10-26 (Vanta's
+  card: "Hostile and fond both"). A fight holds the character until a flight succeeds, as before.
+  Outside a fight, someone there who is hostile (hates or distrusts the character and isn't afraid
+  of them) blocks the way, and someone fond of them begs them to stay. Code decides who from their
+  feelings, and getting away is a roll; a failure keeps the character in the scene for that line.
+  The Table rule "Who can stop you leaving" picks anyone with a reason (the default), only fights,
+  or nobody (a character can walk out of a fight too). Being held prisoner is not leaving.
 
 ## Memory and context
 

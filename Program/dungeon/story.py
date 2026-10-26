@@ -35,6 +35,7 @@ from dungeon import (
     jobs,
     judge,
     labour,
+    leaving,
     library,
     lies,
     lore,
@@ -613,9 +614,16 @@ def move(database, city_id: str, place_id: str | None) -> dict:
         data = city_data(connection, city_id)
         place = catalog.find(data, place_id) if place_id else opening_place(data)
         require(place is not None and place in data['places'], 'No such place in this city.', 404)
+        if combat.fight(connection) is not None and leaving.free_from_fights(connection):
+            # The Table lets the character walk out of a fight (dungeon/leaving.py).
+            combat.walk_away(connection, database.now())
         require(combat.fight(connection) is None, "You're in a fight. Get away first.", 409)
         held = combat.captors(connection)
         require(not held, f"You're held prisoner by {held}. Get free first.", 409)
+        view = scene(connection, story_clock.now(connection, database.clock))
+        stopping = leaving.blocking(connection, view)
+        require(stopping is None, f"{stopping and stopping['name'].split()[0]} won't let you just walk away. Say how you "
+                'leave in the story.', 409)
         moving_from = scene_row(connection)['city_id']
         if scene_row(connection) != {'city_id': data['id'], 'place_id': place['id']}:
             place_scene(connection, data['id'], place['id'], database.now())
@@ -1332,6 +1340,20 @@ def judging(connection, text: str, actions: list[dict], moment: datetime) -> dic
     return judge.asking(connection, persona_text(connection)[0], scene_text(view), text, actions, view['people'])
 
 
+async def turn_rolls(state, user: dict, steps: pace.Steps) -> list[dict]:
+    """The line's rolls, then the roll to get away from someone who would stop the character leaving
+    (dungeon/leaving.py), made into a card once."""
+    rolls = await rolled(state, user, steps)
+    with state.database.connect(write=True) as connection:
+        return [*rolls, *leaving.card(connection, user['id'], state.database.now())]
+
+
+def leave_turn(state, user: dict) -> list[str]:
+    """What the line's try at leaving came to (dungeon/leaving.py), for the narrator."""
+    with state.database.connect() as connection:
+        return leaving.lines(connection, user['id'])
+
+
 async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
     """The turn's rolls: kept from an earlier telling, or decided now (obvious lines skip the Referee's model)."""
     database = state.database
@@ -1346,8 +1368,10 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
     if rolls:
         return rolls
     with database.connect(write=True) as connection:
-        travelling = travel.decide(connection, user['id'], user['city_id'], user['place_id'], user['text'],
-                                   getattr(state, 'dice', None))
+        # Someone who kept the character from leaving keeps them from setting out too (dungeon/leaving.py).
+        held_back = leaving.stopped(connection, user['id'])
+        travelling = [] if held_back else travel.decide(connection, user['id'], user['city_id'], user['place_id'],
+                                                         user['text'], getattr(state, 'dice', None))
         journeying = travel.journey(connection, user['id']) is not None
     since = steps.clock()
     obvious = pace.obvious(user['text']) and not fighting
@@ -1362,8 +1386,8 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
         actions = [*actions, hazard]
     with database.connect(write=True) as connection:
         actions = [*actions, *travelling]
-        if camp := rest.decide(connection, user['id'], user['city_id'], user['place_id'], user['text'],
-                               getattr(state, 'dice', None)):
+        if not held_back and (camp := rest.decide(connection, user['id'], user['city_id'], user['place_id'],
+                                                  user['text'], getattr(state, 'dice', None))):
             actions = [*actions, camp]
         moment = story_clock.now(connection, database.clock)
         if mend := injuries.decide(connection, user['text'], scene(connection, moment)['people']):
@@ -1499,7 +1523,7 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
         if config is None:
             raise no_model()
         steps = pace.Steps(pace.budget_for(connection, config), getattr(state, 'pace_clock', None) or time.monotonic)
-    rolls = await rolled(state, user, steps) if in_story else []
+    rolls = await turn_rolls(state, user, steps) if in_story else []
     if rolls:
         with database.connect() as connection:
             shown = dice_shown(connection)
@@ -1516,7 +1540,8 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
         noted += [away_text(connection, user['id'])] if in_story else []
     noted += [labour.prompt_text(labour_turn(state, user)), lies.prompt_text(lie_turn(state, user)),
               bonds.prompt_text(bond_turn(state, user)), party.prompt_text(party_turn(state, user)),
-              sworn.prompt_text(vow_turn(state, user, rolls))] if in_story else []
+              sworn.prompt_text(vow_turn(state, user, rolls)), leaving.prompt_text(leave_turn(state, user))] \
+        if in_story else []
     fought, traded, tended, looked, looks = (in_scene(state, user, rolls, travelled, rested) if in_story
                                              else ([], [], [], [], []))
     noted = noted + looks
@@ -1558,7 +1583,7 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
     return reply
 
 
-def received(database, text: str, client_id: str) -> tuple[dict, dict | None]:
+def received(database, text: str, client_id: str, rng=None) -> tuple[dict, dict | None]:
     """The user's message, saved once whatever retries come; with the narrator's reply if it already has one."""
     with database.connect(write=True) as connection:
         user = optional(connection, 'SELECT * FROM story_messages WHERE client_id=?', (client_id,))
@@ -1572,6 +1597,9 @@ def received(database, text: str, client_id: str) -> tuple[dict, dict | None]:
             real_time(database, connection, user)
             timeline.save(connection, user['id'])
             walked = None if in_character.out_of_character(text) else walked_to(connection, text, database.clock)
+            # Someone there may keep the character from going (dungeon/leaving.py): then they go nowhere.
+            if not in_character.out_of_character(text) and leave_line(database, connection, user, text, walked, rng):
+                walked = None
             if walked and (walked['city_id'], walked['id']) != (user['city_id'], user['place_id']):
                 # A line that goes somewhere opens the chapter there.
                 chapters.mark(connection, 'place')
@@ -1598,12 +1626,22 @@ def line_time(database, connection, user: dict, text: str, walked: dict | None):
         minutes = story_clock.ACROSS_TOWN_MINUTES + story_clock.spent(text, local)
         pass_time(database, connection, minutes)
         arrive(connection, database.now())
-    elif rest.resting(text) or travel.setting_out(connection, user['city_id'], user['place_id'], text):
+    elif not leaving.stopped(connection, user['id']) and (
+            rest.resting(text) or travel.setting_out(connection, user['city_id'], user['place_id'], text)):
         return
     else:
         minutes = story_clock.minutes_for(text, bool(referee.by_keywords(text)), local)
         pass_time(database, connection, minutes)
     happenings.keep(connection, user['id'], 'clock', local.date(), None, [minutes])
+
+
+def leave_line(database, connection, user: dict, text: str, walked: dict | None, rng=None) -> bool:
+    """Whether someone there stops the line leaving (dungeon/leaving.py), decided once as it is sent."""
+    going = bool(walked and (walked['city_id'], walked['id']) != (user['city_id'], user['place_id'])) or \
+        travel.setting_out(connection, user['city_id'], user['place_id'], text)
+    view = scene(connection, story_clock.now(connection, database.clock))
+    kept = leaving.decide(connection, user['id'], view, text, going, database.now(), rng)
+    return bool(kept and kept['stopped'])
 
 
 def living(connection, city_id: str) -> bool:
@@ -1650,7 +1688,7 @@ def sit_through(database, connection, user: dict, text: str):
 
 
 async def send(state, text: str, client_id: str, on_text=None, on_event=None) -> dict:
-    user, reply = received(state.database, text, client_id)
+    user, reply = received(state.database, text, client_id, getattr(state, 'dice', None))
     return {'message': user, 'reply': reply or await answer(state, user, on_text, on_event)}
 
 

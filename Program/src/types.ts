@@ -454,6 +454,7 @@ export interface TableRules {
   carry_limit?: 'slots' | 'off'
   /** Whether the narrator gets the rule text that fits the turn (dungeon/rules/passages.py). */
   rule_text?: 'on' | 'off'
+  leaving?: 'anyone' | 'fights' | 'nobody'
   /** Story time, or real time while the app is closed too ('world': the world's own; dungeon/story_clock.py). */
   clock?: 'world' | 'story' | 'real_time'
 }
