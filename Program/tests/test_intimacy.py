@@ -55,10 +55,24 @@ def test_most_people_are_in_the_middle_and_the_level_caps_what_they_are_into():
     assert set(levels) == set(intimacy.DRAWS)
     assert levels['curious'] > levels['adventurous'] > levels['wild']
     assert levels['conventional'] > levels['reserved']
+    qualities = {entry['id'] for entry in intimacy.bank()['interests'] if entry['group'] == intimacy.QUALITIES}
     for found in rolls:
         count, boldest = intimacy.DRAWS[found['level']]
-        assert len(found['interests']) <= count and all(tiers[entry] <= boldest for entry in found['interests'])
-    assert all(not found['interests'] for found in rolls if found['level'] == 'reserved')
+        doing = [entry for entry in found['interests'] if entry not in qualities]
+        assert len(doing) <= count and all(tiers[entry] <= boldest for entry in doing)
+        # At most one thing that draws them in ("a sharp mind"), whatever the level.
+        assert len(found['interests']) - len(doing) <= 1
+    assert all(not set(found['interests']) - qualities for found in rolls if found['level'] == 'reserved')
+    drawn = sum(bool(set(found['interests']) & qualities) for found in rolls) / len(rolls)
+    assert 0.3 < drawn < 0.5
+
+
+def test_adding_what_draws_them_in_left_everyone_s_earlier_picks_alone():
+    qualities = {entry['id'] for entry in intimacy.bank()['interests'] if entry['group'] == intimacy.QUALITIES}
+    assert {'sharp-mind', 'quick-wit', 'kindness'} <= qualities
+    # The draw before the qualities were added, pinned for a few seeds.
+    assert {seed: sorted(set(intimacy.roll(seed, 35, 'woman')['interests']) - qualities) for seed in ('a', 'b', 'c')} \
+        == {'a': ['deep-voice', 'strong-arms'], 'b': ['hair-stroking', 'quickies'], 'c': ['deep-voice', 'paddle', 'sex-dice']}
 
 
 def test_an_age_is_read_however_it_is_written():
