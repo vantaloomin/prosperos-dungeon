@@ -172,7 +172,7 @@ class PersonaInput(Input):
 
 class NewPersona(PersonaInput):
     """A new persona, and the city their world is in: the current one unless the user picks another, or
-    `somewhere-new` for the app to pick (dungeon/worlds.py)."""
+    `somewhere-new` for the app to pick, or `somewhere-new:<world>` for it to pick in that world (dungeon/worlds.py)."""
     city_id: str | None = Field(None, min_length=1, max_length=120)
 
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { categoryOf, citiesOfWorld, cityFacts, definitionOf, exportName, groupNotes, matchesCity, parseDefinition, shelveCities, slugify, type CityListing } from '../../src/features/world/cityText.ts'
+import { categoryOf, citiesOfWorld, CUSTOM_WORLD, homeWorlds, cityFacts, definitionOf, exportName, groupNotes, matchesCity, parseDefinition, shelveCities, slugify, type CityListing } from '../../src/features/world/cityText.ts'
 
 const city = (extra: Partial<CityListing> = {}): CityListing => ({
   id: 'baltimore', name: 'Baltimore', region: 'Maryland', country: 'US', setting: 'real', era: 'modern', summary: '', basis: '',
@@ -71,4 +71,19 @@ test('notes that say the same about several places become one line', () => {
   assert.deepEqual(groupNotes(['Timezone set to UTC.', 'Bluebird Diner: filled in cost as \'$\'.', 'Oak Hall: ignored the field "x", which the app does not use.', 'Pier: filled in cost as \'$\'.']),
     ['Timezone set to UTC.', "Bluebird Diner and Pier: filled in cost as '$'.", 'Oak Hall: ignored the field "x", which the app does not use.'])
   assert.deepEqual(groupNotes(many), ["Mill 1, Mill 2, Mill 3, Mill 4, Mill 5 and 3 more: filled in cost as '$'."])
+})
+
+test('where someone lives is picked world first: featured worlds in order, Custom last, never a road', () => {
+  const cities = [
+    city({ id: 'hollin', name: 'Hollin', world: 'vallarith', world_name: 'Vallarith' }),
+    city({ id: 'kingswood', name: 'Kingswood', world: 'vallarith', world_name: 'Vallarith' }),
+    city({ id: 'vallarith-road', name: 'the Road', world: 'vallarith', world_name: 'Vallarith', home: false }),
+    city({ id: 'haven', name: 'Haven', world: 'havenbrooke', world_name: 'Havenbrooke' }),
+    city({ id: 'mine', name: 'Mine', origin: 'user', world: null }),
+    city({ id: 'the-concourse', name: 'the Concourse', world: 'babel', world_name: 'BABEL' }),
+  ]
+  const worlds = homeWorlds(cities, [{ id: 'kingswood' }, { id: 'haven' }, { id: 'the-concourse' }])
+  assert.deepEqual(worlds.map((world) => world.name), ['Vallarith', 'Havenbrooke', 'BABEL', 'Custom'])
+  assert.deepEqual(worlds[0].towns.map((town) => town.id), ['hollin', 'kingswood'])
+  assert.equal(worlds[3].id, CUSTOM_WORLD)
 })

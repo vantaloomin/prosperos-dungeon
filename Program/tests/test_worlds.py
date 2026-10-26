@@ -4,7 +4,7 @@ import json
 import pytest
 from conftest import tell
 
-from dungeon import story, worlds
+from dungeon import story, tiers, worlds
 
 
 def ok(response):
@@ -117,3 +117,18 @@ def test_a_city_that_does_not_exist_makes_no_persona(client):
     before = len(listing(client)['personas'])
     assert client.post('/api/worlds/personas', json={'name': 'Ellis', 'city_id': 'nowhere'}).status_code == 404
     assert len(listing(client)['personas']) == before
+
+
+def test_somewhere_new_is_a_town_of_the_picked_world_never_a_road(client):
+    # Plain "somewhere new" stays in the world the user is in: Baltimore is outside the world packages.
+    made = ok(client.post('/api/worlds', json={'city_id': worlds.SOMEWHERE_NEW}))['city_id']
+    assert made != 'baltimore' and tiers.world_of(made) is None
+    assert ok(client.post('/api/worlds', json={'city_id': f'{worlds.SOMEWHERE_NEW}:vallarith'}))['city_id'] == 'kingswood'
+    made = {ok(client.post('/api/worlds', json={'city_id': f'{worlds.SOMEWHERE_NEW}:babel'}))['city_id'] for _ in range(4)}
+    assert made <= {'the-concourse', 'hollin', 'the-gilded-bazaar'}
+    assert ok(client.post('/api/worlds', json={'city_id': f'{worlds.SOMEWHERE_NEW}:havenbrooke'}))['city_id'] == 'haven'
+    cities = {city['id']: city for city in ok(client.get('/api/world/cities'))}
+    assert not cities['vallarith-road']['home'] and not cities['babel-floors']['home'] and cities['kingswood']['home']
+    world = listing(client)['world']
+    choices = ok(client.get(f"/api/worlds/{world['id']}/home"))
+    assert not {'vallarith-road', 'havenbrooke-road', 'babel-floors'} & {city['id'] for city in choices['cities']}

@@ -535,5 +535,6 @@
  "notables": [],
  "town_map": {
   "style": "none"
- }
+ },
+ "home": false
 }

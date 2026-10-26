@@ -223,6 +223,11 @@ than guess).
 `kind` is `public` (most offices and schools close), `observance` (widely marked, a working day) or
 `feast` (a church feast or quarter day). Moved "observed" weekdays (substitute days off) are not included.
 
+**Roads between towns.** `"home": false` marks a city that is somewhere to pass through, not to live: a world's
+Road, Havenbrooke's "away from Haven" or BABEL's tower floors. The pickers for where someone lives (a new persona or
+world, and moving home) leave it out; they pick a world first, then one of its towns (dungeon/worlds.py
+`somewhere_new`, `somewhere-new:<world>`).
+
 **Notables.** A city may name people who live in it (`notables`), such as a pack's characters: `id`,
 `name`, optional `given` (what people call them), `pronouns`, `age`, the `place` they belong to, `role`,
 `staff` (works there and keeps shifts, or only visits), `about` (who they are, one or two sentences),

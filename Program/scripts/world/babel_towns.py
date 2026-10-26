@@ -654,7 +654,7 @@ bazaar = city(
     'The third floor up: a merchant city under a lantern dome that cycles twice in a Concourse day, so its nights are '
     'short and it never closes. Spice houses, salons, rooms by the week, fences under the Copper Steps, and a Stair '
     'gate one woman owns. BABEL parked its best vendors here; in the tower, everything and everyone has a price.',
-    'the Gilded Bazaar, floor three', ['the Bazaar', 'the Gilded Bazaar'], LAT + 0.05, LON, {'walk': 4.5},
+    'Floor Three', ['the Bazaar', 'the Gilded Bazaar'], LAT + 0.05, LON, {'walk': 4.5},
     bazaar_hoods, bazaar_places, bazaar_careers, bazaar_employers,
     [{'id': 'the-trade', 'name': 'The trade', 'neighborhoods': ['the-lantern-dome', 'the-spice-rows'],
       'sectors': ['salon', 'merchant', 'craft'], 'summary': 'Money on the Bazaar is made selling what people want, and '
@@ -765,8 +765,9 @@ floors = city(
                                             'down the Stair, about half a day a floor.', 'source': SRC}],
     None, [], [], CONCOURSE_NAMES, [], [],
 )
-# The floors are the ways between towns, not a town: no street map (dungeon/townmap.py).
+# The floors are the ways between towns, not a town: no street map (dungeon/townmap.py), and nowhere to live.
 floors['town_map'] = {'style': 'none'}
+floors['home'] = False
 
 
 def main():

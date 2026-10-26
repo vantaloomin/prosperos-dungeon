@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Pick a world, then a town.** Where a new persona or world lives is now two steps: Vallarith, Havenbrooke, BABEL
+  or Custom first, then a town of that world (or somewhere new there, picked for you). The roads between towns and
+  BABEL's tower floors are no longer offered as homes, the featured towns aren't listed twice, and the Gilded Bazaar
+  reads "the Gilded Bazaar, Floor Three".
 - **Each world lists its own cities.** Worlds > Cities shows only the cities of the world you're in, plus your own;
   "Show other worlds' cities" brings the rest back. Haddon Harbor, the modern Maine town left over from Companion, no
   longer ships: a world already set there keeps it as one of your own cities, under Custom.

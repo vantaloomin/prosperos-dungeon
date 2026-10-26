@@ -68,8 +68,9 @@ def ours(city: dict) -> bool:
 
 
 def choices(world_city: dict, cities: dict[str, dict]) -> list[dict]:
-    """The cities the persona can live in, the world's own first."""
-    others = sorted((city for city in cities.values() if city['id'] != world_city['id'] and allowed(world_city, city)),
+    """The cities the persona can live in, the world's own first; never a road between towns (`home` false)."""
+    others = sorted((city for city in cities.values()
+                     if city['id'] != world_city['id'] and city.get('home', True) and allowed(world_city, city)),
                     key=lambda city: city['name'])
     return [world_city, *others]
 
