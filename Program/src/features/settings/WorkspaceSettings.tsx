@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { SETTINGS_KEY, pcTimezone, timezones, useWorkspaceSettings } from '../../workspace'
 import { api } from '../../api'
 import type { WorkspaceSettings as Settings } from '../../types'
 import { Notice } from '../../components/Feedback'
-import { TextInput } from '../../components/Fields'
+import { Field } from '../../components/Fields'
+import { allZones, commonZones, findZones, zoneOf, type Zone } from './zoneText'
 
 type Save = (change: Partial<Settings>) => Promise<boolean>
 
@@ -65,9 +66,8 @@ function TimezoneForm({ data, save, problem }: { data: Settings; save: Save; pro
     <section className="settings-section form-stack" aria-labelledby="time-heading">
       <h2 id="time-heading">Your time</h2>
       <SectionError problem={problem} />
-      <TextInput label="Your timezone" value={zone ?? data.user_timezone} onChange={setZone} list="settings-timezones" maxLength={64} hint={hint} />
-      <datalist id="settings-timezones">{timezones().map((item) => <option key={item} value={item} />)}</datalist>
-      {pc && <p className="subtle">This PC's timezone: {pc}</p>}
+      <ZonePicker value={zone ?? data.user_timezone} saved={data.user_timezone} pc={pc} hint={hint} onChange={setZone} />
+      {pc && <p className="subtle">This PC's timezone: {zoneOf(pc).label}</p>}
       {(edited || offerPc) && (
         <div className="form-actions">
           {edited && <button type="button" className="button primary" onClick={() => savedZone({ user_timezone: zone!, user_timezone_source: 'chosen' })}>Save time zone</button>}
@@ -76,6 +76,34 @@ function TimezoneForm({ data, save, problem }: { data: Settings; save: Save; pro
       )}
     </section>
   )
+}
+
+/** A search over every zone, then a list of them by city, name and offset: this PC's and the common ones on top. The
+ * saved value stays the IANA id. */
+function ZonePicker({ value, saved, pc, hint, onChange }: { value: string; saved: string; pc: string | null; hint: string; onChange: (zone: string) => void }) {
+  const [query, setQuery] = useState('')
+  const zones = useMemo(() => allZones(timezones(), [saved, pc]), [saved, pc])
+  const found = findZones(zones, query)
+  const picked = zones.find((item) => item.id === value) ?? zoneOf(value)
+  const option = (item: Zone, key = item.id) => <option key={key} value={item.id}>{item.label}</option>
+  const here = pc ? zones.find((item) => item.id === pc) : undefined
+  return <>
+    <Field label="Find a time zone">{(id) => (
+      <input id={id} type="search" value={query} placeholder="A city, a zone name or an offset, like Tokyo, Pacific or +05:30" onChange={(event) => setQuery(event.target.value)} />
+    )}</Field>
+    <Field label="Your timezone" hint={hint}>{(id, describedBy) => (
+      <select id={id} aria-describedby={describedBy} value={value} onChange={(event) => onChange(event.target.value)}>
+        {!found.includes(picked) && option(picked, `picked-${picked.id}`)}
+        {query.trim()
+          ? <optgroup label={found.length ? `Found (${found.length})` : 'Nothing found'}>{found.map((item) => option(item))}</optgroup>
+          : <>
+            {here && <optgroup label="This PC">{option(here, `pc-${here.id}`)}</optgroup>}
+            <optgroup label="Common">{commonZones(zones).map((item) => option(item, `common-${item.id}`))}</optgroup>
+            <optgroup label="All time zones, west to east">{zones.map((item) => option(item))}</optgroup>
+          </>}
+      </select>
+    )}</Field>
+  </>
 }
 
 const ZONE_USE = 'Used for dates and what time it is for you.'

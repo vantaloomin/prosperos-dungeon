@@ -3,7 +3,7 @@ import { api } from '../../api'
 import type { KindChoices, Persona, PersonaGender, World, Worlds } from '../../types'
 import { Field, TextArea, TextInput } from '../../components/Fields'
 import { Notice } from '../../components/Feedback'
-import { GENDERS, ageHint, ageText, personaAges } from './worldsText'
+import { GENDERS, ageHint } from './worldsText'
 import { KindFields } from '../kinds/KindFields'
 import { lifeAge, longLived, pickedLifespan } from '../kinds/kindText'
 import { CityPick, SOMEWHERE_NEW } from './CityPick'
@@ -23,7 +23,7 @@ function draftOf(persona?: Persona): Draft {
 /** A new persona needs the name the user gives it; everything else may stay blank. Past 120 only for a long-lived
  * kind. */
 function validDraft(draft: Draft, age: number | null, isNew: boolean, long: boolean): boolean {
-  return (age === null || (age >= 18 && age <= (long ? 5000 : 120))) && BIRTHDAY.test(draft.birthday) && (!isNew || !!draft.name.trim())
+  return (age === null || ageHint(age, long) === undefined) && BIRTHDAY.test(draft.birthday) && (!isNew || !!draft.name.trim())
 }
 
 const TEXT = {
@@ -128,12 +128,9 @@ function PersonaKind({ found, choices, draft, age, span, set }: PersonaKindProps
     picked={draft.kind} own={draft.lifespan} onChange={({ kind, lifespan }) => set({ kind, lifespan })} />
 }
 
-/** Age from a list, never free text: up to 120, and on up to 5,000 for a long-lived kind. */
+/** Age as a number: blank keeps it unsaid, 18 and up. Up to 5,000 can be typed so the hint can say past 120 needs a
+ * long-lived kind. */
 function AgeField({ value, age, long, onChange }: { value: string; age: number | null; long: boolean; onChange: (value: string) => void }) {
-  return <Field label="Age" hint={ageHint(age, long)}>{(id, describedBy) => (
-    <select id={id} aria-describedby={describedBy} value={value} onChange={(event) => onChange(event.target.value)}>
-      <option value="">Not said</option>
-      {personaAges(long, age).map((item) => <option key={item} value={String(item)}>{ageText(item)}</option>)}
-    </select>
-  )}</Field>
+  return <TextInput label="Age" type="number" value={value} min={18} max={5000} step={1} placeholder="Not said"
+    hint={ageHint(age, long)} onChange={onChange} />
 }
