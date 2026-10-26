@@ -1220,6 +1220,26 @@ fix is flagged for the player instead of lost.
   kept: **Switch wording** goes back to it and again to the rewrite.
 - A part told before going back is shared with another branch, so it stays as it was.
 
+## Rule passages
+
+`dungeon/rules/passages.py`. Each turn under Ironsworn, 5E or Percentile the narrator gets a `## Rules that apply`
+layer, between the scene and the turn's outcomes: the few lines of the pack's rule text that fit what the turn
+resolved, opened by "How the rules describe what happened. The results above are fixed; use this only to describe
+them." The dice and the bands are already decided; the text only helps the narrator describe a weak hit's cost or
+what Grappled stops a creature doing.
+
+- **Picked by what was rolled.** Each roll's label starts with its move, skill or spell ("Face Danger +iron vs 2 and
+  9", "Stealth", "Fire Bolt (spell)"), so the passage is looked up by that name; an Ironsworn move adds the text of
+  the outcome it landed on (strong hit, weak hit or miss). Under 5E a condition the fight lines name (grappled,
+  prone) brings its text too. Only when nothing matched does the player's line pick, by a gameplay toolbox section or
+  condition it names as a whole word ("poison", "traps"). Percentile gets its spells only: the pack's skills carry
+  no text, and a major wound's text is already in the fight lines. Prospero, Fate and Narrative Only get none.
+- **Small.** At most three passages and 250 words a turn, no one passage over 120 words, each cut at a sentence; a
+  model under 16k context gets one passage of 100 words. The layer is the last thing to give way when the prompt
+  must shrink, after the summary and the record's facts.
+- **Give the narrator rule text** (Tone and rules, the Table's `rule_text`: 'on' or 'off', on for every new
+  campaign) turns it off.
+
 ## Ideas
 
 `dungeon/ideas.py`, `src/features/story/ideas.ts`. **Ideas** beside Send asks for two or three things the

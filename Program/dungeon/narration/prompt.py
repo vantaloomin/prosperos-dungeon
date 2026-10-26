@@ -192,10 +192,11 @@ def outcomes_text(outcomes: list[dict], rolls_shown: bool = False) -> str:
 
 def system(core: str, craft: str, *, scene: str = '', persona: str = '', persona_name: str | None = None,
            memory: str = '', narration: Format = Format(), intensity: Intensity = Intensity(), outcomes: list[dict] | None = None,
-           rolls_shown: bool = False) -> str:
-    """The whole system prompt, layer by layer; empty layers are left out."""
+           rolls_shown: bool = False, rules: str = '') -> str:
+    """The whole system prompt, layer by layer; empty layers are left out. `rules` is the rule text that fits the turn
+    (dungeon/rules/passages.py), between the scene and the outcomes it helps describe."""
     layers = [core, craft, narration.text(persona_name), intensity.text(),
-              f'## The player\'s character\n{persona}' if persona else '', memory, scene,
+              f'## The player\'s character\n{persona}' if persona else '', memory, scene, rules,
               outcomes_text(outcomes or [], rolls_shown)]
     return '\n\n'.join(layer.strip() for layer in layers if layer and layer.strip())
 

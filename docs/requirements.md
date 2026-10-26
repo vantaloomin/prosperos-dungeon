@@ -958,6 +958,17 @@ SillyTavern's world info does. Lines are counted in the player's lines, kept wit
 SillyTavern imports bring their timing; the Lore screen sets it per entry. Always-on entries
 take no timing.
 
+### Rule passages
+
+Decided 2026-10-26 (same spec). Each turn the narrator gets the few lines of rule text that fit
+what the turn resolved: the Ironsworn move rolled and the text of the outcome it landed on, the
+5E skill or spell used and any condition the fight names, a Percentile spell. They go in a
+`## Rules that apply` layer between the scene and the outcomes, which says the results are fixed.
+They are picked by the name the roll resolved, else by a toolbox section or condition the
+player's line names; at most three passages and 250 words (one and 100 for a small model). Prospero,
+Fate and Narrative Only have no rule text and get none. "Give the narrator rule text" under Tone
+and rules turns it off.
+
 ## Referee model
 
 - Its own model slot. A cheap text model (Haiku or local 3–4B) splits actions.

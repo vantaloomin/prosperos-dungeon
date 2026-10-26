@@ -47,6 +47,9 @@ export function StoryIntensity({ intensity, onSaved }: { intensity: Intensity; o
         <option value="real_time">Real time</option>
       </select>}
     </Field>}
+    {rules && ['ironsworn', 'srd52', 'brp'].includes(intensity.ruleset ?? '') && <Toggle label="Give the narrator rule text"
+      hint="A few lines from the rules each turn, such as the move you rolled or a condition a foe took, so the story describes the result the way the rules mean it. The dice still decide."
+      checked={rules.rule_text !== 'off'} onChange={(checked) => void save({ rule_text: checked ? 'on' : 'off' })} />}
     <Toggle label="Meanwhile cutaways" hint="Short scenes of what happens to the people you know while you are elsewhere. Your character still only learns it when word reaches them."
       checked={Boolean(intensity.cutaways)} onChange={(checked) => void save({ cutaways: checked })} />
     {intensity.ruleset === 'srd52' && <Toggle label="Foes decide a defeat" hint="Off: at 0 hit points the death saves decide, as written. On: only foes out to kill bring the death saves; others take what they came for, a prisoner, a purse or a beaten stranger thrown out."

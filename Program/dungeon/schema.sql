@@ -967,6 +967,8 @@ CREATE TABLE IF NOT EXISTS story_campaign (
   carry_limit TEXT CHECK (carry_limit IN ('slots', 'off')),
   -- Story time, or real time while the app is closed too ('world': the world's own; dungeon/story_clock.py).
   clock TEXT CHECK (clock IN ('world', 'story', 'real_time')),
+  -- Whether the narrator gets the rule text that fits the turn (dungeon/rules/passages.py).
+  rule_text TEXT CHECK (rule_text IN ('on', 'off')),
   -- The world seed the land past a hex map's authored edge is generated from (dungeon/hexes.py).
   seed TEXT
 );
