@@ -1305,6 +1305,12 @@ async def settled(state):
         await after.run()
 
 
+def judging(connection, text: str, actions: list[dict], moment: datetime) -> dict | None:
+    """What the Narrative Only judge is asked (dungeon/judge.py): the scene, and who its people are drawn to."""
+    view = scene(connection, moment)
+    return judge.asking(connection, persona_text(connection)[0], scene_text(view), text, actions, view['people'])
+
+
 async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
     """The turn's rolls: kept from an earlier telling, or decided now (obvious lines skip the Referee's model)."""
     database = state.database
@@ -1351,8 +1357,7 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
         actions = spell_actions(connection, user['text'], actions)
         actions = injuries.adjust(connection, combat.adjust(connection, feelings.adjust(connection, actions)), moment)
         # Under Narrative Only a judge gives each action its verdict before it is kept (dungeon/judge.py).
-        ask = None if turn.saved(connection, user['id']) else judge.asking(
-            connection, persona_text(connection)[0], scene_text(scene(connection, moment)), user['text'], actions)
+        ask = None if turn.saved(connection, user['id']) else judging(connection, user['text'], actions, moment)
         if ask is None:
             if saved := turn.saved(connection, user['id']):
                 return saved

@@ -97,6 +97,9 @@ what the barmaid wants, not because of a number on a sheet.
      ("I seduce her") does not.
   3. Who they are dealing with: the target NPC's feelings toward the character (trust, affection, respect, fear,
      desire), their wants, fears and secrets, their mood and the scene (a busy bar at closing time).
+     With the adult side switched on, the judge also reads who each adult present is drawn to (orientation, what
+     draws them in such as a sharp mind or a quick wit, what they are into, drive; Vanta, 2026-10-26). It only
+     weighs a romantic or seductive action, and it is never shown or given to the narrator.
   4. The world and its tone: what is physically possible, and the intensity and drama dials.
 - **No roll card** (Vanta, 2026-10-22). The verdict and its reason ("No, but: she is tired and he opened with her
   looks; she does laugh at the joke") go to the narrator only, and the story just tells what happened. The GM view

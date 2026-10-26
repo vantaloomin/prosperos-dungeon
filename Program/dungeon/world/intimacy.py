@@ -178,6 +178,23 @@ def own_text(found: dict | None) -> str:
     return '\n'.join(lines)
 
 
+def attraction_text(found: dict | None) -> str:
+    """Who someone is drawn to, in a line, for the Narrative Only judge (dungeon/judge.py): orientation, what draws
+    them in, what they are into and their drive. Empty for anyone without an adult side."""
+    if not found:
+        return ''
+    drives, interests = bank()['drives_by_id'], bank()['interests_by_id']
+    chosen = [interests[entry] for entry in found.get('interests') or [] if entry in interests]
+    parts = [found['orientation']] if found.get('orientation') else []
+    if drawn := [entry['text'] for entry in chosen if entry['group'] == QUALITIES]:
+        parts.append('drawn in by ' + '; '.join(drawn))
+    if into := [entry['text'] for entry in chosen if entry['group'] != QUALITIES]:
+        parts.append('into ' + '; '.join(into))
+    if found.get('drive') in drives:
+        parts.append(f"{drives[found['drive']]['label'].lower()} drive")
+    return ', '.join(parts)
+
+
 def view(found: dict | None) -> dict | None:
     """Labels for the interface."""
     if not found:

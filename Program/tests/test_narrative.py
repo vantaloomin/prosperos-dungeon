@@ -5,8 +5,9 @@ from conftest import Chunk, tell
 from test_rulesets import start
 from test_travel import ok
 
-from dungeon import judge, turn
+from dungeon import judge, story, story_clock, turn
 from dungeon.rules import narrative
+from dungeon.world import intimacy
 
 
 def judging(provider, verdicts):
@@ -61,3 +62,32 @@ def test_with_no_readable_verdict_the_difficulty_decides_without_dice():
     assert judge.verdicts('{"verdicts": [{"verdict": "sure"}]}', 1) == [{'verdict': None, 'reason': ''}]
     assert turn.judged_why({'ruleset': 'narrative', 'skill': 'Yes, but: costs him'}) == 'costs him'
     assert turn.judged_why({'ruleset': 'marvel', 'skill': 'x: y'}) == ''
+
+
+def test_with_the_adult_side_on_the_judge_knows_who_the_people_here_are_drawn_to(client, connected, provider, app):
+    player(client)
+    judging(provider, [{'verdict': 'no', 'reason': 'not her type'}])
+    tell(client, 'I try to seduce the shopkeeper with my best line.', 'story-0001')
+    told = [request for request in provider.requests if request['system'] == judge.SYSTEM][-1]['messages'][-1]['content']
+    assert 'drawn to' not in told
+    ok(client.put('/api/settings', json={'adult_side': True}))
+    tell(client, 'I try to seduce the shopkeeper again, with a joke this time.', 'story-0002')
+    told = [request for request in provider.requests if request['system'] == judge.SYSTEM][-1]['messages'][-1]['content']
+    with app.state.database.connect() as connection:
+        people = story.scene(connection, story_clock.now(connection, app.state.database.clock))['people']
+        expected = judge.attractions(connection, people)
+    adults = [person for person in people if intimacy.for_sheet(person['sheet'])]
+    assert bool(expected) == bool(adults)
+    if adults:
+        assert expected in told and adults[0]['sheet']['full'] in expected
+    # Shown to nobody: not on the screen, and not in the narrator's prompt.
+    narrator = [request for request in provider.requests if request['system'] != judge.SYSTEM][-1]['system']
+    assert 'are drawn to' not in narrator
+
+
+def test_who_someone_is_drawn_to_reads_in_a_line():
+    found = {'orientation': 'bisexual', 'level': 'curious', 'drive': 'high',
+             'interests': ['sharp-mind', 'deep-voice'], 'note': ''}
+    said = intimacy.attraction_text(found)
+    assert said.startswith('bisexual, drawn in by a sharp mind') and 'into ' in said and said.endswith('high drive')
+    assert intimacy.attraction_text(None) == ''
