@@ -1047,6 +1047,15 @@ Settings (`dungeon/images`), and never hold up the story.
   (`scripts/art/backdrops.py`): ChatGPT images through the Codex adapter, in each world's `backdrop_style`, at most 60
   an hour, skipping what is made; a night picture is made from its day one. Defaults are never in the gallery or
   the book.
+- **Default portraits** (`art.stock_portrait`): someone met who is here with no portrait of their own stands on the
+  stage in the world's stock portrait of their kind of person (`default: true` on the stage's portrait). Each world
+  lists them in its package (`engine/art/<world>-portraits.json` `portraits`: id, prompt, `roles`, `pronouns`, `age`
+  young/middle/old, `folk`, `default`) with the images in `assets/portraits/<id>.webp` (600x800), served from
+  `GET /api/story/art/portrait/<world>/<file>`. Picked by score: their folk (an entry with `folk` only fits that
+  folk), then a `roles` word found in their occupation or role, then the nearest age band; an entry's `pronouns`
+  must match theirs (they/them fit any). With no folk or job match a `default` one stands in, and people who fit the
+  same entries are spread across them by key. Made once with `scripts/art/portraits.py` (same backends as the
+  backdrops; `--backend openai` uses the OpenAI API), at 1024x1536 cut to 3:4. A portrait made of them wins.
 
 ## Off-page beats and word getting around
 

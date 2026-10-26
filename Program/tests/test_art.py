@@ -222,3 +222,57 @@ def test_an_outdoor_backdrop_has_night_and_dusk_light():
     from datetime import datetime
     assert [art.light(datetime(2009, 9, 1, hour)) for hour in (3, 6, 12, 19, 22)] == ['night', 'dawn', 'day', 'dusk',
                                                                                          'night']
+
+
+# Default portraits ---------------------------------------------------------------------------------
+
+def test_every_world_lists_stock_portraits_with_defaults_for_each_age_and_pronoun(client):
+    for world in ('vallarith', 'havenbrooke', 'babel'):
+        entries = art.stock_portraits(world)
+        ids = [entry['id'] for entry in entries]
+        assert len(ids) == len(set(ids)) and all(entry['prompt'] for entry in entries)
+        assert all(entry['age'] in ('young', 'middle', 'old') for entry in entries)
+        assert all(entry.get('roles') or entry.get('folk') or entry.get('default') for entry in entries)
+        defaults = {(entry['pronouns'], entry['age']) for entry in entries if entry.get('default')}
+        assert {pronoun for pronoun, _age in defaults} == {'he', 'she'} and len({age for _p, age in defaults}) == 3
+        # Every portrait the list names has been made.
+        assert all(art.stock_portrait(world, {'key': 'x', 'folk': entry['folk'][0]} if entry.get('folk') else
+                                      {'key': 'x', 'pronouns': 'he/him', 'age': 40}) for entry in entries)
+
+
+def test_a_stock_portrait_is_picked_by_folk_then_job_then_pronouns_and_age(client):
+    entries = art.stock_portraits('vallarith')
+    pick = lambda **sheet: art.portrait_pick(entries, {'key': 'town:kingswood:forge:0', **sheet})['id']  # noqa: E731
+    assert pick(occupation='smith', role='regular', pronouns='he/him', age=44) == 'smith-man'
+    assert pick(occupation='smith', role='regular', pronouns='she/her', age=40) == 'smith-woman'
+    assert pick(occupation='innkeeper', pronouns='he/him', age=63) == 'innkeeper-old'
+    assert pick(occupation='smith', pronouns='he/him', age=44, folk='halfling') == 'halfling-man'
+    assert pick(occupation='astrologer', pronouns='she/her', age=75) == 'townswoman-old'
+    assert pick(occupation='', pronouns='he/him', age=22) == 'townsman-young'
+    # They/them fit any; people who fit the same portraits are spread across them by key, the same each time.
+    spread = {art.portrait_pick(entries, {'key': f'town:kingswood:forge:{n}', 'occupation': 'smith', 'age': 40,
+                                          'pronouns': 'they/them'})['id'] for n in range(12)}
+    assert spread == {'smith-man', 'smith-woman'}
+    assert art.portrait_pick(art.stock_portraits('havenbrooke'), {'key': 'k', 'occupation': 'head of MTO',
+                                                                  'pronouns': 'he/him', 'age': 50})['id'] == 'enchanter-man'
+    assert art.portrait_pick([], {'key': 'k'}) is None
+
+
+def test_someone_met_with_no_portrait_stands_on_the_stage_in_a_stock_one(client, adapters):
+    from dungeon import story, story_clock
+    with client.app.state.database.connect(write=True) as connection:
+        view = story.scene(connection, story_clock.now(connection, client.app.state.database.clock))
+        here = view['people'][0]['sheet']
+        connection.execute("INSERT INTO story_people (key, city_id, name, first_met_at, last_met_at, last_day, notes) "
+                           "VALUES (?, 'kingswood', ?, 'x', 'x', 'x', '[]')", (here['key'], here['name']))
+    stock = ok(client.get('/api/story/art/stage'))['portraits']
+    assert [(item['key'], item['default']) for item in stock] == [(here['key'], True)]
+    assert stock[0]['url'] == art.stock_portrait('vallarith', here)
+    served = client.get(stock[0]['url'])
+    assert served.status_code == 200 and served.content[:4] == b'RIFF'
+    assert client.get('/api/story/art/portrait/vallarith/..%2Fmaps%2Fvallarith.jpg').status_code == 404
+    # A portrait made of them wins over the stock one.
+    local_comfy(client)
+    ask(client, 'portrait', here['key'])
+    made_one = ok(client.get('/api/story/art/stage'))['portraits']
+    assert made_one[0]['url'].endswith('/file') and 'default' not in made_one[0]
