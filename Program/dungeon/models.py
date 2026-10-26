@@ -60,6 +60,16 @@ class LoreSwitch(Input):
     enabled: bool
 
 
+class LoreTiming(Input):
+    """A lore entry's timing (dungeon/lore.py TIMING), in story lines; the ranges are checked there."""
+    sticky: int | None = None
+    cooldown: int | None = None
+    delay: int | None = None
+    chance: int | None = None
+    group_weight: int | None = None
+    group: str | None = Field(None, max_length=80)
+
+
 class LoreWhen(Input):
     """When a lore entry applies besides its keywords (dungeon/lore_moments.py): conditions such as "weather:rain"."""
     when: list[Annotated[str, Field(max_length=160)]] = Field(max_length=40)

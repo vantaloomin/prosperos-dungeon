@@ -5,7 +5,12 @@ export interface LoreEntry {
   id: string; title: string; text: string; keywords: string[]; always: boolean; pattern: boolean; enabled: boolean
   /** The scene this entry fits besides its keywords; `when_guessed` when the app read it from the keywords. */
   when: WhenChoice[]; when_guessed: boolean; fits_now: boolean
+  /** How long it lingers, rests or waits, in story lines; its chance in a hundred; its group and weight in it. */
+  timing: LoreTiming
+  /** Where a timed entry stands now; null when it has no timing. */
+  timer?: { state: 'lingering' | 'resting' | 'waiting' | 'ready'; lines: number } | null
 }
+export interface LoreTiming { sticky: number; cooldown: number; delay: number; chance: number; group_weight: number; group: string }
 export interface LoreBook { id: string; name: string; description: string; source_format: string; source_file: string; city_id: string | null; enabled: boolean; entries: LoreEntry[] }
 export type WhenKind = 'weather' | 'season' | 'time' | 'day' | 'holiday' | 'place'
 export interface Lore { books: LoreBook[]; choices: Record<WhenKind, WhenChoice[]> }
@@ -30,6 +35,21 @@ export function entryHow(entry: LoreEntry): string {
   const words = entry.keywords.length ? `When someone says ${entry.keywords.slice(0, 4).join(', ')}${entry.keywords.length > 4 ? '…' : ''}` : ''
   const when = entry.when.length ? `${words ? 'or when' : 'When'} the scene fits: ${entry.when.map((item) => item.label).join(', ')}` : ''
   return [words, when].filter(Boolean).join(', ') || 'Never on its own'
+}
+
+/** An entry's timing in words, or '' when it has none: "Lingers 2 lines · 40% chance · one of mood". */
+export function timingLine(timing: LoreTiming): string {
+  const lines = (count: number) => count === 1 ? '1 line' : `${count} lines`
+  return [timing.sticky ? `Lingers ${lines(timing.sticky)}` : '', timing.cooldown ? `Rests ${lines(timing.cooldown)}` : '',
+    timing.delay ? `Waits until line ${timing.delay}` : '', timing.chance < 100 ? `${timing.chance}% chance` : '',
+    timing.group ? `One of ${timing.group}` : ''].filter(Boolean).join(' · ')
+}
+
+/** Where a timed entry stands, in words: "Lingering for 2 more lines". */
+export function timerLine(timer: LoreEntry['timer']): string {
+  if (!timer || timer.state === 'ready') return ''
+  const lines = timer.lines === 1 ? '1 more line' : `${timer.lines} more lines`
+  return { lingering: `Lingering for ${lines}`, resting: `Resting for ${lines}`, waiting: `Waiting for ${lines}` }[timer.state]
 }
 
 /** Lore entries matching a search, in their titles, keywords or text. */

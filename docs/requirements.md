@@ -948,6 +948,16 @@ composer. Tapping one puts it in the composer for editing; nothing is sent until
 - The ideas go when the player sends a line, goes back or the story moves on. Showing them on
   their own after a minute idle was left out for now (the spec's default was off).
 
+### Lore timers
+
+Decided 2026-10-26 (same spec). A lore entry can **linger** for some lines after it comes up,
+**rest** for some lines after that, **wait** until a given line, come up on a **chance**, or be
+**one of a group** (only one entry of a group goes in at a time, picked by weight), as
+SillyTavern's world info does. Lines are counted in the player's lines, kept with the timeline
+(going back rewinds them) and the chance roll is seeded, so a retry gives the same lore.
+SillyTavern imports bring their timing; the Lore screen sets it per entry. Always-on entries
+take no timing.
+
 ## Referee model
 
 - Its own model slot. A cheap text model (Haiku or local 3–4B) splits actions.

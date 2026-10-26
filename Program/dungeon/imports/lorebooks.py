@@ -5,7 +5,9 @@ entry layouts in native_lorebooks.py and card_lore.py, and the conservative keyw
 server/lore/import_rules.py. Changes: entries become rows the companion uses straight away instead of review
 proposals. Only plain primary keywords and always-on flags carry over; an entry whose keywords are search
 patterns (regex, or NovelAI's `&`) keeps its text but stays off, since the Dungeon matches literal words only.
-Secondary keys, order, depth, probability, timing and scripts are not translated, and macros stay text.
+A SillyTavern entry's timing carries over (dungeon/lore.py TIMING): sticky, cooldown, delay, its probability
+when `useProbability` is on, and its inclusion group and weight. Secondary keys, order, depth, other apps' timing
+and scripts are not translated, and macros stay text.
 """
 import re
 
@@ -110,7 +112,18 @@ def entry(item, kind: str, number: int) -> dict | None:
     always = item.get(ALWAYS_FIELDS.get(kind, 'constant')) in (True, 'true')
     usable = always or bool(words)
     return {'title': title(item, number, words, text), 'text': text.strip()[:MAX_TEXT], 'keywords': words, 'always': always,
-            'enabled': enabled(item) and usable, 'pattern': pattern and not always}
+            'enabled': enabled(item) and usable, 'pattern': pattern and not always,
+            'timing': timing(item) if kind == 'sillytavern' else {}}
+
+
+def timing(item: dict) -> dict:
+    """A SillyTavern entry's timing, as dungeon/lore.py clamped reads it."""
+    found = {key: item[field] for key, field in (('sticky', 'sticky'), ('cooldown', 'cooldown'), ('delay', 'delay'),
+                                                  ('group_weight', 'groupWeight'), ('group', 'group'))
+             if item.get(field) not in (None, '')}
+    if item.get('useProbability') in (True, 'true') and item.get('probability') is not None:
+        found['chance'] = item['probability']
+    return found
 
 
 def book(value: dict, kind: str, label: str, fallback: str) -> dict:

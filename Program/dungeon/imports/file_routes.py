@@ -7,7 +7,7 @@ from fastapi import APIRouter, Request
 
 from dungeon import library, lore
 from dungeon.errors import DomainError
-from dungeon.models import LibraryFile, LoreFile, LoreSwitch, LoreWhen
+from dungeon.models import LibraryFile, LoreFile, LoreSwitch, LoreTiming, LoreWhen
 
 router = APIRouter(prefix='/api')
 
@@ -45,6 +45,11 @@ def switch_entry(request: Request, entry_id: str, body: LoreSwitch):
 @router.put('/lore/entries/{entry_id}/when')
 def entry_when(request: Request, entry_id: str, body: LoreWhen):
     return lore.set_when(db(request), entry_id, body.when)
+
+
+@router.put('/lore/entries/{entry_id}/timing')
+def entry_timing(request: Request, entry_id: str, body: LoreTiming):
+    return lore.set_timing(db(request), entry_id, body.model_dump(exclude_none=True))
 
 
 @router.get('/library')

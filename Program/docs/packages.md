@@ -49,10 +49,11 @@ school is in its own folder's engine data (`engine/institutions/havenbrooke.json
 
 - **Lore.** A campaign that starts in a world with a package gets the package's `lore` section as one of the
   world's lore books, "<World> (world package)" (`dungeon/package_lore.py`). The narrator reads its entries by
-  keyword like any imported lorebook (each keyword also counts without a leading "The" or a note in brackets) (docs/story.md "Lore"), and the player can switch entries off on the Lore
+  keyword like any imported lorebook (each keyword also counts without a leading "The" or a note in brackets) (docs/worlds.md "Lore"), and the player can switch entries off on the Lore
   screen. Only entries that hold in the campaign's era come in (the era is `world.json` `starting_place.era`; an
   entry with no `eras` holds in all). Hidden truths never come in this way. The book is read from the package file,
-  so an edited or imported world plays as edited. When the lore changes, the next campaign start replaces the book.
+  so an edited or imported world plays as edited. When the lore changes, the next campaign start replaces the book. An entry may also carry timing as its own fields (`sticky`, `cooldown`, `delay`, `chance`, `group`,
+  `group_weight`; docs/worlds.md "Lore"), kept within their ranges.
 - **Engine data.** The game reads each town's adventure, items, finds and premades, and each world's travel map,
   arcs, factions and tiers, from the `engine` part of the packages in the data folder (`dungeon/world_data.py`),
   so an edited package plays as edited. The built-in worlds' packages are built (again) when the app starts. A

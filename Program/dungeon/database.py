@@ -122,6 +122,13 @@ ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"
                  # When a lore entry applies besides its keywords (dungeon/lore_moments.py), as a JSON list of
                  # conditions; NULL until the player sets one, while the app reads one from its keywords.
                  ('lore_entries', 'moment', 'TEXT'),
+                 # A lore entry's timing (dungeon/lore.py TIMING).
+                 ('lore_entries', 'sticky', 'INTEGER NOT NULL DEFAULT 0'),
+                 ('lore_entries', 'cooldown', 'INTEGER NOT NULL DEFAULT 0'),
+                 ('lore_entries', 'delay', 'INTEGER NOT NULL DEFAULT 0'),
+                 ('lore_entries', 'chance', 'INTEGER NOT NULL DEFAULT 100'),
+                 ('lore_entries', 'lore_group', "TEXT NOT NULL DEFAULT ''"),
+                 ('lore_entries', 'group_weight', 'INTEGER NOT NULL DEFAULT 100'),
                  ('story_messages', 'flags', "TEXT NOT NULL DEFAULT '[]'"), ('story_messages', 'previous', 'TEXT'),
                  ('story_rolls', 'threat', 'TEXT'), ('story_wounds', 'rested', 'INTEGER NOT NULL DEFAULT 0'),
                  ('story_wounds', 'treated', 'INTEGER NOT NULL DEFAULT 0'),
