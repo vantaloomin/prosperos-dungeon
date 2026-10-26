@@ -2,6 +2,7 @@
  "about": "Default backdrops (dungeon/art.py backdrop): pictures of generic places, shown behind the story when nobody has made a picture of the place. Made once with scripts/art/backdrops.py (Windows/backdrops.bat); the images are assets/backdrops/<id>.webp, and <id>-night.webp for an outdoor one. A backdrop is picked by a place's own `backdrop`, then a hex site or terrain, a blank lot's entry, the most shared tags, the kind, the street, the default.",
  "backdrop_style": "Painterly fantasy oil illustration, visible brushwork, natural light, a grounded low-magic medieval world, wide establishing shot",
  "backdrop_avoid": "people, figures, text, lettering, signs with words, watermark, logo",
+ "keyart": {"prompt": "Key art for a grimdark fantasy world. A broken stone keep on a black crag above an endless dark pine forest in storm light; far off, the bleached ribs of a dead dragon half-buried in a hillside; a pale river of ley light runs across the clouded sky like a seam of molten silver; a small lone cloaked rider on a muddy road in the foreground for scale, seen from behind. Brooding, cold, beautiful and hostile. Open dark sky in the upper left third.", "avoid": "text, lettering, words, title, logo, watermark, readable interface text"},
  "backdrops": [
   {
    "id": "tavern",

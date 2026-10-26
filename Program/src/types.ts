@@ -494,6 +494,10 @@ export interface Persona {
   active: boolean
   worlds: World[]
 }
+/** A world on the title screen (dungeon/world_select.py): `here` when the story is in it, `yours` when the persona
+ * has a world there already; `art` is its key art's address. */
+export interface TitleWorld { id: string; name: string; genre: string; pitch: string; here: boolean; yours: boolean; art: string | null }
+export interface TitleWorlds { worlds: TitleWorld[]; here: string | null }
 export interface Worlds {
   active_world_id: string; active_persona_id: string; world: World; persona: Persona; personas: Persona[]
 }

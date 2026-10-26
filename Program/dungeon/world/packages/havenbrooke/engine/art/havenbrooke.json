@@ -2,6 +2,7 @@
  "about": "Default backdrops (dungeon/art.py backdrop): pictures of generic places, shown behind the story when nobody has made a picture of the place. Made once with scripts/art/backdrops.py (Windows/backdrops.bat); the images are assets/backdrops/<id>.webp, and <id>-night.webp for an outdoor one. A backdrop is picked by a place's own `backdrop`, then a hex site or terrain, a blank lot's entry, the most shared tags, the kind, the street, the default.",
  "backdrop_style": "Photorealistic 35mm photograph, natural light, autumn 2009 in a small upstate New York college town, period-accurate details (no smartphones, 2000s cars and signage), wide establishing shot",
  "backdrop_avoid": "people, figures, text, lettering, signs with words, watermark, logo",
+ "keyart": {"prompt": "Key art for a modern fantasy university drama. Golden hour in late October 2009 on a gothic-revival stone college quad on a hill above a long Finger Lakes lake; a clock tower, ivy gone red, maples shedding orange leaves over brick paths; faint violet light glowing up through the cracks of three crossing paths like buried lines of power; one lone student with a backpack walking away from the camera, small in frame. Warm, melancholy, a little uncanny. Open sky in the upper left third.", "avoid": "text, lettering, words, title, logo, watermark, readable interface text"},
  "backdrops": [
   {
    "id": "esoteric-classroom",

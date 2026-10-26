@@ -2,6 +2,7 @@
  "about": "Default backdrops (dungeon/art.py backdrop): pictures of generic places, shown behind the story when nobody has made a picture of the place. Made once with scripts/art/backdrops.py (Windows/backdrops.bat); the images are assets/backdrops/<id>.webp, and <id>-night.webp for an outdoor one. A backdrop is picked by a place's own `backdrop`, then a hex site or terrain, a blank lot's entry, the most shared tags, the kind, the street, the default.",
  "backdrop_style": "Painterly digital fantasy art with the crisp, saturated finish of a full-dive video game world, dramatic light, wide establishing shot",
  "backdrop_avoid": "people, figures, text, lettering, signs with words, watermark, logo",
+ "keyart": {"prompt": "Key art for a dark LitRPG tower world. An impossibly tall tower rising through the clouds, its floors stacked like different worlds (a forest floor, a desert floor, a glass city floor, a burning floor) seen through vast arches; at its foot a crowded stone plaza with a glowing cyan waystone obelisk and translucent game-interface light panels hanging in the air with no readable writing; tiny silhouettes of newly arrived people looking up. Awe and menace. Open sky in the upper left third.", "avoid": "text, lettering, words, title, logo, watermark, readable interface text"},
  "backdrops": [
   {
    "id": "tavern",
