@@ -150,6 +150,11 @@ def test_world_api(client):
     assert shelves['baltimore'] == 'real' and shelves['london-1895'] == shelves['whitlock'] == 'other-eras'
     assert shelves['camelot'] == shelves['calderwick'] == shelves['emerald-city'] == 'fictional'
     assert 'baltimore' in {city['id'] for city in cities}
+    # Each city names the world package whose travel map it is on, so the Worlds page shows only the open world's.
+    worlds = {city['id']: (city['world'], city['world_name']) for city in cities}
+    assert worlds['kingswood'] == ('vallarith', 'Vallarith') and worlds['haven'][0] == 'havenbrooke'
+    assert worlds['the-concourse'][0] == worlds['hollin'][0] == 'babel'
+    assert worlds['haddon-harbor'] == worlds['baltimore'] == (None, None)
     assert client.get('/api/world/cities/atlantis').status_code == 404
     places = client.get('/api/world/cities/baltimore/places', params={'kind': 'museum'}).json()
     assert places and all(place['kind'] == 'museum' for place in places)

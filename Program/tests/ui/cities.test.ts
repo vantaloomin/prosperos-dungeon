@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { categoryOf, cityFacts, definitionOf, exportName, groupNotes, matchesCity, parseDefinition, shelveCities, slugify, type CityListing } from '../../src/features/world/cityText.ts'
+import { categoryOf, citiesOfWorld, cityFacts, definitionOf, exportName, groupNotes, matchesCity, parseDefinition, shelveCities, slugify, type CityListing } from '../../src/features/world/cityText.ts'
 
 const city = (extra: Partial<CityListing> = {}): CityListing => ({
   id: 'baltimore', name: 'Baltimore', region: 'Maryland', country: 'US', setting: 'real', era: 'modern', summary: '', basis: '',
@@ -37,6 +37,17 @@ test('cities shelve as Real / Modern, Other Eras, Fictional and Custom, each sor
     ['Real / Modern', ['Baltimore', 'Old Server City']], ['Other Eras', []], ['Fictional', ['The Emerald City']], ['Custom', ['Arden', 'Zed']],
   ])
   assert.equal(categoryOf({ name: 'x', category: 'something-else' }), 'real')
+})
+
+test("the Worlds page lists the open world's cities, or the cities on their own, with every pack and custom city", () => {
+  const cities = [
+    city({ id: 'kingswood', world: 'vallarith' }), city({ id: 'hollin', world: 'babel' }), city({ id: 'haddon-harbor', world: null }),
+    city({ id: 'old', world: undefined }), city({ id: 'mine', origin: 'user' }), city({ id: 'dropped', origin: 'pack', world: null }),
+  ]
+  const ids = (home: string) => citiesOfWorld(cities, home).map((item) => item.id)
+  assert.deepEqual(ids('kingswood'), ['kingswood', 'mine', 'dropped'])
+  assert.deepEqual(ids('haddon-harbor'), ['haddon-harbor', 'old', 'mine', 'dropped'])
+  assert.deepEqual(ids('mine'), ['haddon-harbor', 'old', 'mine', 'dropped'])
 })
 
 test('the city search matches name, other names, region and country, ignoring accents and case', () => {

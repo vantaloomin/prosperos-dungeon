@@ -5,6 +5,7 @@ from typing import Literal
 from fastapi import APIRouter, Query, Request
 from pydantic import Field
 
+from dungeon import travel, world_select
 from dungeon.clock import zone
 from dungeon.errors import require
 from dungeon.models import Input
@@ -52,7 +53,14 @@ def city(request: Request, city_id: str, day: date | None = None) -> dict:
 
 @router.get('/cities')
 def list_cities(request: Request):
-    return [catalog.summary(data) for data in [*catalog.cities().values(), *user_cities(request).values()]]
+    """Every city, each with the world package it belongs to (the travel map it is on), or none for a city on its
+    own, so the Worlds page can show only the open world's cities."""
+    homes = {node['city']: travel_map['world'] for travel_map in travel.maps() if travel_map.get('world')
+             for node in travel_map['nodes'] if node.get('city')}
+    names = {world: world_select.settings(request.app.state.database.root, world).get('name') or world.title()
+             for world in set(homes.values())}
+    return [catalog.summary(data) | {'world': homes.get(data['id']), 'world_name': names.get(homes.get(data['id']))}
+            for data in [*catalog.cities().values(), *user_cities(request).values()]]
 
 
 @router.get('/featured')

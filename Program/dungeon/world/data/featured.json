@@ -1,8 +1,8 @@
 {
  "schema_version": 1,
  "release": "0.8",
- "title": "Kingswood",
- "note": "Kingswood is the Vallarith town the playable slice is set in; Haddon Harbor is the modern town from before. Add your own cities on the Worlds page.",
- "cities": ["kingswood", "haddon-harbor"],
+ "title": "The built-in worlds",
+ "note": "Kingswood is the Vallarith town, Haven is Havenbrooke's and the Concourse is Floor Zero of BABEL's tower. Haddon Harbor is a modern Maine town that stands on its own, outside the three worlds.",
+ "cities": ["kingswood", "haven", "the-concourse", "haddon-harbor"],
  "new_cities": ["kingswood"]
 }
