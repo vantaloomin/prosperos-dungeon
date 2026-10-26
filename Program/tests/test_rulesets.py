@@ -45,7 +45,7 @@ def test_a_made_5e_character_takes_the_array_the_background_and_the_class(client
     assert set(view['skills']) == {'athletics', 'intimidation', 'perception', 'survival'}
     assert view['skill_bonuses']['athletics']['bonus'] == 5 and view['skill_bonuses']['stealth']['bonus'] == 1
     assert 'SRD 5.2.1' in view['attribution']
-    # The sheet is set when the character is made; MARVEL's stepper does not change it.
+    # The sheet is set when the character is made; Prospero's stepper does not change it.
     assert client.put('/api/story/sheet', json={'stats': {'Mind': 12}}).status_code == 409
 
 

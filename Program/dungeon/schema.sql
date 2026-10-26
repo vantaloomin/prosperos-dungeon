@@ -700,7 +700,7 @@ CREATE TABLE IF NOT EXISTS story_real (
   at TEXT NOT NULL
 );
 
--- MARVEL stats per actor (dungeon/sheet.py); 'persona' is the player's character.
+-- Prospero stats per actor (dungeon/sheet.py); 'persona' is the player's character.
 CREATE TABLE IF NOT EXISTS character_stats (
   actor TEXT NOT NULL,
   stat TEXT NOT NULL CHECK (stat IN ('Mind', 'Allure', 'Resolve', 'Vitality', 'Essence', 'Luck')),
@@ -954,7 +954,7 @@ CREATE TABLE IF NOT EXISTS story_campaign (
   seed TEXT
 );
 
--- The persona's sheet under a ruleset other than MARVEL (dungeon/sheet.py), as that ruleset keeps it.
+-- The persona's sheet under a ruleset other than Prospero (dungeon/sheet.py), as that ruleset keeps it.
 CREATE TABLE IF NOT EXISTS story_sheet (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   ruleset TEXT NOT NULL,

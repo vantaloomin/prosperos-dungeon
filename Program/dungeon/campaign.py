@@ -1,7 +1,7 @@
 """Campaign start (docs/story.md "Campaign start"): who the player is when a story begins.
 
 A city may ship premade characters (`world/data/premades/<city>.json`), each with a few lines about them and their
-MARVEL stats. Or the player makes their own: a name, a few lines, and stats bought from a pool of points. Either
+Prospero stats. Or the player makes their own: a name, a few lines, and stats bought from a pool of points. Either
 way the persona of this world takes them on, the story clock starts (dungeon/story_clock.py), and the story opens
 with the player arriving where the scene is.
 """
@@ -35,7 +35,7 @@ PREMADES = Path(__file__).parent / 'world' / 'data' / 'premades'
 # Point-buy at the start: the six stats share POINTS, each from START_RANGE, so the default sheet (all 10) fits.
 POINTS = 60
 START_RANGE = (4, 18)
-# A premade with no 5E build of its own takes one from its strongest MARVEL stat.
+# A premade with no 5E build of its own takes one from its strongest Prospero stat.
 CLASS_BY_STAT = {'Vitality': ('fighter', 'soldier'), 'Mind': ('wizard', 'sage'), 'Allure': ('bard', 'criminal'),
                  'Resolve': ('paladin', 'soldier'), 'Essence': ('cleric', 'acolyte'), 'Luck': ('rogue', 'criminal')}
 
@@ -113,7 +113,7 @@ def premade_brp(chosen: dict) -> dict:
     return brp.build(quick['characteristics'], quick['profession'], quick['personality'])
 
 
-# A premade's Ironsworn stat from its strongest MARVEL stat.
+# A premade's Ironsworn stat from its strongest Prospero stat.
 IRONSWORN_BY_STAT = {'Vitality': 'iron', 'Mind': 'wits', 'Allure': 'heart', 'Resolve': 'heart', 'Essence': 'wits',
                      'Luck': 'edge'}
 

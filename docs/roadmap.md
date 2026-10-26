@@ -35,7 +35,7 @@ Milestone 5.
 
 **In the slice:**
 
-1. **Campaign start:** pick a premade persona or make a quick custom one. MARVEL stats only.
+1. **Campaign start:** pick a premade persona or make a quick custom one. Prospero stats only.
 2. **Turn loop:** the player writes intent, a text model splits it into actions, the Referee
    decides needs-a-roll, stat and difficulty (Jev if a key is set, keyword rules otherwise), and
    code rolls d100 plus stat onto the six-band outcome ladder. The narrator writes the result in
@@ -45,7 +45,7 @@ Milestone 5.
    recent turns plus one rolling summary.
 5. **NPCs v0:** named NPCs act on their own initiative, with trust, affection, respect, fear and
    desire axes, and short memories of the player.
-6. **Combat v0:** zones, one post per round, code tactics for mooks, morale rolls, MARVEL wound
+6. **Combat v0:** zones, one post per round, code tactics for mooks, morale rolls, Prospero wound
    levels, and the defeat table.
 7. **Inventory and one shop:** carry slots, finite stock and prices from Companion's pricing, plus
    buying and selling in the shop window and in-story.
@@ -85,7 +85,7 @@ hurt or die, and go back to an earlier turn and try again with new dice.
   persistence setting.
 - Scaling and tiers: per-world track on the shared tier ladder, banded offers, start, ceiling and
   pace sliders.
-- Progression: use-based MARVEL growth plus milestones; dark tracks.
+- Progression: use-based Prospero growth plus milestones; dark tracks.
 - **Director v0** (added 2026-10-22 from a friend's feedback; see "The director" in the
   requirements). It comes after factions, quests and off-page beats, since it reads them all. It
   covers the spine arc and the thread list, the Soft/Guiding/Firm hand slider, the hidden GM note on

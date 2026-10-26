@@ -15,8 +15,8 @@ are kept as canon. The explicit off-page record of Bri and Chase is summarized, 
 | `hidden/bri_and_chase.md` | The off-page record of Bri and Chase on the Bazaar and the Marches | cast.json, hidden-truths.json, beats.json (summarized) | `93fd786c5edcde49778e52abbc5fc47d9111a62146eaacea83f5654ccde66c71` |
 | `hidden/roll_log.md` | Every roll and its effect | Not used | `564f73a59e513cf53a2bd321655e36fe8d34837a65d1d95b1bd017367c550822` |
 | `continuity/grant_continuity.md` | What Grant knows and believes, turn by turn | canon/the-tower.md, lore.json (what a climber could know) | `add43e2e4f7c0b8af6295d44b17d2b4f1924199ca75a16a1112b0394fd42cf49` |
-| `rng/stats.json` | MARVEL sheets for Grant and Kenzie | cast.json, personas, premades (base sheets at creation) | `5954f521512d5a003c82e3a34ddb939147dbe0b78f38ea62c67543602d55d350` |
-| `tracker/tower_tracker.html` | The Tower Ledger page: MARVEL, ranks, classes, beta floors, deviations, ~150 skills | canon/the-system.md, canon/the-tower.md, regions.json | `90314f4a8a78640c25a2817b55fdb33aba1cca00c82a018f38c9207c695e1ede` |
+| `rng/stats.json` | Prospero sheets for Grant and Kenzie | cast.json, personas, premades (base sheets at creation) | `5954f521512d5a003c82e3a34ddb939147dbe0b78f38ea62c67543602d55d350` |
+| `tracker/tower_tracker.html` | The Tower Ledger page: Prospero, ranks, classes, beta floors, deviations, ~150 skills | canon/the-system.md, canon/the-tower.md, regions.json | `90314f4a8a78640c25a2817b55fdb33aba1cca00c82a018f38c9207c695e1ede` |
 | `story/00_prologue.md` to `story/43_glass.md` | The story, Turns 0 to 43 (44 files) | Places, voices and texture throughout | `21f93c51a7e344e3bcea6aff9e7eb5819173be1221912d111b4bda04bad55cf0` (the 44 files concatenated in order) |
 
 ## Not in the archive

@@ -1,5 +1,5 @@
 """The Referee (docs/requirements.md "Turn loop" and "Referee model"): splits the player's intent into actions and
-decides, for each, whether it needs a roll, which MARVEL stat and how hard it is. Code then rolls.
+decides, for each, whether it needs a roll, which Prospero stat and how hard it is. Code then rolls.
 
 A text model does it when one is chosen for the Referee job in Settings > Models; it answers in JSON and anything
 it gets wrong is dropped. Without one, or when its answer cannot be read, keyword rules decide. The narrator's own

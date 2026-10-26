@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "custom_allowed": true,
-  "note": "Every world allows player-made personas. BABEL's are the four from Halvorsen's, each starting where the tower put them on arrival night; a custom persona is another arrival from the same wave, landing on the Concourse. Stats are MARVEL at creation (before any Tether or class); Grant's and Kenzie's are Vanta's sheets, Bri's and Chase's are drafts. Whoever is not the player stays in the world as an autonomous NPC (cast.json). Each persona's `knows` is what the player learns by choosing them; it stays hidden from the others.",
+  "note": "Every world allows player-made personas. BABEL's are the four from Halvorsen's, each starting where the tower put them on arrival night; a custom persona is another arrival from the same wave, landing on the Concourse. Stats are Prospero at creation (before any Tether or class); Grant's and Kenzie's are Vanta's sheets, Bri's and Chase's are drafts. Whoever is not the player stays in the world as an autonomous NPC (cast.json). Each persona's `knows` is what the player learns by choosing them; it stays hidden from the others.",
   "personas": [
     {
       "id": "grant-mabry",

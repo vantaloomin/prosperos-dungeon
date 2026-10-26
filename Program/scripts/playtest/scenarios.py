@@ -818,7 +818,7 @@ def fate_premade(play):
 
 
 def marvel_start(play):
-    """Regression: a plain MARVEL start still plays."""
+    """Regression: a plain Prospero start still plays."""
     play.start('agna-holt')
     play.say('I ask the keeper for a room and climb the stairs to it.')
 

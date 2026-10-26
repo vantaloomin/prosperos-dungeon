@@ -23,7 +23,7 @@ nothing is copied from the story files.
 | `regions.json` | Canon, rules | The floors (and the Stair and the Reach) with their tropes, beta ranks and tiers |
 | `settlements.json` | Canon | The Concourse, Hollin, Saint Aurel, Varrow Keep, the Reachwall, the Marches, the Gilded Bazaar and the floors beyond |
 | `factions.json` | Canon, rules | The Landing, the Close, House Corve, the Reach giants, the Lantern Room and the rest, with clock seeds |
-| `cast.json` | Cast | The four, Rachel, and the people of the Concourse, Varrow and the Bazaar, with voice, wants, fears, secrets and MARVEL stats |
+| `cast.json` | Cast | The four, Rachel, and the people of the Concourse, Varrow and the Bazaar, with voice, wants, fears, secrets and Prospero stats |
 | `personas.json` | Persona(s) | The four from Halvorsen's as playable personas, and what each one knows |
 | `hidden-truths.json` | Hidden truths | What is true that an arrival doesn't know |
 | `beats.json` | Planned beats | The climb, the Season on the Reachwall (ten events), the First Frost and the other arcs |
@@ -46,7 +46,7 @@ and `cities/babel-floors.json` (the other floors and the Stair's landings, as tr
 - **Floors** are regions; `floor` counts from the Concourse (0), up positive.
 - **Tiers** use the shared ladder (`local`, `regional`, `realm`, `world`, `mythic`); `world.json`
   maps BABEL's ranks onto it.
-- **MARVEL stats** run 1 to 30 with 10 an ordinary adult (`Program/dungeon/rules/marvel.py`), which
+- **Prospero stats** run 1 to 30 with 10 an ordinary adult (`Program/dungeon/rules/marvel.py`), which
   matches BABEL's own range at creation.
 - **Hidden truths** live in `hidden-truths.json` and in `secret` fields, so an importer marks them
   hidden. `lore.json` holds only what a climber could know.

@@ -46,7 +46,7 @@ def test_a_companion_fights_beside_the_character_and_draws_blows(app, client):
     with app.state.database.connect(write=True) as connection:
         companion(connection)
         state = {'round': 0, 'wants': 'kill', 'foes': [foe(weapon=1), foe(id='g', name='the lookout')]}
-        # The character misses; Hesk lands a hit (MARVEL rolls high); both foes turn on Hesk and hit.
+        # The character misses; Hesk lands a hit (Prospero rolls high); both foes turn on Hesk and hit.
         state, lines, ending = combat.play_round(connection, state, [roll('I swing at the bandit', 'failure')], [],
                                                  Dice(95, 0.1))
         assert any(line.startswith('Hesk Aldane, fighting beside the character, hits the bandit') for line in lines)

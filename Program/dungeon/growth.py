@@ -1,6 +1,6 @@
 """Progression (requirements "Progression"; docs/story.md "Progression").
 
-MARVEL characters grow by use, plus milestones, and dark tracks bite.
+Prospero characters grow by use, plus milestones, and dark tracks bite.
 
 - **Use.** A roll of the character's that mattered (one that succeeded, or one with a danger riding on it) marks its
   stat. After a night's rest, code rolls for each marked stat, Basic Roleplaying style: over GROW times the stat on
@@ -65,7 +65,7 @@ def grow(connection, now: str, rng=None) -> list[str]:
     """After a night's rest: each marked stat may rise a point."""
     rng = rng or random.SystemRandom()
     lines = []
-    # Growth by use is MARVEL's; another ruleset grows its own way (5E: experience and levels). BRP's experience
+    # Growth by use is Prospero's; another ruleset grows its own way (5E: experience and levels). BRP's experience
     # checks are rolled now, as written.
     if sheet.ruleset(connection) == brp.ID:
         found = sheet.native(connection)

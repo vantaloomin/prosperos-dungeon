@@ -10,8 +10,8 @@ Code runs the fight; the narrator writes it. One line of the player's is one rou
 - Foes at a distance close in instead of attacking. Engaged foes roll Vitality to hit back the same way.
 - A foe at Maimed is down. When one falls or is badly hurt, the rest roll Resolve, and a failure breaks them: they
   flee or give up. The player wins when no foe is left standing and unbroken.
-- MARVEL wounds: Grazed, Hurt, Wounded, Maimed, Dying. Wounded makes physical actions a step harder; Maimed makes
-  every action a step harder and physical ones two. MARVEL heals gritty: a wound drops one level after nights of
+- Prospero wounds: Grazed, Hurt, Wounded, Maimed, Dying. Wounded makes physical actions a step harder; Maimed makes
+  every action a step harder and physical ones two. Prospero heals gritty: a wound drops one level after nights of
   rest set by its severity (dungeon/rest.py), from Maimed down; a new wound starts the count again.
 - At Dying the character rolls Vitality to cling on, then the defeat table, weighted by what the foes want: beasts
   kill, wardens capture, robbers rob, a brawl ends with the character thrown out. Death is real; the player can
@@ -153,7 +153,7 @@ def set_condition(connection, level: int, dead: bool = False, rested: int = 0):
 
 
 def word(connection, level: int) -> str:
-    """The character's condition in words: MARVEL's wound levels, or under 5E what the hit points read as."""
+    """The character's condition in words: Prospero's wound levels, or under 5E what the hit points read as."""
     return (combat5e.WORDS if fifth(connection) or basic(connection) else combat_iron.WORDS if sworn(connection)
             else LEVELS)[level]
 
@@ -213,7 +213,7 @@ def mend(connection, nights: int) -> list[str]:
 
 
 def mend_wounds(connection, nights: int, now: dict) -> list[str]:
-    """The shared wound levels mending with rest (MARVEL and Narrative)."""
+    """The shared wound levels mending with rest (Prospero and Narrative)."""
     if nights <= 0 or now['dead'] or not 0 < now['level'] < DYING:
         return []
     level, rested = now['level'], now['rested'] + nights
@@ -373,7 +373,7 @@ def worn(connection, rolls: list[dict], state: dict, items: list[dict]) -> list[
 
 
 def down(foe: dict) -> bool:
-    """A MARVEL foe is down at Maimed; a 5E foe at 0 hit points."""
+    """A Prospero foe is down at Maimed; a 5E foe at 0 hit points."""
     if 'npc' in foe:
         return foe['out']
     return foe['hp'] <= 0 if 'hp' in foe else foe['wound'] >= DOWN

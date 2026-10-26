@@ -4,7 +4,7 @@ under Ironsworn").
 The fight runs as dungeon/combat.py does (one player line is one round, the defeat table by what the foes want),
 with Ironsworn's moves from the pack:
 - **Foes are the pack's NPCs**, read from a foe's name (a raider is a Raider, a wolf a Wolf, a ley-mad boar a Boar),
-  else by how tough the MARVEL spec is. Each has its rank, the harm it deals (its rank) and a progress track of ten
+  else by how tough the Prospero spec is. Each has its rank, the harm it deals (its rank) and a progress track of ten
   boxes that the character's harm fills: a troublesome foe takes 3 boxes a harm, dangerous 2, formidable 1,
   extreme 2 ticks, epic 1 tick.
 - **Initiative.** A fight the character starts gives them initiative; a danger's foe has it. With initiative the
@@ -33,7 +33,7 @@ BOXES = 10
 PROGRESS_TRY = 8
 DEADLY = {'sword', 'felling-axe', 'hatchet', 'bow'}
 WORDS = ('unharmed', 'bruised', 'hurt', 'battered', 'badly hurt', "at death's door")
-# Else a foe by the MARVEL spec's Vitality: (most, npc).
+# Else a foe by the Prospero spec's Vitality: (most, npc).
 BY_VITALITY = ((8, 'ironlanders/common_folk'), (12, 'ironlanders/raider'), (15, 'ironlanders/warrior'),
                (99, 'animals/bear'))
 NAMES = {'warden': 'ironlanders/hunter', 'bandit': 'ironlanders/raider', 'thug': 'ironlanders/raider',

@@ -24,7 +24,7 @@ rewritten in fresh prose; nothing is copied from the source files.
 | `regions.json` | Canon, rules | Regions of the Northeast and beyond, with danger tier and travel notes |
 | `settlements.json` | Canon | Haven, the campus, the nearby towns and the cities the story visits |
 | `factions.json` | Canon, rules | Government, courts, councils, covens, families, the university, Greek houses and clubs |
-| `cast.json` | Cast | The nine leads in full, plus side and minor cast, with MARVEL stats |
+| `cast.json` | Cast | The nine leads in full, plus side and minor cast, with Prospero stats |
 | `personas.json` | Persona(s) | The nine leads as playable personas; custom personas allowed |
 | `hidden-truths.json` | Hidden truths | What is true that the player character does not know |
 | `beats.json` | Planned beats | Season spines and arcs the director can steer toward |
@@ -57,7 +57,7 @@ in some of them. See [canon/eras.md](canon/eras.md).
   (invented here to fill a gap, for Vanta to approve or cut).
 - **Tiers** use the shared ladder from "Scaling and tiers": `local`, `regional`, `realm`, `world`,
   `mythic`. Most of this world is local and regional.
-- **MARVEL stats** run 1 to 30 with 10 as an ordinary adult. A mundane human's Essence is 1 to 3.
+- **Prospero stats** run 1 to 30 with 10 as an ordinary adult. A mundane human's Essence is 1 to 3.
 - **Money** is US dollars at real 2009 prices.
 - **Hidden truths** live in `hidden-truths.json` and in `secret` fields, so an importer can mark
   them as hidden. `lore.json` holds only what a student could know or hear.

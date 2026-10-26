@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "fields": {
-    "stats": "MARVEL: Mind, Allure, Resolve, Vitality, Essence, Luck, 1 to 30 with 10 an ordinary adult. Null where another file is the authority.",
+    "stats": "Prospero: Mind, Allure, Resolve, Vitality, Essence, Luck, 1 to 30 with 10 an ordinary adult. Null where another file is the authority.",
     "tier": "the NPC's weight on the shared ladder",
     "secret": "hidden from the player character; an importer should mark it hidden",
     "eras": "campaign eras the NPC appears in; missing means post-reform only for this file",
