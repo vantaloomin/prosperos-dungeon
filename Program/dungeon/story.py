@@ -489,6 +489,7 @@ def story(database) -> dict:
     with database.connect() as connection:
         view = scene(connection, story_clock.now(connection, database.clock))
         rows = messages(connection)
+        rows = happenings.with_cards(connection, rows, set(intensity(connection, view['data'])['veils']))
         return {'scene': scene_view(view), 'messages': with_receipts(connection, with_rolls(connection, rows),
                                                                      view['data']['currency']),
                 'people': people(connection, view), 'ready': config_for(connection, JOB) is not None,

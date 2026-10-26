@@ -16,6 +16,7 @@ from dungeon import (
     director,
     gm,
     growth,
+    happenings,
     icons,
     institutions,
     legacy,
@@ -644,6 +645,13 @@ async def ask_art(request: Request, body: ArtAsk):
 def art_backdrop(world: str, name: str):
     """A world's stock picture of a kind of place (dungeon/art.py backdrop)."""
     return Response(art.backdrop_file(world, name), media_type='image/webp',
+                    headers={'Cache-Control': 'max-age=86400'})
+
+
+@router.get('/art/card/{world}/{name}')
+def art_card(world: str, name: str):
+    """The picture of one of a world's Life Cards, or its card back (dungeon/happenings.py card_art)."""
+    return Response(happenings.card_file(world, name), media_type='image/webp',
                     headers={'Cache-Control': 'max-age=86400'})
 
 

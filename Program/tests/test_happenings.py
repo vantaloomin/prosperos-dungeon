@@ -137,3 +137,34 @@ def test_fate_rumor_quest_and_pursuer_effects_are_applied(client, app):
         assert director.due_nemesis(connection, now) is None
         due = director.due_nemesis(connection, datetime(2026, 10, 2, 12))
         assert due['name'] == "whoever is on the character's trail" and due['grudge'] == 'Pell was knifed.'
+
+
+def test_a_drawn_card_shows_under_the_line_with_its_picture_and_a_veiled_one_shows_its_back(
+        client, connected, provider, app, dealt, monkeypatch):
+    from dungeon import world_data
+    real = world_data.asset
+    monkeypatch.setattr(world_data, 'asset', lambda world, name: b'RIFF0000WEBP' if name.startswith('cards/')
+                        else real(world, name))
+    begin(client)
+    dealt.next = 'hanging-day'
+    reply(provider, 'Three men in the square.')
+    tell(client, 'I walk to the market.', 'story-0001')
+    line = next(message for message in ok(client.get('/api/story'))['messages'] if message['role'] == 'user')
+    assert line['cards'] == [{'title': 'Hanging day', 'tone': 'bad', 'veiled': False,
+                              'art': '/api/story/art/card/vallarith/hanging-day.webp'}]
+    served = client.get(line['cards'][0]['art'])
+    assert served.status_code == 200 and served.content == b'RIFF0000WEBP'
+    assert client.get('/api/story/art/card/vallarith/..%2Fmaps%2Fvallarith.jpg').status_code == 404
+    with app.state.database.connect() as connection:
+        rows = [{'id': line['id'], 'role': 'user', 'city_id': line['city_id']}]
+        veiled = happenings.with_cards(connection, rows, {'execution'})[0]['cards'][0]
+    assert veiled == {'title': 'Veiled', 'tone': 'grey', 'veiled': True, 'art': '/api/story/art/card/vallarith/back.webp'}
+
+
+def test_every_life_card_has_its_picture_and_every_world_its_card_back():
+    from dungeon import world_data
+    for world in cards.worlds():
+        assert world_data.asset(world, 'cards/back.webp'), world
+        missing = [item['id'] for item in cards.cards(world) if not world_data.asset(world, f"cards/{item['id']}.webp")]
+        # A card the image model refused shows the back; there should be very few.
+        assert len(missing) <= 5, (world, missing)

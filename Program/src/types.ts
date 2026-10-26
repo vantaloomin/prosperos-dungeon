@@ -220,7 +220,11 @@ export interface StoryMessage {
   previous?: boolean
   /** On a player's line: what its turn changed (dungeon/receipt.py), for the recent turns. */
   receipt?: ReceiptChip[]
+  /** On a player's line: the Life Cards the world drew on it (dungeon/happenings.py with_cards). */
+  cards?: LifeCardShown[]
 }
+/** A drawn Life Card as the story shows it: title, tone and picture (or the card back), never its hidden truth. */
+export interface LifeCardShown { title: string; tone: 'good' | 'bad' | 'grey'; art: string | null; veiled: boolean }
 /** One thing a turn changed: the purse, the pack, the character's condition, a quest, or something learned. */
 export interface ReceiptChip { kind: 'coins' | 'item' | 'hurt' | 'injury' | 'quest' | 'learned'; tone: 'gain' | 'loss' | 'neutral'; text: string }
 export interface StoryFlag { passage: string; why: string[] }

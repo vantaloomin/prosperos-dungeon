@@ -118,6 +118,15 @@ the whole table takes `tables_weight` next to the deck. Vallarith's road table r
 Signs, Threats or Finds (Study's Encounter, Obstacle, Foreshadowing, Direct Challenge and Opportunity), and
 its town Hooks table adapts Study's Hooks. Companion's everyday tables left those out.
 
+## Art
+
+Every card, table rows included, has a picture in its world's backdrop style, plus one card back per world:
+`world/packages/<world>/assets/cards/<id>.webp` (512x768), made with the OpenAI Images API by
+`Program/scripts/art/cards.py` (key in `CHATGPT_API_KEY`; it only makes what is missing). The story shows the
+cards drawn on a line under it, with the picture, title and tone and never the truth
+(`happenings.with_cards`); a card on a veiled topic shows only the card back, and so does a card the image
+model refused to draw.
+
 ## Checking a deck
 
 `cards.problems(deck)` lists everything wrong with a deck: unknown fields or vocabulary, placeholders a card
