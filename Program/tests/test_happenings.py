@@ -166,5 +166,5 @@ def test_every_life_card_has_its_picture_and_every_world_its_card_back():
     for world in cards.worlds():
         assert world_data.asset(world, 'cards/back.webp'), world
         missing = [item['id'] for item in cards.cards(world) if not world_data.asset(world, f"cards/{item['id']}.webp")]
-        # A card the image model refused shows the back; there should be very few.
-        assert len(missing) <= 5, (world, missing)
+        # A card the image model refuses to draw gets its own scene in scripts/art/cards.py SCENES.
+        assert not missing, (world, missing)

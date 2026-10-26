@@ -39,6 +39,20 @@ CARD = ('The illustration for a tall playing card called "{title}". {seen} Show 
         'enough to read the faces and hands. No text, lettering or card frame in the picture.')
 # Only for a card that needs some intensity: asking a photographic style to "imply sex" gets an ordinary card refused.
 GRIM = ' Imply violence, cruelty and sex rather than showing them outright.'
+# A scene of its own for a card whose own words the image model refuses: the same moment, told by what is around it.
+SCENES = {
+    ('babel', 'marked-at-the-ford'): 'A crowded stone bridge over a ford; in the middle of the crowd a woman in plain '
+                                     'grey walks behind a guard who holds a rope, a dark sigil inked on her neck. '
+                                     'Everyone around them looks the other way.',
+    ('havenbrooke', 'drink-spiked'): 'A college house party late at night: red plastic cups on a sticky kitchen counter, '
+                                     'one cup left apart with a faint residue at the bottom, the party blurred and '
+                                     'uneasy behind it, the back door left open onto the dark.',
+    ('havenbrooke', 'deer-strike'): 'A dented car hood on a dark rural road at night, one headlight cracked, its beam '
+                                    'on the empty wet asphalt and the autumn trees, hazard lights blinking.',
+    ('havenbrooke', 'beat-hookup'): 'Nine in the morning in a college dorm hallway: a pair of high heels dropped by a '
+                                    'half-open door, a party wristband and a borrowed men\'s jacket on the floor beside '
+                                    'them, bright morning sun through the window.',
+}
 BACK = ('The back of a tall playing card for this world: a symmetrical ornamental pattern around one central emblem '
         'that suits the world, rich but quiet, no text or lettering.')
 
@@ -57,8 +71,10 @@ def jobs(world: str, only: set[str]) -> list[dict]:
     """Every card picture the world's deck asks for that is not made yet, the back first."""
     folder, look = PACKAGES / world / 'assets' / 'cards', style(world)
     wanted = [('back', f'{look}. {BACK}')] + [
-        (item['id'], f"{look}. {CARD.format(title=plain(item['title']), seen=plain(item['seen']))}"
-                     + (GRIM if item['intensity'] else ''))
+        (item['id'], f"{look}. {CARD.format(title=plain(item['title']), seen=SCENES[world, item['id']])}"
+         if (world, item['id']) in SCENES else
+         f"{look}. {CARD.format(title=plain(item['title']), seen=plain(item['seen']))}"
+         + (GRIM if item['intensity'] else ''))
         for item in cards.cards(world)]
     return [{'world': world, 'id': key, 'out': folder / f'{key}.webp', 'prompt': prompt}
             for key, prompt in wanted if (not only or key in only) and not (folder / f'{key}.webp').exists()]
