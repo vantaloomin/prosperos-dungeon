@@ -287,6 +287,18 @@ def fight(connection) -> dict | None:
     return row | {'foes': json.loads(row['foes'])} if row else None
 
 
+def walk_away(connection, now: str):
+    """The character walks out of the fight, as the Table lets them (dungeon/leaving.py 'nobody'): it is over, the
+    foes left where they stand."""
+    state = fight(connection)
+    if state is None:
+        return
+    allies.aftermath(connection, state, now)
+    who = ', '.join(foe['name'] for foe in standing(state)) or 'the fight'
+    record.add(connection, 'fact', "the player's character", f'Walked away from a fight with {who}.', now)
+    save_fight(connection, None)
+
+
 def save_fight(connection, state: dict | None):
     if state is None:
         connection.execute('DELETE FROM story_fight')
@@ -426,7 +438,8 @@ def player_move(connection, state: dict, roll: dict, items: list[dict], rng, lin
         # "I fall back to the stairs": a move within the fight, not an escape (dungeon/ranges.py).
         ranges.break_away(state, roll['action'], landed, lines)
     elif FLEE.search(roll['action']):
-        if landed:
+        # The Table may let the character walk out of any fight (dungeon/leaving.py).
+        if landed or campaign_table.rule(connection, 'leaving') == 'nobody':
             lines.append("The player's character gets away.")
             return True, False
         lines.append("The player's character tries to get away and cannot.")
@@ -803,7 +816,8 @@ def card_for(connection, message_id: str, card: dict, now: str) -> str | None:
         'INSERT INTO story_rolls (id, message_id, position, actor, action, said, stat, difficulty, die, natural, bonus, '
         'shift, total, band, threat, ruleset, target, skill, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, '
         '?, NULL, ?, ?, ?, ?)',
-        (found, message_id, position, sheet.PERSONA, card['action'], card['stat'], 'normal', result['die'],
+        (found, message_id, position, sheet.PERSONA, card['action'], card['stat'], card.get('difficulty', 'normal'),
+         result['die'],
          result['natural'], result.get('bonus', 0), result.get('shift', 0), result['total'], result['band'],
          sheet.ruleset(connection), result.get('target'), result.get('skill'), now))
     return found

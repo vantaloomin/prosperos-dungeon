@@ -1362,6 +1362,29 @@ to ("go home, Hesk", "we part ways"), when trust and affection sink to -2 togeth
 them. The narrator gets "## The party" for whoever joins or leaves. "Here with you" always lists the party, and the
 drawer's Party widget shows them.
 
+### Leaving
+
+`dungeon/leaving.py` (requirements "Leaving a scene"). A fight holds the character: the "Go somewhere else" menu
+refuses, a line that walks off is no walk, and only a line that flees gets away, on its roll. A prisoner stays held
+until they get free. Outside a fight, someone there with a reason may try to keep the character, decided from their
+feelings, among people met who are not in the party:
+
+- **Hostile**: affection or trust -3 or lower, fear 1 or lower. They block the way. The roll is Vitality when the
+  line pushes past ("I shove past him"), Allure when it talks its way out, else Resolve.
+- **Fond**: affection or desire 4 or more. They beg the character to stay. Resolve, or Allure when the line talks.
+- The strongest feeling holds; 3 is normal, 4 hard, 5 very hard. A success gets away; a success at a cost gets away
+  with the feeling soured a step (and an impression kept); a failure keeps the character there this line, the
+  narrator writes them being stopped, and the record keeps "X stopped the player's character leaving". The next
+  line can try again.
+- A line leaves when it goes somewhere in town, sets out on a journey, or walks out ("I leave", "I storm off"). It is
+  decided once as the line is sent (`story_cards`, scene `leave`), so a stopped line neither moves the scene nor
+  sets out nor rests elsewhere; the roll is a roll card after the line's own (none under Narrative Only).
+- The menu refuses to move the character while someone would stop them ("Aldous won't let you just walk away. Say
+  how you leave in the story.").
+- **Who can stop you leaving** (Tone and rules, the Table's `leaving`): 'anyone' (the default), 'fights' (only a
+  fight holds the character) or 'nobody' (a flight always gets away, and the menu walks out of a fight, which ends
+  it with "Walked away from a fight with ..." in the record).
+
 ### Secrets and lies
 
 `dungeon/lies.py` (requirements "NPCs keep secrets and lie, and detection is rolled"). When the player's line
