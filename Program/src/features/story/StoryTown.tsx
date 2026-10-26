@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
-import { kindName, lotClass, type TownLot, middle, namedPlaces, points, viewBox, whereOnMap, ZOOMS, type Point, type TownMap, type TownThing } from './town'
+import { kindName, lotClass, middle, namedPlaces, points, viewBox, whereOnMap, ZOOMS, type Point, type TownMap, type TownThing } from './town'
 
 interface Picked { thing: TownThing; at: Point }
 
@@ -14,8 +14,8 @@ interface TownProps {
 }
 
 /** The street map of the town the story is in (dungeon/townmap.py): its neighborhoods, streets, main roads, water
- *  and buildings, laid out by code from the town's data and the campaign's seed. A place on it can be looked at and
- *  gone to; going puts the line in the box, or with `onGo` goes now. Zoomed in, the map follows where you are or what
+ *  and buildings, laid out by code from the town's data and the campaign's seed. Only the places the character knows
+ *  of are named: the rest are blank until looked at, passed or heard of. A place on it can be looked at and gone to; going puts the line in the box, or with `onGo` goes now. Zoomed in, the map follows where you are or what
  *  you picked. */
 export function StoryTown({ where, open, onLine, onGo, empty }: TownProps) {
   const key = ['story-town', where]
@@ -27,13 +27,13 @@ export function StoryTown({ where, open, onLine, onGo, empty }: TownProps) {
   const map = town.data?.town
   if (!map) return town.isSuccess ? empty ?? <p className="subtle">There is no street map out here.</p> : null
   const places = namedPlaces(map)
-  // A blank building is decided when you look at it, and kept.
-  const look = async (lot: TownLot) => {
+  // A blank building is decided when you look at it, and kept; a place not found yet is found.
+  const look = async (id: string, polygon: Point[]) => {
     setError('')
     try {
-      const looked = await api<{ found: TownThing; town: TownMap }>(`/story/town/lots/${encodeURIComponent(lot.id)}/look`, {})
+      const looked = await api<{ found: TownThing; town: TownMap }>(`/story/town/lots/${encodeURIComponent(id)}/look`, {})
       client.setQueryData(key, { town: looked.town })
-      setPicked({ thing: looked.found, at: middle(lot.polygon) })
+      setPicked({ thing: looked.found, at: middle(polygon) })
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'That building could not be looked at.') }
   }
   const find = (id: string) => {
@@ -48,7 +48,7 @@ export function StoryTown({ where, open, onLine, onGo, empty }: TownProps) {
         {ZOOMS.map((level, index) => <button key={level} type="button" className="text-button" aria-pressed={zoom === index + 1}
           onClick={() => setZoom(index + 1)}>{level === 1 ? 'Whole town' : `×${level}`}</button>)}
       </div>
-      <TownSvg map={map} zoom={zoom} picked={picked} onPick={setPicked} onLook={(lot) => void look(lot)} />
+      <TownSvg map={map} zoom={zoom} picked={picked} onPick={setPicked} onLook={(id, polygon) => void look(id, polygon)} />
       {error && <p className="subtle" role="alert">{error}</p>}
       <PickedPanel picked={picked} here={map.here.place} onLine={onLine} onGo={onGo} />
       <label className="town-find">
@@ -76,7 +76,7 @@ function PickedPanel({ picked, here, onLine, onGo }: { picked: Picked | null; he
   )
 }
 
-interface SvgProps { map: TownMap; zoom: number; picked: Picked | null; onPick: (picked: Picked | null) => void; onLook: (lot: TownLot) => void }
+interface SvgProps { map: TownMap; zoom: number; picked: Picked | null; onPick: (picked: Picked | null) => void; onLook: (id: string, polygon: Point[]) => void }
 
 function TownSvg({ map, zoom, picked, onPick, onLook }: SvgProps) {
   const here = whereOnMap(map)
@@ -87,7 +87,8 @@ function TownSvg({ map, zoom, picked, onPick, onLook }: SvgProps) {
       role="img" aria-label={`Map of ${map.name}.`} style={{ ['--town-scale' as string]: span / (map.size * 1.5) }}>
       <rect className="town-ground" x={-map.size * 1.2} y={-map.size * 1.2} width={map.size * 2.4} height={map.size * 2.4} />
       {map.patches.map((patch) => <polygon key={patch.id} className={`town-patch patch-${patch.kind}`} points={points(patch.polygon)}
-        onClick={() => pick(patch.place, patch.polygon)}>{patch.place && <title>{patch.place.name}</title>}</polygon>)}
+        onClick={() => patch.hidden ? onLook(`open-${patch.id}`, patch.polygon) : pick(patch.place, patch.polygon)}>
+        {patch.place ? <title>{patch.place.name}</title> : patch.hidden && <title>Open ground: look around</title>}</polygon>)}
       {map.water.map((water) => <polyline key={water.name} className="town-river" points={points(water.points)} strokeWidth={water.width}>
         <title>{water.name}</title></polyline>)}
       {map.walls && <g className="town-wall">{map.border.map(([a, b]) => <line key={`${a}-${b}`} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} />)}</g>}
@@ -95,7 +96,7 @@ function TownSvg({ map, zoom, picked, onPick, onLook }: SvgProps) {
       {map.lots.map((lot) => {
         const thing = lot.place ?? lot.found
         return <polygon key={lot.id} points={points(lot.polygon)} className={lotClass(lot, map, picked?.thing.id)}
-          onClick={() => thing ? pick(thing, lot.polygon) : onLook(lot)}><title>{thing?.name ?? 'A building: look at it'}</title></polygon>
+          onClick={() => thing ? pick(thing, lot.polygon) : onLook(lot.id, lot.polygon)}><title>{thing?.name ?? 'A building: look at it'}</title></polygon>
       })}
       {map.districts.map((district) => <text key={district.id} className="town-district" x={district.label[0]} y={district.label[1]}
         textAnchor="middle">{district.name}</text>)}

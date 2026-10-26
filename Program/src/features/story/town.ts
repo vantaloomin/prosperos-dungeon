@@ -2,8 +2,10 @@
 
 export type Point = [number, number]
 export interface TownThing { id: string; name: string; kind: string; what?: string; summary?: string }
-export interface TownPatch { id: number; kind: 'town' | 'country' | 'square' | 'open' | 'water'; neighborhood: string | null; polygon: Point[]; place: TownThing | null }
-/** A lot: one of the town's own places, or blank until looked at (`found`, then kept). */
+/** A patch of the map. Open ground holding a place the character has not found is `hidden`: looking finds it. */
+export interface TownPatch { id: number; kind: 'town' | 'country' | 'square' | 'open' | 'water'; neighborhood: string | null; polygon: Point[]; place: TownThing | null; hidden?: boolean }
+/** A lot: one of the town's own places the character knows of, or blank until looked at (`found`, then kept). A place
+ *  they have not found yet is blank too, until they look or hear of it. */
 export interface TownLot { id: string; neighborhood: string; front: boolean; place: TownThing | null; found?: TownThing | null; polygon: Point[] }
 export interface TownMap {
   town: string; name: string; style: 'ink' | 'street' | 'floor'; walls: boolean; size: number

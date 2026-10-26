@@ -13,6 +13,10 @@ campaign's seed, never drawn by hand or by an image model.
   a square, takes a whole patch). Every other lot is blank: what is in it is decided when the character first looks
   (`look`), from the town's names and its look's table (world/data/town_lots.json) at the intensity levels in
   play, then kept as found.
+- **Found, not known.** A town's own places are on the map only once the character knows of them (`known`):
+  where they have been, what they passed on the street, a building they looked at, or a place named to them in the
+  story. A stranger knows the landmarks anyone could find (the square, the temple, the market, the big employers);
+  a character whose home is the town knows all of it but what is hidden. The rest are blank lots until found.
 - **Style.** The era picks the look unless the town's `town_map` says otherwise: 'ink' (a hand-inked old town, for
   fantasy and the past), 'street' (a modern grid) or 'floor' (a town on one floor of BABEL's tower, walled by it).
 """
@@ -21,6 +25,7 @@ import hashlib
 import heapq
 import json
 import math
+import re
 from collections import Counter
 
 from dungeon import hexes, packages, story
@@ -451,7 +456,8 @@ class Town:
                 best = max(free, key=lambda lot: lot['area'])
             else:
                 best = min(free, key=lambda lot: (not lot['front'], unit(self.seed, thing['id'], lot['id'])))
-            best['place'] = {'id': thing['id'], 'name': thing['name'], 'kind': kind, 'what': what}
+            best['place'] = {'id': thing['id'], 'name': thing['name'], 'kind': kind, 'what': what,
+                             'summary': thing.get('summary', '')}
 
     def result(self) -> dict:
         def shape(polygon):
@@ -459,7 +465,8 @@ class Town:
 
         def ground(patch):
             thing = self.open_ground.get(patch['id'])
-            return thing and {'id': thing['id'], 'name': thing['name'], 'kind': thing['kind']}
+            return thing and {'id': thing['id'], 'name': thing['name'], 'kind': thing['kind'],
+                              'summary': thing.get('summary', '')}
 
         districts = []
         for hood in self.near:
@@ -519,16 +526,21 @@ def route(graph: dict, starts: list[tuple], goal: tuple) -> list[tuple] | None:
 
 def view(connection) -> dict | None:
     """The map of the town the story is in, the lots looked at so far, and where in it the character is; None in a
-    place with no map (the road between towns, the wilds)."""
+    place with no map (the road between towns, the wilds). A place the character does not know of is a blank lot,
+    or open ground marked `hidden`, until they find it."""
     where = story.scene_row(connection)
     data = story.city_data(connection, where['city_id'])
     if not has_map(data):
         return None
     board = layout(data, hexes.seed(connection))
-    known = looked(connection, data['id'])
+    found, knows = looked(connection, data['id']), known(connection, data)
     here = where['place_id']
     place = next((item for item in data['places'] if item['id'] == here), None)
-    return board | {'lots': [lot | {'found': known.get(lot['id'])} for lot in board['lots']], 'name': data['name'],
+    lots = [lot | {'found': found.get(lot['id'])} | ({} if not lot['place'] or lot['place']['id'] in knows
+                                                     else {'place': None}) for lot in board['lots']]
+    patches = [patch | ({} if not patch['place'] or patch['place']['id'] in knows else {'place': None, 'hidden': True})
+               for patch in board['patches']]
+    return board | {'lots': lots, 'patches': patches, 'name': data['name'],
                     'here': {'place': here, 'neighborhood': place and place.get('neighborhood')}}
 
 
@@ -538,14 +550,24 @@ def looked(connection, town: str) -> dict[str, dict]:
 
 
 def look(connection, lot_id: str) -> dict:
-    """The character looks at a blank lot in the town they are in: what stands there is decided now and kept."""
+    """The character looks at a blank lot in the town they are in: what stands there is decided now and kept. One of
+    the town's own places they did not know of is found ('open-<patch>' for open ground)."""
     where = story.scene_row(connection)
     data = story.city_data(connection, where['city_id'])
     require(has_map(data), 'There is no street map here.')
     seed = hexes.seed(connection)
-    lot = next((found for found in layout(data, seed)['lots'] if found['id'] == lot_id), None)
-    require(lot is not None, f'No lot {lot_id!r} in {data["name"]}.', 404)
-    require(lot['place'] is None, f'{lot["place"] and lot["place"]["name"]} is already on the map.')
+    board = layout(data, seed)
+    if lot_id.startswith('open-'):
+        patch = next((found for found in board['patches'] if f'open-{found["id"]}' == lot_id), None)
+        require(patch is not None and patch['place'] is not None, f'Nothing to find at {lot_id!r} in {data["name"]}.', 404)
+        lot = patch
+    else:
+        lot = next((found for found in board['lots'] if found['id'] == lot_id), None)
+        require(lot is not None, f'No lot {lot_id!r} in {data["name"]}.', 404)
+    if lot['place'] is not None:
+        require(lot['place']['id'] not in known(connection, data), f'{lot["place"]["name"]} is already on the map.')
+        learn(connection, data['id'], lot['place']['id'], 'looked')
+        return lot['place']
     if found := looked(connection, data['id']).get(lot_id):
         return found
     found = contents(data, seed, lot, hexes.levels(connection))
@@ -628,14 +650,17 @@ def street(connection, data: dict, place_id: str) -> list[dict]:
 
 
 def pass_by(connection, data: dict, place_id: str):
-    """The character arrives somewhere in town: the buildings on the street outside are kept as seen, so the map
-    shows them and the player can walk into one by name."""
+    """The character arrives somewhere in town: it is known now, and the buildings on the street outside are kept
+    as seen, so the map shows them and the player can walk into one by name."""
+    learn(connection, data['id'], place_id, 'visited')
     if not has_map(data):
         return
     for found in street(connection, data, place_id):
         if found['id'].startswith('lot-'):
             connection.execute('INSERT OR IGNORE INTO story_lots (town, lot, found) VALUES (?, ?, ?)',
                                (data['id'], found['id'].removeprefix('lot-'), json.dumps(found)))
+        else:
+            learn(connection, data['id'], found['id'], 'passed')
 
 
 def street_text(found: list[dict]) -> str:
@@ -644,6 +669,79 @@ def street_text(found: list[dict]) -> str:
         return ''
     return ('Along the street outside, for detail only (the player may go into any of them): '
             + '; '.join(f"{item['name']} ({item['kind']})" for item in found) + '.')
+
+
+# What the character knows of the town ---------------------------------------------------------------
+
+# What anyone in town could find without being told: the square, the temple, the market, the way in and out.
+LANDMARK_KINDS = {'square', 'park', 'market', 'temple', 'stadium', 'library', 'docks'}
+LANDMARK_TAGS = {'central', 'arrival', 'waystone', 'gate', 'transit', 'meeting-point'}
+# What even someone from the town may not know of.
+HIDDEN_TAGS = {'hidden', 'secret'}
+# A name shorter than this ("Inn") is too common a word to count as the place being named.
+SHORTEST_NAME = 4
+
+
+def own_places(data: dict) -> list[dict]:
+    """The town's own places, employers and colleges: the ones it ships with, not lots looked at or hamlets found."""
+    return [*(place for place in data.get('places', []) if not {'hamlet', 'lot'} & set(place.get('tags', []))),
+            *data.get('employers', []), *data.get('colleges', [])]
+
+
+def landmark(thing: dict) -> bool:
+    return thing.get('kind') in LANDMARK_KINDS or bool(LANDMARK_TAGS & set(thing.get('tags', []))) \
+        or thing.get('size') == 'large'
+
+
+def home_town(connection, data: dict) -> bool:
+    """Whether the character lives here (the persona's home, dungeon/world/where.py)."""
+    from dungeon.world import where
+    found = where.your_home(connection)
+    return bool(found) and found[0]['id'] == data['id']
+
+
+def known(connection, data: dict) -> dict[str, str]:
+    """The town's own places the character knows of, each with how: 'visited', 'passed', 'looked', 'told', or
+    'home' and 'landmark' for what they knew without finding it. Where they are now is visited."""
+    found = {row['place']: row['how'] for row in
+             many(connection, 'SELECT place, how FROM story_places WHERE town=?', (data['id'],))}
+    home = home_town(connection, data)
+    for thing in own_places(data):
+        if thing['id'] in found or HIDDEN_TAGS & set(thing.get('tags', [])):
+            continue
+        if home or landmark(thing):
+            found[thing['id']] = 'home' if home else 'landmark'
+    where = story.scene_row(connection)
+    if where['city_id'] == data['id']:
+        found[where['place_id']] = 'visited'
+    return found
+
+
+def learn(connection, town: str, place_id: str, how: str):
+    """The character knows of a place now; having been there outranks any other way of knowing it."""
+    if not place_id or place_id.startswith(('~', 'lot-')):
+        return
+    connection.execute('INSERT INTO story_places (town, place, how) VALUES (?, ?, ?) ON CONFLICT(town, place) '
+                       "DO UPDATE SET how=excluded.how WHERE excluded.how='visited'", (town, place_id, how))
+
+
+def named_in(name: str, text: str) -> bool:
+    """Whether a place's name is in the text: "the Felled Oak" as "Felled Oak", with its capitals as written (so "the
+    Green" is not any green thing); a name with none ("the charcoal kilns") in any case."""
+    core = re.sub(r'^(?:the|a|an)\s+', '', name.strip(), flags=re.I)
+    flags = 0 if core[:1].isupper() else re.I
+    return len(core) >= SHORTEST_NAME and re.search(rf'(?<!\w){re.escape(core)}(?!\w)', text, flags) is not None
+
+
+def heard(connection, data: dict, text: str) -> list[str]:
+    """Places of the town named in the story (the narration, an NPC giving directions) are known now; their ids."""
+    if not text:
+        return []
+    knows = known(connection, data)
+    told = [thing['id'] for thing in own_places(data) if thing['id'] not in knows and named_in(thing['name'], text)]
+    for place_id in told:
+        learn(connection, data['id'], place_id, 'told')
+    return told
 
 
 # What stands on a blank lot -----------------------------------------------------------------------

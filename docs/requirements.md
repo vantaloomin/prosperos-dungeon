@@ -370,6 +370,14 @@ crawl; nothing is drawn by hand or by an image model, and only what the player l
 - **The street outside.** The narrator is told the few buildings nearest where the character is (the town's own
   places and lots decided as above), and arriving somewhere keeps them as seen, so the map shows them and the
   player can walk into one by name.
+- **Found, not known** (Vanta, 2026-10-26: "Surely there should be some discovery"; card: landmarks, and more for
+  locals). The map and its place list name only the places the character knows of: where they have been, what
+  they passed on the street, a building they looked at, and any place the story names to them (the narration or
+  an NPC). A stranger also knows the landmarks anyone could find (squares, parks, temples, markets, the library,
+  docks, the way in, big employers); a character whose home is the town knows all of it except places tagged
+  hidden or secret. An unfound place is a blank lot (or unnamed open ground) until then. Typing a place's name
+  still goes there, as asking the way would. Kept per branch (story_places). The travel map between towns already
+  works this way (heard of one road away, famous places, visited).
 - **Looks.** 'ink' (an old hand-inked town, for fantasy and past eras), 'street' (a modern grid) or 'floor' (a
   town on one floor of BABEL's tower, walled by it). The era chooses unless the city's `town_map.style` says
   otherwise; a world's road or wilds says `"none"` and has no town map.
