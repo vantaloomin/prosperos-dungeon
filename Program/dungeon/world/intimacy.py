@@ -26,6 +26,10 @@ ADULT_AT = 18
 # How many interests each level draws, and the boldest tier it reaches.
 DRAWS = {'reserved': (0, 0), 'conventional': (1, 1), 'curious': (2, 2), 'adventurous': (3, 3), 'wild': (4, 3)}
 DRIVES = {'low': 1, 'average': 2, 'high': 1}
+# Who someone is drawn to rather than what they do ("a sharp mind"): rolled on its own, after the draw above, so
+# adding them changed nobody's earlier picks, and how adventurous someone is has no say in it.
+QUALITIES = 'qualities'
+DRAWN_BY = 0.4
 # A companion whose own words say they're under 18 never gets an adult side (fail closed). Background is left
 # out: "as a teen" there is a memory, not their age now.
 YOUNG = r'(?:1[0-7]|[1-9]|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen)'
@@ -81,8 +85,12 @@ def roll(seed: str, age: int, who: str) -> dict | None:
     count, boldest = DRAWS[level]
     if level == 'conventional' and generators.unit(seed, 'intimacy-count') < 0.5:
         count = 0
-    options = sorted(entry['id'] for entry in bank()['interests'] if entry['tier'] <= boldest)
+    options = sorted(entry['id'] for entry in bank()['interests']
+                     if entry['tier'] <= boldest and entry['group'] != QUALITIES)
     interests = sorted(options, key=lambda entry: generators.unit(seed, 'intimacy-into', entry))[:count]
+    if generators.unit(seed, 'intimacy-drawn') < DRAWN_BY:
+        qualities = [entry['id'] for entry in bank()['interests'] if entry['group'] == QUALITIES]
+        interests.append(min(qualities, key=lambda entry: generators.unit(seed, 'intimacy-quality', entry)))
     return {'orientation': dating.orientation(seed, age, who)[0], 'level': level,
             'drive': dating.weighted(seed, 'intimacy-drive', mix.drive_weights(DRIVES)), 'interests': sorted(interests), 'note': ''}
 
