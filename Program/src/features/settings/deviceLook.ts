@@ -13,11 +13,16 @@ export type Layout = 'classic' | 'reader' | 'custom' | 'novel'
 export type Beside = Exclude<Layout, 'reader'>
 /** `stageArt`: the place's picture behind the story and portraits of who is here, when they have been made.
  *  `lastBeside`: the layout with the panel beside the story that Reader goes back to. `worldColors`: the story screen
- *  wears the colors its world ships (dungeon/world_theme.py), when they read well. */
-export interface DeviceLook { textScale: number; font: ReadingFont; fontEverywhere: boolean; motion: Motion; layout: Layout; lastBeside: Beside; stageArt: boolean; worldColors: boolean }
+ *  wears the colors its world ships (dungeon/world_theme.py), when they read well. `panelWidth` and `gridWidth`: how wide
+ *  the player dragged the panel beside the story, in Classic or Visual novel and in Custom (StoryPanel.tsx PanelResize). */
+export interface DeviceLook { textScale: number; font: ReadingFont; fontEverywhere: boolean; motion: Motion; layout: Layout; lastBeside: Beside; stageArt: boolean; worldColors: boolean; panelWidth: number; gridWidth: number }
 
 export const TEXT_SCALE = { min: 85, max: 200, step: 5 } as const
-export const DEFAULT_LOOK: DeviceLook = { textScale: 100, font: 'default', fontEverywhere: false, motion: 'system', layout: 'classic', lastBeside: 'classic', stageArt: true, worldColors: true }
+/** The panel beside the story, in pixels: the single column of widgets, and Custom's two-column grid. */
+export const PANEL_WIDTH = { min: 280, max: 720, default: 360 } as const
+export const GRID_WIDTH = { min: 440, max: 1000, default: 600 } as const
+export const DEFAULT_LOOK: DeviceLook = { textScale: 100, font: 'default', fontEverywhere: false, motion: 'system', layout: 'classic', lastBeside: 'classic', stageArt: true, worldColors: true,
+  panelWidth: PANEL_WIDTH.default, gridWidth: GRID_WIDTH.default }
 const KEY = 'dungeon-device-look'
 const FONTS: ReadingFont[] = ['default', 'atkinson', 'opendyslexic']
 const MOTIONS: Motion[] = ['system', 'reduce', 'full']
@@ -27,6 +32,12 @@ const listeners = new Set<() => void>()
 export function clampScale(value: number): number {
   if (!Number.isFinite(value)) return DEFAULT_LOOK.textScale
   return Math.min(TEXT_SCALE.max, Math.max(TEXT_SCALE.min, Math.round(value / TEXT_SCALE.step) * TEXT_SCALE.step))
+}
+
+/** A panel width kept within its bounds, whole pixels. */
+export function clampWidth(value: number, bounds: { min: number; max: number; default: number }): number {
+  if (!Number.isFinite(value)) return bounds.default
+  return Math.min(bounds.max, Math.max(bounds.min, Math.round(value)))
 }
 
 /** A saved look with anything unknown or out of range put back to its default. */
@@ -41,6 +52,8 @@ export function cleanLook(value: unknown): DeviceLook {
     lastBeside: saved.lastBeside === 'custom' || saved.lastBeside === 'novel' ? saved.lastBeside : 'classic',
     stageArt: saved.stageArt !== false,
     worldColors: saved.worldColors !== false,
+    panelWidth: clampWidth(Number(saved.panelWidth), PANEL_WIDTH),
+    gridWidth: clampWidth(Number(saved.gridWidth), GRID_WIDTH),
   }
 }
 
