@@ -381,6 +381,8 @@ textarea { resize: vertical; line-height: 1.6; }
 .story-people ul { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: var(--card-gap); max-height: 40dvh; overflow-y: auto; }
 .story-people li { display: flex; flex-direction: column; gap: 6px; padding: var(--card-pad); border: 1px solid var(--border); border-radius: 10px; }
 .story-people .form-actions { gap: 14px; }
+.story-thing { display: flex; align-items: center; gap: 10px; }
+.story-thing-icon { flex: none; width: 32px; height: 32px; object-fit: contain; }
 .story-tree ul { padding-left: 16px; border-left: 1px solid var(--border); }
 .story-chapter-text p { font-family: var(--read-font); font-size: 0.875rem; }
 .story-gm h3 { font-size: 0.875rem; margin: 12px 0 4px; }
@@ -913,6 +915,9 @@ img.avatar, img.portrait { object-fit: cover; object-position: center top; paddi
 .entity-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .entity-card-head h2 { margin: 0; }
 .entity-card-head p { margin: 2px 0 0; }
+.entity-card-head > div { flex: 1; min-width: 0; }
+/* A faction's emblem or an item's icon (dungeon/icons.py): drawn on transparent, so it sits on any world's colors. */
+.entity-picture { flex: none; width: 72px; height: 72px; object-fit: contain; }
 .entity-card .dialog-body { display: flex; flex-direction: column; gap: 8px; }
 .entity-card .dialog-body p { margin: 0; }
 .entity-known { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }

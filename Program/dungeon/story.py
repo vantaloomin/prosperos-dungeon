@@ -27,6 +27,7 @@ from dungeon import (
     growth,
     happenings,
     hexes,
+    icons,
     in_character,
     injuries,
     institutions,
@@ -381,8 +382,10 @@ def shop_view(connection, view: dict) -> dict | None:
     staff = [person['sheet'] for person in view['people'] if person['sheet'].get('staff') and not person.get('party')
              and person['sheet']['place']['id'] == view['place']['id']]
     keeper = f"the {staff[0].get('occupation') or staff[0]['role']}" if staff else ''
-    return inventory.window(connection, view['city']['id'], shop, bool(staff), keeper, story_day(view)) | {
-        'keeper_key': staff[0]['key'] if staff else ''}
+    found = inventory.window(connection, view['city']['id'], shop, bool(staff), keeper, story_day(view))
+    for row in found['stock']:
+        row['icon'] = icons.icon(view['city']['id'], row['item_id'], row['category'])
+    return found | {'keeper_key': staff[0]['key'] if staff else ''}
 
 
 def story_day(view: dict) -> str:
@@ -400,7 +403,8 @@ def gear(database) -> dict:
                           inventory.UNLIMITED else inventory.capacity(connection)},
                 'looks': appearance.summary(connection, city, view['data'].get('appearance', 'full')),
                 'items': [{key: row[key] for key in ('id', 'item_id', 'name', 'category', 'qty', 'slots')} |
-                          {'stolen': bool(row['stolen']), 'condition': row['condition']}
+                          {'stolen': bool(row['stolen']), 'condition': row['condition'],
+                           'icon': icons.icon(row['city_id'], row['item_id'], row['category'])}
                           for row in rows],
                 'shop': shop_view(connection, view)}
 
@@ -513,7 +517,8 @@ def powers(connection, view: dict) -> list[dict]:
     if found is None:
         return []
     visited = {row['node_id'] for row in many(connection, 'SELECT node_id FROM story_map WHERE visited=1')}
-    return factions.view(connection, found['world'], visited | {found['node']}, dice_shown(connection))
+    return [faction | {'emblem': icons.emblem(found['world'], faction['id'])}
+            for faction in factions.view(connection, found['world'], visited | {found['node']}, dice_shown(connection))]
 
 
 def ending(connection) -> str:

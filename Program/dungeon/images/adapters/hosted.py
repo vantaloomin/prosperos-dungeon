@@ -143,6 +143,8 @@ class HostedAdapter:
                 body = {'model': config['model'], 'prompt': prompt, 'n': 1, 'size': f'{request.width}x{request.height}'}
                 if provider != 'openai':
                     body['response_format'] = 'b64_json'
+                # OpenAI's own options, for a caller that sets them (scripts/art/icons.py: transparent icons).
+                body |= {name: config[name] for name in ('background', 'quality') if config.get(name)}
                 data = await self.post(client, config['base_url'] + '/images/generations', headers, body)
                 image = await self.images_image(client, data)
         return ImageResult(image, model=config['model'], workflow=f"{provider} {config.get('api_style')}",

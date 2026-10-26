@@ -16,6 +16,7 @@ from dungeon import (
     director,
     gm,
     growth,
+    icons,
     institutions,
     legacy,
     plotting,
@@ -669,6 +670,12 @@ def art_portrait(world: str, name: str):
     """A world's stock portrait of a kind of person (dungeon/art.py stock_portrait)."""
     return Response(art.portrait_file(world, name), media_type='image/webp',
                     headers={'Cache-Control': 'max-age=86400'})
+
+
+@router.get('/art/{kind}/{world}/{name}')
+def art_icon(kind: Literal['emblem', 'icon'], world: str, name: str):
+    """A world's emblem for a faction, or its icon for an item (dungeon/icons.py)."""
+    return Response(icons.file(kind, world, name), media_type='image/webp', headers={'Cache-Control': 'max-age=86400'})
 
 
 @router.get('/art/{art_id}/file')

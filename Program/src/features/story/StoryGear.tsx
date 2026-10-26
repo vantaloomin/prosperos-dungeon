@@ -26,7 +26,7 @@ export function StoryGear({ onTrade, open }: { onTrade: () => void; open?: boole
       {gear.data.looks && <p className="subtle">How you look: {looksText(gear.data.looks)}</p>}
       <ul aria-label="Your pack">
         {items.map((item) => <li key={item.id}>
-          <p><EntityName entity={{ kind: 'item', id: item.id }}>{gearLine(item)}</EntityName></p>
+          <p className="story-thing"><ThingIcon src={item.icon} /><EntityName entity={{ kind: 'item', id: item.id }}>{gearLine(item)}</EntityName></p>
           {shop?.open && shop.offers[item.id] !== undefined && <div className="form-actions">
             <button type="button" className="text-button" onClick={() => void trade('/story/shop/sell', { inventory_id: item.id })}>
               Sell one for {moneyText(shop.offers[item.id], currency)}</button>
@@ -39,6 +39,11 @@ export function StoryGear({ onTrade, open }: { onTrade: () => void; open?: boole
   </>)
 }
 
+/** A thing's picture beside its name (dungeon/icons.py); the name carries the meaning, so the picture is decoration. */
+export function ThingIcon({ src }: { src?: string | null }) {
+  return src ? <img className="story-thing-icon" src={src} alt="" width={32} height={32} loading="lazy" /> : null
+}
+
 function ShopWindow({ shop, currency, onBuy }: { shop: Shop; currency: Gear['currency']; onBuy: (itemId: string) => void }) {
   return (
     <details className="story-people" open>
@@ -46,7 +51,7 @@ function ShopWindow({ shop, currency, onBuy }: { shop: Shop; currency: Gear['cur
       {shop.open && <CounterNotes shop={shop} currency={currency} />}
       {shop.open ? <ul aria-label="For sale">
         {shop.stock.map((row) => <li key={row.item_id}>
-          <p>{row.name} <span className="subtle">{moneyText(row.price, currency)} · {row.qty} left</span></p>
+          <p className="story-thing"><ThingIcon src={row.icon} /><span>{row.name} <span className="subtle">{moneyText(row.price, currency)} · {row.qty} left</span></span></p>
           <div className="form-actions">
             <button type="button" className="text-button" onClick={() => onBuy(row.item_id)}>Buy one</button>
           </div>
