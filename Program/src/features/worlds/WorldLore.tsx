@@ -6,7 +6,7 @@ import { Loading, Notice } from '../../components/Feedback'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { Toggle } from '../../components/Fields'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
-import { bookLine, entryHow, fileData, findEntries, LIBRARY_TYPES, WHEN_KINDS, type LibraryBook, type Lore, type LoreBook, type LoreEntry, type Passages, type WhenChoice, type WhenKind } from './loreText'
+import { bookLine, entryHow, fileData, findEntries, LIBRARY_TYPES, timerLine, timingLine, WHEN_KINDS, type LibraryBook, type Lore, type LoreBook, type LoreEntry, type LoreTiming, type Passages, type WhenChoice, type WhenKind } from './loreText'
 
 const LORE_KEY = ['lore']
 const LIBRARY_KEY = ['library']
@@ -103,6 +103,7 @@ function LoreEntryRow({ entry, choices, off, change }: { entry: LoreEntry; choic
         hint={entry.pattern ? 'It finds its moment with a search pattern, which Dungeon does not run.' : undefined}
         onChange={(enabled) => void change(`/lore/entries/${entry.id}`, { enabled })} />
       {!entry.always && <WhenPicker when={entry.when} choices={choices} onSave={setWhen} />}
+      {!entry.always && <TimingFields timing={entry.timing} onSave={(timing) => change(`/lore/entries/${entry.id}/timing`, timing)} />}
     </li>
   )
 }
@@ -114,7 +115,38 @@ function EntryHead({ entry, off }: { entry: LoreEntry; off: boolean }) {
       {entry.fits_now && !off && <span className="lore-now">Fits the scene now</span>}
     </div>
     <p className="subtle">{entryHow(entry)}{entry.when_guessed ? ' (read from its keywords)' : ''}</p>
+    {!entry.always && (timingLine(entry.timing) || timerLine(entry.timer)) &&
+      <p className="subtle">{[timingLine(entry.timing), timerLine(entry.timer)].filter(Boolean).join(' · ')}</p>}
   </>
+}
+
+const TIMING_FIELDS: [Exclude<keyof LoreTiming, 'group'>, string, number, number, string][] = [
+  ['sticky', 'Lingers', 0, 500, 'Lines it stays in after it comes up'],
+  ['cooldown', 'Rests', 0, 500, 'Lines it stays out after that'],
+  ['delay', 'Waits', 0, 5000, 'The first line it can come up on'],
+  ['chance', 'Chance', 0, 100, 'In a hundred, each time it would come up'],
+  ['group_weight', 'Weight', 1, 1000, 'How likely it is to be the one picked from its group'],
+]
+
+/** How long an entry lingers, rests or waits in story lines, its chance, and the group only one of comes up from. */
+function TimingFields({ timing, onSave }: { timing: LoreTiming; onSave: (timing: LoreTiming) => Promise<void> }) {
+  const [draft, setDraft] = useState(timing)
+  const changed = (Object.keys(timing) as (keyof LoreTiming)[]).some((key) => draft[key] !== timing[key])
+  return (
+    <details className="lore-timing"><summary>Timing</summary>
+      <div className="lore-timing-fields">
+        {TIMING_FIELDS.map(([key, label, min, max, hint]) => <label key={key} title={hint}>{label}
+          <input type="number" min={min} max={max} value={draft[key]}
+            onChange={(event) => setDraft({ ...draft, [key]: Math.min(max, Math.max(min, Number(event.target.value) || 0)) })} />
+        </label>)}
+        <label title="Entries with the same group: only one of them comes up at a time">Group
+          <input type="text" maxLength={80} value={draft.group} onChange={(event) => setDraft({ ...draft, group: event.target.value })} />
+        </label>
+      </div>
+      <p className="subtle">Counted in your lines. Going back in the story rewinds them.</p>
+      <button type="button" className="text-button" disabled={!changed} onClick={() => void onSave(draft)}>Save timing</button>
+    </details>
+  )
 }
 
 /** The scene an entry fits besides its keywords: chips to take off, and a kind and a choice to add one. */

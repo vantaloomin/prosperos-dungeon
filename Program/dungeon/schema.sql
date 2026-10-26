@@ -223,10 +223,27 @@ CREATE TABLE IF NOT EXISTS lore_entries (
   enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
   -- When it applies besides its keywords (dungeon/lore_moments.py): a JSON list such as ["weather:rain"], or NULL
   -- while the app reads one from its keywords.
-  moment TEXT
+  moment TEXT,
+  -- Timing (dungeon/lore.py TIMING), counted in story lines: it lingers `sticky` lines after it fires, then rests
+  -- `cooldown` lines, can fire only from line `delay`, fires on `chance` percent, and of one `lore_group` only one
+  -- goes in a line, by `group_weight`. The defaults leave an entry as it always was.
+  sticky INTEGER NOT NULL DEFAULT 0,
+  cooldown INTEGER NOT NULL DEFAULT 0,
+  delay INTEGER NOT NULL DEFAULT 0,
+  chance INTEGER NOT NULL DEFAULT 100,
+  lore_group TEXT NOT NULL DEFAULT '',
+  group_weight INTEGER NOT NULL DEFAULT 100
 );
 
 CREATE INDEX IF NOT EXISTS lore_entries_book ON lore_entries(book_id, position);
+
+-- Lore entries fired with a timer (dungeon/lore.py): in the narrator's lore through line `active_until`, then not
+-- again before line `rest_until`. Game state (dungeon/timeline.py SAVED), so going back rewinds the timers.
+CREATE TABLE IF NOT EXISTS lore_timers (
+  entry_id TEXT PRIMARY KEY,
+  active_until INTEGER NOT NULL,
+  rest_until INTEGER NOT NULL
+);
 
 -- A reference library (dungeon/library.py): long texts the player adds to the world (a world bible, a novel, a
 -- script, a wiki export), split into passages; the few that fit the story join the narrator's prompt.

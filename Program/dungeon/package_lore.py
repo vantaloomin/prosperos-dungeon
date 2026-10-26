@@ -25,6 +25,9 @@ def package_path(root: Path, world_id: str) -> Path | None:
     return path if path.is_file() else None
 
 
+TIMED = ('sticky', 'cooldown', 'delay', 'chance', 'group', 'group_weight')
+
+
 def era_of(contents: dict) -> str | None:
     return ((contents['world'].get('starting_place') or {}).get('era')) or None
 
@@ -44,7 +47,9 @@ def entries(contents: dict, era: str | None) -> list[dict]:
     """The lore entries that hold in `era`, as lore.add_book takes them: keyword-triggered, none always on."""
     found = (contents['sections'].get('lore') or {}).get('entries') or []
     return [{'title': entry.get('title') or entry['id'], 'text': entry['text'], 'keywords': keywords(entry),
-             'always': False, 'pattern': False, 'enabled': True}
+             'always': False, 'pattern': False, 'enabled': True,
+             # Optional timing (dungeon/lore.py TIMING), as an entry's own fields.
+             'timing': {key: entry[key] for key in TIMED if key in entry}}
             for entry in found if entry.get('text') and (not era or not entry.get('eras') or era in entry['eras'])]
 
 

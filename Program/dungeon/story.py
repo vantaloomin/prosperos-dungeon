@@ -723,7 +723,8 @@ def clear(database) -> dict:
                       'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_bonds', 'story_party', 'story_real', 'story_beats', 'story_word',
                       'story_offpage', 'story_tier', 'story_marks', 'story_dark',
                       'story_director', 'story_arcs', 'story_threads', 'story_nemeses', 'story_seeds',
-                      'story_arc_beats', 'story_sheet', 'story_enrollment', 'story_attendance', 'story_grades', 'story_art'):
+                      'story_arc_beats', 'story_sheet', 'story_enrollment', 'story_attendance', 'story_grades', 'story_art',
+                      'lore_timers'):
             connection.execute(f'DELETE FROM {name}')
         timeline.clear(connection)
         chapters.clear(connection)
@@ -785,8 +786,10 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
 
     window = remembering.room(connection, config)
     # Lorebook entries switched on: always-on ones, those named lately and those that fit the moment (dungeon/lore.py).
-    lore_text = lore.prompt_text(connection, view['data'], view['place']['id'], local_moment(view['data'], now),
-                                 [row['text'] for row in rows], name or '')
+    # Timed entries count the story's lines on this branch (dungeon/lore.py "Timing").
+    lore_text, lore_started = lore.chosen(connection, view['data'], view['place']['id'], local_moment(view['data'], now),
+                                          [row['text'] for row in rows], name or '', line_number(connection, latest),
+                                          timeline.active(connection))
     # Passages of the world's reference library that fit the last few messages (dungeon/library.py).
     shelf, passages_given = library.prompt_text(connection, [row['text'] for row in rows], latest['seq'])
     # The summary gives way first, then the record's facts, so the recent turns keep at least half the window.
@@ -820,7 +823,15 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
     if not in_character.out_of_character(latest['text']):
         chat = steered(chat, authors_note.prompt_text(connection, 'story'))
     return {'system': system, 'messages': chat, 'people': view['people'], 'library': passages_given,
-            'city_id': view['city']['id'], 'day': datetime.fromisoformat(view['local_time']).date()}
+            'city_id': view['city']['id'], 'day': datetime.fromisoformat(view['local_time']).date(),
+            'lore': lore_started, 'line': line_number(connection, latest)}
+
+
+def line_number(connection, latest: dict) -> int:
+    """Which of the player's lines on this branch `latest` is, counting from 1."""
+    where, values = timeline.visible(connection)
+    return one(connection, f"SELECT COUNT(*) AS n FROM story_messages WHERE {where} AND role='user' AND seq<=?",
+               (*values, latest['seq']))['n']
 
 
 async def narrate(state, packet: dict, config: dict, active: bool, on_text=None) -> tuple[str, str | None]:
@@ -1522,6 +1533,7 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
             growth.mark(connection, rolls, user['id'])
             remembering.refresh(connection, f"{user['text']}\n{text}")
             library.mark_given(connection, packet['library'], user['seq'])
+            lore.remember(connection, packet.get('lore', []), packet.get('line', 0))
             if reason := scene_break(connection, user, travelled, rested, fought):
                 chapters.mark(connection, reason)
             # What the line touched in the GM's notebook, and the scene's kind (dungeon/director.py).

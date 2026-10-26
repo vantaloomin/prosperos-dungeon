@@ -960,6 +960,10 @@ img.avatar, img.portrait { object-fit: cover; object-position: center top; paddi
 .lore-when-chips .icon-button { width: 26px; height: 26px; }
 .lore-when-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .lore-when-add select { max-width: 100%; }
+.lore-timing-fields { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; }
+.lore-timing-fields label { display: grid; gap: 2px; font-size: 0.82rem; }
+.lore-timing-fields input[type='number'] { width: 80px; }
+.lore-timing-fields input[type='text'] { width: 140px; }
 
 .art-gallery { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 10px; }
 .art-card { display: grid; gap: 4px; min-width: 0; }

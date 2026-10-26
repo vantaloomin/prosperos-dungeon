@@ -26,6 +26,14 @@ its reference library, the adult side and the townsfolk mix.
   book or any entry on or off, delete a book, and set an entry's "when" (weather, season, time of day, day, holiday,
   place in the story's town) beside its keywords. Each entry says how it comes into the story, and "Fits the scene
   now" when it would join this turn. A book of more than eight entries gets a search.
+- **Lore timing** (`dungeon/lore.py` "Timing", `PUT /api/lore/entries/{id}/timing`): an entry that is not always on
+  can linger (stay in for some lines after it comes up), rest (stay out for some lines after that), wait (not come up
+  before a given line), come up on a chance in a hundred, or belong to a group that only one entry comes up from at
+  a time, picked by weight. Lines are the player's lines in the story. The timers (`lore_timers`) are saved with each
+  line, so going back or switching branch rewinds them, and the chance is seeded by branch, line and entry, so a
+  retry rolls the same. SillyTavern world info brings its own sticky, cooldown, delay, probability and inclusion
+  groups; a world package entry can carry the same fields. Each entry's "Timing" fold sets them, and its line says
+  where its timer stands ("Resting for 2 more lines").
 - **Reference library** (`dungeon/library.py`): add a long text (text, Markdown, HTML, EPUB or a TiddlyWiki file),
   turn it on or off, delete it, and "Look inside" to search its passages the way the narrator would.
 
