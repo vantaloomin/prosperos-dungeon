@@ -195,45 +195,60 @@ def shown(town: dict) -> set[str]:
             if thing}
 
 
+def unfound(app, data: dict) -> list[dict]:
+    """The town's own places the character does not know of; which they passed on arrival is up to the seed."""
+    with app.state.database.connect() as connection:
+        knows = townmap.known(connection, data)
+    return [place for place in data['places'] if place['id'] not in knows]
+
+
 def test_a_stranger_knows_where_they_are_and_the_landmarks_but_not_the_rest(client, app):
     ok(client.put('/api/story/scene', json={'city_id': 'kingswood', 'place_id': 'pell-provisions'}))
+    data = catalog.city('kingswood')
     town = ok(client.get('/api/story/town'))['town']
     on_map = shown(town)
     assert 'pell-provisions' in on_map
-    # The temple and the market anyone could find; a dive across the river nobody told them of, they could not.
+    # The temple and the market anyone could find; what they have not been to, passed or heard of, they could not.
     assert {'shrine-of-tidum', 'crossroads-market'} <= on_map
-    assert 'mother-mags' not in on_map and 'the-kilns' not in on_map
-    # Nor is it in the list of places to find, or named anywhere on the map.
-    assert "Mother Mag's" not in str(town)
+    hidden = unfound(app, data)
+    assert len(hidden) > 5
+    assert not {place['id'] for place in hidden} & on_map
+    # Nor is any of it in the list of places to find, or named anywhere on the map.
+    assert not [place['name'] for place in hidden if f"'{place['name']}'" in str(town)]
     with app.state.database.connect() as connection:
-        knows = townmap.known(connection, catalog.city('kingswood'))
-    assert knows['pell-provisions'] == 'visited' and knows['shrine-of-tidum'] == 'landmark'
-    assert 'mother-mags' not in knows
+        knows = townmap.known(connection, data)
+    assert knows['pell-provisions'] == 'visited' and knows['shrine-of-tidum'] in {'landmark', 'passed'}
 
 
 def test_a_place_named_in_the_story_is_known_from_then_on(client, app):
     ok(client.put('/api/story/scene', json={'city_id': 'kingswood', 'place_id': 'pell-provisions'}))
     data = catalog.city('kingswood')
+    first, second = unfound(app, data)[:2]
     with app.state.database.connect(write=True) as connection:
-        told = townmap.heard(connection, data, '"Try Mother Mag\'s, down by the charcoal kilns," she says. Green eyes.')
-    assert set(told) == {'mother-mags', 'the-kilns'}
-    assert 'the-green' not in told  # "Green eyes" is not the Green
-    town = ok(client.get('/api/story/town'))['town']
-    assert {'mother-mags', 'the-kilns'} <= shown(town)
+        told = townmap.heard(connection, data, f'"Try {first["name"]}, or else {second["name"]}," she says.')
+    assert {first['id'], second['id']} <= set(told)  # an employer of the same name is known with its place
+    assert {first['id'], second['id']} <= shown(ok(client.get('/api/story/town'))['town'])
     with app.state.database.connect() as connection:
-        assert townmap.known(connection, data)['mother-mags'] == 'told'
+        assert townmap.known(connection, data)[first['id']] == 'told'
+    # A name is matched with its capitals, so the Green is not any green thing; one with none in any case.
+    assert townmap.named_in('the Green', 'Out on the Green.') and not townmap.named_in('the Green', 'Green eyes, she has.'[6:])
+    assert townmap.named_in('the charcoal kilns', 'Past the Charcoal Kilns.')
+    assert not townmap.named_in('the Inn', 'At the Inn.')
 
 
 def test_looking_at_a_building_finds_the_place_in_it(client, app):
     ok(client.put('/api/story/scene', json={'city_id': 'kingswood', 'place_id': 'pell-provisions'}))
+    data = catalog.city('kingswood')
+    hidden = {place['id'] for place in unfound(app, data)}
     with app.state.database.connect() as connection:
-        board = townmap.layout(catalog.city('kingswood'), hexes.seed(connection))
-    lot = next(lot for lot in board['lots'] if lot['place'] and lot['place']['id'] == 'mother-mags')
+        board = townmap.layout(data, hexes.seed(connection))
+    lot = next(lot for lot in board['lots'] if lot['place'] and lot['place']['id'] in hidden)
+    place = lot['place']['id']
     town = ok(client.get('/api/story/town'))['town']
     assert next(item for item in town['lots'] if item['id'] == lot['id'])['place'] is None
     looked = ok(client.post(f"/api/story/town/lots/{lot['id']}/look"))
-    assert looked['found']['id'] == 'mother-mags' and looked['found']['summary']
-    assert next(item for item in looked['town']['lots'] if item['id'] == lot['id'])['place']['id'] == 'mother-mags'
+    assert looked['found']['id'] == place and 'summary' in looked['found']
+    assert next(item for item in looked['town']['lots'] if item['id'] == lot['id'])['place']['id'] == place
     # Found once, it is on the map like any other named place.
     assert client.post(f"/api/story/town/lots/{lot['id']}/look").status_code == 400
 
@@ -262,7 +277,9 @@ def test_going_somewhere_makes_it_known_and_a_character_from_the_town_knows_it_a
     with app.state.database.connect() as connection:
         knows = townmap.known(connection, data)
     assert {place['id'] for place in data['places']} <= set(knows)
-    assert knows['mother-mags'] == 'home' and knows['tannery'] == 'visited'
+    # What they had not found they knew of anyway, as one from the town.
+    assert knows['tannery'] == 'visited' and 'home' in knows.values()
+    assert not {'landmark', 'told', 'looked'} & set(knows.values())
     # A hidden place is hidden from a local too.
     hidden = data | {'places': [*data['places'], data['places'][0] | {'id': 'cellar', 'tags': ['secret']}]}
     with app.state.database.connect() as connection:
