@@ -58,7 +58,12 @@ export interface BackupList {
   auto_backups: AutoBackups; last_auto_backup: string | null; auto_backup_count: number
 }
 
-export interface CitySummary { id: string; name: string; region: string; country: string; timezone: string; summary: string; era?: string; category?: string }
+/** `world` is the world package the city is on the travel map of (null for one on its own); `home` false marks a
+ * road between towns, not somewhere to live (dungeon/world/schema.py). */
+export interface CitySummary {
+  id: string; name: string; region: string; country: string; timezone: string; summary: string; era?: string; category?: string
+  world?: string | null; world_name?: string | null; home?: boolean
+}
 
 /** Someone's kind and how long they live (dungeon/world/lifespans.py `described`). `own` is the user's pick of
  * How long they live: null as their kind, 0 doesn't age. `years` is what applies (null: they don't age). */

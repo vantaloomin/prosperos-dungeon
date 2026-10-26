@@ -465,6 +465,9 @@ class City(Record):
     water: list[Water] = Field(default_factory=list, max_length=12)
     # The town's street map (dungeon/townmap.py): laid out from the neighborhoods, places and water above.
     town_map: TownMap | None = None
+    # False for the stretch between towns (a world's roads, a tower's floors): somewhere to pass through, not to
+    # live, so the pickers for where someone lives leave it out.
+    home: bool = True
     # Named people placed in town (a pack's characters), beside the seeded townsfolk.
     notables: list[Notable] = Field(default_factory=list, max_length=200)
     # Quirks and goals of the city's own for its townsfolk (dungeon/world/townsfolk.py).

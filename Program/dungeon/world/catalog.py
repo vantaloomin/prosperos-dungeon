@@ -279,6 +279,7 @@ def summary(data: dict) -> dict:
         'counts': {key: len(data[key]) for key in ('neighborhoods', 'places', 'colleges', 'employers',
                                                    'annual_events')}, 'builtin': data.get('builtin', False),
         'origin': data.get('origin', 'user'), 'category': category(data), 'distribution': data['distribution'],
+        'home': data.get('home', True),
         'import_notes': data.get('import_notes', [])}
 
 

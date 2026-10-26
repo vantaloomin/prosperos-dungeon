@@ -20,12 +20,12 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-from dungeon import backup, lore, restore, story
+from dungeon import backup, lore, restore, story, tiers
 from dungeon.clock import AppClock
 from dungeon.database import Database, identifier, optional
 from dungeon.errors import require
 from dungeon.models import PERSONA_AGES
-from dungeon.world import catalog, custom, generators, lifespans, mix, where
+from dungeon.world import catalog, generators, lifespans, mix, where
 
 REGISTRY = 'worlds.json'
 FOLDER = 'worlds'
@@ -36,6 +36,8 @@ GENDERS = ('woman', 'man', 'nonbinary')
 SHARED = tuple(table for table in restore.KEPT_SETTINGS if table != 'debug_time') + ('world_cities',)
 # The city picker's "Somewhere new (picked for you)": a featured city other than the one the user is in.
 SOMEWHERE_NEW = 'somewhere-new'
+# The world of the cities outside the world packages, in `somewhere-new:custom`.
+CUSTOM = 'custom'
 
 
 # The registry -------------------------------------------------------------------------------------------
@@ -283,9 +285,14 @@ def build(database: Database, path: Path, persona: dict, city_id: str, seed: str
     lore.carry_city_lore(path, database.path, data)
 
 
-def somewhere_new(connection, here: str, seed: str) -> str:
-    """A featured city other than `here`, the same one for the same world; `here` when nothing else is featured."""
-    others = [city['id'] for city in catalog.featured(custom.all_cities(connection))['cities'] if city['id'] != here]
+def somewhere_new(connection, here: str, seed: str, world: str | None = None) -> str:
+    """A town to live in of `world` (a world package, or 'custom' for the cities outside them; by default the world
+    `here` is in), other than `here` when that world has another, the same one for the same seed. Never a road
+    between towns (a city with `home` false)."""
+    world = world or tiers.world_of(here) or CUSTOM
+    towns = sorted(city['id'] for city in where.known_cities(connection).values()
+                   if city.get('home', True) and (tiers.world_of(city['id']) or CUSTOM) == world)
+    others = [city_id for city_id in towns if city_id != here] or towns
     return min(others, key=lambda city_id: generators.unit(city_id, 'somewhere-new', seed), default=here)
 
 
@@ -299,14 +306,14 @@ def unique_name(data: dict, wanted: str) -> str:
 def create_world(database: Database, persona_id: str | None = None, name: str | None = None,
                  city_id: str | None = None, town_mix: dict | None = None) -> dict:
     """A new world for a persona (the active one by default), in the current city unless another is named.
-    `SOMEWHERE_NEW` lets the app pick. `town_mix` is its townsfolk mix (Worlds > Townsfolk mix), else the current world's."""
+    `SOMEWHERE_NEW` lets the app pick a town in this world, `somewhere-new:<world>` one in that world. `town_mix` is its townsfolk mix (Worlds > Townsfolk mix), else the current world's."""
     data = registry(database)
     active = found(data['worlds'], data['active'], 'world')
     persona = found(data['personas'], persona_id or active['persona_id'], 'persona')
     world_id = identifier()
     with database.connect() as connection:
-        if city_id == SOMEWHERE_NEW:
-            city_id = somewhere_new(connection, city_of(connection)['id'], world_id)
+        if city_id and city_id.split(':')[0] == SOMEWHERE_NEW:
+            city_id = somewhere_new(connection, city_of(connection)['id'], world_id, city_id.partition(':')[2] or None)
         city = story.city_data(connection, city_id) if city_id else city_of(connection)
     folder = f'{FOLDER}/{world_id}'
     path = database.root / folder / DATABASE

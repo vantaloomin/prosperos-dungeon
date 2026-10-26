@@ -21,6 +21,8 @@ export interface CityListing {
   /** The world package the city belongs to (the travel map it is on), or null for a city on its own. */
   world?: string | null
   world_name?: string | null
+  /** False for a road between towns: somewhere to pass through, not to live. */
+  home?: boolean
 }
 
 /** The cities that belong where the user is: the built-in cities of the world `home` is in (or, for a city
@@ -30,6 +32,32 @@ export function citiesOfWorld<T extends Pick<CityListing, 'id' | 'origin' | 'wor
   if (!home) return cities
   const world = cities.find((city) => city.id === home)?.world ?? null
   return cities.filter((city) => city.origin !== 'builtin' || city.id === home || (city.world ?? null) === world)
+}
+
+/** The world a city's picker files it under: its world package, or 'custom' for a city outside them. */
+export const CUSTOM_WORLD = 'custom'
+
+interface Homed { id: string; name: string; world?: string | null; world_name?: string | null; home?: boolean }
+
+export interface HomeWorld<T> { id: string; name: string; towns: T[] }
+
+/** The worlds to pick first when choosing where someone lives, each with its towns A to Z: the featured cities'
+ * worlds in featured order, then the other worlds by name, then Custom (cities outside the world packages). A road
+ * between towns (`home` false) is never a town to live in. */
+export function homeWorlds<T extends Homed>(cities: T[], featured: Pick<Homed, 'id'>[] = []): HomeWorld<T>[] {
+  const worlds = new Map<string, HomeWorld<T>>()
+  for (const city of [...cities].sort((a, b) => a.name.localeCompare(b.name))) {
+    if (city.home === false) continue
+    const id = city.world || CUSTOM_WORLD
+    const world = worlds.get(id) ?? { id, name: id === CUSTOM_WORLD ? 'Custom' : city.world_name || id, towns: [] }
+    world.towns.push(city)
+    worlds.set(id, world)
+  }
+  const rank = (world: HomeWorld<T>) => {
+    const index = featured.findIndex((city) => world.towns.some((town) => town.id === city.id))
+    return world.id === CUSTOM_WORLD ? Infinity : index < 0 ? featured.length : index
+  }
+  return [...worlds.values()].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name))
 }
 
 /** One of the user's own cities that no longer loads, with its saved definition. */
