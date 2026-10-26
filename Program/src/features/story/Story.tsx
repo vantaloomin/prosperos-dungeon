@@ -3,18 +3,19 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowDown, Bookmark, Lightbulb, MapPin, RotateCcw, Send, Timer, Undo2 } from 'lucide-react'
 import { api, newId, streamApi } from '../../api'
 import type { View } from '../../workspace'
-import type { BandStep, CitySummary, Story as StoryData, StoryBack, StoryMessage, StoryScene, TurnEvent, TurnSoFar } from '../../types'
+import type { BandStep, CitySummary, Story as StoryData, StoryBack, StoryMap as TravelMap, StoryMessage, StoryScene, TurnEvent, TurnSoFar } from '../../types'
 import { Loading, Notice } from '../../components/Feedback'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { InfoTip } from '../../components/InfoTip'
 import { LifeCard } from './StoryLifeCard'
 import { AiFooter, CrisisNote } from '../../components/Safety'
-import { aroundText, foesText, journeyTo, NO_TURN, paceText, placeGroups, receiptsByReply, spotsText, turnAfter, whereText } from './storyText'
+import { aroundText, foesText, NO_TURN, otherTowns, paceText, placeGroups, receiptsByReply, spotsText, turnAfter, whereText } from './storyText'
 import { TurnReceipt } from './StoryReceipt'
 import { StatusStrip } from './StoryStatus'
 import { RollCard, TurnLive } from './StoryTurn'
-import { CityOptions } from '../world/CityOptions'
+import { StoryTown } from './StoryTown'
+import { StoryMap } from './StoryMap'
 import { AuthorsNote } from './AuthorsNote'
 import { StoryStart } from './StoryStart'
 import { TitleScreen } from './TitleScreen'
@@ -114,64 +115,74 @@ function StoryHeader({ story, change, onDraft }: HeaderProps) {
   return (
     <header className="story-header">
       <h1 id="story-heading" className="visually-hidden">Story</h1>
-      <SceneBar scene={story.scene} journeys={story.map?.places.filter((place) => !place.here).map((place) => place.name) ?? []} onDraft={onDraft}
+      <SceneBar scene={story.scene} map={story.map ?? null} onDraft={onDraft}
         onMove={(body) => change(() => api<StoryData>('/story/scene', body, 'PUT'))} status={<StatusStrip story={story} />} />
       {fight && <p className="story-fight" role="status">{fight}</p>}
     </header>
   )
 }
 
-interface SceneProps { scene: StoryScene; journeys: string[]; onDraft: (text: string) => void; onMove: (body: { city_id: string; place_id?: string }) => Promise<void>; status?: ReactNode }
+interface SceneProps { scene: StoryScene; map: TravelMap | null; onDraft: (text: string) => void; onMove: (body: { city_id: string; place_id?: string }) => Promise<void>; status?: ReactNode }
 
-function SceneBar({ scene, journeys, onDraft, onMove, status }: SceneProps) {
+function SceneBar({ scene, map, onDraft, onMove, status }: SceneProps) {
   const [moving, setMoving] = useState(false)
   return (
     <div className="story-scene">
       <div className="story-where">
         <p><MapPin aria-hidden="true" /> <strong>{whereText(scene)}</strong></p>
-        {!moving && <button type="button" className="text-button" onClick={() => setMoving(true)}>Go somewhere else…</button>}
+        <button type="button" className="text-button" aria-expanded={moving} onClick={() => setMoving(!moving)}>
+          {moving ? 'Stay here' : 'Go somewhere else…'}</button>
       </div>
       {status}
       {!!scene.place.spots?.length && <p className="subtle">{spotsText(scene.place.spots)}</p>}
       <p>{aroundText(scene.around)}</p>
-      {moving && <GoElsewhere scene={scene} journeys={journeys} onDone={() => setMoving(false)} onDraft={onDraft} onMove={onMove} />}
+      {moving && <GoElsewhere scene={scene} map={map} onDone={() => setMoving(false)} onDraft={onDraft} onMove={onMove} />}
     </div>
   )
 }
 
 interface GoProps extends Omit<SceneProps, 'scene' | 'status'> { scene: StoryScene; onDone: () => void }
 
-/** Somewhere on the travel map (a town, a keep) is a journey: it writes "I set out for…" into the composer, like the
- *  map does, so the road takes its hours and can bring trouble (dungeon/travel.py). A place across town is a cut. */
-function GoElsewhere({ scene, journeys, onDone, onDraft, onMove }: GoProps) {
+/** Going somewhere else, on the maps. A place across town is picked on the street map (./StoryTown.tsx) and is a cut.
+ *  Another town, a keep or a hex is picked on the travel map (./StoryMap.tsx) and is a journey: it writes "I set out
+ *  for…" into the composer, so the road takes its hours and can bring trouble (dungeon/travel.py). A town of this
+ *  world that no travel map shows is a cut too; towns of other worlds and the roads between towns are not offered. */
+function GoElsewhere({ scene, map, onDone, onDraft, onMove }: GoProps) {
   const cities = useQuery({ queryKey: ['world-cities'], queryFn: () => api<CitySummary[]>('/world/cities') })
-  const [city, setCity] = useState(scene.city.id)
-  const [place, setPlace] = useState(scene.place.id)
-  const here = city === scene.city.id
-  const go = () => {
-    const name = here ? scene.places.find((item) => item.id === place)?.name : cities.data?.find((item) => item.id === city)?.name
-    const journey = journeyTo(journeys, name)
-    if (journey) { onDraft(`I set out for ${journey}.`); onDone() }
-    else void onMove(here ? { city_id: city, place_id: place } : { city_id: city }).then(onDone)
-  }
+  const journeys = map?.places.filter((place) => !place.here).map((place) => place.name) ?? []
+  const towns = otherTowns(cities.data ?? [], scene.city.id, journeys)
+  const move = (body: { city_id: string; place_id?: string }) => void onMove(body).then(onDone)
+  const draft = (text: string) => { onDraft(text); onDone() }
+  const places = scene.places.filter((place) => place.id !== scene.place.id)
   return (
-    <div className="story-go form-actions">
-      <label>City
-        <select value={city} onChange={(event) => setCity(event.target.value)}>
-          <CityOptions cities={cities.data ?? [scene.city]} />
-        </select>
-      </label>
-      {here && <label>Place
-        <select value={place} onChange={(event) => setPlace(event.target.value)}>
-          {placeGroups(scene.places).map(([hood, places]) => (
-            <optgroup key={hood} label={hood}>
-              {places.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.kind})</option>)}
-            </optgroup>))}
-        </select>
-      </label>}
-      <button type="button" className="button primary" onClick={go}>Go</button>
-      <button type="button" className="text-button" onClick={onDone}>Stay here</button>
+    <div className="story-go">
+      <StoryTown where={`${scene.city.id}/${scene.place.id}`} open onGo={(thing) => move({ city_id: scene.city.id, place_id: thing.id })}
+        empty={!!places.length && <PlaceList places={places} onGo={(id) => move({ city_id: scene.city.id, place_id: id })} />} />
+      <StoryMap map={map} open onTravel={(name) => draft(`I set out for ${name}.`)} onLine={draft} />
+      {!!towns.length && <div className="story-go-towns">
+        <p className="subtle">Other towns</p>
+        <ul className="map-places">
+          {towns.map((town) => <li key={town.id}><span>{town.name}</span>
+            <button type="button" className="text-button" onClick={() => move({ city_id: town.id })}>Go</button></li>)}
+        </ul>
+      </div>}
     </div>
+  )
+}
+
+/** The places here by neighborhood, where there is no street map to pick them on. */
+function PlaceList({ places, onGo }: { places: StoryScene['places']; onGo: (id: string) => void }) {
+  return (
+    <details className="story-people" open>
+      <summary>Places here</summary>
+      {placeGroups(places).map(([hood, items]) => <Fragment key={hood}>
+        <p className="subtle">{hood}</p>
+        <ul className="map-places">
+          {items.map((item) => <li key={item.id}><span>{item.name} <span className="subtle">({item.kind})</span></span>
+            <button type="button" className="text-button" onClick={() => onGo(item.id)}>Go</button></li>)}
+        </ul>
+      </Fragment>)}
+    </details>
   )
 }
 

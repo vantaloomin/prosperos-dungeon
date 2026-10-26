@@ -1,14 +1,23 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api'
 import { kindName, lotClass, type TownLot, middle, namedPlaces, points, viewBox, whereOnMap, ZOOMS, type Point, type TownMap, type TownThing } from './town'
 
 interface Picked { thing: TownThing; at: Point }
 
+interface TownProps {
+  where: string; open?: boolean; onLine?: (text: string) => void
+  /** Going there now, with no line to send (the scene bar's Go somewhere else); without it, going puts the line in the box. */
+  onGo?: (thing: TownThing) => void
+  /** What shows instead when there is no street map here. */
+  empty?: ReactNode
+}
+
 /** The street map of the town the story is in (dungeon/townmap.py): its neighborhoods, streets, main roads, water
  *  and buildings, laid out by code from the town's data and the campaign's seed. A place on it can be looked at and
- *  gone to; going puts the line in the box. Zoomed in, the map follows where you are or what you picked. */
-export function StoryTown({ where, open, onLine }: { where: string; open?: boolean; onLine?: (text: string) => void }) {
+ *  gone to; going puts the line in the box, or with `onGo` goes now. Zoomed in, the map follows where you are or what
+ *  you picked. */
+export function StoryTown({ where, open, onLine, onGo, empty }: TownProps) {
   const key = ['story-town', where]
   const client = useQueryClient()
   const town = useQuery({ queryKey: key, queryFn: () => api<{ town: TownMap | null }>('/story/town') })
@@ -16,7 +25,7 @@ export function StoryTown({ where, open, onLine }: { where: string; open?: boole
   const [picked, setPicked] = useState<Picked | null>(null)
   const [error, setError] = useState('')
   const map = town.data?.town
-  if (!map) return town.isSuccess ? <p className="subtle">There is no street map out here.</p> : null
+  if (!map) return town.isSuccess ? empty ?? <p className="subtle">There is no street map out here.</p> : null
   const places = namedPlaces(map)
   // A blank building is decided when you look at it, and kept.
   const look = async (lot: TownLot) => {
@@ -41,7 +50,7 @@ export function StoryTown({ where, open, onLine }: { where: string; open?: boole
       </div>
       <TownSvg map={map} zoom={zoom} picked={picked} onPick={setPicked} onLook={(lot) => void look(lot)} />
       {error && <p className="subtle" role="alert">{error}</p>}
-      <PickedPanel picked={picked} here={map.here.place} onLine={onLine} />
+      <PickedPanel picked={picked} here={map.here.place} onLine={onLine} onGo={onGo} />
       <label className="town-find">
         <span className="visually-hidden">Find a place</span>
         <select value={picked?.thing.id ?? ''} onChange={(event) => find(event.target.value)}>
@@ -54,15 +63,15 @@ export function StoryTown({ where, open, onLine }: { where: string; open?: boole
 }
 
 /** The building or place picked on the map: what it is, and a way to go there. */
-function PickedPanel({ picked, here, onLine }: { picked: Picked | null; here: string; onLine?: (text: string) => void }) {
+function PickedPanel({ picked, here, onLine, onGo }: { picked: Picked | null; here: string; onLine?: (text: string) => void; onGo?: (thing: TownThing) => void }) {
   if (!picked) return <p className="subtle">Pick a building to see what is there.</p>
   const { thing } = picked
   return (
     <div className="town-picked">
       <p><strong>{thing.name}</strong> <span className="subtle">{kindName(thing)}</span>
         {thing.summary && <><br /><span className="subtle">{thing.summary}</span></>}</p>
-      {thing.id !== here && onLine &&
-        <button type="button" className="text-button" onClick={() => onLine(`I head to ${thing.name}.`)}>Go there</button>}
+      {thing.id !== here && (onGo || onLine) &&
+        <button type="button" className="text-button" onClick={() => onGo ? onGo(thing) : onLine?.(`I head to ${thing.name}.`)}>Go there</button>}
     </div>
   )
 }

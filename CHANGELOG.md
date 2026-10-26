@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Go somewhere else on the maps.** "Go somewhere else…" now opens the town's street map and the travel map instead of
+  the City and Place dropdowns. Pick a building and Go there to cross town; pick a town, keep or hex on the travel map
+  to set out on the road. Only the towns of the world you're in are offered: no roads between towns, and no towns of
+  other worlds. Where a town has no street map, its places are listed to pick from.
 - **Pick a world, then a town.** Where a new persona or world lives is now two steps: Vallarith, Havenbrooke, BABEL
   or Custom first, then a town of that world (or somewhere new there, picked for you). The roads between towns and
   BABEL's tower floors are no longer offered as homes, the featured towns aren't listed twice, and the Gilded Bazaar

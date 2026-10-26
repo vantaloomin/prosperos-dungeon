@@ -528,3 +528,15 @@ export function todayLine(item: Pick<JournalInstitution, 'term' | 'today'>): str
   if (!item.term) return ''
   return item.today.length ? `Today: ${item.today.map((entry) => `${entry.name} at ${entry.at}`).join(', ')}` : 'No more classes today'
 }
+
+interface Town { id: string; name: string; world?: string | null; home?: boolean }
+
+/** The towns to go to that the travel map doesn't show (`journeys` are its names): the other towns of the world the
+ *  story is in, A to Z (none until the list holds the town the story is in). A road between towns (`home` false) and a town of another world are not among them. */
+export function otherTowns<T extends Town>(cities: T[], here: string, journeys: string[]): T[] {
+  const current = cities.find((city) => city.id === here)
+  if (!current) return []
+  const world = current.world ?? null
+  return cities.filter((city) => city.id !== here && city.home !== false && (city.world ?? null) === world && !journeyTo(journeys, city.name))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
