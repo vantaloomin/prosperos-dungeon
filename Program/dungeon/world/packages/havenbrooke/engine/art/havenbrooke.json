@@ -1,5 +1,5 @@
 {
- "about": "Default backdrops (dungeon/art.py backdrop): pictures of generic places, shown behind the story when nobody has made a picture of the place. Made once with scripts/art/backdrops.py (Windows/backdrops.bat); the images are assets/backdrops/<id>.webp, and <id>-night.webp for an outdoor one. A backdrop is picked by a place's own `backdrop`, then a hex site or terrain, a blank lot's entry, the most shared tags, the kind, the street, the default.",
+ "about": "Default backdrops (dungeon/art.py backdrop): pictures of generic places, shown behind the story when nobody has made a picture of the place. Made once with scripts/art/backdrops.py (Windows/backdrops.bat); the images are assets/backdrops/<id>.webp, and <id>-night.webp for an outdoor one. A backdrop is picked by a place's own `backdrop`, then a hex site or terrain, a blank lot's entry, the most shared tags, the kind, the street, the default. Faction emblems (`emblems`, by faction id, in `emblem_style`) and item icons (`icons`: by item id, the ids in `items`, or a whole `category`, in `icon_style`) are made by scripts/art/icons.py into assets/emblems and assets/icons (dungeon/icons.py).",
  "backdrop_style": "Photorealistic 35mm photograph, natural light, autumn 2009 in a small upstate New York college town, period-accurate details (no smartphones, 2000s cars and signage), wide establishing shot",
  "backdrop_avoid": "people, figures, text, lettering, signs with words, watermark, logo",
  "keyart": {"prompt": "Key art for a modern fantasy university drama. Golden hour in late October 2009 on a gothic-revival stone college quad on a hill above a long Finger Lakes lake; a clock tower, ivy gone red, maples shedding orange leaves over brick paths; faint violet light glowing up through the cracks of three crossing paths like buried lines of power; one lone student with a backpack walking away from the camera, small in frame. Warm, melancholy, a little uncanny. Open sky in the upper left third.", "avoid": "text, lettering, words, title, logo, watermark, readable interface text"},
@@ -608,6 +608,287 @@
    ],
    "outdoor": true,
    "prompt": "An old quarry tunnel into a hillside, a rusted gate hanging open, cold darkness inside."
+  }
+ ],
+ "emblem_style": "An emblem for an organization in a 2009 American college town where magic is regulated by law: a crisp seal, crest, patch or logo mark, clean flat design with a subtle print texture, centered and filling the frame, on a transparent background",
+ "emblem_avoid": "text, letters, numbers, words, readable labels, brand logos, watermark, signature, background scene, frame border, people, hands",
+ "emblems": [
+  {
+   "id": "ded",
+   "prompt": "A round federal agency seal: an eagle holding an olive branch and a balanced pair of scales, a small five-pointed star above, in navy blue and gold."
+  },
+  {
+   "id": "federal-esoteric-court",
+   "prompt": "A round federal court seal: seven stars around a gavel crossed with an oak wand, in black and silver."
+  },
+  {
+   "id": "havenbrooke-university",
+   "prompt": "A university crest shield: an open book beneath a lantern and a crow in flight, in black and umber with gold trim, collegiate heraldry."
+  },
+  {
+   "id": "haven-city",
+   "prompt": "A round small-town city seal: a clock tower over a river bridge framed by autumn maple leaves, in green and cream."
+  },
+  {
+   "id": "council-of-bloodlines",
+   "prompt": "A round seal: twelve small drops of blood in a ring around a black rose, dark crimson with silver edging; an old-money vampire council."
+  },
+  {
+   "id": "crane-family",
+   "prompt": "An elegant family crest: a crane standing on one leg on a hilltop, silver on oxblood red, a subtle fang shape in the crest's mantling; an old vampire family."
+  },
+  {
+   "id": "national-coven-registry",
+   "prompt": "An official seal: a pentacle in a circle with a quill and a key crossed beneath it, in deep purple and silver, institutional."
+  },
+  {
+   "id": "corwin-lineage",
+   "prompt": "A Boston old-money family crest: a raven perched on a closed book over a five-pointed star, in navy and gold, refined."
+  },
+  {
+   "id": "providence-coven",
+   "prompt": "A silver crescent moon cradling an anchor on a deep blue roundel ringed with small stars; an exclusive senior coven."
+  },
+  {
+   "id": "lycan-assembly",
+   "prompt": "A wolf's head in profile howling at a full moon, inside a strong round badge in charcoal and amber; a national lycan organization."
+  },
+  {
+   "id": "fae-heritage-council",
+   "prompt": "Butterfly-like fae wings framing an oak leaf and a pair of scales, in soft green and gold; a diplomatic council emblem."
+  },
+  {
+   "id": "eastern-seelie",
+   "prompt": "A golden sun made of leaves over a stylized coastline and a ribbon-bound scroll, in green and gold; a fae court archive seal."
+  },
+  {
+   "id": "house-aelhwynn",
+   "prompt": "An ornate fae house sigil: a silver swan with wings of flowering vine, in pale lilac and silver, delicate and aristocratic."
+  },
+  {
+   "id": "vhen-morrath",
+   "prompt": "A hearth fire in an iron grate framed by a pair of curling demonic horns, in black, ember orange and deep rose; an old demon family's mark."
+  },
+  {
+   "id": "alpha-gamma",
+   "prompt": "A fraternity crest shield: a wolf's paw print under a full moon, flanked by pine branches, in forest green and silver."
+  },
+  {
+   "id": "phi-sigma-nox",
+   "prompt": "A fraternity crest: a black bat with folded wings over a crescent moon and a wine goblet, in black, burgundy and gold, tailored and old."
+  },
+  {
+   "id": "sigma-theta-hex",
+   "prompt": "A sorority crest: a spell circle of sigils around two crescent moons back to back, in plum and silver."
+  },
+  {
+   "id": "delta-nu-iris",
+   "prompt": "A sorority crest: an iris flower with butterfly wings in a ring of garden leaves, in lavender and soft green."
+  },
+  {
+   "id": "omicron-phi-ember",
+   "prompt": "A society crest: a single ember flame inside a ring, in black and glowing orange-red, sleek and discreet."
+  },
+  {
+   "id": "kappa-rho-sigma",
+   "prompt": "A preppy fraternity crest: a laurel wreath around a shield with a key and a chevron, in navy and gold, ambitious and careerist."
+  },
+  {
+   "id": "delta-omicron-theta",
+   "prompt": "A scrappy DIY zine-style badge: a film reel and a microphone crossed over a star, photocopied black ink with a pop of red."
+  },
+  {
+   "id": "phi-alpha-mu",
+   "prompt": "A house crest: hands of many different skin tones joined in a circle around a dinner plate, in warm teal and gold."
+  },
+  {
+   "id": "kindling",
+   "prompt": "A small hand-drawn emblem of a carefully built campfire, logs stacked in a neat cabin shape around a steady flame, warm orange on cream."
+  },
+  {
+   "id": "integration-society",
+   "prompt": "A friendly club badge: a rooftop observatory dome under a crescent moon and stars, in navy and pale yellow."
+  },
+  {
+   "id": "hexenkreis",
+   "prompt": "A society crest: a ring of seven candles around a witch's athame dagger, in charcoal and violet."
+  },
+  {
+   "id": "student-enchanters-guild",
+   "prompt": "A student club badge: a sparkling charmed ring and a jeweler's loupe over two crossed wands, in teal and copper."
+  },
+  {
+   "id": "the-oracle",
+   "prompt": "A student newspaper emblem: an open eye inside a printing press roller, black ink on newsprint grey."
+  },
+  {
+   "id": "crestfall-crows",
+   "prompt": "A college sports logo: a fierce black crow with spread wings and gripping talons, in black and umber, bold athletic mascot style."
+  }
+ ],
+ "icon_style": "A single object, photorealistic product photograph in soft studio light, period-accurate for 2009, three-quarter view, the whole object centered in frame, on a transparent background",
+ "icon_avoid": "text, letters, numbers, words, readable labels, brand logos, watermark, signature, background scene, frame border, people, hands",
+ "icons": [
+  {
+   "id": "coffee-to-go",
+   "prompt": "A paper coffee cup with a plastic lid and a cardboard sleeve, plain."
+  },
+  {
+   "id": "sandwich",
+   "prompt": "A deli sandwich on a hoagie roll, half wrapped in white paper."
+  },
+  {
+   "id": "energy-drink",
+   "prompt": "A slim blue and silver energy drink can."
+  },
+  {
+   "id": "ramen",
+   "prompt": "A cardboard case of instant ramen packs with one pack on top."
+  },
+  {
+   "id": "beer-case",
+   "prompt": "A long cardboard thirty-rack of cheap light beer cans in blue and white."
+  },
+  {
+   "id": "cold-medicine",
+   "prompt": "A box of cold medicine with a blister pack of capsules."
+  },
+  {
+   "id": "painkillers",
+   "prompt": "A white plastic bottle of ibuprofen with a few brown tablets beside it."
+  },
+  {
+   "id": "first-aid-kit",
+   "prompt": "A small red soft-case first aid kit with a white cross."
+  },
+  {
+   "id": "condoms",
+   "prompt": "A small cardboard box of condoms with a couple of foil wrappers beside it."
+  },
+  {
+   "id": "phone-card",
+   "prompt": "A plastic prepaid phone card with a scratch-off strip."
+  },
+  {
+   "id": "flip-phone",
+   "prompt": "A silver flip phone from the 2000s, half open."
+  },
+  {
+   "id": "iphone",
+   "prompt": "A black 2009 touchscreen smartphone with a single round home button, the screen dark."
+  },
+  {
+   "id": "laptop",
+   "prompt": "A black plastic 2009 laptop, half open, the screen dark."
+  },
+  {
+   "id": "backpack",
+   "prompt": "A navy blue student backpack."
+  },
+  {
+   "id": "notebook",
+   "prompt": "A spiral-bound college-ruled notebook."
+  },
+  {
+   "id": "textbook",
+   "prompt": "A thick used college textbook with a worn cover and highlighter tabs."
+  },
+  {
+   "id": "umbrella",
+   "prompt": "A closed black folding umbrella."
+  },
+  {
+   "id": "winter-coat",
+   "prompt": "A charcoal puffer winter coat."
+  },
+  {
+   "id": "hoodie",
+   "prompt": "A black and umber college hoodie with a crow on the chest."
+  },
+  {
+   "id": "sage-bundle",
+   "prompt": "A bundle of dried white sage tied with red string."
+  },
+  {
+   "id": "chalk",
+   "prompt": "A fat stick of white ritual chalk with a faint glowing dust on it."
+  },
+  {
+   "id": "licensed-charm",
+   "prompt": "A small silver charm pendant with an official stamped hallmark tag tied on."
+  },
+  {
+   "id": "blood-pack",
+   "prompt": "A clear medical bag of donor blood with a white label."
+  },
+  {
+   "id": "pepper-spray",
+   "prompt": "A small black pepper spray canister on a keyring."
+  },
+  {
+   "id": "silver-knife",
+   "prompt": "An open silver folding pocketknife with a mother-of-pearl handle."
+  },
+  {
+   "id": "fae-euphoric",
+   "prompt": "A tiny corked glass vial of shimmering iridescent liquid."
+  },
+  {
+   "id": "truck-keys",
+   "prompt": "A truck key with a worn black rubber head on a ring with a bottle opener."
+  },
+  {
+   "id": "audi-keys",
+   "prompt": "A sleek black key fob for a luxury sedan on a leather loop."
+  },
+  {
+   "id": "shuttle-pass",
+   "prompt": "A plastic student ID card on a lanyard."
+  },
+  {
+   "id": "kind-food",
+   "category": "food",
+   "prompt": "A brown paper grocery bag with bread and fruit"
+  },
+  {
+   "id": "kind-gear",
+   "category": "gear",
+   "prompt": "A canvas messenger bag"
+  },
+  {
+   "id": "kind-clothing",
+   "category": "clothing",
+   "prompt": "A folded flannel shirt on folded jeans"
+  },
+  {
+   "id": "kind-weapon",
+   "category": "weapon",
+   "prompt": "A folding pocketknife beside a small canister"
+  },
+  {
+   "id": "kind-tool",
+   "category": "tool",
+   "prompt": "A pen on a pad of sticky notes"
+  },
+  {
+   "id": "kind-remedy",
+   "category": "remedy",
+   "prompt": "A plastic pill bottle and an adhesive bandage"
+  },
+  {
+   "id": "kind-curio",
+   "category": "curio",
+   "prompt": "A small crystal pendant on a chain"
+  },
+  {
+   "id": "kind-trade",
+   "category": "trade",
+   "prompt": "A taped cardboard shipping box"
+  },
+  {
+   "id": "kind-service",
+   "category": "service",
+   "prompt": "A paper receipt with a pen across it"
   }
  ]
 }

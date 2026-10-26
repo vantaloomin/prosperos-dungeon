@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 import { api } from '../../api'
 import type { Gear, Journal, Story } from '../../types'
-import { cardOf, namesIn, type CardAction, type EntityRef } from './entity'
+import { cardOf, namesIn, type Card, type CardAction, type EntityRef } from './entity'
 import { EntityContext } from './entityContext'
 
 /** A name that opens its card; plain text where there is no card to open. */
@@ -30,6 +30,20 @@ export function EntityHost({ story, onDraft, onFind, children }: HostProps) {
   </EntityContext.Provider>
 }
 
+/** The card's title and kind, beside the emblem or icon when the thing has one. */
+function CardHead({ card, onClose }: { card: Card | null; onClose: () => void }) {
+  return (
+    <div className="entity-card-head">
+      {card?.picture && <img className="entity-picture" src={card.picture} alt="" width={72} height={72} />}
+      <div>
+        <h2 id="entity-title">{card?.title ?? 'Gone'}</h2>
+        {card && <p className="subtle">{card.kind}</p>}
+      </div>
+      <button type="button" className="icon-button" aria-label="Close" onClick={onClose}><X aria-hidden="true" /></button>
+    </div>
+  )
+}
+
 interface CardProps { entity: EntityRef; story: Story; onAct: (action: CardAction) => void; onClose: () => void }
 
 /** The entity card (rule 2): what the character has seen of it and knows about it, and what they can do, each action
@@ -48,13 +62,7 @@ function EntityCard({ entity, story, onAct, onClose }: CardProps) {
   return (
     <dialog ref={dialog} className="dialog entity-card" aria-labelledby="entity-title" onClose={onClose} onCancel={onClose}
       onClick={(event) => { if (event.target === dialog.current) onClose() }}>
-      <div className="entity-card-head">
-        <div>
-          <h2 id="entity-title">{card?.title ?? 'Gone'}</h2>
-          {card && <p className="subtle">{card.kind}</p>}
-        </div>
-        <button type="button" className="icon-button" aria-label="Close" onClick={onClose}><X aria-hidden="true" /></button>
-      </div>
+      <CardHead card={card} onClose={onClose} />
       {card ? <div className="dialog-body">
         {card.about.map((line, index) => <p key={index}>{line}</p>)}
         {!!card.known.length && <>

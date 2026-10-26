@@ -326,8 +326,9 @@ export interface StoryPerson {
   party?: boolean
 }
 /** The character's purse and pack, and the shop window where the story is (dungeon/inventory.py). Money is in hundredths. */
-export interface GearItem { id: string; item_id: string; name: string; category: string; qty: number; slots: number; stolen?: boolean; condition?: 'sound' | 'damaged' | 'broken' }
-export interface ShopRow { item_id: string; name: string; category: string; price: number; qty: number; slots: number }
+/** `icon`: the world's picture of the thing (dungeon/icons.py), null when it has none. */
+export interface GearItem { id: string; item_id: string; name: string; category: string; qty: number; slots: number; stolen?: boolean; condition?: 'sound' | 'damaged' | 'broken'; icon?: string | null }
+export interface ShopRow { item_id: string; name: string; category: string; price: number; qty: number; slots: number; icon?: string | null }
 /** `haggled`: today's prices after a haggle, in percent off (negative) or on; 0 without one. */
 /** `fence`: buys stolen goods; `cash`: what the keeper has to buy with (null: unlimited); `market`: prices moved by events. */
 export interface Shop { place_id: string; open: boolean; keeper: string; haggled: number; stock: ShopRow[]; offers: Record<string, number>; fence?: boolean; cash?: number | null; market?: string }
@@ -452,8 +453,9 @@ export type ToneCategory = 'violence' | 'sex' | 'horror' | 'cruelty' | 'drugs'
 export type VeilTopic = 'execution' | 'slavery' | 'mutilation' | 'disease' | 'self-harm' | 'addiction' | 'torture' | 'sexual-violence' | 'sacrifice' | 'child-harm'
 export type ToneVoice = 'world' | 'grim' | 'wry' | 'romantic' | 'hopeful' | 'lyrical' | 'plain'
 export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; bands?: BandStep[] | null; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null; injury_persistence: InjuryPersistence; table?: TableRules; factions?: StoryFaction[]; tier?: StoryTier | null; campaign?: StoryCampaign; message_id?: string }
-/** A faction the character knows of (dungeon/factions.py): standing in words, with the number when the dice are shown. */
-export interface StoryFaction { id: string; name: string; summary: string; standing: string }
+/** A faction the character knows of (dungeon/factions.py): standing in words, with the number when the dice are shown,
+ * and its emblem (dungeon/icons.py) when the world has one. */
+export interface StoryFaction { id: string; name: string; summary: string; standing: string; emblem?: string | null }
 export type InjuryPersistence = 'permanent' | 'temporary' | 'none'
 /** The travel map as far as the character knows it (dungeon/travel.py); positions run 0 to 1 across the world map. */
 export interface StoryMap {

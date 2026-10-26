@@ -1056,6 +1056,14 @@ Settings (`dungeon/images`), and never hold up the story.
   must match theirs (they/them fit any). With no folk or job match a `default` one stands in, and people who fit the
   same entries are spread across them by key. Made once with `scripts/art/portraits.py` (same backends as the
   backdrops; `--backend openai` uses the OpenAI API), at 1024x1536 cut to 3:4. A portrait made of them wins.
+- **Faction emblems and item icons** (`dungeon/icons.py`): each power in the Powers panel and on its card shows its
+  emblem, and each thing in the pack, on the counter and on its card shows its icon, again with no image backend.
+  The world's art file lists them (`emblems` by faction id; `icons` by item id, by the ids in an entry's `items`, or
+  for a whole `category`), with the images in `assets/emblems` and `assets/icons` (256 pixels square, transparent),
+  served from `GET /api/story/art/emblem|icon/<world>/<file>`. An item's own icon wins, then its category's; it is
+  pictured in the world of the town it came from. They are made once with `scripts/art/icons.py` through the OpenAI
+  API (`CHATGPT_API_KEY`), in the world's `emblem_style` and `icon_style`: heraldry and painted objects for
+  Vallarith, seals and product photographs for Havenbrooke, game crests and game icons for BABEL.
 
 ## Off-page beats and word getting around
 

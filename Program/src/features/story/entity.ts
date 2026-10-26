@@ -12,7 +12,7 @@ export interface CardAction { label: string; line?: string; find?: string }
 
 /** A card: what the thing is, what the character has seen of it, what they know (facts the game keeps, never hidden
  *  truth: rule 4), and what they can do. */
-export interface Card { title: string; kind: string; about: string[]; known: string[]; actions: CardAction[] }
+export interface Card { title: string; kind: string; about: string[]; known: string[]; actions: CardAction[]; picture?: string | null }
 
 const lower = (text: string) => text.charAt(0).toLowerCase() + text.slice(1)
 const first = (name: string) => name.split(' ')[0]
@@ -58,7 +58,7 @@ function itemCard(gear: Gear | undefined, id: string, entries: JournalEntry[]): 
   const name = lower(item.name)
   const actions: CardAction[] = [{ label: 'Use it', line: `I use my ${name}.` }, { label: 'Look it over', line: `I look over my ${name}.` }]
   if (gear?.shop?.open && gear.shop.offers[id] !== undefined) actions.push({ label: 'Offer it to sell', line: `I offer to sell my ${name}.` })
-  return { title: item.name, kind: item.category, about: [`In your pack: ${gearLine(item)}`], known: knownAbout(entries, [item.name]), actions }
+  return { title: item.name, kind: item.category, about: [`In your pack: ${gearLine(item)}`], known: knownAbout(entries, [item.name]), actions, picture: item.icon }
 }
 
 function factionCard(story: Story, id: string, entries: JournalEntry[]): Card | null {
@@ -67,6 +67,7 @@ function factionCard(story: Story, id: string, entries: JournalEntry[]): Card | 
   return {
     title: faction.name, kind: 'A power in the world', about: [faction.summary, `You are ${faction.standing} to them.`],
     known: knownAbout(entries, [faction.name]), actions: [{ label: 'Ask around about them', line: `I ask around about ${faction.name}.` }],
+    picture: faction.emblem,
   }
 }
 
