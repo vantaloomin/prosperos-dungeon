@@ -16,7 +16,7 @@ def art(world: str) -> dict:
     return json.loads((packages.BUILTIN / world / 'engine' / 'art' / f'{world}.json').read_text(encoding='utf-8'))
 
 
-def test_every_faction_has_an_emblem_and_every_item_an_icon_made():
+def test_every_faction_has_an_emblem_and_every_item_an_icon_made(client):
     for world in WORLDS:
         data, assets = art(world), packages.BUILTIN / world / 'assets'
         factions = json.loads((packages.BUILTIN / world / 'factions.json').read_text(encoding='utf-8'))['factions']
@@ -38,7 +38,7 @@ def test_every_faction_has_an_emblem_and_every_item_an_icon_made():
                 assert icons.icon(town, 'something-new', item['category'])
 
 
-def test_an_item_with_no_icon_of_its_own_shows_its_kind_and_a_town_off_the_map_none():
+def test_an_item_with_no_icon_of_its_own_shows_its_kind_and_a_town_off_the_map_none(client):
     assert icons.icon('kingswood', 'bread', 'food') == '/api/story/art/icon/vallarith/bread.webp'
     assert icons.icon('kingswood', 'smoked-eel', 'food') == '/api/story/art/icon/vallarith/kind-food.webp'
     # A night's lodging of any comfort has the one bed.
