@@ -864,6 +864,16 @@ CREATE TABLE IF NOT EXISTS story_lots (
   PRIMARY KEY (town, lot)
 );
 
+-- The town's own places the character knows of (dungeon/townmap.py known): visited, passed on the street, looked at
+-- on the map, or named to them in the story. Landmarks, and a home town's places, are known without a row.
+-- Branched with the story (dungeon/timeline.py SAVED).
+CREATE TABLE IF NOT EXISTS story_places (
+  town TEXT NOT NULL,
+  place TEXT NOT NULL,
+  how TEXT NOT NULL,
+  PRIMARY KEY (town, place)
+);
+
 -- Where the character is when a hex crawl leaves them out in the wild, between places (dungeon/hexes.py): the hex,
 -- and the hex they believe they are in when they have lost their way. Branched with the story.
 CREATE TABLE IF NOT EXISTS story_position (

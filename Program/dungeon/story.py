@@ -728,7 +728,7 @@ def clear(database) -> dict:
         for name in ('record_entries', 'record_corrections', 'story_summary', 'story_clock', 'story_quests',
                       'story_inventory', 'story_purse', 'story_stock', 'story_shops', 'story_markets', 'story_services', 'story_appearance', 'story_appearance_turns', 'story_trades', 'story_wounds', 'story_fight',
                       'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
-                      'story_rounds', 'story_map', 'story_hexes', 'story_sites', 'story_lots', 'story_position', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
+                      'story_rounds', 'story_map', 'story_hexes', 'story_sites', 'story_lots', 'story_places', 'story_position', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
                       'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_bonds', 'story_party', 'story_real', 'story_beats', 'story_word',
                       'story_offpage', 'story_tier', 'story_marks', 'story_dark',
                       'story_director', 'story_arcs', 'story_threads', 'story_nemeses', 'story_seeds',
@@ -1564,6 +1564,8 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
             feelings.from_rolls(connection, rolls)
             growth.mark(connection, rolls, user['id'])
             remembering.refresh(connection, f"{user['text']}\n{text}")
+            # A place of the town named in the story is one the character knows of now (dungeon/townmap.py).
+            townmap.heard(connection, city_data(connection, scene_row(connection)['city_id']), text)
             library.mark_given(connection, packet['library'], user['seq'])
             lore.remember(connection, packet.get('lore', []), packet.get('line', 0))
             if reason := scene_break(connection, user, travelled, rested, fought):
