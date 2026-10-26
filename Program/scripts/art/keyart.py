@@ -21,7 +21,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import backdrops  # noqa: E402
-from backdrops import PACKAGES, ROOT, AdapterError, CodexAdapter, HostedAdapter, api_key, make, manifest, worlds  # noqa: E402
 
 SIZE = (1536, 1024)
 QUALITY = 82
@@ -32,15 +31,15 @@ TITLE = ("Dark painterly oil illustration, visible brushwork, candlelight and de
          "carved bone dice; the candle smoke curls up and opens into three faint visions of other worlds, a ruined "
          "keep on a crag under a storm, a gothic college clock tower in autumn leaves, and an impossibly tall tower "
          "glowing cyan above the clouds. Wondrous, adult and ominous. Open dark space in the left third.")
-TITLE_OUT = ROOT / 'public' / 'title.webp'
+TITLE_OUT = backdrops.ROOT / 'public' / 'title.webp'
 
 
 def jobs(only: set[str]) -> list[dict]:
     found = [{'world': 'title', 'id': 'title', 'out': TITLE_OUT, 'prompt': TITLE, 'avoid': AVOID}]
-    for world in worlds():
-        data = manifest(world)
+    for world in backdrops.worlds():
+        data = backdrops.manifest(world)
         if keyart := data.get('keyart'):
-            found.append({'world': world, 'id': f'{world}-keyart', 'out': PACKAGES / world / 'assets' / 'keyart.webp',
+            found.append({'world': world, 'id': f'{world}-keyart', 'out': backdrops.PACKAGES / world / 'assets' / 'keyart.webp',
                           'prompt': f"{data['backdrop_style']}. {keyart['prompt']}", 'avoid': keyart.get('avoid', AVOID)})
     wanted = [job for job in found if not only or job['world'] in only]
     return [job | {'reference': None} for job in wanted if not job['out'].exists()]
@@ -60,15 +59,15 @@ async def run(args) -> int:
         for job in queue:
             print(f"  {job['world']}: {job['prompt'][:110]}...")
         return 0
-    if args.backend == 'openai' and not api_key():
+    if args.backend == 'openai' and not backdrops.api_key():
         print(f'Set {" or ".join(backdrops.KEYS)} to an OpenAI API key first.')
         return 1
-    adapter = HostedAdapter() if args.backend == 'openai' else CodexAdapter()
+    adapter = backdrops.HostedAdapter() if args.backend == 'openai' else backdrops.CodexAdapter()
     # make() reads the image size from backdrops.SIZE; key art is asked for at the same 1536x1024.
-    results = await asyncio.gather(*(make(adapter, job, args) for job in queue), return_exceptions=True)
+    results = await asyncio.gather(*(backdrops.make(adapter, job, args) for job in queue), return_exceptions=True)
     failed = 0
     for job, result in zip(queue, results):
-        if isinstance(result, AdapterError):
+        if isinstance(result, backdrops.AdapterError):
             failed += 1
             print(f"  {job['world']} failed ({result.code}): {result.message}")
         elif isinstance(result, BaseException):
