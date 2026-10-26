@@ -526,5 +526,6 @@ export interface TownsfolkMix {
 export interface ArtStage {
   /** A made picture of the place, or the world's default backdrop (`default`) in the hour's `light`. */
   background: { url: string; width: number | null; height: number | null; default?: boolean; light?: 'dawn' | 'day' | 'dusk' | 'night' } | null
-  portraits: { key: string; name: string; url: string; width: number | null; height: number | null }[]
+  /** `default`: the world's stock portrait of their kind of person, until one of them is made. */
+  portraits: { key: string; name: string; url: string; width: number | null; height: number | null; default?: boolean }[]
 }

@@ -664,6 +664,13 @@ async def enter_world(request: Request, world: str):
     return world_select.enter(request.app.state, world)
 
 
+@router.get('/art/portrait/{world}/{name}')
+def art_portrait(world: str, name: str):
+    """A world's stock portrait of a kind of person (dungeon/art.py stock_portrait)."""
+    return Response(art.portrait_file(world, name), media_type='image/webp',
+                    headers={'Cache-Control': 'max-age=86400'})
+
+
 @router.get('/art/{art_id}/file')
 def art_file(request: Request, art_id: str):
     return FileResponse(art.file_of(request.app.state.database, art_id))

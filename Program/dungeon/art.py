@@ -26,12 +26,17 @@ when the player asks, through the image backends in Settings (dungeon/images).
   scripts/art/backdrops.py), so it has a picture with no image backend at all. Picked by the place's own `backdrop`,
   then out in the wild the hex's site or terrain, a blank lot's entry, the most tags shared, the place's kind, the
   street for out and about, else the world's default. An outdoor one has a night image; dawn and dusk tint it.
+- **Default portraits** (`stock_portrait`): someone met who is here with no portrait of their own stands on the stage
+  in the world's stock portrait of their kind of person (engine/art/<world>-portraits.json `portraits`, images in the
+  package's assets/portraits, made once by scripts/art/portraits.py). Picked by their folk, then the words of their
+  job, their pronouns and their age; people who fit the same portraits are spread across them by key.
 
 Pictures are not game state: going back in the story keeps them.
 """
 import asyncio
 import hashlib
 import random
+import re
 from datetime import datetime
 
 from dungeon import (
@@ -63,6 +68,8 @@ PASSAGE_CHARS = 700
 GEAR = ('weapon', 'weapons', 'armour', 'armor', 'clothing', 'clothes', 'shield')
 # The light a default backdrop is shown in, by the hour it starts.
 LIGHTS = ((5, 'dawn'), (8, 'day'), (18, 'dusk'), (21, 'night'))
+# A stock portrait's `age` band, by the age it ends before.
+AGE_BANDS = ((30, 'young'), (55, 'middle'), (10 ** 6, 'old'))
 HOURS = ((5, 'at dawn'), (8, 'in the morning'), (12, 'at midday'), (15, 'in the afternoon'), (18, 'at dusk'),
          (21, 'at night'))
 
@@ -301,16 +308,20 @@ def stage(database) -> dict:
         view = story.scene(connection, story_clock.now(connection, database.clock))
         here = f"{view['city']['id']}/{view['place']['id']}"
         known = {row['key']: row['name'] for row in many(connection, 'SELECT key, name FROM story_people')}
-        present = [person['sheet']['key'] for person in view['people'] if person['sheet'].get('key') in known]
+        sheets = {person['sheet']['key']: person['sheet'] for person in view['people']
+                  if person['sheet'].get('key') in known}
         done = many(connection, "SELECT * FROM story_art WHERE status='done' AND file IS NOT NULL AND "
                                 "kind IN ('place', 'portrait') ORDER BY created_at DESC, rowid DESC")
         place = next((row for row in done if row['kind'] == 'place' and row['subject'] == here), None)
         fallback = None if place else backdrop(connection, view)
-    portraits = []
-    for key in present:
+    world, portraits = tiers.world_of(view['city']['id']), []
+    for key, sheet in sheets.items():
         if row := next((row for row in done if row['kind'] == 'portrait' and row['subject'] == key), None):
             portraits.append({'key': key, 'name': known[key], 'url': f"/api/story/art/{row['id']}/file",
                               'width': row['width'], 'height': row['height']})
+        elif stock := stock_portrait(world, sheet):
+            portraits.append({'key': key, 'name': known[key], 'url': stock, 'width': None, 'height': None,
+                              'default': True})
     made = place and {'url': f"/api/story/art/{place['id']}/file", 'width': place['width'], 'height': place['height']}
     return {'background': made or fallback, 'portraits': portraits}
 
@@ -380,6 +391,53 @@ def backdrop(connection, view: dict) -> dict | None:
 def backdrop_file(world: str, name: str) -> bytes:
     found = world_data.asset(world, f'backdrops/{name}') if name.endswith('.webp') and '/' not in name else None
     require(found is not None, 'There is no such backdrop.', 404)
+    return found
+
+
+# Default portraits --------------------------------------------------------------------------------
+
+def stock_portraits(world: str | None) -> list[dict]:
+    return ((world_data.read('art', f'{world}-portraits') if world else None) or {}).get('portraits', [])
+
+
+def age_band(age) -> int | None:
+    """Which of AGE_BANDS an age falls in, by index."""
+    return next(index for index, (end, _band) in enumerate(AGE_BANDS) if age < end) if isinstance(age, int) else None
+
+
+def portrait_pick(entries: list[dict], sheet: dict) -> dict | None:
+    """The stock portrait for someone, in the order the module notes give, or None."""
+    folk = sheet.get('folk')
+    job = f"{sheet.get('occupation') or ''} {sheet.get('role') or ''}".lower()
+    pronoun = next((word for word in ('she', 'he') if str(sheet.get('pronouns', '')).startswith(word)), None)
+    band = age_band(sheet.get('age'))
+    bands = [name for _end, name in AGE_BANDS]
+    scored = []
+    for entry in entries:
+        if (entry.get('folk') and folk not in entry['folk']) or (pronoun and entry.get('pronouns', pronoun) != pronoun):
+            continue
+        named = any(re.search(rf'\b{re.escape(word.lower())}\b', job) for word in entry.get('roles', []))
+        if not (entry.get('folk') or named or entry.get('default')):
+            continue
+        near = 2 - abs(band - bands.index(entry['age'])) if band is not None and entry.get('age') in bands else 0
+        scored.append((8 * bool(entry.get('folk')) + 4 * named + near, entry))
+    best = max((score for score, _entry in scored), default=None)
+    tied = [entry for score, entry in scored if score == best]
+    if not tied:
+        return None
+    return tied[int(hashlib.sha1(str(sheet.get('key', '')).encode('utf-8')).hexdigest(), 16) % len(tied)]
+
+
+def stock_portrait(world: str | None, sheet: dict) -> str | None:
+    """The url of the world's stock portrait for someone, when it has been made."""
+    entry = portrait_pick(stock_portraits(world), sheet)
+    name = entry and f"{entry['id']}.webp"
+    return f'/api/story/art/portrait/{world}/{name}' if name and world_data.asset(world, f'portraits/{name}') else None
+
+
+def portrait_file(world: str, name: str) -> bytes:
+    found = world_data.asset(world, f'portraits/{name}') if name.endswith('.webp') and '/' not in name else None
+    require(found is not None, 'There is no such portrait.', 404)
     return found
 
 
