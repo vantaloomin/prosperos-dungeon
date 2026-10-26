@@ -146,6 +146,12 @@ def test_a_new_persona_can_be_made_an_elf(client):
     assert client.post('/api/worlds/personas', json={'name': 'Tom', 'age': 250}).status_code == 422
 
 
+def test_a_typed_persona_age_stays_adult_and_whole(client):
+    for age in (17, 0, -3, 30.5, 5001):
+        assert client.post('/api/worlds/personas', json={'name': 'Tom', 'age': age}).status_code == 422, age
+    assert client.post('/api/worlds/personas', json={'name': 'Tom', 'age': 18}).status_code == 200
+
+
 def test_an_elfs_partner_details_give_their_age_in_human_terms():
     data = catalog.city('grandport')
     elf = {**townsfolk.resident(data, 'gran-porte', 3), 'age': 225, 'folk': 'elf'}

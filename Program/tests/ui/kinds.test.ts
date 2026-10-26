@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { asKindOption, foundOption, humanTermsText, kindSummary, lifeAge, longLived, pickedLifespan, spanChoices, yearsText } from '../../src/features/kinds/kindText.ts'
-import { ageHint, ageText, personaAges } from '../../src/features/worlds/worldsText.ts'
+import { ageHint } from '../../src/features/worlds/worldsText.ts'
 import type { KindShown } from '../../src/types.ts'
 
 const elf: KindShown = { kind: 'elf', label: 'Elf', own: null, years: 600, kind_years: 600, life_age: 49 }
@@ -53,16 +53,14 @@ test('life age in the browser matches the rules', () => {
   assert.ok(!longLived(110) && !longLived(150) && !longLived(80))
 })
 
-test('a persona age is picked from a list: to 120, and to 5,000 only for a long-lived kind', () => {
-  const human = personaAges(false, null)
-  assert.equal(human[0], 18)
-  assert.equal(human[human.length - 1], 120)
-  const elf = personaAges(true, null)
-  assert.equal(elf[elf.length - 1], 5000)
-  assert.ok(elf.includes(125) && elf.includes(310) && elf.includes(1050) && !elf.includes(121))
-  assert.ok(personaAges(true, 312).includes(312))
-  assert.ok(new Set(elf).size === elf.length)
-  assert.equal(ageText(1050), '1,050')
+test('a persona age is typed: adults only, to 120, and to 5,000 only for a long-lived kind', () => {
+  assert.match(ageHint(17, false) ?? '', /adult/)
+  assert.equal(ageHint(18, false), undefined)
+  assert.equal(ageHint(120, false), undefined)
+  assert.match(ageHint(30.5, false) ?? '', /whole years/)
+  assert.match(ageHint(5001, true) ?? '', /5,000/)
+  assert.equal(ageHint(5000, true), undefined)
+  assert.equal(ageHint(null, false), undefined)
   assert.match(ageHint(300, false) ?? '', /long-lived kind/)
   assert.equal(ageHint(300, true), undefined)
   assert.equal(ageHint(90, false), undefined)
