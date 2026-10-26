@@ -222,6 +222,8 @@ class TableUpdate(Input):
     carry_limit: Literal['slots', 'off'] | None = None
     # Whether the world keeps moving in real time while the app is closed (dungeon/story_clock.py).
     clock: Literal['world', 'story', 'real_time'] | None = None
+    # Whether the narrator gets the rule text that fits the turn (dungeon/rules/passages.py).
+    rule_text: Literal['on', 'off'] | None = None
 
 
 class IronswornBuild(Input):

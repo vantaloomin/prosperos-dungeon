@@ -447,6 +447,8 @@ export interface TableRules {
   shop_cash?: 'finite' | 'unlimited'
   /** Whether carrying is limited by slots (dungeon/inventory.py). */
   carry_limit?: 'slots' | 'off'
+  /** Whether the narrator gets the rule text that fits the turn (dungeon/rules/passages.py). */
+  rule_text?: 'on' | 'off'
   /** Story time, or real time while the app is closed too ('world': the world's own; dungeon/story_clock.py). */
   clock?: 'world' | 'story' | 'real_time'
 }

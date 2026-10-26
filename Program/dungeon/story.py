@@ -72,6 +72,7 @@ from dungeon.narration import prose
 from dungeon.providers.chat import INCOMPLETE
 from dungeon.providers.scheduling import CONVERSATION
 from dungeon.rules import brp, fate, ironsworn, marvel, narrative, srd52
+from dungeon.rules import passages as rule_passages
 from dungeon.sheet import compel_line, spell_actions, unprepared
 from dungeon.sheet import native as native_sheet
 from dungeon.sheet import ruleset as ruleset_of
@@ -763,7 +764,7 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
            looked: list[str] | None = None, travelled: list[str] | None = None,
            rested: list[str] | None = None, tended: list[str] | None = None,
            carded: list[str] | None = None, meanwhile: list[str] | None = None,
-           noted: list[str] | None = None) -> dict:
+           noted: list[str] | None = None, ruled: str = '') -> dict:
     view = scene(connection, now)
     craft = narration_prompt.craft_for(config.get('context_tokens'), prompt_library.text(connection, 'narrator-craft'))
     who_text, name = persona_text(connection)
@@ -792,8 +793,10 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
                                           timeline.active(connection))
     # Passages of the world's reference library that fit the last few messages (dungeon/library.py).
     shelf, passages_given = library.prompt_text(connection, [row['text'] for row in rows], latest['seq'])
-    # The summary gives way first, then the record's facts, so the recent turns keep at least half the window.
-    for summary_kept, facts in ((True, record.IN_PROMPT), (False, record.IN_PROMPT), (False, record.IN_PROMPT // 4)):
+    # The summary gives way first, then the record's facts, then the rule text (dungeon/rules/passages.py), so the
+    # recent turns keep at least half the window.
+    for summary_kept, facts, rules_kept in ((True, record.IN_PROMPT, True), (False, record.IN_PROMPT, True),
+                                            (False, record.IN_PROMPT // 4, True), (False, record.IN_PROMPT // 4, False)):
         memory = '\n\n'.join(part for part in (summary_kept and record.summary_text(connection),
                                                  record.prompt_text(connection, focus, facts),
                                                  quests.prompt_text(connection, now),
@@ -806,7 +809,8 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
         system = narration_prompt.system(prompt_library.text(connection, 'story-narrator'), craft, scene=place_text,
                                          persona=who_text, persona_name=name, memory=memory, narration=narration_format(connection),
                                          intensity=tone.narration(level),
-                                         outcomes=outcomes, rolls_shown=dice_shown(connection))
+                                         outcomes=outcomes, rolls_shown=dice_shown(connection),
+                                         rules=ruled if rules_kept else '')
         if len(system) <= (window - config['max_output_tokens']) * CHARS_PER_TOKEN // 2:
             break
     for extra in (travel.prompt_text(travelled or []), rest.prompt_text(rested or []),
@@ -1517,9 +1521,12 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
                                              else ([], [], [], [], []))
     noted = noted + looks
     with database.connect() as connection:
+        # The rule text that fits what the turn resolved (dungeon/rules/passages.py).
+        ruled = rule_passages.text(ruleset_of(connection), rolls, user['text'], fought, config.get('context_tokens'),
+                              table.rule(connection, 'rule_text') == 'on') if in_story else ''
         packet = prompt(connection, story_clock.now(connection, database.clock), config, user,
                         turn.outcomes(rolls) if in_story else None, fought, traded, looked, travelled, rested, tended, carded,
-                        meanwhile, noted)
+                        meanwhile, noted, ruled)
     await emit({'stage': 'writing'})
     text, error, flagged = await told(state, packet, config, in_story, steps, on_text)
     status = 'complete' if text and not error else 'failed'
