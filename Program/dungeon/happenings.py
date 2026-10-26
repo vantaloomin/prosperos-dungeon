@@ -38,8 +38,10 @@ from dungeon import (
     table,
     tiers,
     travel,
+    world_data,
 )
 from dungeon.database import encode, many
+from dungeon.errors import require
 from dungeon.life import cards
 
 DEFAULT_DRAMA = 'uneasy'
@@ -51,6 +53,10 @@ UNNAMED = re.compile(r'\{(bond|them)\}')
 BOND = re.compile(r'\{bond\}')
 THEM = re.compile(r'\{them\}')
 FACTION = re.compile(r'\{faction\}')
+# The scenes whose draw the story shows as a card under the player's line, and how a title's placeholders read there.
+SHOWN = ('town', 'road', 'rest')
+PLAIN = {'bond': 'your companion', 'them': 'someone you know', 'npc': 'someone', 'faction': 'the powers here',
+         'town': 'town', 'pc': 'you'}
 WAGE_ID = 'day-wage'
 DEFAULT_WAGE = 100
 # Who a card's fight brings, at the first tier (dungeon/tiers.py scales them to the region's): the name of one, of them all, how many,
@@ -142,6 +148,45 @@ def keep(connection, message_id: str, scene: str, day: date, card_id: str | None
 
 def drawn_today(connection, scene: str, day: date) -> bool:
     return bool(many(connection, 'SELECT 1 FROM story_cards WHERE scene=? AND day=?', (scene, day.isoformat())))
+
+
+# Showing a drawn card ---------------------------------------------------------------------------------
+
+def with_cards(connection, rows: list[dict], veils: set[str]) -> list[dict]:
+    """The Life Cards drawn on each of the player's lines, to show under it: title, tone and picture, never the
+    truth. A card on a veiled topic shows only the world's card back."""
+    drawn: dict[str, list[str]] = {}
+    for row in many(connection, f"SELECT message_id, card_id FROM story_cards WHERE card_id IS NOT NULL AND scene IN "
+                                f"({', '.join('?' * len(SHOWN))}) ORDER BY scene DESC", SHOWN):
+        drawn.setdefault(row['message_id'], []).append(row['card_id'])
+    found = []
+    for row in rows:
+        world = drawn.get(row['id']) and row['role'] == 'user' and tiers.world_of(row['city_id'])
+        shown = [view for card_id in drawn[row['id']] if (view := card_view(world, card_id, veils))] if world else []
+        found.append({**row, 'cards': shown} if shown else row)
+    return found
+
+
+def card_view(world: str, card_id: str, veils: set[str]) -> dict | None:
+    card = cards.card(world, card_id)
+    if card is None:
+        return None
+    if cards.veiled(card, veils):
+        return {'title': 'Veiled', 'tone': 'grey', 'art': card_art(world, 'back'), 'veiled': True}
+    title = re.sub(r'\{(\w+)\}', lambda match: PLAIN.get(match[1], match[0]), card['title'])
+    return {'title': title, 'tone': card['tone'], 'art': card_art(world, card_id) or card_art(world, 'back'),
+            'veiled': False}
+
+
+def card_art(world: str, name: str) -> str | None:
+    """The picture of a card (scripts/art/cards.py made them), as the story serves it, if the world has one."""
+    return f'/api/story/art/card/{world}/{name}.webp' if world_data.asset(world, f'cards/{name}.webp') else None
+
+
+def card_file(world: str, name: str) -> bytes:
+    found = world_data.asset(world, f'cards/{name}') if name.endswith('.webp') and '/' not in name else None
+    require(found is not None, 'There is no such card picture.', 404)
+    return found
 
 
 # Playing a card -------------------------------------------------------------------------------------

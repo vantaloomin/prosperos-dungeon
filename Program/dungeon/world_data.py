@@ -76,6 +76,9 @@ def read(kind: str, key: str) -> dict | None:
     if held is not None:
         return json.loads(held)
     path = packages.DATA / kind / f'{key}.json'
+    if not path.is_file():
+        # Engine data only a built-in package ships (a world's art list), with no data folder in use.
+        path = packages.BUILTIN / key / 'engine' / kind / f'{key}.json'
     return json.loads(path.read_text(encoding='utf-8')) if path.is_file() else None
 
 

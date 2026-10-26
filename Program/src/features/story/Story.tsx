@@ -8,6 +8,7 @@ import { Loading, Notice } from '../../components/Feedback'
 import { ErrorNotice } from '../../components/ErrorNotice'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { InfoTip } from '../../components/InfoTip'
+import { LifeCard } from './StoryLifeCard'
 import { AiFooter, CrisisNote } from '../../components/Safety'
 import { aroundText, foesText, journeyTo, NO_TURN, paceText, placeGroups, receiptsByReply, spotsText, turnAfter, whereText } from './storyText'
 import { TurnReceipt } from './StoryReceipt'
@@ -231,6 +232,7 @@ function StoryLine({ message, bands, onBack, onBookmark, rewrites, draft }: Line
   if (message.role === 'user') return <>
     <p className="story-user" id={`line-${message.id}`}>{message.text}</p>
     <div className="story-turn">
+      {message.cards?.map((card, index) => <LifeCard key={index} card={card} />)}
       {message.rolls?.map((roll, index) => <RollCard key={index} roll={roll} bands={bands} />)}
       <div className="story-turn-actions">
         {/* How long the turn took is for tuning, not the story: it waits in a tooltip until the dice log ships. */}
