@@ -231,6 +231,8 @@ def initialize(connection, timestamp: str):
     table.adopt(connection)
     from dungeon.life import ages
     ages.start_town(connection, timestamp)
+    from dungeon.world import retired
+    retired.keep(connection, timestamp)
     connection.executemany('INSERT OR REPLACE INTO app_identity (key, value) VALUES (?, ?)',
                            (('schema_version', str(SCHEMA_VERSION)), ('schema_digest', schema_digest()),
                             ('app_version', VERSION)))

@@ -18,6 +18,18 @@ export interface CityListing {
   distribution: 'public' | 'private'
   /** What the server mended or added when it loaded the city; empty when it loaded as written. */
   import_notes?: string[]
+  /** The world package the city belongs to (the travel map it is on), or null for a city on its own. */
+  world?: string | null
+  world_name?: string | null
+}
+
+/** The cities that belong where the user is: the built-in cities of the world `home` is in (or, for a city
+ * on its own, only those on their own too), and every pack city and city of the user's own. All of them while
+ * `home` is not known yet. */
+export function citiesOfWorld<T extends Pick<CityListing, 'id' | 'origin' | 'world'>>(cities: T[], home?: string): T[] {
+  if (!home) return cities
+  const world = cities.find((city) => city.id === home)?.world ?? null
+  return cities.filter((city) => city.origin !== 'builtin' || city.id === home || (city.world ?? null) === world)
 }
 
 /** One of the user's own cities that no longer loads, with its saved definition. */

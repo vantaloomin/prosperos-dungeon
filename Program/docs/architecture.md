@@ -64,7 +64,7 @@ changes made from here on. New tables come from `schema.sql`; a column added to 
 | Narrator | `story.py`, `narration/` | Builds the layered narrator prompt, checks the prose in code, and writes each story turn |
 | Odds and rolls | `consequences.py`, `life/chance.py` | Weighted outcomes and seeded rolls, the base for the Milestone 1 dice |
 | Life Cards | `life/deck.py` | The deck of life events, drawn by code |
-| Townsfolk and the town | `world/` | Generates and ages the people and places of a city; Kingswood and Haddon Harbor ship with the app |
+| Townsfolk and the town | `world/` | Generates and ages the people and places of a city; each built-in world's towns ship with the app |
 | Calendar and sky | `almanac/` | Holidays, seasons, sunrise and moon phase for a city's date |
 | Memory recall | `memory/`, `providers/builtin_recall.py` | Hybrid recall (words and embeddings) over long text, ready for the story's memory |
 | Models | `providers/` | Every text model kind, including claude -p and Codex, with queueing and balance |

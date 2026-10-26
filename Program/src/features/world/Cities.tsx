@@ -9,7 +9,8 @@ import { TextInput } from '../../components/Fields'
 import { shownPath } from '../../paths'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { isWorldMap, readWorldMap } from './worldMap'
-import { cityFacts, definitionOf, exportName, groupNotes, matchesCity, parseDefinition, shelveCities, slugify, type BrokenCity, type CityCategory, type CityListing, type FeaturedCities, type PackReport } from './cityText'
+import { useWorlds } from '../worlds/useWorlds'
+import { citiesOfWorld, cityFacts, definitionOf, exportName, groupNotes, matchesCity, parseDefinition, shelveCities, slugify, type BrokenCity, type CityCategory, type CityListing, type FeaturedCities, type PackReport } from './cityText'
 
 const CITIES_KEY = ['cities']
 const BROKEN_KEY = ['broken-cities']
@@ -61,6 +62,7 @@ export function Cities() {
   const client = useQueryClient()
   const cities = useQuery({ queryKey: CITIES_KEY, queryFn: () => api<CityListing[]>('/world/cities') })
   const featured = useQuery({ queryKey: ['featured-cities'], queryFn: () => api<FeaturedCities>('/world/featured') })
+  const worlds = useWorlds()
   const broken = useQuery({ queryKey: BROKEN_KEY, queryFn: () => api<BrokenCity[]>('/world/broken-cities') })
   const [feedback, setFeedback] = useState<Feedback>(null)
   const [editing, setEditing] = useState<Editing | null>(null)
@@ -134,7 +136,7 @@ export function Cities() {
           Your city {city.name} no longer loads, so it is left out of every list. {city.error} Save it as a file, fix it, delete it here, then open the fixed file.
         </Notice>
       ))}
-      {cities.data && <CityShelves cities={cities.data} featured={featured.data} actions={(city) => <>
+      {cities.data && <CityShelves cities={cities.data} home={worlds.data?.world.city_id} featured={featured.data} actions={(city) => <>
         {city.origin === 'user' && <button type="button" className="text-button" onClick={() => void startEdit(city)}><Pencil aria-hidden="true" />Edit</button>}
         <button type="button" className="text-button" onClick={() => setCopying(city)}><Copy aria-hidden="true" />Copy</button>
         {city.distribution === 'public' && <button type="button" className="text-button" onClick={() => void exportCity(city)}><Download aria-hidden="true" />Save as file</button>}
@@ -155,10 +157,16 @@ export function Cities() {
   )
 }
 
-/** The city list: a filter chip per shelf with its count, a search box, then a headed section per shelf (PRD W5). */
-function CityShelves({ cities, featured, actions }: { cities: CityListing[]; featured?: FeaturedCities; actions: (city: CityListing) => ReactNode }) {
+interface ShelvesProps { cities: CityListing[]; home?: string; featured?: FeaturedCities; actions: (city: CityListing) => ReactNode }
+
+/** The city list: the open world's cities (every world's on request), a filter chip per shelf with its count, a
+ * search box, then a headed section per shelf (PRD W5). */
+function CityShelves({ cities: every, home, featured, actions }: ShelvesProps) {
   const [shown, setShown] = useState<CityCategory | 'all'>('all')
   const [query, setQuery] = useState('')
+  const [everywhere, setEverywhere] = useState(false)
+  const own = citiesOfWorld(every, home)
+  const cities = everywhere ? every : own
   const shelves = shelveCities(cities)
   const found = shelves.map((shelf) => ({ ...shelf, cities: shelf.cities.filter((city) => matchesCity(city, query)) }))
     .filter((shelf) => shown === 'all' || shelf.id === shown)
@@ -168,7 +176,8 @@ function CityShelves({ cities, featured, actions }: { cities: CityListing[]; fea
     <button key={id} type="button" className="vibe-pick" aria-pressed={shown === id} onClick={() => setShown(id)}>{title} <span className="subtle">{count}</span></button>
   )
   return (<>
-    {shown === 'all' && !searching && featured && featured.cities.length > 0 && <FeaturedStrip featured={featured} />}
+    <WorldScope others={every.length - own.length} worldName={every.find((city) => city.id === home)?.world_name} everywhere={everywhere} onToggle={() => setEverywhere(!everywhere)} />
+    {shown === 'all' && !searching && <FeaturedStrip featured={everywhere ? featured : undefined} />}
     <div className="city-filters">
       <div className="vibe-picks city-chips" role="group" aria-label="Show cities">
         {chip('all', 'All', cities.length)}
@@ -204,8 +213,22 @@ function CityShelves({ cities, featured, actions }: { cities: CityListing[]; fea
   </>)
 }
 
-/** The release's featured cities as a row of compact cards; a card jumps to the city's full card below. */
-function FeaturedStrip({ featured }: { featured: FeaturedCities }) {
+/** Whose cities the list shows, with a switch to every world's; nothing when no other world has any. */
+function WorldScope({ others, worldName, everywhere, onToggle }: { others: number; worldName?: string | null; everywhere: boolean; onToggle: () => void }) {
+  if (others === 0) return null
+  const shown = everywhere ? `Every world's cities, ${others} of them from other worlds.`
+    : worldName ? `${worldName}'s cities and your own.` : 'Cities that stand outside the built-in worlds, and your own.'
+  return (
+    <p className="subtle">{shown}{' '}
+      <button type="button" className="text-button" aria-pressed={everywhere} onClick={onToggle}>
+        {everywhere ? 'Only this world' : `Show other worlds' cities (${others})`}</button>
+    </p>
+  )
+}
+
+/** The release's featured cities as a row of compact cards (shown with every world's cities); a card jumps to the city's full card below. */
+function FeaturedStrip({ featured }: { featured?: FeaturedCities }) {
+  if (!featured?.cities.length) return null
   const jump = (id: string) => {
     const card = document.getElementById(`city-${id}`)
     if (!card) return

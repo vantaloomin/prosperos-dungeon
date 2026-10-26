@@ -11,9 +11,11 @@ and the model only phrases it (PRD W1–W4). A townsperson's day, job, home and 
 deterministic code from these records. The model never has to invent a
 museum, an employer or a neighbourhood, and the same inputs always give the same choice.
 
-The app ships two cities, both `setting: original` and written for the Dungeon: **Kingswood**, a Post-Reform
-logging town in Vanta's Vallarith where new stories start (`scripts/world/kingswood.py`), and **Haddon Harbor**, a
-modern Maine harbour town where everyone knows everyone. Every other city is the user's own or comes from a city pack. Cities can
+The app ships each built-in world's towns, all `setting: original` and written for the Dungeon: **Kingswood**, the
+Post-Reform logging town in Vanta's Vallarith where new stories start (`scripts/world/kingswood.py`), Haven for
+Havenbrooke, and the Concourse, Hollin and the Gilded Bazaar for BABEL. Haddon Harbor, the modern Maine town from
+Companion, is retired (`dungeon/world/data/retired`, `dungeon/world/retired.py`): a world already set there keeps it
+as one of its own cities, and new worlds never see it. Every other city is the user's own or comes from a city pack. Cities can
 be `real`, `fictional` or `original`, in any era.
 
 The tests use copies of the cities that used to ship (real cities such as Baltimore and London, other eras such
@@ -75,8 +77,8 @@ carry, so an event can record exactly which data it was built from (PRD T7).
 ```python
 from dungeon.world import catalog, generators
 
-data = catalog.city('haddon-harbor')        # DomainError 404 for an unknown city
-catalog.resolve('The Harbor, Haddon Harbor')  # {'city': 'haddon-harbor', 'neighborhood': 'the-harbor'} or None
+data = catalog.city('kingswood')            # DomainError 404 for an unknown city
+catalog.resolve('Kingswood')                # {'city': 'kingswood', 'neighborhood': None} or None
 catalog.places(data, kind='museum', neighborhood='the-green', tag=None, good_for='date')
 catalog.nearby(data, 'the-harbor', limit=4) # closest neighbourhoods
 catalog.find(data, 'bluebird-diner') # any record by id
@@ -393,7 +395,7 @@ setting's voice. Oak's characters appear in town as `notables`.
 
 ## Adding or refreshing a built-in city
 
-1. Copy `scripts/world/haddon_harbor.py`, keep its source records, and fill in the city.
+1. Copy `scripts/world/kingswood.py`, keep its source records, and fill in the city.
 2. Run it to write `dungeon/world/data/cities/<id>.json`, then `python -m pytest tests/test_world.py`.
    The tests validate every reference, check every career gets a job and every generated schedule
    is a valid character routine.
