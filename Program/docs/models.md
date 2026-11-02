@@ -12,6 +12,15 @@ A profile is one provider, one model and its settings, plus an API key kept in t
 vault under the service name `Prospero Dungeon` (never the Study's). Saving a profile never
 contacts the service.
 
+One key does every job on its service. A new or keyless profile on the same provider and address as a
+profile with a saved key uses that key (the most recently changed one) without asking for it again, so
+the OpenAI key typed for the narrator also does recall. The form says "Uses the API key saved with …" and
+"Use a different key" gives that profile a key of its own. A key leaves the vault only once no profile
+uses it. Replacing the key on a profile that shares it replaces it for every profile sharing it (so a
+rotated key keeps recall working), unless "Also use it for …" is unticked (`share_key: false`), which gives
+that profile a key of its own. A hosted image backend with no key of its own borrows the key saved with a text
+profile for the same provider at its usual address (an "other" image API: a compatible text profile at the same address).
+
 | Provider | Address | Key | Request |
 | --- | --- | --- | --- |
 | OpenAI | official | `OPENAI_API_KEY` or saved | Responses API |
@@ -90,6 +99,16 @@ five minutes, and Check connection asks again. Nothing polls in the background.
 | Continuity | After each story turn, lists the new facts the narrator brought in for the record ([story.md](story.md#the-record-and-the-story-so-far)); facts are only kept when a profile is chosen for it. Also folds older turns into the story so far, using the Default when it has none. A small, fast model fits. |
 | Semantic recall | Embeddings, from a recall profile, or from built-in recall when it is on. Recall profiles (`purpose: recall`) have their own section, Settings > Models > Recall: an OpenAI, NanoGPT, local or compatible service and an `embedding_model`, with no text model. They do this job and no other, text profiles never do it, and the first one saved takes the job when recall has none. Without one, recall matches keywords only. |
 
+### Mix narrator models
+
+Settings > Models > Story narrator can **Mix narrator models**: tick two or more finished profiles and each
+narration comes from one of them, **At random** or **In turn**, each with its own model and settings
+(`text_models.reply_config`, ported from Prospero's Companion #441). Only the narrator mixes; the Referee,
+Continuity and recall keep one steady model, and rewrites and chapter openers use the narrator's own profile.
+With the Mix off, or fewer than two finished profiles in it, the narrator's profile answers as before. A profile
+in the Mix must keep a model, and deleting one drops it from the Mix. "Add another model" copies the narrator's
+profile so a second model can be set up beside it.
+
 There is no automatic fallback to another profile when a request fails; like the Study, a failed
 request reports its error, and OpenRouter requests forbid OpenRouter's own provider fallbacks. The one
 exception is a rate limit (HTTP 429) before any text arrives: hosted models answer it for a few
@@ -125,8 +144,9 @@ then checks the setup in use and warns when:
 Sizes are estimates from names: billions of parameters (`31b`, `8x7b`) times the bits of the
 quantization in the name (`Q4_K_M`, `Q8_0`, `fp16`; 4-bit when none is named), plus 10% and 1.5 GB for
 the context. A name without a size gets a tip instead of a check. Picture models are sized by the
-precision in the diffusion model's file name (NVFP4 about 11 GB, FP8 about 16 GB, otherwise about
-24 GB, each with the text encoder and working space). The scan is kept for five minutes; Check again
+precision in the diffusion model's file name: Krea 2 by its real file sizes plus working room (FP8
+about 14 GB, NVFP4 about 9 GB, GGUF by quantization; see [images.md](images.md#krea-2-on-smaller-cards)),
+other families roughly (FP8 about 16 GB, otherwise about 24 GB). The scan is kept for five minutes; Check again
 scans now. Other cards (AMD, Intel) are named on Windows but not measured, so nothing is checked.
 
 `install.bat` and `install.command` print the same summary when setup finishes
@@ -155,4 +175,5 @@ local server.
 | `POST /api/models/profiles/{id}/check` | Test a saved profile |
 | `GET /api/models/profiles/{id}/usage` | Credits or usage the service reports for free, or `null`; `?fresh=true` skips the five-minute cache |
 | `PUT /api/models/routes` | `{job, profile_id}`; `null` returns the job to the conversation profile |
+| `PUT /api/models/mix` | `{job: 'story', profile_ids, mode: 'random' \| 'in_turn', enabled}`: the narrator's Mix |
 | `GET /api/hardware` | This computer: `computer`, `can_run` lines, the `local_text` and `local_images` checked, and `warnings` (`area`, `tone`, `text`); `?fresh=true` scans again |

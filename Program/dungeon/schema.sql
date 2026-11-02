@@ -1115,6 +1115,22 @@ CREATE TABLE IF NOT EXISTS story_art (
   done_at TEXT
 );
 
+-- The narrator's Mix (dungeon/text_models.py reply_config): profiles that take turns telling the story, in turn or at
+-- random, each with its own model and settings. Off, or with fewer than two finished profiles, the job's own profile
+-- answers.
+CREATE TABLE IF NOT EXISTS model_mix (
+  job TEXT NOT NULL,
+  profile_id TEXT NOT NULL REFERENCES model_profiles(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL,
+  PRIMARY KEY (job, profile_id)
+);
+CREATE TABLE IF NOT EXISTS model_mix_state (
+  job TEXT PRIMARY KEY,
+  enabled INTEGER NOT NULL DEFAULT 0,
+  mode TEXT NOT NULL DEFAULT 'random' CHECK (mode IN ('random', 'in_turn')),
+  turn INTEGER NOT NULL DEFAULT 0
+);
+
 -- Local politics (dungeon/world/politics.py, dungeon/politics.py): the player's own changes to a city's issues
 -- and factions. Seeded issues and factions are rebuilt from the city and the date; a row here is an issue or faction
 -- the player added (origin 'user') or their changes to a seeded one (origin 'edit'), or one they put away (dismissed).

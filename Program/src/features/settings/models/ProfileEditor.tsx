@@ -7,7 +7,7 @@ import { Notice } from '../../../components/Feedback'
 import { TextInput } from '../../../components/Fields'
 import { GenerationSettings } from './GenerationSettings'
 import { ModelCombobox } from './ModelCombobox'
-import { applyDiscovered, decisionsReady, discoveredSettings, profileReady, recallReady, savedKeyApplies, typedModelSettings, type Discovery } from './discovery'
+import { applyDiscovered, decisionsReady, discoveredSettings, profileReady, recallReady, reusableKey, savedKeyApplies, typedModelSettings, type Discovery } from './discovery'
 import { shownPath } from '../../../paths'
 import { cliProviders, configFor, decisionProviders, decisionsConfigFor, embeddingProviders, isDecisions, isRecall, isText, providerOrder, providers, recallConfigFor, type ModelProfile, type ProfileConfig, type Provider } from './types'
 
@@ -40,7 +40,7 @@ type Discovered = ReturnType<typeof useDiscovery>
 function useSave(profile: ModelProfile | undefined, onDone: (saved?: ModelProfile) => void) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const save = async (body: { name: string; config: ProfileConfig; api_key: string | null }) => {
+  const save = async (body: { name: string; config: ProfileConfig; api_key: string | null; share_key?: boolean }) => {
     if (saving) return
     setSaving(true); setError('')
     try {
@@ -57,24 +57,30 @@ const kindOf = (config: ProfileConfig): ProfileKind => isRecall(config) ? 'recal
 const FRESH: Record<ProfileKind, (provider: Provider) => ProfileConfig> = { text: configFor, recall: recallConfigFor, decisions: decisionsConfigFor }
 const CHOICES: Record<ProfileKind, Provider[]> = { text: providerOrder, recall: embeddingProviders, decisions: decisionProviders }
 
-function useProfileForm(profile: ModelProfile | undefined, kind: ProfileKind) {
+function useProfileForm(profile: ModelProfile | undefined, kind: ProfileKind, others: ModelProfile[]) {
   const fresh = FRESH[kind]
   const [name, setName] = useState(profile?.name ?? '')
   const [config, setConfig] = useState<ProfileConfig>(profile?.config ?? fresh('local'))
   const [key, setKey] = useState('')
+  const [shareKey, setShareKey] = useState(true)
   const discovery = useDiscovery(profile)
   const patch: Patch = (change) => { if (change.base_url !== undefined) discovery.reset(); setConfig(current => ({ ...current, ...change })) }
   const changeProvider = (provider: Provider) => { discovery.reset(); setConfig(fresh(provider)); setKey('') }
   const changeKey = (value: string) => { discovery.reset(); setKey(value) }
   const test = () => { void discovery.connect(config, key, result => setConfig(current => isText(current) ? applyDiscovered(result, current) : current)) }
-  return { name, setName, config, key, discovery, found: discovery.result?.location, patch, changeProvider, changeKey, test, ...readiness(profile, config, key),
-    body: { name: name.trim(), config, api_key: key || null } }
+  return { name, setName, config, key, discovery, found: discovery.result?.location, patch, changeProvider, changeKey, test, ...readiness(profile, config, key, others),
+    shareKey, setShareKey, body: { name: name.trim(), config, api_key: key || null, share_key: shareKey } }
 }
 
-function readiness(profile: ModelProfile | undefined, config: ProfileConfig, key: string) {
+function keyState(profile: ModelProfile | undefined, config: ProfileConfig, others: ModelProfile[]) {
   const savedKey = savedKeyApplies(profile?.config, profile?.has_saved_key ?? false, config)
+  return { savedKey, reused: savedKey ? undefined : reusableKey(others, config, profile?.id), sharedWith: savedKey ? profile?.key_shared_with ?? [] : [] }
+}
+
+function readiness(profile: ModelProfile | undefined, config: ProfileConfig, key: string, others: ModelProfile[]) {
+  const { savedKey, reused, sharedWith } = keyState(profile, config, others)
   const ready = isRecall(config) ? recallReady(config) : isDecisions(config) ? decisionsReady(config) : profileReady(config)
-  return { savedKey, ready, canSave: ready || !!key.trim() || savedKey, keyless: cliProviders.includes(config.provider) }
+  return { savedKey, reused: reused?.name, sharedWith, ready, canSave: ready || !!key.trim() || savedKey || !!reused, keyless: cliProviders.includes(config.provider) }
 }
 
 const LABELS: Record<ProfileKind, string> = { text: 'New model profile', recall: 'New recall profile', decisions: 'New decisions profile' }
@@ -82,8 +88,8 @@ const PLACEHOLDERS: Record<ProfileKind, string> = { text: 'Everyday chat, carefu
 
 /** A text profile writes; a recall profile only makes embeddings, so recall can use a different service; a decisions
  * profile only answers the Referee's questions with probabilities. */
-export function ProfileEditor({ profile, kind = 'text', onDone }: { profile?: ModelProfile; kind?: ProfileKind; onDone: (saved?: ModelProfile) => void }) {
-  const form = useProfileForm(profile, profile ? kindOf(profile.config) : kind)
+export function ProfileEditor({ profile, kind = 'text', others, onDone }: { profile?: ModelProfile; kind?: ProfileKind; others: ModelProfile[]; onDone: (saved?: ModelProfile) => void }) {
+  const form = useProfileForm(profile, profile ? kindOf(profile.config) : kind, others)
   const saving = useSave(profile, onDone)
   const { config, patch, discovery } = form
   const shown = kindOf(config)
@@ -91,20 +97,22 @@ export function ProfileEditor({ profile, kind = 'text', onDone }: { profile?: Mo
   return <form className="model-profile-editor form-stack" onSubmit={submit} aria-label={profile ? `Edit ${profile.name}` : LABELS[shown]}>
     <ProviderPicker selected={config.provider} choices={CHOICES[shown]} onChange={form.changeProvider} decisions={shown === 'decisions'} />
     <TextInput label="Profile name" value={form.name} onChange={form.setName} maxLength={120} placeholder={PLACEHOLDERS[shown]} hint={`Leave empty to name it after the provider and ${shown === 'recall' ? 'embedding ' : ''}model.`} />
-    <ConnectionFields config={config} patch={patch} savedKey={form.savedKey} apiKey={form.key} onKey={form.changeKey} found={form.found} />
+    <ConnectionFields config={config} patch={patch} keyEntry={{ saved: form.savedKey, reused: form.reused, sharedWith: form.sharedWith, value: form.key, onChange: form.changeKey, share: form.shareKey, onShare: form.setShareKey }} found={form.found} />
     <ModelDiscovery config={config} discovery={discovery} onTest={form.test} patch={patch} />
     {shown === 'recall' ? <EmbeddingFields config={config} patch={patch} discovery={discovery} />
       : shown === 'decisions' ? <DecisionFields config={config} patch={patch} discovery={discovery} />
         : <ModelFields config={config} patch={patch} discovery={discovery} />}
-    <SaveActions ready={form.ready} recall={shown === 'recall'} keyless={form.keyless} canSave={form.canSave} saving={saving.saving} error={saving.error} onCancel={() => onDone()} />
+    <SaveActions ready={form.ready} recall={shown === 'recall'} keyless={form.keyless} typed={!!form.key.trim()} canSave={form.canSave} saving={saving.saving} error={saving.error} onCancel={() => onDone()} />
   </form>
 }
 
-function SaveActions({ ready, recall, keyless, canSave, saving, error, onCancel }: { ready: boolean; recall: boolean; keyless: boolean; canSave: boolean; saving: boolean; error: string; onCancel: () => void }) {
+/** "the key" only once one is typed: a borrowed or already saved key is not what Save stores. */
+function SaveActions({ ready, recall, keyless, typed, canSave, saving, error, onCancel }: { ready: boolean; recall: boolean; keyless: boolean; typed: boolean; canSave: boolean; saving: boolean; error: string; onCancel: () => void }) {
+  const what = typed && !keyless ? 'the key' : 'it'
   return <>
-    {!ready && <p className="subtle">{recall ? 'You can save the key now and choose an embedding model later. A recall profile needs one before it can do recall.' : `You can save ${keyless ? 'it' : 'the key'} now and choose a model later. A profile needs a model before it can do a job.`}</p>}
+    {!ready && <p className="subtle">{recall ? `You can save ${what} now and choose an embedding model later. A recall profile needs one before it can do recall.` : `You can save ${what} now and choose a model later. A profile needs a model before it can do a job.`}</p>}
     {error && <Notice tone="error">{error}</Notice>}
-    <div className="form-actions"><button type="submit" className="button primary" disabled={!canSave} aria-disabled={saving}>{saving ? 'Saving…' : 'Save profile'}</button><button type="button" className="button" onClick={onCancel}>Cancel</button>{!keyless && <span className="subtle">Keys are kept in your system keychain, never in the workspace or its backups.</span>}</div>
+    <div className="form-actions"><button type="submit" className="button primary" disabled={!canSave} aria-disabled={saving}>{saving ? 'Saving…' : 'Save profile'}</button><button type="button" className="button" onClick={onCancel}>Cancel</button>{!keyless && <span className="subtle keychain-note">Keys are kept in your system keychain, never in the workspace or its backups.</span>}</div>
   </>
 }
 
@@ -124,18 +132,24 @@ function ProviderPicker({ selected, choices, onChange, decisions = false }: { se
     : (decisions && DECIDES[selected]) || providers[selected].description}</p></>
 }
 
-function ConnectionFields({ config, patch, savedKey, apiKey, onKey, found }: { config: ProfileConfig; patch: Patch; savedKey: boolean; apiKey: string; onKey: (value: string) => void; found?: string }) {
+type KeyEntry = { saved: boolean; reused?: string; sharedWith: string[]; value: string; onChange: (value: string) => void; share: boolean; onShare: (value: boolean) => void }
+
+function ConnectionFields({ config, patch, keyEntry, found }: { config: ProfileConfig; patch: Patch; keyEntry: KeyEntry; found?: string }) {
   const local = config.provider === 'local' || config.provider === 'kobold'
   if (config.provider === 'codex') return <p className="subtle">Uses the Codex CLI’s own login; no key is entered here. Codex runs in an empty temporary folder with its shell, plugins, web search and tools turned off.</p>
-  if (config.provider === 'claude_code') return <>
+  if (config.provider === 'claude_code') return <ClaudeCodeFields config={config} patch={patch} found={found} />
+  return <>
+    {(local || config.provider === 'compatible') && <TextInput label="Server address" value={config.base_url} onChange={value => patch({ base_url: value })} maxLength={500} hint={local ? 'An address on this computer. LM Studio and Ollama usually end in /v1.' : 'The API base URL, without /models or /chat/completions.'} />}
+    <TokenEntry key={config.provider} {...keyEntry} local={local || config.provider === 'compatible'} />
+  </>
+}
+
+function ClaudeCodeFields({ config, patch, found }: { config: ProfileConfig; patch: Patch; found?: string }) {
+  return <>
     <Notice>Claude follows Anthropic’s usage policy, so it won’t write the adult side of life. Use it for everyday chat and the other non-explicit jobs, and give adult scenes a different profile.</Notice>
     <TextInput label="Claude Code location (optional)" value={config.cli_path ?? ''} onChange={value => patch({ cli_path: value })} maxLength={500} placeholder={found ? shownPath(found) : undefined} hint="Leave empty to use the Claude Code found on this computer." />
     <TextInput label="Claude account folder (optional)" value={config.cli_account_dir ?? ''} onChange={value => patch({ cli_account_dir: value })} maxLength={500} placeholder="C:\Users\you\.claude-second"
       hint="For a second Claude account: a folder of its own that keeps that account's sign-in. Test connection says how to sign in to it. Leave empty for the account Claude Code usually uses." />
-  </>
-  return <>
-    {(local || config.provider === 'compatible') && <TextInput label="Server address" value={config.base_url} onChange={value => patch({ base_url: value })} maxLength={500} hint={local ? 'An address on this computer. LM Studio and Ollama usually end in /v1.' : 'The API base URL, without /models or /chat/completions.'} />}
-    <TokenEntry key={config.provider} saved={savedKey} value={apiKey} onChange={onKey} />
   </>
 }
 
@@ -183,8 +197,23 @@ function EmbeddingFields({ config, patch, discovery }: { config: ProfileConfig; 
   </>
 }
 
-function TokenEntry({ saved, value, onChange }: { saved: boolean; value: string; onChange: (value: string) => void }) {
+function TokenEntry(entry: KeyEntry & { local: boolean }) {
   const [editing, setEditing] = useState(false)
-  if (!editing) return <div className="token-entry"><p>{saved ? 'An API key is saved for this profile.' : 'No API key saved for this profile.'}</p><button type="button" className="button" onClick={() => setEditing(true)}>{saved ? 'Replace key' : 'Add API key'}</button><small>Local servers can leave this empty, and an environment variable such as OPENAI_API_KEY also works.</small></div>
-  return <div className="token-entry"><TextInput label="API key" type="password" value={value} onChange={onChange} maxLength={4000} hint="Saved in your system keychain. It is never shown again." /><button type="button" className="text-button" onClick={() => { onChange(''); setEditing(false) }}>Cancel key entry</button></div>
+  if (editing) return <KeyField {...entry} onDone={() => setEditing(false)} />
+  // A key another profile saved for this service is used as it is; typing one is only for a different key.
+  if (entry.reused && !entry.saved) return <div className="token-entry"><p>Uses the API key saved with <strong>{entry.reused}</strong>.</p><button type="button" className="button" onClick={() => setEditing(true)}>Use a different key</button></div>
+  return <div className="token-entry"><p><KeyStatus saved={entry.saved} others={entry.sharedWith.join(', ')} /></p><button type="button" className="button" onClick={() => setEditing(true)}>{entry.saved ? 'Replace key' : 'Add API key'}</button>{entry.local && <small>Local servers can leave this empty, and an environment variable such as OPENAI_API_KEY also works.</small>}</div>
+}
+
+function KeyStatus({ saved, others }: { saved: boolean; others: string }) {
+  if (saved && others) return <>Shares its API key with <strong>{others}</strong>.</>
+  return <>{saved ? 'An API key is saved for this profile.' : 'No API key saved for this profile.'}</>
+}
+
+function KeyField({ saved, reused, sharedWith, value, onChange, share, onShare, onDone }: KeyEntry & { onDone: () => void }) {
+  const others = sharedWith.join(', ')
+  return <div className="token-entry"><TextInput label="API key" type="password" value={value} onChange={onChange} maxLength={4000} hint="Saved in your system keychain. It is never shown again." />
+    {/* A replaced key does every job that shared it, so a rotated key keeps recall working; unticked, only this profile changes. */}
+    {saved && others && <label className="checkbox-row"><input type="checkbox" checked={share} onChange={(event) => onShare(event.target.checked)} />Also use it for {others}</label>}
+    <button type="button" className="text-button" onClick={() => { onChange(''); onShare(true); onDone() }}>{reused && !saved ? `Use the ${reused} key` : 'Cancel key entry'}</button></div>
 }

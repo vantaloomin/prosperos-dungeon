@@ -49,6 +49,8 @@ h2 { font-size: 1.25rem; }
 svg { width: 1.1em; height: 1.1em; stroke-width: 1.6; flex-shrink: 0; }
 input, select, textarea { background: var(--canvas); border: 1px solid var(--input-border, var(--border)); border-radius: 7px; padding: 10px 12px; }
 textarea { resize: vertical; line-height: 1.6; }
+/* Two lines that grow with the text, or a wrapped placeholder, to about five (Iris). */
+textarea.grows { resize: none; field-sizing: content; min-height: calc(2lh + 22px); max-height: calc(5lh + 22px); }
 ::placeholder { color: var(--faint); }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .skip-link { position: absolute; left: 8px; top: 8px; transform: translateY(calc(-100% - 16px)); z-index: 10; padding: 10px 14px; background: var(--accent); color: var(--on-accent); border-radius: 7px; }
@@ -677,6 +679,10 @@ textarea { resize: vertical; line-height: 1.6; }
 .token-entry p { margin: 0; font-size: 0.875rem; }
 .token-entry small { flex-basis: 100%; color: var(--muted); }
 .token-entry .field { flex: 1 1 280px; }
+/* The shared-key choice gets its own line; the way back lines up with the field's edge (Iris). */
+.token-entry .checkbox-row { flex-basis: 100%; }
+.token-entry .text-button { padding-inline: 0; }
+@media (max-width: 720px) { .model-profile-editor .form-actions:has(.keychain-note) { flex-wrap: wrap; } .model-profile-editor .keychain-note { flex-basis: 100%; } }
 .connection-success { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); }
 .advanced-settings > summary { cursor: pointer; color: var(--muted); }
 .advanced-settings > .form-stack { margin-top: 14px; }
@@ -733,6 +739,11 @@ input[type='range'], input[type='checkbox'], input[type='radio'] { accent-color:
 .font-opendyslexic .reading-font-name { font-family: 'OpenDyslexic', system-ui, sans-serif !important; }
 .checkbox-row { display: flex; align-items: flex-start; gap: 10px; padding-top: 4px; font-size: 0.9375rem; cursor: pointer; }
 .checkbox-row:has(input:disabled) { color: var(--muted); cursor: default; }
+/* Settings > Models: the narrator Mix's choices, without the browser's fieldset box. */
+.plain-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.plain-fieldset small { color: var(--muted); }
+.model-mix { margin-top: 4px; }
+.model-mix-options { margin-top: 10px; }
 .segmented { display: flex; flex-wrap: wrap; width: fit-content; max-width: 100%; border: 1px solid var(--input-border, var(--border)); border-radius: 9px; overflow: hidden; background: var(--surface); }
 .segmented label { flex: 1 1 auto; cursor: pointer; }
 .segmented label + label { border-left: 1px solid var(--border); }
@@ -1008,6 +1019,8 @@ img.avatar, img.portrait { object-fit: cover; object-position: center top; paddi
 .interior-room text { fill: var(--muted); font-size: 8px; }
 .interior-room.here rect { fill: var(--accent); stroke: var(--accent); }
 .interior-room.here text { fill: var(--surface); font-weight: 600; }
+.notice .hardware-fix, .notice .hardware-after { display: block; margin-top: 8px; }
+
 
 /* Talk of the town (dungeon/politics.py, StoryPolitics.tsx): side shares at the bar's ends, name | view rows. */
 .politics-list { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 12px; }

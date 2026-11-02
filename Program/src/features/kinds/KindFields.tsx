@@ -34,7 +34,12 @@ export function KindFields({ id, shown, found, picked, own, age, choices, note, 
       <Field label="Kind">{(fieldId, describedBy) => (
         <select id={fieldId} aria-describedby={describedBy} name={`${id}-kind`} value={picked} onChange={(event) => onChange({ kind: event.target.value, lifespan: own })}>
           <option value="">{foundOption(found.label, found.source, you)}</option>
-          {kinds.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+          {kinds.filter((item) => !item.folk).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+          {folks(kinds).map((folk) => (
+            <optgroup key={folk} label={folk}>
+              {kinds.filter((item) => item.folk === folk).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+            </optgroup>
+          ))}
         </select>
       )}</Field>
       <Field label={you ? 'How long you live' : 'How long they live'} hint={note}>{(fieldId, describedBy) => (
@@ -48,4 +53,9 @@ export function KindFields({ id, shown, found, picked, own, age, choices, note, 
       {hint && <small className="subtle kind-human-terms">{hint}</small>}
     </div>
   )
+}
+
+/** The peoples' groups in the order their first kind comes (Fantasy humanoids, Beastkin, Other peoples). */
+function folks(kinds: { folk?: string | null }[]): string[] {
+  return [...new Set(kinds.map((item) => item.folk).filter((folk): folk is string => Boolean(folk)))]
 }

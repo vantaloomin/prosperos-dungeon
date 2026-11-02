@@ -80,7 +80,7 @@ from dungeon.sheet import compel_line, spell_actions, unprepared
 from dungeon.sheet import native as native_sheet
 from dungeon.sheet import ruleset as ruleset_of
 from dungeon.sheet import stats as sheet_stats
-from dungeon.text_models import config_for, default_name, key_for
+from dungeon.text_models import config_for, default_name, key_for, reply_config
 from dungeon.world import catalog, changes, custom, generators, inside, life_details, townsfolk
 
 JOB = 'story'
@@ -1553,8 +1553,9 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
     if in_story:
         await emit({'stage': 'reading'})
     await settled(state)
-    with database.connect() as connection:
-        config = config_for(connection, JOB)
+    with database.connect(write=True) as connection:
+        # The narrator's Mix, when it is on, picks this turn's model (dungeon/text_models.py reply_config).
+        config = reply_config(connection, JOB)
         if config is None:
             raise no_model()
         steps = pace.Steps(pace.budget_for(connection, config), getattr(state, 'pace_clock', None) or time.monotonic)

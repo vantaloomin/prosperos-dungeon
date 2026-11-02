@@ -69,7 +69,7 @@ export const FAMILIES: Record<ImageFamily, Family> = {
   },
   booru: {
     label: 'Booru (SDXL, Pony, Illustrious)', short: 'Booru', looks: 'SDXL, Pony or Illustrious', sampling: 'Illustrious XL', steps: 'Most SDXL models use 20 to 30.',
-    note: 'Works best with a tag-style prompt; see Prompt style.',
+    note: 'Prompts go out as booru tags (solo, 1boy and so on), after the quality tags under Prompt style.',
     reference: 'Pictures from a reference need the IPAdapter Plus nodes and its two models.',
     pack: { label: 'IPAdapter Plus', url: 'https://github.com/cubiq/ComfyUI_IPAdapter_plus', install: false },
     slots: [{ key: 'ckpt_name', label: 'Model', role: 'model', hint: 'From ComfyUI\'s models/checkpoints folder.', tip: 'One file holds the model, its text encoders and VAE. Any SDXL, Pony or Illustrious checkpoint works.' }],
@@ -127,6 +127,22 @@ export const filesBody = (slots: FileSlot[], shown: ModelFiles, defaults: ModelF
 export const noChoice = (slots: FileSlot[]): ModelFiles => Object.fromEntries(slots.map(({ key }) => [key, '']))
 
 export const isChosen = (saved: ModelFiles) => Object.values(saved).some(Boolean)
+
+/** How the file list's heading describes it: the user's files, the smaller model the app picked for this computer's
+ * graphics card (dungeon/hardware.py fit_images), or the family's own. */
+export const filesLabel = (saved: ModelFiles, fit: string | null | undefined) =>
+  isChosen(saved) ? '(your choice)' : fit ? '(picked for this graphics card)' : '(defaults)'
+
+/** A model file's name without its folder or extension: krea2_turbo_nvfp4. */
+export const shortName = (file: string) => (file.split(/[\\/]/).pop() ?? file).replace(/\.(safetensors|gguf)$/i, '')
+
+/** The family hint's line when the model running is the one the app picked for the card, because the user hasn't
+ * chosen one (Iris): "On this 12 GB card it uses krea2_turbo_nvfp4, a smaller file that fits." */
+export function fitLine(fit: string | null | undefined, saved: ModelFiles | null, cardGb: number | null): string | null {
+  if (!fit || saved?.unet_name) return null
+  const card = cardGb === null ? 'this graphics card' : `this ${cardGb >= 10 ? Math.round(cardGb) : cardGb.toFixed(1)} GB card`
+  return `On ${card} it uses ${shortName(fit)}, a smaller file that fits.`
+}
 
 /** Download pages for the family's slots that have them, in slot order. */
 export const linksByRole = (links: ModelLink[], family: ImageFamily = 'krea2') => {

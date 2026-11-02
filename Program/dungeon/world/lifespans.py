@@ -187,7 +187,7 @@ SPANS = LIFESPANS  # "How long they live": never free text, so these and "As the
 
 def choices(data: dict | None = None) -> dict:
     """What the Kind and How long they live pickers offer where someone lives."""
-    return {'kinds': [{'id': key, 'label': value['label'], 'lifespan': value['lifespan']}
+    return {'kinds': [{'id': key, 'label': value['label'], 'lifespan': value['lifespan'], 'folk': value.get('folk')}
                       for key, value in kinds(data).items() if value.get('label')],
             'spans': list(SPANS)}
 

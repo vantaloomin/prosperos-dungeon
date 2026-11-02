@@ -5,9 +5,14 @@ bank (by default from its era) and may weight the groups; real cities weight the
 Lists favour ordinary names people actually had in the period and avoid stock fantasy names.
 """
 import json
+import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import peoples  # noqa: E402  (beastkin, fantasy humanoids and other peoples, each with its own naming scheme)
+
 OUT = Path(__file__).resolve().parents[2] / 'dungeon' / 'world' / 'data' / 'names.json'
+LIFESPANS = OUT.with_name('lifespans.json')
 
 
 def group(feminine, masculine, neutral, family, cultures=None):
@@ -1150,7 +1155,10 @@ for roman in ANCIENT_ROME.values():
 
 BANKS = {'modern': MODERN, 'victorian': VICTORIAN, 'medieval': MEDIEVAL, 'frontier': FRONTIER, 'storybook': STORYBOOK,
          'edo-japan': EDO_JAPAN, 'qing-china': QING_CHINA, 'ottoman': OTTOMAN, 'ancient-rome': ANCIENT_ROME,
-         'mughal-india': MUGHAL_INDIA}
+         'mughal-india': MUGHAL_INDIA,
+         # Not people of one period but the other peoples of a fantasy world, which a town adds to its own bank with
+         # `names.also` and weighs in its mix beside its human heritages (scripts/world/peoples.py).
+         'peoples': peoples.bank()}
 
 NAMES = {
     'schema_version': 1,
@@ -1186,4 +1194,5 @@ NAMES = {
 
 if __name__ == '__main__':
     OUT.write_text(json.dumps(NAMES, indent=1, ensure_ascii=False) + '\n', encoding='utf-8')
-    print(f'Wrote {OUT}')
+    LIFESPANS.write_text(json.dumps(peoples.lifespans(), indent=1, ensure_ascii=False) + '\n', encoding='utf-8')
+    print(f'Wrote {OUT} and {LIFESPANS}')
