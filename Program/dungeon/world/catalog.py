@@ -127,7 +127,7 @@ def calendar_id(data: dict) -> str | None:
     return ERA_CALENDARS.get(data['era'])
 
 
-OMIT_WHEN_EMPTY = {'townsfolk', 'kinds'}
+OMIT_WHEN_EMPTY = {'townsfolk', 'kinds', 'politics'}
 
 
 def unset_work_rules(data: dict):
@@ -154,8 +154,9 @@ def prepare(raw: bytes | str | dict, *, mend: bool = False) -> dict:
     # stays the same.
     data = model.model_dump(mode='json', exclude=OMIT_WHEN_EMPTY - model.model_fields_set)
     unset_work_rules(data)
-    from dungeon.world import lifespans
+    from dungeon.world import lifespans, politics
     notes += lifespans.clean(data)
+    notes += politics.clean(data)
     known = careers_for(data)
     for employer in data['employers']:
         unknown = set(employer['careers']) - set(known)

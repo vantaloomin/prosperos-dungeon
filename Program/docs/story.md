@@ -979,6 +979,38 @@ holds, rivals, allies and clocks.
   character's standing, to act through their people without announcing a clock.
 - Life Cards naming `{faction}` can now be drawn where a faction holds the place, and name one of them.
 
+## Local politics
+
+`dungeon/world/politics.py` (the rules and the banks in `dungeon/world/data/politics.json`) and `dungeon/politics.py`
+(in play), ported from Prospero's Companion. Every town has a few things people argue about, and factions behind each
+side. No model is involved and nothing seeded is stored: the same town and day always give the same answer.
+
+- **Issues.** A few big questions of the town's era (the crown's war tax, taxing magic; a real year's own, like
+  Prohibition in 1925, never settles against history) and local quarrels seeded from the town and the month, from a
+  bank of 118 templates filled with the town's own neighbourhoods, places and townsfolk (the reeve and the poor box,
+  the new mill, a license). A local issue runs whispers, open, heated, settled over three to six weeks and settles
+  by seeded dice, its odds from how the town splits and the pull of the factions on each side.
+- **The world's powers are the town's first factions.** The factions holding the town on the travel map
+  (`factions.local`) back sides by their kind (`world_kinds`: a realm is the crown, the establishment and the law; a
+  company is business and guild) or their own `tags`, carry pull by their tier, and start from their own allies and
+  rivals. The era's town groups (the temple, the circle of mages, the thieves' guild) fill in only what no power
+  covers. A win or a loss moves a faction's pull for half a year; issues won or lost together warm or cool two
+  factions. Politics never moves a clock or the character's standing: those stay with `factions.py`.
+- **People take sides** by their work, their character, their faction and where they live: the townsfolk who stand
+  for the town (its split), the people in the scene and everyone met there.
+- **The Table's Local politics** (`politics`: off, quiet, true to life, lively; true to life by default) sets how much
+  goes on; how eventful the campaign is makes local quarrels likelier and lets fewer fizzle out.
+- **The narrator** gets "## Talk of the town": each live issue, how the town leans, which factions back which side,
+  the latest beat and the views of the people present, by name, with the rule never to decide how an open issue ends.
+- **Talk of the town** (More > Talk of the town, in a town) shows the issues with the town's split, the factions and
+  where the people met there stand; a settled issue's odds and reasons with the odds shown. With the GM view on,
+  anything can be changed: views, issues (rename, how far it has got, how it went, put away, add one), factions
+  (rename, pull, the side it backs, how it gets on with the others, put away, add one). A world power changed there
+  changes in that town's talk only. The changes are kept per town for the campaign (`politics_*` tables), cleared by
+  a new story, and not branched.
+- A city's own `politics` block (`{credit, own_factions, factions, questions, issues}`, a package's or a custom
+  city's) adds its own factions, questions and issue templates; a bad entry is dropped with a note when it loads.
+
 ## Jobs and oaths
 
 `dungeon/jobs.py` and `dungeon/quests.py`. Besides a town's authored quests, `story_quests` holds quests of their
@@ -1360,7 +1392,9 @@ free grid of widgets is an optional mode late in Milestone 6.
 | `PATCH /api/story/journal/{id}` `{text}` / `DELETE /api/story/journal/{id}` | Corrects or removes a fact, logged; 404 for hidden truth or a fact not in the journal. |
 | `GET /api/story/gear` | `{coins, currency, slots: {used, max}, items, shop}`. `shop` is null away from a shop, else `{place_id, open, keeper, stock, offers}`; `offers` maps the character's items to what the shop pays. |
 | `POST /api/story/shop/buy` `{item_id, qty?}` / `POST /api/story/shop/sell` `{inventory_id, qty?}` | Trades at the counter. 404 with no shop here or no such item, 409 when closed, out of stock, too dear, too heavy, or not something the shop buys. |
-| `GET /api/story/table` / `PUT /api/story/table` | This campaign's rules (`intensity`, `drama`, `injury_persistence`, `show_odds`, `roll_dice`, `show_adult_side`, `gm_view`, `cutaways`, `defeat`, `levels`, `veils`, `voice`, `pov`, `tense`, `length`); a change to what is shown is remembered for the next campaign. `GET /api/story` carries them as `table`. |
+| `GET /api/story/table` / `PUT /api/story/table` | This campaign's rules (`intensity`, `drama`, `injury_persistence`, `show_odds`, `roll_dice`, `show_adult_side`, `gm_view`, `cutaways`, `defeat`, `levels`, `veils`, `voice`, `pov`, `tense`, `length`, `politics`); a change to what is shown is remembered for the next campaign. `GET /api/story` carries them as `table`. |
+| `GET /api/story/politics` | Talk of the town where the story is (dungeon/politics.py `widget`): `{level, level_name, city, issues, factions, relations, people}`. `GET /api/story` carries `politics`, whether there is any here. |
+| `POST /api/story/politics/issues`, `PATCH`/`DELETE /api/story/politics/issues/{id}`, `PUT /api/story/politics/views`, `POST /api/story/politics/factions`, `PATCH`/`DELETE /api/story/politics/factions/{id}`, `PUT /api/story/politics/relations` | The player's changes to the town's talk; each returns it as it now stands. 409 out of town, 422 for a big question settled or staged. |
 | `DELETE /api/story` | Starts a new story: the history, every branch, the record and the people met go, the scene stays. |
 
 ## People you've met

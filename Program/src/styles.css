@@ -1020,3 +1020,30 @@ img.avatar, img.portrait { object-fit: cover; object-position: center top; paddi
 .interior-room.here rect { fill: var(--accent); stroke: var(--accent); }
 .interior-room.here text { fill: var(--surface); font-weight: 600; }
 .notice .hardware-fix, .notice .hardware-after { display: block; margin-top: 8px; }
+
+
+/* Talk of the town (dungeon/politics.py, StoryPolitics.tsx): side shares at the bar's ends, name | view rows. */
+.politics-list { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 12px; }
+.politics-issue p, .politics-detail p { margin: 0; }
+.politics-title .badge { margin-left: 4px; white-space: nowrap; }
+.politics-split { display: grid; gap: 2px; margin: 4px 0; }
+.politics-split-ends { display: flex; justify-content: space-between; gap: 12px; font-size: 0.8rem; color: var(--muted); min-width: 0; }
+.politics-split-ends > span { display: flex; gap: 4px; min-width: 0; white-space: nowrap; }
+.politics-split-name { overflow: hidden; text-overflow: ellipsis; }
+.politics-split-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--border); }
+.politics-split-first { background: var(--accent); }
+.politics-split-neither { background: var(--border); }
+.politics-split-second { background: color-mix(in srgb, var(--text) 70%, transparent); }
+.politics-detail { display: grid; gap: 6px; margin-top: 6px; }
+.politics-people { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 11rem); gap: 6px 12px; align-items: center; }
+.politics-people select { width: 100%; }
+.politics-subhead { font-family: inherit; font-size: 0.875rem; font-weight: 500; color: var(--muted); margin: 12px 0 4px; }
+.politics-gets-on summary { cursor: pointer; }
+.politics-form { display: grid; gap: 8px; margin: 6px 0; }
+.politics-field { display: grid; gap: 4px; }
+.politics-field input, .politics-field select { width: 100%; }
+.politics-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.politics-more { margin-left: 24px; }
+@media (pointer: coarse) { .politics-issue .text-button, .politics-faction .text-button { min-height: 44px; } }
+.story-people .politics-detail .plain-list { max-height: none; gap: 2px; margin: 0; }
+.story-people .politics-detail .plain-list li { display: list-item; padding: 0; border: 0; border-radius: 0; }

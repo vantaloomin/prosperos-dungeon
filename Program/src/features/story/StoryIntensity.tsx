@@ -5,6 +5,7 @@ import { Notice } from '../../components/Feedback'
 import { dramaChoices, intensityChoices, LEVEL_NAMES, TONE_CATEGORIES, toggledVeil, VEIL_TOPICS, VOICES } from './storyText'
 import { NarrationFormat } from './NarrationFormat'
 import { useTable } from './table'
+import { POLITICS_LEVELS } from './politicsText'
 
 /** How far the story goes on the page (dungeon/story.py intensity) and how eventful it is (dungeon/happenings.py):
  * the world's own, or the player's, at any time; and whether off-page beats are shown (dungeon/beats.py). This
@@ -48,6 +49,7 @@ export function StoryIntensity({ intensity, onSaved }: { intensity: Intensity; o
       </select>}
     </Field>}
     <LeavingRule rules={rules} save={(change) => void save(change)} />
+    <PoliticsRule rules={rules} save={(change) => void save(change)} />
     {rules && ['ironsworn', 'srd52', 'brp'].includes(intensity.ruleset ?? '') && <Toggle label="Give the narrator rule text"
       hint="A few lines from the rules each turn, such as the move you rolled or a condition a foe took, so the story describes the result the way the rules mean it. The dice still decide."
       checked={rules.rule_text !== 'off'} onChange={(checked) => void save({ rule_text: checked ? 'on' : 'off' })} />}
@@ -69,6 +71,18 @@ function LeavingRule({ rules, save }: { rules?: TableRules | null; save: (change
       <option value="anyone">Anyone with a reason</option>
       <option value="fights">Only fights</option>
       <option value="nobody">Nobody</option>
+    </select>}
+  </Field>
+}
+
+/** How much local politics goes on (dungeon/politics.py): the town's arguments, its factions and who takes which side. */
+function PoliticsRule({ rules, save }: { rules?: TableRules | null; save: (change: Partial<TableRules>) => void }) {
+  if (!rules) return null
+  const value = rules.politics ?? 'true_to_life'
+  return <Field label="Local politics" hint={`${POLITICS_LEVELS.find((level) => level.value === value)?.hint ?? ''} See it under More > Talk of the town.`}>
+    {(id, describedBy) => <select id={id} value={value} aria-describedby={describedBy}
+      onChange={(event) => void save({ politics: event.target.value as TableRules['politics'] })}>
+      {POLITICS_LEVELS.map((level) => <option key={level.value} value={level.value}>{level.label}</option>)}
     </select>}
   </Field>
 }

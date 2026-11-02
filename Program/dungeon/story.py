@@ -44,6 +44,7 @@ from dungeon import (
     party,
     passages,
     plotting,
+    politics,
     prompt_library,
     quests,
     receipt,
@@ -510,7 +511,9 @@ def story(database) -> dict:
                 'intensity': intensity(connection, view['data']),
                 'map': travel.view(connection, view['city']['id'], view['place']['id']),
                 'interior': delving.view(connection),
-                'factions': powers(connection, view), 'tier': standing(connection, view)}
+                'factions': powers(connection, view), 'tier': standing(connection, view),
+                # Whether Talk of the town has anything to show here (dungeon/politics.py).
+                'politics': politics.on(connection, view['data'], view['place']['id'])}
 
 
 def standing(connection, view: dict) -> dict | None:
@@ -740,6 +743,7 @@ def clear(database) -> dict:
                       'story_arc_beats', 'story_sheet', 'story_enrollment', 'story_attendance', 'story_grades', 'story_art',
                       'lore_timers'):
             connection.execute(f'DELETE FROM {name}')
+        politics.clear(connection)
         timeline.clear(connection)
         chapters.clear(connection)
     return story(database)
@@ -798,6 +802,8 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
     place_text = place_prompt(connection, view, shop)
 
     window = remembering.room(connection, config)
+    # What the town argues about and where the people here stand (dungeon/politics.py).
+    politics_text = politics.prompt_text(connection, view)
     # Lorebook entries switched on: always-on ones, those named lately and those that fit the moment (dungeon/lore.py).
     # Timed entries count the story's lines on this branch (dungeon/lore.py "Timing").
     lore_text, lore_started = lore.chosen(connection, view['data'], view['place']['id'], local_moment(view['data'], now),
@@ -815,6 +821,7 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
                                                  institutions.prompt_text(connection, now), beats.prompt_text(connection),
                                                  found and factions.prompt_text(connection, found['world'],
                                                                                 found['node']),
+                                                 politics_text,
                                                  found and tiers.prompt_text(connection, found), lore_text,
                                                  shelf)
                              if part)

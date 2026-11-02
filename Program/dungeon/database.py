@@ -198,6 +198,7 @@ ADDED_COLUMNS = (('story_messages', 'branch_id', "TEXT NOT NULL DEFAULT 'first'"
                  ('story_campaign', 'clock', "TEXT CHECK (clock IN ('world', 'story', 'real_time'))"),
                  ('story_campaign', 'rule_text', "TEXT CHECK (rule_text IN ('on', 'off'))"),
                  ('story_campaign', 'leaving', "TEXT CHECK (leaving IN ('anyone', 'fights', 'nobody'))"),
+                 ('story_campaign', 'politics', "TEXT CHECK (politics IN ('off', 'quiet', 'true_to_life', 'lively'))"),
                  ('story_inventory', 'stolen', 'INTEGER NOT NULL DEFAULT 0 CHECK (stolen IN (0, 1))'),
                  ('story_inventory', 'condition',
                   "TEXT NOT NULL DEFAULT 'sound' CHECK (condition IN ('sound', 'damaged', 'broken'))"))
