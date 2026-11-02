@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Your Claude and ChatGPT accounts, found for you.** A Claude Code or Codex profile now lists the accounts on this
+  PC to pick from: the usual one, plus each second command such as `claude2` (a script on PATH, or a function or
+  alias in your PowerShell profile) and account folders like `.claude-account2`, with whether each is signed in and
+  as whom. Codex profiles can now use a second ChatGPT account too, through their own account folder.
 - **Go somewhere else on the maps.** "Go somewhere else…" now opens the town's street map and the travel map instead of
   the City and Place dropdowns. Pick a building and Go there to cross town; pick a town, keep or hex on the travel map
   to set out on the road. Only the towns of the world you're in are offered: no roads between towns, and no towns of
