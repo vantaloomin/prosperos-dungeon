@@ -59,7 +59,10 @@ school is in its own folder's engine data (`engine/institutions/havenbrooke.json
   so an edited package plays as edited. The built-in worlds' packages are built (again) when the app starts. A
   loader that caches its data reads again when a package file changes. A key no package holds, or a script with no
   data folder, reads the shipped file in `dungeon/world/data`. When two packages hold the same key, the built-in
-  world's wins. Town city files (`cities`) are still read from `dungeon/world`.
+  world's wins. Town city files (`cities`) of the built-in worlds are read from `dungeon/world/data/cities`; a town
+  only an imported package holds (a world made in Prospero's Worldsmith) is read from that package and joins the
+  city list, loaded leniently like a city pack (`dungeon/world/catalog.py`), and the list is read again when a
+  package file changes.
 
 ## The importer
 
