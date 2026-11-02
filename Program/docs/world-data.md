@@ -192,7 +192,7 @@ are; rules about how far through life someone is read their life age (`dungeon/w
 age through childhood, then adulthood stretched to their kind's lifespan, so an elf of 300 is 48 in human terms and
 is seeded, retires, dates and passes away like it. A city file can only change how long adulthood lasts.
 
-**The peoples of fantasy worlds.** `scripts/world/peoples.py` (run through `scripts/world/names.py`) writes 75
+**The peoples of fantasy worlds.** `scripts/world/peoples.py` (run through `scripts/world/names.py`) writes 77
 peoples into `lifespans.json` and the `peoples` name bank: beastkin (wolf-, dog-, fox-, coyote- and jackal-kin; cat-,
 lynx-, lion-, tiger-, leopard- and panther-kin; naga, lamia, viper- and constrictor-kin; horse-, zebra-, donkey- and
 unicorn-kin; cow-kin, bull-kin, minotaurs and buffalo-kin; rabbit- and hare-kin; deer-, elk-, stag- and moose-kin;
@@ -216,8 +216,9 @@ from their seed first, then their name group is drawn by `names.mix` weights fro
 from the kind's own `groups` list, else from the `peoples` bank's group for that kind, else from the human groups;
 their family name comes from their own kind's groups too. A kind may also weigh its own `pronouns` (`{"she": 0.8,
 "he": 0.15, "they": 0.05}`); others keep the town's usual mix. A city with no `kinds` block draws from the whole mix
-as before, and a city of other peoples alone can take `"bank": "peoples"` and weigh its groups in its mix. This is
-the same format as Prospero's Companion's kinds by share.
+as before (Kingswood's halflings and half-elves come from its kind-tied name groups), and a city of other peoples alone can take `"bank": "peoples"` and weigh its groups in its mix. This is
+the same format as Prospero's Companion's kinds by share. The narrator's scene line names anyone who isn't human
+("Half-elf").
 
 **Local colour.** Each city lists things locals eat, drink, say, root for and do (`local_color`, with
 `kind` dish, drink, saying, custom, team, shop, legend, rumor or other), with the places they are easiest to find and

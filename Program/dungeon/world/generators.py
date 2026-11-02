@@ -594,12 +594,10 @@ RETIRED_SCHEDULE = [
 ]
 
 
-def seeded_pronouns(data: dict, seed: str, group: str | None = None) -> str:
-    """The pronouns `name` gives this seed when none are asked for: 'she', 'he' or 'they'. A kind whose city entry
-    gives its own `pronouns` weights uses those (Grandport's elves are mostly women)."""
-    own = lifespans.pronoun_weights(data, kind_of(data, seed, group)) if data.get('kinds') else None
+def seeded_pronouns(data: dict, seed: str) -> str:
+    """The pronouns `name` gives this seed when none are asked for: 'she', 'he' or 'they'."""
     modern = data['era'] in ('modern', 'future', 'other')
-    return pick(seed, 'pronouns', ['she', 'he', 'they'], own or town_mix.pronoun_weights(modern))
+    return pick(seed, 'pronouns', ['she', 'he', 'they'], town_mix.pronoun_weights(modern))
 
 
 def name(data: dict, *, seed: str, pronouns: str | None = None, group: str | None = None,
@@ -618,7 +616,7 @@ def name(data: dict, *, seed: str, pronouns: str | None = None, group: str | Non
     group = group_of(data, seed, group)
     names = groups[group]
     if pronouns not in PRONOUNS:
-        pronouns = seeded_pronouns(data, seed, group)
+        pronouns = seeded_pronouns(data, seed)
     links = naming.links(names, data)
     if family and not names.get('own_family'):
         # A relative's given name comes from a culture that fits the family name they share.
@@ -694,12 +692,13 @@ def _family(seed: str, culture: str | None, pronouns: str, names: dict, groups: 
     if surnames:
         family = pick(seed, 'family', surnames, naming.rank_weights(surnames))
         return naming.gendered(culture, naming.base_family(culture, family), pronouns)
-    # Most residents' family names come from the same heritage group; some from anywhere in the city (for people of
-    # another kind, from the groups of their own kind: no dwarf is a Baker).
-    if names.get('kind'):
-        mix = {key: weight for key, weight in mix.items() if groups[key].get('kind') == names['kind']} or \
-            {key: 1.0 for key, group in groups.items() if group is names}
-    other = pick(seed, 'family-group', list(mix), list(mix.values()))
+    # Most residents' family names come from the same heritage group; some from anywhere in the city.
+    # From people of their own kind: a human isn't a Hrívë Court elf's namesake.
+    same = {key: weight for key, weight in mix.items() if groups[key].get('kind') == names.get('kind')}
+    if not same and names.get('kind'):  # A people outside the mix (the peoples bank's dwarves): their own names.
+        same = {key: 1.0 for key, group in groups.items() if group is names}
+    same = same or mix
+    other = pick(seed, 'family-group', list(same), list(same.values()))
     return pick(seed, 'family', names['family'] if unit(seed, 'mixed') >= 0.2 else groups[other]['family'])
 
 
@@ -787,7 +786,7 @@ def resident(data: dict, *, seed: str, role: str = 'friend', career: str | None 
         raise DomainError(f'Role is one of {", ".join(ROLES)}.', 422)
     life = age or _age(data, seed, career, around_age, role)
     named = name(data, seed=seed, group=group, family=family, age=life)
-    folk = folk or lifespans.of_group(data, named['group'])
+    folk = folk or kind_of(data, seed, group)
     person = {'id': f'{role}-{hashlib.sha256(seed.encode()).hexdigest()[:8]}', 'role': role,
               'closeness': ROLES[role][0], 'name': named,
               'age': lifespans.real_age(life, lifespans.lifespan_of(folk, data)), 'local': local,

@@ -723,6 +723,19 @@ def first_impression(sheet: dict) -> str:
     return TEMPERAMENTS[sheet['temperament']][1]
 
 
+def folk_label(data: dict, sheet: dict) -> str | None:
+    """Their kind's name ("Vulcan", "Elf") when they aren't human (dungeon/world/lifespans.py), else None."""
+    folk = sheet.get('folk')
+    found = lifespans.kinds(data).get(folk) if folk and folk != lifespans.HUMAN else None
+    return found['label'] if found and found.get('label') else None
+
+
+def folk_words(data: dict, sheet: dict) -> str:
+    """', a Vulcan' or ', an Elf' for a line about someone who isn't human; '' for a human."""
+    label = folk_label(data, sheet)
+    return f", {'an' if label[0].lower() in 'aeiou' else 'a'} {label}" if label else ''
+
+
 def neighborhood_name(data: dict, hood_id: str) -> str:
     return next((hood['name'] for hood in data['neighborhoods'] if hood['id'] == hood_id), '')
 

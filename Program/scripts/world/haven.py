@@ -454,7 +454,7 @@ CITY = {
     'water': [{'kind': 'river', 'name': 'Haven River', 'width_km': 0.06,
                'points': [[42.73, -76.412], [42.718, -76.413], [42.708, -76.414], [42.698, -76.416]]}],
     'notables': notables,
-    # Haven's hidden folk live among people unseen: none of the seeded townsfolk are of their kinds (`share` 0).
+    # The fae of Haven are named on the cast, never rolled into the townsfolk: every kind's share is 0.
     'kinds': {
         'fae': {'label': 'Fae', 'lifespan': 700, 'words': ['fae', 'fey', 'sidhe'], 'share': 0},
         'half-fae': {'label': 'Half-fae', 'lifespan': 200, 'words': ['half-fae', 'half fae'], 'share': 0},
