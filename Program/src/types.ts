@@ -82,7 +82,8 @@ export interface KindShown {
 
 /** What the Kind and How long they live pickers offer (GET /life/kinds). */
 export interface KindChoices {
-  kinds: { id: string; label: string; lifespan: number | null }[]
+  /** `folk` groups the peoples of fantasy worlds in the picker (Beastkin, Fantasy humanoids, Other peoples). */
+  kinds: { id: string; label: string; lifespan: number | null; folk?: string | null }[]
   spans: number[]
 }
 

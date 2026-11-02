@@ -183,14 +183,41 @@ gets a short "names for anyone new" context section of ready-made names for the 
 spread of ages (`dungeon/world/newcomers.py`), so the model never has to invent one.
 
 **Kinds and lifespans.** A name group may tie its people to a kind with `"kind": "elf"` (Grandport's `elven`
-group does). Kinds and their average lifespans are in `lifespans.json` (Human 80, Elf 600, Half-elf 180, Dwarf 300,
-Halfling 110, Orc 55, Doesn't age); a city may add a `kinds` block that changes a built-in kind's lifespan there
-(`{"elf": {"lifespan": 750}}`) or adds a kind of its own (`{"tiefling": {"label": "Tiefling", "lifespan": 110,
-"words": ["tiefling"]}}`). A lifespan is a whole number from 40 to 5000, or null for a kind that doesn't age; a bad
+group does). Kinds and their average lifespans are in `lifespans.json` (Human 80, Elf 600, Half-elf 180, Doesn't age,
+and the peoples of fantasy worlds below); a city may add a `kinds` block that changes a built-in kind's lifespan there
+(`{"elf": {"lifespan": 750}}`) or adds a kind of its own (`{"cyclops": {"label": "Cyclops", "lifespan": 110,
+"words": ["cyclops"]}}`). A lifespan is a whole number from 40 to 5000, or null for a kind that doesn't age; a bad
 entry, or a group naming an unknown kind, is dropped with a note and the city still loads. Real ages stay as they
 are; rules about how far through life someone is read their life age (`dungeon/world/lifespans.py`): their real
 age through childhood, then adulthood stretched to their kind's lifespan, so an elf of 300 is 48 in human terms and
 is seeded, retires, dates and passes away like it. A city file can only change how long adulthood lasts.
+
+**The peoples of fantasy worlds.** `scripts/world/peoples.py` (run through `scripts/world/names.py`) writes 75
+peoples into `lifespans.json` and the `peoples` name bank: beastkin (wolf-, dog-, fox-, coyote- and jackal-kin; cat-,
+lynx-, lion-, tiger-, leopard- and panther-kin; naga, lamia, viper- and constrictor-kin; horse-, zebra-, donkey- and
+unicorn-kin; cow-kin, bull-kin, minotaurs and buffalo-kin; rabbit- and hare-kin; deer-, elk-, stag- and moose-kin;
+bear-kin; hawk-, owl-, corvid-, songbird- and waterfowl-kin; dragon- and wyrm-kin), fantasy humanoids (high, wood,
+dark and sea elves, dwarves, orcs and half-orcs, goblins and hobgoblins, halflings and gnomes, ogres, trolls, giants
+and half-giants, tieflings, succubi and incubi, the demon-blooded, merfolk and sea-kin) and other peoples (oni, tengu,
+kappa, mind-eaters, centaurs, satyrs, dryads, fae, lizardfolk, kobolds, gnolls, the celestial- and djinn-blooded,
+dhampirs, insectfolk, spider-kin, fungal folk and clockwork folk). Each kind carries `folk` and `type`
+(Beastkin, Canids), which group it in the Kind picker. Each people has its own naming scheme, made from a small set
+of sounds and endings or from clan words and titles and drawn from a fixed seed: at least 160 given names and 110
+family names (titles for orcs, lizardfolk, mind-eaters and clockwork folk), with no name that reads as made up by a
+model. Illithids and mind flayers are another company's creatures, so the people who eat minds are mind-eaters.
+
+**How many people of each kind.** A kind in the city's `kinds` block can carry a `share`: the fraction of the
+town's seeded townsfolk and residents of that kind, from 0 to 1 (`{"dwarf": {"share": 0.1}, "wolf-kin": {"share":
+0.05}}`; a built-in kind can be listed with only a share). Humans are the rest; shares that add up past 1 are scaled
+down, so nobody is human. A kind listed without a share gets 10% when no kind in the block has one (never more than
+30% for all of them together), and none when another kind there does, so `"share": 0` and a missing share both mean
+none in a block that sets shares (Haven's hidden folk are listed with `"share": 0`). Each person's kind is rolled
+from their seed first, then their name group is drawn by `names.mix` weights from the groups tied to that kind, or
+from the kind's own `groups` list, else from the `peoples` bank's group for that kind, else from the human groups;
+their family name comes from their own kind's groups too. A kind may also weigh its own `pronouns` (`{"she": 0.8,
+"he": 0.15, "they": 0.05}`); others keep the town's usual mix. A city with no `kinds` block draws from the whole mix
+as before, and a city of other peoples alone can take `"bank": "peoples"` and weigh its groups in its mix. This is
+the same format as Prospero's Companion's kinds by share.
 
 **Local colour.** Each city lists things locals eat, drink, say, root for and do (`local_color`, with
 `kind` dish, drink, saying, custom, team, shop, legend, rumor or other), with the places they are easiest to find and

@@ -454,13 +454,14 @@ CITY = {
     'water': [{'kind': 'river', 'name': 'Haven River', 'width_km': 0.06,
                'points': [[42.73, -76.412], [42.718, -76.413], [42.708, -76.414], [42.698, -76.416]]}],
     'notables': notables,
+    # Haven's hidden folk live among people unseen: none of the seeded townsfolk are of their kinds (`share` 0).
     'kinds': {
-        'fae': {'label': 'Fae', 'lifespan': 700, 'words': ['fae', 'fey', 'sidhe']},
-        'half-fae': {'label': 'Half-fae', 'lifespan': 200, 'words': ['half-fae', 'half fae']},
-        'kitsune': {'label': 'Kitsune', 'lifespan': 1000, 'words': ['kitsune', 'fox fae']},
-        'dryad': {'label': 'Dryad', 'lifespan': 400, 'words': ['dryad']},
-        'sylph': {'label': 'Sylph', 'lifespan': 500, 'words': ['sylph']},
-        'selkie': {'label': 'Selkie', 'lifespan': 250, 'words': ['selkie']}},
+        'fae': {'label': 'Fae', 'lifespan': 700, 'words': ['fae', 'fey', 'sidhe'], 'share': 0},
+        'half-fae': {'label': 'Half-fae', 'lifespan': 200, 'words': ['half-fae', 'half fae'], 'share': 0},
+        'kitsune': {'label': 'Kitsune', 'lifespan': 1000, 'words': ['kitsune', 'fox fae'], 'share': 0},
+        'dryad': {'label': 'Dryad', 'lifespan': 400, 'words': ['dryad'], 'share': 0},
+        'sylph': {'label': 'Sylph', 'lifespan': 500, 'words': ['sylph'], 'share': 0},
+        'selkie': {'label': 'Selkie', 'lifespan': 250, 'words': ['selkie'], 'share': 0}},
 }
 
 if __name__ == '__main__':

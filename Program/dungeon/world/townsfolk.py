@@ -364,8 +364,9 @@ def seeded_age(seed: str, resident: bool) -> int:
 
 
 def folk_of(data: dict, seed: str) -> str:
-    """Their kind, from the name group their name comes from (Grandport's elves): human for most."""
-    return lifespans.of_group(data, generators.group_of(data, seed))
+    """Their kind, from the city's share of each kind or the name group their name comes from (Grandport's elves):
+    human for most."""
+    return generators.kind_of(data, seed)
 
 
 def seeded_real_age(data: dict, seed: str, resident: bool) -> int:
@@ -377,7 +378,7 @@ def seeded_real_age(data: dict, seed: str, resident: bool) -> int:
 def lifespan_of_seed(data: dict):
     """How long whoever a seed draws lives, for turnover; None when the city has no long-lived people at all."""
     groups, mix = catalog.name_groups(data)
-    if not any(groups[key].get('kind') for key in mix):
+    if not lifespans.shares(data) and not any(groups[key].get('kind') for key in mix):
         return None
     return lambda seed: lifespans.lifespan_of(folk_of(data, seed), data)
 

@@ -42,7 +42,7 @@ def test_kinds_come_from_their_own_words_never_from_a_word_inside_another_or_sai
 def test_a_child_of_two_kinds_takes_a_listed_blend_else_the_longer_lived_parent():
     assert lifespans.blend('elf', 'human') == 'half-elf' and lifespans.blend('human', 'elf') == 'half-elf'
     assert lifespans.blend('dwarf', 'dwarf') == 'dwarf' and lifespans.blend('dwarf', 'halfling') == 'dwarf'
-    assert lifespans.blend('orc', None) == 'human' and lifespans.blend('ageless', 'elf') == 'ageless'
+    assert lifespans.blend('orc', None) == 'half-orc' and lifespans.blend('orc', 'goblin') == 'orc' and lifespans.blend('ageless', 'elf') == 'ageless'
 
 
 def test_grandport_elves_are_often_centuries_old_and_the_same_seed_gives_the_same_person():
@@ -83,20 +83,20 @@ def test_a_city_file_can_change_a_lifespan_and_add_a_kind_and_a_bad_entry_is_dro
     raw = copy.deepcopy(catalog.city('grandport'))
     for key in ('data_version', 'import_notes'):
         raw.pop(key, None)
-    raw['kinds'] = {'elf': {'lifespan': 750}, 'tiefling': {'label': 'Tiefling', 'lifespan': 110, 'words': ['tiefling']},
-                    'giant': {'label': 'Giant', 'lifespan': 9000, 'words': ['giant']},
+    raw['kinds'] = {'elf': {'lifespan': 750}, 'cyclops': {'label': 'Cyclops', 'lifespan': 110, 'words': ['cyclops']},
+                    'colossus': {'label': 'Colossus', 'lifespan': 9000, 'words': ['colossus']},
                     'sprite': {'lifespan': 30}, 'nameless': {'lifespan': 200}}
-    raw['names']['groups']['pictish']['kind'] = 'tiefling'
-    raw['names']['groups']['far-voyagers']['kind'] = 'troll'
+    raw['names']['groups']['pictish']['kind'] = 'cyclops'
+    raw['names']['groups']['far-voyagers']['kind'] = 'ghoul'
     data = catalog.prepare(raw, mend=True)
     assert data['kinds'] == {'elf': {'lifespan': 750},
-                             'tiefling': {'label': 'Tiefling', 'lifespan': 110, 'words': ['tiefling']}}
+                             'cyclops': {'label': 'Cyclops', 'lifespan': 110, 'words': ['cyclops']}}
     notes = ' '.join(data['import_notes'])
-    assert all(word in notes for word in ('giant', 'sprite', 'nameless', 'troll'))
+    assert all(word in notes for word in ('colossus', 'sprite', 'nameless', 'ghoul'))
     assert 'kind' not in data['names']['groups']['far-voyagers']
     assert lifespans.lifespan_of('elf', data) == 750 and lifespans.lifespan_of('elf') == 600
-    assert lifespans.from_words('A tiefling bard.', data) == 'tiefling' and lifespans.from_words('A tiefling.') == 'human'
-    assert lifespans.of_group(data, 'pictish') == 'tiefling'
+    assert lifespans.from_words('A cyclops bard.', data) == 'cyclops' and lifespans.from_words('A cyclops.') == 'human'
+    assert lifespans.of_group(data, 'pictish') == 'cyclops'
     # The user's own pick wins over the city's.
     assert lifespans.lifespan_of('elf', data, 300) == 300
 
