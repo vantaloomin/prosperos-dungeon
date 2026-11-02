@@ -841,6 +841,32 @@ Havenbrooke's (car or bus) and BABEL's (the Stair) do. Vallarith's is.
   puts "I set out for …" in the box; clicking any other hex puts "I head …" its way. Lost, the ring round where they
   believe they are is dashed.
 
+### Interiors
+
+The inside of a keep, cave or ruin is walked room by room (dungeon/delving.py; requirements "### Interiors"). An
+authored interior (world/data/interiors, dungeon/interiors.py) is entered from its place or travel-map stop; a found
+hex site with an interior table (world/data/interior_tables/<world>.json: ruins, caves, lairs, barrows) is laid out
+from the campaign seed and the site the first time it is entered, the same every time, keeping the intensity levels
+it was entered at.
+
+- "I go in" at a way in enters the entrance room; "I go back outside" from the entrance comes out. While inside,
+  journeys wait, and a search searches the room, not the hex.
+- A line moves along a way out it names (by kind, "the stairs", or its words, "behind the hearth"), back the way it
+  came, or to a room already visited by passages already walked. Each move takes 5 minutes.
+- A locked passage opens with its key from the pack, or a Vitality roll to pick or force it (a failure leaves the
+  character where they were). A trap rolls the first time its passage is walked. A room's hazard rolls the first
+  time the character is in it.
+- A room's foes roll each turn the character is in the room to keep out of sight; a failure, or attacking them,
+  starts the fight (dungeon/story.py fight_round). Once a fight begun there is over with the character alive, the
+  room is cleared.
+- "I search the room": 20 minutes and a Mind roll; a success finds the room's hidden ways out and takes what is
+  lying there into the pack, and tells the room's lore.
+- A dark room without a light in the pack makes every roll a step harder. The interior's wandering table rolls every
+  `wander_every` moves.
+- The narrator is told the room, what is in it and the ways out the character can see (rooms beyond named only once
+  visited). What was seen, opened, sprung, searched and cleared is branched with the story (story_interior,
+  story_interior_rooms, story_interior_ways); each line's move is decided once (story_delves).
+
 ## Rest
 
 `dungeon/rest.py`. A line that beds down ("I sleep", "we make camp", "I rest for three days", "for a week") is a

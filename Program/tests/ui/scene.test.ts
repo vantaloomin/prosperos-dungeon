@@ -54,3 +54,14 @@ test('the drawer leaves out what has nothing to show', () => {
   assert.equal(hasWidget(story({ dice_shown: true }), 'dice'), true)
   assert.equal(hasWidget(story(), 'rules'), true)
 })
+
+test('inside an interior the scene shows its rooms, after a fight and before the road map', () => {
+  const interior: Story['interior'] = {
+    id: 'abandoned-keep', name: 'The Abandoned Keep', style: 'keep', levels: [],
+    rooms: [{ id: 'broken-gate', name: 'The broken gate', level: null, kind: 'gate', map: null, here: true, cleared: false }], passages: [],
+  }
+  assert.deepEqual(sceneWidgets(story({ interior }, 'vallarith-road'), false), ['inside', 'map'])
+  assert.deepEqual(sceneWidgets(story({ interior, fight }, 'vallarith-road'), false), ['fight', 'inside'])
+  assert.equal(hasWidget(story({ interior }), 'inside'), true)
+  assert.equal(hasWidget(story(), 'inside'), false)
+})

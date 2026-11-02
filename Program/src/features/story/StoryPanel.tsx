@@ -14,6 +14,7 @@ import { StoryIntensity } from './StoryIntensity'
 import { StoryJournal } from './StoryJournal'
 import { StoryMap } from './StoryMap'
 import { StoryTown } from './StoryTown'
+import { StoryInterior } from './StoryInterior'
 import { StoryArt } from './StoryArt'
 import { StoryNotebook } from './StoryNotebook'
 import { StoryDiceLog } from './StoryDiceLog'
@@ -274,6 +275,7 @@ const WIDGETS: Record<Widget, (props: PanelProps, refresh: () => void) => ReactN
   pack: (_, refresh) => <StoryGear open onTrade={refresh} />,
   journal: () => <StoryJournal open />,
   map: ({ story, onTravel, onLine }) => <StoryMap map={story.map} open onTravel={onTravel} onLine={onLine} />,
+  inside: ({ story, onLine }) => <StoryInterior interior={story.interior} open onLine={onLine} />,
   town: ({ story, onLine }) => <StoryTown where={`${story.scene.city.id}/${story.scene.place.id}`} open onLine={onLine} />,
   people: ({ story, change }) => <StoryPeople people={story.people} open onFind={(key) => void change(() => api<StoryData>('/story/find', { key }))} />,
   party: ({ story, change }) => <StoryPeople people={partyOf(story)} title="Your party" open onFind={(key) => void change(() => api<StoryData>('/story/find', { key }))} />,

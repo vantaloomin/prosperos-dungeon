@@ -20,6 +20,7 @@ from dungeon import (
     bonds,
     chapters,
     combat,
+    delving,
     director,
     factions,
     feelings,
@@ -505,6 +506,7 @@ def story(database) -> dict:
                 'table': table.rules(connection),
                 'intensity': intensity(connection, view['data']),
                 'map': travel.view(connection, view['city']['id'], view['place']['id']),
+                'interior': delving.view(connection),
                 'factions': powers(connection, view), 'tier': standing(connection, view)}
 
 
@@ -728,7 +730,7 @@ def clear(database) -> dict:
         for name in ('record_entries', 'record_corrections', 'story_summary', 'story_clock', 'story_quests',
                       'story_inventory', 'story_purse', 'story_stock', 'story_shops', 'story_markets', 'story_services', 'story_appearance', 'story_appearance_turns', 'story_trades', 'story_wounds', 'story_fight',
                       'story_haggles', 'story_counter', 'story_turn_steps', 'story_finds', 'story_looks',
-                      'story_rounds', 'story_map', 'story_hexes', 'story_sites', 'story_lots', 'story_places', 'story_position', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
+                      'story_rounds', 'story_map', 'story_hexes', 'story_sites', 'story_lots', 'story_places', 'story_position', 'story_interior', 'story_interior_rooms', 'story_interior_ways', 'story_delves', 'story_journeys', 'story_rests', 'story_injuries', 'story_treatments', 'story_stress',
                       'story_cards', 'story_clocks', 'story_reputation', 'story_fates', 'story_bonds', 'story_party', 'story_real', 'story_beats', 'story_word',
                       'story_offpage', 'story_tier', 'story_marks', 'story_dark',
                       'story_director', 'story_arcs', 'story_threads', 'story_nemeses', 'story_seeds',
@@ -1010,6 +1012,17 @@ def travel_turn(state, user: dict, rolls: list[dict]) -> list[str]:
         return planned['lines']
 
 
+def delve_turn(state, user: dict, rolls: list[dict]) -> list[str]:
+    """The line's move inside an interior (dungeon/delving.py), played once, and where the character is in it."""
+    database = state.database
+    with database.connect(write=True) as connection:
+        lines, minutes = delving.walked(connection, user['id'], rolls, user['city_id'])
+        if minutes:
+            pass_time(database, connection, minutes)
+        here = delving.here_text(connection)
+        return lines + ([here] if here else [])
+
+
 def rest_turn(state, user: dict, rolls: list[dict]) -> list[str]:
     """The rest a line takes (dungeon/rest.py), slept once: the nights, what one turned up, the food, the mending."""
     database = state.database
@@ -1288,6 +1301,11 @@ def fight_round(state, user: dict, rolls: list[dict]) -> list[str]:
         bitten = next((roll for roll in rolls if roll.get('threat') and roll['band'] in quests.BITES), None)
         foe = quests.foe_for(user['city_id'], user['place_id'], bitten['threat']) if bitten else None
         sent = ''
+        if bitten and foe is None:
+            foe = delving.foe_for(connection, bitten['threat'])
+        # Attacking a room's foes inside an interior starts the fight with them.
+        if foe is None and not bitten and combat.fight(connection) is None and combat.attacks(user['text']):
+            foe = delving.room_foe(connection)
         if bitten and foe is None and (foe := travel.foe_for(bitten['threat'])):
             # A road's foes are at its region's tier, or sent by an enemy above it (dungeon/tiers.py).
             found = happenings.where(view['city']['id'], view['place']['id'])
@@ -1306,6 +1324,7 @@ def fight_round(state, user: dict, rolls: list[dict]) -> list[str]:
         usable = [row for row in inventory.carried(connection, view['city']['id']) if row['condition'] != 'broken']
         fought = combat.turn(connection, user['id'], view['people'], rolls, foe, usable, getattr(state, 'dice', None),
                              database.now(), aftermath, spoils, user['text'])
+        delving.fought(connection, combat.fight(connection) is not None, not combat.condition(connection)['dead'])
         return ([sent] if sent else []) + fought
 
 
@@ -1370,9 +1389,15 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
     with database.connect(write=True) as connection:
         # Someone who kept the character from leaving keeps them from setting out too (dungeon/leaving.py).
         held_back = leaving.stopped(connection, user['id'])
-        travelling = [] if held_back else travel.decide(connection, user['id'], user['city_id'], user['place_id'],
-                                                         user['text'], getattr(state, 'dice', None))
-        journeying = travel.journey(connection, user['id']) is not None
+        # Inside an interior a line moves between its rooms (dungeon/delving.py); journeys wait till they are out.
+        delving_in = delving.inside(connection) is not None
+        delving_now = [] if held_back or fighting else delving.decide(
+            connection, user['id'], user['city_id'], user['place_id'], user['text'], getattr(state, 'dice', None))
+        delve = delving.kept(connection, user['id'])
+        travelling = [] if held_back or delving_in or delve else travel.decide(
+            connection, user['id'], user['city_id'], user['place_id'], user['text'], getattr(state, 'dice', None))
+        # Going in, along a passage, searching or coming out is rolled by the interior, not split by the Referee.
+        journeying = travel.journey(connection, user['id']) is not None or bool(delve and delve['kind'] != 'stay')
     since = steps.clock()
     obvious = pace.obvious(user['text']) and not fighting
     # A journey's dangers and bearings are rolled by the journey (dungeon/travel.py): walking itself is no feat, and
@@ -1385,7 +1410,7 @@ async def rolled(state, user: dict, steps: pace.Steps) -> list[dict]:
     if not held and (hazard := quests.danger_action(user['city_id'], user['place_id'], getattr(state, 'dice', None))):
         actions = [*actions, hazard]
     with database.connect(write=True) as connection:
-        actions = [*actions, *travelling]
+        actions = [*actions, *travelling, *delving_now]
         if not held_back and (camp := rest.decide(connection, user['id'], user['city_id'], user['place_id'],
                                                   user['text'], getattr(state, 'dice', None))):
             actions = [*actions, camp]
@@ -1532,13 +1557,14 @@ async def answer(state, user: dict, on_text=None, on_event=None) -> dict:
         for roll in rolls:
             await emit({'roll': turn.shown(roll) if shown else turn.hidden(roll)})
     travelled = travel_turn(state, user, rolls) if in_story else []
+    delved = delving.prompt_text(delve_turn(state, user, rolls)) if in_story else ''
     rested = rest_turn(state, user, rolls) if in_story else []
     carded = town_turn(state, user) if in_story else []
     meanwhile = beats_turn(state, user) if in_story else []
     noted = director_turn(state, user) + recall_turn(state, rolls) + opening_turn(state, user) if in_story else []
     with database.connect() as connection:
         noted += [away_text(connection, user['id'])] if in_story else []
-    noted += [labour.prompt_text(labour_turn(state, user)), lies.prompt_text(lie_turn(state, user)),
+    noted += [delved, labour.prompt_text(labour_turn(state, user)), lies.prompt_text(lie_turn(state, user)),
               bonds.prompt_text(bond_turn(state, user)), party.prompt_text(party_turn(state, user)),
               sworn.prompt_text(vow_turn(state, user, rolls)), leaving.prompt_text(leave_turn(state, user))] \
         if in_story else []
@@ -1628,8 +1654,10 @@ def line_time(database, connection, user: dict, text: str, walked: dict | None):
         minutes = story_clock.ACROSS_TOWN_MINUTES + story_clock.spent(text, local)
         pass_time(database, connection, minutes)
         arrive(connection, database.now())
+    elif delving.inside(connection) and delving.moving(text):
+        return  # a move inside an interior passes its own minutes (dungeon/delving.py)
     elif not leaving.stopped(connection, user['id']) and (
-            rest.resting(text) or travel.setting_out(connection, user['city_id'], user['place_id'], text)):
+            rest.resting(text) or out_on_the_map(connection, user, text)):
         return
     else:
         minutes = story_clock.minutes_for(text, bool(referee.by_keywords(text)), local)
@@ -1637,10 +1665,15 @@ def line_time(database, connection, user: dict, text: str, walked: dict | None):
     happenings.keep(connection, user['id'], 'clock', local.date(), None, [minutes])
 
 
+def out_on_the_map(connection, user: dict, text: str) -> bool:
+    """Whether a line sets out on a journey: not from inside an interior, where it moves between rooms."""
+    return delving.inside(connection) is None and travel.setting_out(connection, user['city_id'], user['place_id'], text)
+
+
 def leave_line(database, connection, user: dict, text: str, walked: dict | None, rng=None) -> bool:
     """Whether someone there stops the line leaving (dungeon/leaving.py), decided once as it is sent."""
     going = bool(walked and (walked['city_id'], walked['id']) != (user['city_id'], user['place_id'])) or \
-        travel.setting_out(connection, user['city_id'], user['place_id'], text)
+        out_on_the_map(connection, user, text)
     view = scene(connection, story_clock.now(connection, database.clock))
     kept = leaving.decide(connection, user['id'], view, text, going, database.now(), rng)
     return bool(kept and kept['stopped'])
