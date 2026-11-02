@@ -3,16 +3,16 @@ import type { Story, StoryPerson } from '../../types'
 /** What the side of the play screen can show (requirements "Play screen and widgets"): the scene panel picks one or
  *  two of them from the game state, and the drawer holds every one. `here` is the people met who are where the story
  *  is; `pack` is the purse, the pack and, in a shop, its counter. */
-export type Widget = 'fight' | 'here' | 'sheet' | 'pack' | 'journal' | 'map' | 'town' | 'people' | 'party' | 'powers' | 'chapters' | 'branches' | 'notebook' | 'dice' | 'export' | 'rules' | 'art' | 'inside'
+export type Widget = 'fight' | 'here' | 'sheet' | 'pack' | 'journal' | 'map' | 'town' | 'people' | 'party' | 'powers' | 'chapters' | 'branches' | 'notebook' | 'dice' | 'export' | 'rules' | 'art' | 'inside' | 'talk'
 
 export const WIDGET_NAMES: Record<Widget, string> = {
   fight: 'The fight', here: 'Here with you', sheet: 'Sheet', pack: 'Pack', journal: 'Journal', map: 'Map', town: 'Town', people: 'People', party: 'Party',
-  powers: 'Powers', chapters: 'Chapters', branches: 'Branches', notebook: 'Notebook', dice: 'Dice log', export: 'Export', rules: 'Tone and rules', art: 'Pictures', inside: 'Inside',
+  powers: 'Powers', chapters: 'Chapters', branches: 'Branches', notebook: 'Notebook', dice: 'Dice log', export: 'Export', rules: 'Tone and rules', art: 'Pictures', inside: 'Inside', talk: 'Talk of the town',
 }
 
 /** The drawer's own tabs; the rest wait under More. */
 export const TABS: Widget[] = ['sheet', 'pack', 'journal']
-export const MORE: Widget[] = ['inside', 'map', 'town', 'people', 'party', 'art', 'powers', 'chapters', 'branches', 'notebook', 'dice', 'export', 'rules']
+export const MORE: Widget[] = ['inside', 'map', 'town', 'talk', 'people', 'party', 'art', 'powers', 'chapters', 'branches', 'notebook', 'dice', 'export', 'rules']
 /** The scene panel shows at most this many of its own picks, so the story keeps the room. */
 const MOST = 2
 
@@ -52,6 +52,7 @@ export function hasWidget(story: Story, widget: Widget): boolean {
     map: started && !!story.map, town: started && !onTheRoad(story), people: story.people.length > 0, party: partyOf(story).length > 0, powers: !!story.factions?.length || !!story.tier,
     chapters: !!story.campaign?.chapters.length, branches: !story.campaign?.ironman && story.branches.some((branch) => !branch.playing),
     notebook: started, dice: started && story.dice_shown, export: started, rules: true, art: started, inside: !!story.interior,
+    talk: started && !!story.politics,
   }
   return shown[widget]
 }

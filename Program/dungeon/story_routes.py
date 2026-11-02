@@ -226,6 +226,8 @@ class TableUpdate(Input):
     rule_text: Literal['on', 'off'] | None = None
     # Who can stop the character leaving a scene (dungeon/leaving.py).
     leaving: Literal['anyone', 'fights', 'nobody'] | None = None
+    # How much local politics goes on (dungeon/politics.py).
+    politics: Literal['off', 'quiet', 'true_to_life', 'lively'] | None = None
 
 
 class IronswornBuild(Input):

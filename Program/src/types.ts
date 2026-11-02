@@ -455,6 +455,8 @@ export interface TableRules {
   /** Whether the narrator gets the rule text that fits the turn (dungeon/rules/passages.py). */
   rule_text?: 'on' | 'off'
   leaving?: 'anyone' | 'fights' | 'nobody'
+  /** How much local politics goes on (dungeon/politics.py). */
+  politics?: PoliticsLevel
   /** Story time, or real time while the app is closed too ('world': the world's own; dungeon/story_clock.py). */
   clock?: 'world' | 'story' | 'real_time'
 }
@@ -464,7 +466,7 @@ export type NarrationLength = 'short' | 'medium' | 'long'
 export type ToneCategory = 'violence' | 'sex' | 'horror' | 'cruelty' | 'drugs'
 export type VeilTopic = 'execution' | 'slavery' | 'mutilation' | 'disease' | 'self-harm' | 'addiction' | 'torture' | 'sexual-violence' | 'sacrifice' | 'child-harm'
 export type ToneVoice = 'world' | 'grim' | 'wry' | 'romantic' | 'hopeful' | 'lyrical' | 'plain'
-export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; bands?: BandStep[] | null; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null; interior?: StoryInterior | null; injury_persistence: InjuryPersistence; table?: TableRules; factions?: StoryFaction[]; tier?: StoryTier | null; campaign?: StoryCampaign; message_id?: string }
+export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; bands?: BandStep[] | null; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null; interior?: StoryInterior | null; injury_persistence: InjuryPersistence; table?: TableRules; factions?: StoryFaction[]; tier?: StoryTier | null; politics?: boolean; campaign?: StoryCampaign; message_id?: string }
 /** A faction the character knows of (dungeon/factions.py): standing in words, with the number when the dice are shown,
  * and its emblem (dungeon/icons.py) when the world has one. */
 export interface StoryFaction { id: string; name: string; summary: string; standing: string; emblem?: string | null }
@@ -550,4 +552,64 @@ export interface ArtStage {
   background: { url: string; width: number | null; height: number | null; default?: boolean; light?: 'dawn' | 'day' | 'dusk' | 'night' } | null
   /** `default`: the world's stock portrait of their kind of person, until one of them is made. */
   portraits: { key: string; name: string; url: string; width: number | null; height: number | null; default?: boolean }[]
+}
+
+/** Local politics (dungeon/politics.py): what people in the town argue about, the factions behind each side and where
+ * the people the character has met there stand. Views run from 2 (strongly for the first side) to -2 (strongly for
+ * the second); `by` says whether the game or the player set it. */
+export type PoliticsLevel = 'off' | 'quiet' | 'true_to_life' | 'lively'
+export type PoliticsStage = 'whispers' | 'open' | 'heated' | 'settled' | 'ended'
+export interface PoliticsSide { name: string; stand: string }
+export interface PoliticsBeat { on: string; text: string; stage?: string; favors?: number | null }
+export interface PoliticsView { view: number; by: 'world' | 'you' }
+export interface PoliticsIssue {
+  id: string
+  kind: 'era' | 'local'
+  title: string
+  question: string
+  sides: PoliticsSide[]
+  stage: PoliticsStage
+  beats: PoliticsBeat[]
+  /** How many of the townsfolk who stand for the town are on each side, or don't much care. */
+  split: { first: number; second: number; neither: number }
+  /** How a local issue went; each way's odds and reasons only with the odds shown. */
+  settled: { options: { option: number; label: string; odds?: number; reasons?: string[] }[]; picked: number; picked_by: 'dice' | 'user' } | null
+  settled_on: string | null
+  /** A real question of the city's year: it never settles against history. */
+  real: boolean
+  origin: 'seeded' | 'user'
+  started: string | null
+  /** 'you' when the player set how far a local issue has got. */
+  stage_by: 'you' | null
+  /** The side each faction takes: 0 or 1, null when it stays out. */
+  lines: Record<string, number | null>
+  edited: boolean
+}
+export interface PoliticsFaction {
+  id: string
+  name: string
+  kind: string
+  about: string
+  /** 1 to 5; `change` is how far recent wins or losses moved it from `base_pull`. */
+  pull: number
+  base_pull: number
+  change: number
+  /** 'world': one of the world's powers holding the town (dungeon/factions.py); 'era': a town group of its times. */
+  origin: 'world' | 'city' | 'era' | 'user'
+  power: boolean
+  /** The people the character has met who belong. */
+  members: string[]
+  /** The sides the player told it to take, by issue. */
+  sides: Record<string, number>
+}
+export interface PoliticsRelation { a: string; b: string; stance: number; by: 'world' | 'you' }
+export interface PoliticsPerson { key: string; name: string; role: string; factions: string[]; views: Record<string, PoliticsView> }
+export interface TownPolitics {
+  level: number
+  level_name: PoliticsLevel
+  city: { id: string; name: string }
+  issues: PoliticsIssue[]
+  factions: PoliticsFaction[]
+  relations: PoliticsRelation[]
+  people: PoliticsPerson[]
 }

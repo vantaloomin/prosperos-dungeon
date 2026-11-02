@@ -19,6 +19,7 @@ import { StoryArt } from './StoryArt'
 import { StoryNotebook } from './StoryNotebook'
 import { StoryDiceLog } from './StoryDiceLog'
 import { StoryPeople } from './StoryPeople'
+import { StoryPolitics } from './StoryPolitics'
 import { StoryPowers } from './StoryPowers'
 import { StorySheet } from './StorySheet'
 import { loadGrids, onGrid, useGrids, type Flash } from './grid'
@@ -280,6 +281,7 @@ const WIDGETS: Record<Widget, (props: PanelProps, refresh: () => void) => ReactN
   people: ({ story, change }) => <StoryPeople people={story.people} open onFind={(key) => void change(() => api<StoryData>('/story/find', { key }))} />,
   party: ({ story, change }) => <StoryPeople people={partyOf(story)} title="Your party" open onFind={(key) => void change(() => api<StoryData>('/story/find', { key }))} />,
   powers: ({ story }) => <StoryPowers factions={story.factions ?? []} tier={story.tier} open />,
+  talk: ({ story }) => <StoryPolitics where={`${story.scene.city.id}/${story.scene.local_time.slice(0, 10)}/${story.table?.politics ?? ''}/${story.dice_shown}`} gm={!!story.table?.gm_view} open />,
   chapters: ({ story, change, onBack }) => story.campaign && <StoryChapters campaign={story.campaign} change={change} onBack={onBack} open />,
   branches: ({ story, change }) => <StoryBranches branches={story.branches} open
     onSwitch={(id) => void change(() => api<StoryData>(`/story/branches/${encodeURIComponent(id)}/switch`, {}))} />,
