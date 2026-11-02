@@ -8,7 +8,7 @@ from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Request
 
-from dungeon.database import decode
+from dungeon.database import decode, encode
 from dungeon.errors import DomainError
 from dungeon.images import backends, node_packs
 from dungeon.images.adapters.base import AdapterError
@@ -77,7 +77,7 @@ def delete_backend(request: Request, backend_id: str):
 async def check_backend(request: Request, backend_id: str):
     with db(request).connect() as connection:
         backend = backends.get(connection, backend_id)
-    key = request.app.state.vault.get(backend['credential_ref']) if backend['credential_ref'] else None
+    key = backends.backend_key(db(request), request.app.state.vault, backend)
     adapter = adapters(request)[backend['kind']]
     return (await adapter.check(backend, decode(backend['config']), key)).view()
 
@@ -112,11 +112,15 @@ async def list_models(request: Request, body: ModelProbe):
             backend = backends.get(connection, body.backend_id)
         saved = api_base(decode(backend['config']).get('base_url') or '')
         base_url = base_url or saved
-        if not key and backend['credential_ref'] and backend['provider'] == provider and base_url == saved:
-            key = request.app.state.vault.get(backend['credential_ref'])
+        if not key and backend['provider'] == provider and base_url == saved:
+            key = backends.backend_key(db(request), request.app.state.vault, backend)
     if not base_url:
         raise DomainError('Enter the API base URL.', 422)
     validate_compatible_url(base_url)
+    if not key and not body.backend_id:
+        # A new backend lists models with the key a text profile saved for the same service.
+        unsaved = {'kind': 'hosted', 'provider': provider, 'credential_ref': None, 'config': encode({'base_url': base_url})}
+        key = backends.backend_key(db(request), request.app.state.vault, unsaved)
     try:
         models = await adapters(request)['hosted'].models(provider, {'base_url': base_url}, key)
     except AdapterError as error:

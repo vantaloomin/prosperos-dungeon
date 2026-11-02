@@ -33,7 +33,7 @@ export interface ProfileConfig {
   /** The folder that keeps this profile's own Claude account (CLAUDE_CONFIG_DIR); empty uses the usual one. */
   cli_account_dir?: string
 }
-export interface ModelProfile { id: string; name: string; revision: number; config: ProfileConfig; provider_name: string; has_saved_key: boolean; ready: boolean; recall_ready?: boolean; decisions_ready?: boolean }
+export interface ModelProfile { id: string; name: string; revision: number; config: ProfileConfig; provider_name: string; has_saved_key: boolean; key_shared_with?: string[]; ready: boolean; recall_ready?: boolean; decisions_ready?: boolean; updated_at?: string }
 export interface ModelJob { key: string; name: string; detail: string }
 export interface ModelsOverview { profiles: ModelProfile[]; routes: Record<string, string>; jobs: ModelJob[] }
 
