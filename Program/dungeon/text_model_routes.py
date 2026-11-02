@@ -7,7 +7,7 @@ from fastapi import APIRouter, Request
 from dungeon import text_models
 from dungeon.database import decode
 from dungeon.providers import balance
-from dungeon.providers.config import ConnectionProbe, ProfileCreate, ProfileUpdate, RouteUpdate
+from dungeon.providers.config import ConnectionProbe, MixUpdate, ProfileCreate, ProfileUpdate, RouteUpdate
 
 router = APIRouter(prefix='/api/models')
 
@@ -76,3 +76,9 @@ async def profile_usage(profile_id: str, request: Request, fresh: bool = False):
 @router.put('/routes')
 def set_route(body: RouteUpdate, request: Request):
     return text_models.set_route(db(request), body.job, body.profile_id)
+
+
+@router.put('/mix')
+def set_mix(body: MixUpdate, request: Request):
+    """The narrator's Mix: profiles that tell the story in turn or at random, each with its own settings."""
+    return text_models.set_mix(db(request), body.job, body.profile_ids, body.mode, body.enabled)

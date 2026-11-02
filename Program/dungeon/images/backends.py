@@ -46,6 +46,48 @@ def credential_ref(backend_id: str) -> str:
     return f'image-backend:{backend_id}'
 
 
+# A text profile's service whose key an image API with no key of its own uses: the same provider, so the key a
+# person saved once for chat also makes pictures. Google's image route sits under the same key as Gemini text.
+TEXT_PROVIDERS = {'openai': 'openai', 'openrouter': 'openrouter', 'google': 'google', 'nanogpt': 'nanogpt',
+                  'other': 'compatible'}
+
+
+def text_profile_key(connection, backend: dict) -> dict | None:
+    """The text model profile whose saved key this hosted backend borrows, or None. Only for a backend at its
+    provider's usual address (or, for any other image API, a compatible text profile at the same address), so a key
+    never reaches a server it was not entered for."""
+    from dungeon.providers.config import DEFAULT_URLS
+
+    if backend['kind'] != 'hosted' or backend['credential_ref'] or backend['provider'] not in TEXT_PROVIDERS:
+        return None
+    base_url = api_base(decode(backend['config']).get('base_url') or '')
+    provider = TEXT_PROVIDERS[backend['provider']]
+    if provider != 'compatible' and base_url != api_base(HOSTED_DEFAULTS[backend['provider']]['base_url']):
+        return None
+    wanted = base_url if provider == 'compatible' else DEFAULT_URLS[provider]
+    for row in many(connection, 'SELECT name, config, credential_ref FROM model_profiles WHERE credential_ref IS NOT '
+                    'NULL ORDER BY updated_at DESC, created_at DESC'):
+        config = decode(row['config'])
+        if config.get('provider') == provider and api_base(config.get('base_url') or '') == api_base(wanted):
+            return row
+    return None
+
+
+def key_for(connection, vault, backend: dict) -> str | None:
+    """The key a backend calls with: its own, else the one saved with a text profile for the same service."""
+    if backend['credential_ref']:
+        return vault.get(backend['credential_ref'])
+    borrowed = text_profile_key(connection, backend)
+    return vault.get(borrowed['credential_ref']) if borrowed else None
+
+
+def backend_key(database, vault, backend: dict) -> str | None:
+    if backend['credential_ref']:
+        return vault.get(backend['credential_ref'])
+    with database.connect() as connection:
+        return key_for(connection, vault, backend)
+
+
 def is_novelai(backend: dict) -> bool:
     """NovelAI's own image API, whose models read booru tags like the Booru family (adapters/novelai.py)."""
     return backend['kind'] == 'hosted' and backend['provider'] == 'novelai'
@@ -114,8 +156,9 @@ def disclosure(backend: dict) -> str | None:
     return text
 
 
-def view(backend: dict) -> dict:
+def view(backend: dict, connection=None) -> dict:
     config = decode(backend['config'])
+    borrowed = text_profile_key(connection, backend) if connection is not None else None
     return {'id': backend['id'], 'kind': backend['kind'], 'provider': backend['provider'], 'label': backend['label'],
             'enabled': bool(backend['enabled']), 'position': backend['position'],
             'base_url': config.get('base_url', ''), 'model': config.get('model', ''), 'style': config.get('style', ''),
@@ -133,7 +176,7 @@ def view(backend: dict) -> dict:
             'style_loras': config.get('style_loras', []) if backend['kind'] == 'comfyui' else None,
             'sampler': {key: config.get(key) for key in SAMPLER_INPUTS} if backend['kind'] == 'comfyui' else None,
             'reference_workflow': bool(config.get('reference_workflow')), 'takes_reference': takes_reference(backend),
-            'has_key': backend['credential_ref'] is not None,
+            'has_key': backend['credential_ref'] is not None, 'key_from': borrowed['name'] if borrowed else None,
             'controlled_machine': bool(backend['controlled_machine']), 'concurrency': backend['concurrency'],
             'local': is_local(backend), 'accepts_nsfw': accepts_nsfw(backend),
             'allows_nsfw': bool(backend.get('allows_nsfw')),
@@ -150,7 +193,7 @@ def ordered(connection, enabled_only=False) -> list[dict]:
 
 def listing(database) -> list[dict]:
     with database.connect() as connection:
-        return [view(backend) for backend in ordered(connection)]
+        return [view(backend, connection) for backend in ordered(connection)]
 
 
 def get(connection, backend_id) -> dict:
@@ -315,7 +358,7 @@ def create(database, vault, body) -> dict:
             (backend_id, body.kind, provider, label, int(enabled), position, encode(config), reference,
              int(bool(body.controlled_machine)), allows, concurrency_for(body.kind, body.concurrency, provider), accepted,
              timestamp, timestamp))
-        return view(get(connection, backend_id))
+        return view(get(connection, backend_id), connection)
 
 
 def require_disclosure(backend, enabled, accepted_at):
@@ -352,7 +395,7 @@ def update(database, vault, backend_id, body) -> dict:
             (body.label or backend['label'], enabled, encode(config), reference, controlled, allows,
              concurrency_for(backend['kind'], body.concurrency or backend['concurrency'], backend['provider']), accepted,
              None if body.api_key else backend['blocked_reason'], timestamp, backend_id))
-        return view(get(connection, backend_id))
+        return view(get(connection, backend_id), connection)
 
 
 def move(database, backend_id, position) -> list[dict]:
@@ -364,7 +407,7 @@ def move(database, backend_id, position) -> list[dict]:
         rows.insert(min(position, len(rows)), moving)
         connection.executemany('UPDATE image_backends SET position=? WHERE id=?',
                                [(index, row['id']) for index, row in enumerate(rows)])
-        return [view(row) for row in ordered(connection)]
+        return [view(row, connection) for row in ordered(connection)]
 
 
 def delete(database, backend_id) -> list[dict]:
@@ -372,7 +415,7 @@ def delete(database, backend_id) -> list[dict]:
     with database.connect(write=True) as connection:
         get(connection, backend_id)
         connection.execute('DELETE FROM image_backends WHERE id=?', (backend_id,))
-        return [view(row) for row in ordered(connection)]
+        return [view(row, connection) for row in ordered(connection)]
 
 
 def block(database, backend_id, reason):
@@ -386,4 +429,4 @@ def unblock(database, backend_id) -> dict:
         get(connection, backend_id)
         connection.execute('UPDATE image_backends SET blocked_reason=NULL, updated_at=? WHERE id=?',
                            (database.now(), backend_id))
-        return view(get(connection, backend_id))
+        return view(get(connection, backend_id), connection)

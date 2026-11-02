@@ -20,8 +20,8 @@ from dungeon.errors import DomainError, require
 
 MOVED = ('images',)
 # What "settings" means for a restore, parents before the tables that refer to them.
-KEPT_SETTINGS = ('workspace_settings', 'model_profiles', 'model_routes', 'image_backends',
-                 'builtin_recall', 'prompt_overrides', 'debug_time', 'local_programs')
+KEPT_SETTINGS = ('workspace_settings', 'model_profiles', 'model_routes', 'model_mix', 'model_mix_state',
+                 'image_backends', 'builtin_recall', 'prompt_overrides', 'debug_time', 'local_programs')
 
 
 def database_files(path: Path) -> list[Path]:

@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from dungeon.identity import CLIENT_HEADER
-from dungeon.images import content
+from dungeon.images import backends, content
 from dungeon.images.adapters.base import AdapterError, ImageRequest, ImageResult
 from dungeon.images.adapters.codex import CodexAdapter
 from dungeon.images.adapters.comfyui import ComfyAdapter
@@ -756,3 +756,14 @@ def test_image_model_lists_in_each_shape(body, provider, expected):
 # Worlds -----------------------------------------------------------------------------------------
 
 
+
+
+def test_an_image_api_with_no_key_uses_the_key_saved_for_its_text_service(client, app):
+    client.post('/api/models/profiles', json={'name': 'Chat', 'config': {'provider': 'openrouter', 'model': 'a/b'},
+                                              'api_key': 'or-key'})
+    borrowing = add_backend(client, kind='hosted', provider='openrouter', model='m')
+    elsewhere = add_backend(client, kind='hosted', provider='other', base_url='https://images.example/v1', model='m')
+    assert borrowing['key_from'] == 'Chat' and not borrowing['has_key'] and elsewhere['key_from'] is None
+    with app.state.database.connect() as connection:
+        saved = backends.get(connection, borrowing['id'])
+    assert backends.backend_key(app.state.database, app.state.vault, saved) == 'or-key'
