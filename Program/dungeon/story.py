@@ -80,7 +80,7 @@ from dungeon.sheet import native as native_sheet
 from dungeon.sheet import ruleset as ruleset_of
 from dungeon.sheet import stats as sheet_stats
 from dungeon.text_models import config_for, default_name, key_for
-from dungeon.world import catalog, changes, custom, generators, inside, life_details, townsfolk
+from dungeon.world import catalog, changes, custom, decades, generators, inside, life_details, townsfolk
 
 JOB = 'story'
 log = logging.getLogger(__name__)
@@ -791,9 +791,8 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
     # What the scene is about, for the facts recalled by relevance (dungeon/remembering.py).
     focus = ' '.join([latest['text'], view['place']['name'], *(person['sheet']['name'] for person in view['people']),
                       *(row['text'] for row in rows[-2:])])
-    place_text = scene_text(view) + (f"\n\n{inventory.shop_prompt(shop, view['data']['currency'])}" if shop else '')
-    if wild := travel.wild_text(connection, view['city']['id'], view['place']['id']):
-        place_text += f'\n\n{wild}'
+    moment = datetime.fromisoformat(view['local_time'])
+    place_text = place_prompt(connection, view, shop)
 
     window = remembering.room(connection, config)
     # Lorebook entries switched on: always-on ones, those named lately and those that fit the moment (dungeon/lore.py).
@@ -837,8 +836,17 @@ def prompt(connection, now: datetime, config: dict, latest: dict, outcomes: list
     if not in_character.out_of_character(latest['text']):
         chat = steered(chat, authors_note.prompt_text(connection, 'story'))
     return {'system': system, 'messages': chat, 'people': view['people'], 'library': passages_given,
-            'city_id': view['city']['id'], 'day': datetime.fromisoformat(view['local_time']).date(),
+            'city_id': view['city']['id'], 'day': moment.date(), 'year': decades.year_of(view['data'], moment),
             'lore': lore_started, 'line': line_number(connection, latest)}
+
+
+def place_prompt(connection, view: dict, shop: dict | None) -> str:
+    """The scene, the shop here, the year in a modern world set in a past one (Havenbrooke's 2009: its things, slang,
+    media, prices, and what isn't yet; dungeon/world/decades.py) and, out in the wild, the land around."""
+    return '\n\n'.join(part for part in (
+        scene_text(view), shop and inventory.shop_prompt(shop, view['data']['currency']),
+        decades.prompt_text(view['data'], datetime.fromisoformat(view['local_time']), town_seed(connection)),
+        travel.wild_text(connection, view['city']['id'], view['place']['id'])) if part)
 
 
 def line_number(connection, latest: dict) -> int:
@@ -1472,8 +1480,30 @@ async def told(state, packet: dict, config: dict, in_story: bool, steps: pace.St
         # Skipped for time, or by the player's setting: the passage is flagged for them to rewrite instead.
         steps.skip('contradiction')
         unchecked = names
+    # A past-year world (dungeon/world/decades.py): narration naming something from a later year gets one rewrite
+    # while there is time; what is left is flagged for the player.
+    year = packet.get('year')
+    if (later := decades.anachronisms(text, year)) and steps.has_time():
+        since = steps.clock()
+        text = await anachronism_rewrite(text, later, year, rewrite)
+        steps.timed('anachronism', since)
     with state.database.connect() as connection:
-        return text, None, passages.flags(text, passages.dead_reasons(connection, unchecked))
+        return text, None, passages.flags(text, passages.dead_reasons(connection, unchecked),
+                                          later=passages.later_reasons(text, year))
+
+
+async def anachronism_rewrite(text: str, later: list[dict], year: int, rewrite) -> str:
+    """The narration without the things from after its year, when a rewrite takes them out and keeps the rest."""
+    notes = [f'- {decades.why(finding, year)}' for finding in later]
+    try:
+        revised = prose.without_dashes((await rewrite(prose.REWRITE, [{'role': 'user', 'content': (
+            f'Narration:\n\n{text}\n\nFix these:\n' + '\n'.join(notes))}])).strip())
+    except Exception as error:  # noqa: BLE001 - the draft stands, flagged; a failed rewrite never loses a turn
+        log.warning('The anachronism rewrite failed: %s', error)
+        return text
+    if prose.acceptable(text, revised) and len(decades.anachronisms(revised, year)) < len(later):
+        return revised
+    return text
 
 
 async def afterwards(state, user: dict, reply: dict, packet: dict, steps: pace.Steps):
@@ -1748,6 +1778,11 @@ async def retry(state, on_text=None, on_event=None) -> dict:
 
 # Rewrite -----------------------------------------------------------------------------------------
 
+def story_year(connection, database) -> int | None:
+    """The story's year in a modern world set in a past one (dungeon/world/decades.py); None in the present."""
+    view = scene(connection, story_clock.now(connection, database.clock))
+    return decades.year_of(view['data'], datetime.fromisoformat(view['local_time']), database.clock.now().year)
+
 def narration(connection, message_id: str) -> dict:
     """A narration the player may reword: told in the branch being played, so no other branch shares it."""
     where, values = timeline.visible(connection)
@@ -1789,7 +1824,8 @@ async def rewritten(state, message_id: str, passage: str, note: str = '') -> dic
     text = row['text'][:where[0]] + revised + row['text'][where[1]:]
     with database.connect(write=True) as connection:
         dead, kept = passages.still_dead(flagged, text)
-        reworded(state, connection, row, text, passages.flags(text, dead, kept),
+        later = passages.later_reasons(text, story_year(connection, database))
+        reworded(state, connection, row, text, passages.flags(text, dead, kept, later),
                  {'text': row['text'], 'flags': flagged})
     return story(database)
 

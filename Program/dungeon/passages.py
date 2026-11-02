@@ -1,8 +1,9 @@
 """Flagged passages and Rewrite (requirements "Flagged passages and Rewrite"; docs/story.md "Rewrite").
 
 What a turn's checks find and do not fix is kept with the narration as flags, one per paragraph, each with why: a
-strong prose tell the rewrite pass left (or never ran on, over budget), or someone the record says is dead when the
-contradiction check gave way for time. The player can rewrite a flagged paragraph, or any passage they select, with
+strong prose tell the rewrite pass left (or never ran on, over budget), someone the record says is dead when the
+contradiction check gave way for time, or, in a world set in a past year, something from a later one (Instagram in
+2009, dungeon/world/decades.py). The player can rewrite a flagged paragraph, or any passage they select, with
 an optional note. A rewrite changes the wording only: the dice, the bands and the record's facts stay, so nothing is
 rolled again. The wording before the last rewrite is kept, so the player can switch back.
 
@@ -14,6 +15,7 @@ import re
 from dungeon import pace
 from dungeon.database import many
 from dungeon.narration import prose
+from dungeon.world import decades
 
 HIDDEN = 'It conflicts with the story so far.'
 MOST_NOTE = 300
@@ -45,9 +47,16 @@ def dead_reasons(connection, names: list[str]) -> dict[str, str]:
             else HIDDEN for name in names}
 
 
-def flags(text: str, dead: dict[str, str], unchecked: set[str] | None = None) -> list[dict]:
+def later_reasons(text: str, year: int | None) -> dict[str, str]:
+    """Each thing from after the story's past year the text names, with why it is a problem."""
+    return {finding['text']: decades.why(finding, year) for finding in decades.anachronisms(text, year)}
+
+
+def flags(text: str, dead: dict[str, str], unchecked: set[str] | None = None,
+          later: dict[str, str] | None = None) -> list[dict]:
     """The paragraphs with a problem left in them, each with why. `dead` is the dead no check has cleared, and
-    `unchecked` the paragraphs they may still be in (all of them unless given)."""
+    `unchecked` the paragraphs they may still be in (all of them unless given); `later` the things named from after
+    a past-year story's year (later_reasons)."""
     parts = paragraphs(text)
     why: dict[str, list[str]] = {part: [] for part in parts}
     names: dict[str, dict[str, str]] = {part: {} for part in parts}
@@ -55,6 +64,10 @@ def flags(text: str, dead: dict[str, str], unchecked: set[str] | None = None) ->
         part = next((part for part in parts if finding.text in part), None)
         if finding.severity in (prose.HARD, prose.STRONG) and part:
             why[part].append(f'"{finding.text}": {finding.hint}')
+    for named, reason in (later or {}).items():
+        for part in parts:
+            if named in part:
+                why[part].append(reason)
     for name, reason in dead.items():
         for part in parts:
             if (unchecked is None or part in unchecked) and pace.named_dead({name}, part):

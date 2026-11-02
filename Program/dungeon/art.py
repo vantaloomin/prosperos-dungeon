@@ -57,7 +57,7 @@ from dungeon.errors import require
 from dungeon.images import backends as image_backends
 from dungeon.images import content, routing, storage
 from dungeon.images.adapters.base import AdapterError, ImageRequest, size_for
-from dungeon.world import catalog, townsfolk
+from dungeon.world import catalog, decades, townsfolk
 
 KINDS = ('portrait', 'place', 'scene', 'passage')
 PASSIVE_CAP = 6
@@ -160,14 +160,17 @@ def scene_prompt(connection, view: dict) -> str:
 def built(connection, database, kind: str, subject: str) -> tuple[str, str]:
     """What the picture shows, and the subject it is kept under (a place is kept by its place)."""
     view = story.scene(connection, story_clock.now(connection, database.clock))
+    # A modern world in a past year: clothes, phones and cars of that year (dungeon/world/decades.py).
+    year = decades.picture_text(view['data'], datetime.fromisoformat(view['local_time']), database.clock.now().year)
+    dated = (lambda prompt: f'{prompt} {year}') if year else (lambda prompt: prompt)
     if kind == 'portrait':
-        return (player_prompt(connection, view) if subject == 'player' else person_prompt(connection, view, subject),
-                subject)
+        return (dated(player_prompt(connection, view) if subject == 'player' else
+                      person_prompt(connection, view, subject)), subject)
     if kind == 'place':
-        return place_prompt(view), f"{view['city']['id']}/{view['place']['id']}"
+        return dated(place_prompt(view)), f"{view['city']['id']}/{view['place']['id']}"
     if kind == 'passage':
-        return passage_prompt(connection, view, subject), subject
-    return scene_prompt(connection, view), f"{view['city']['id']}/{view['place']['id']}"
+        return dated(passage_prompt(connection, view, subject)), subject
+    return dated(scene_prompt(connection, view)), f"{view['city']['id']}/{view['place']['id']}"
 
 
 def fingerprint(prompt: str) -> str:

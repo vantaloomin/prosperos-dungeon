@@ -840,6 +840,25 @@ Decided 2026-10-21:
   depends on the campaign's hand setting (Soft, Guiding or Firm). It never writes the player's
   actions, and the player's choices can take canon somewhere else entirely.
 
+### Worlds set in a past year
+
+Ported from Companion's "Back when" decade banks (2026-11-02, Vanta). A modern city whose story clock
+reads a year before today (Havenbrooke's autumn 2009) keeps to that year, by rule
+(dungeon/world/decades.py, world/data/decades.json):
+
+- **Jobs and pastimes** with `years` are only offered in those years: a video store clerk or a web
+  designer is work in 2009 and not today; no townsperson drives for a ride-hailing app in 2009.
+- **The narrator is told the year:** the decade's phones, computers and media, the slang of that
+  year, a few real books, shows and songs out by then, typical prices in that year's money (a city's
+  prices are written in its own year, its `names.year`, and scaled by a price index for any other),
+  and the things that don't exist yet.
+- **Anachronisms are checked:** narration naming something from a later year (Instagram, a selfie,
+  "YOLO" in 2009) gets one rewrite while the turn has time; a passage that still names one is flagged
+  for the player with why.
+- **Pictures** are told the year, so clothes, phones and cars are of it.
+
+A world in the present, and any city of another era, is untouched.
+
 ## Narrator prompting
 
 Decided 2026-10-21. Vanta's three writing documents are the inspiration (kept verbatim in the
