@@ -76,6 +76,35 @@ def test_a_profile_doing_a_job_must_keep_a_model(client):
     assert response.status_code == 409
 
 
+def test_the_narrator_mix_takes_turns_and_falls_back_to_the_job_profile(client, app):
+    one = add(client, LOCAL, name='One')
+    two = add(client, {**LOCAL, 'model': 'other-model'}, name='Two')
+    database = app.state.database
+    with database.connect(write=True) as connection:
+        assert text_models.reply_config(connection, 'story')['profile_id'] == one['id']
+    assert client.put('/api/models/mix', json={'job': 'chat', 'profile_ids': [one['id']]}).status_code == 422
+    result = client.put('/api/models/mix', json={'profile_ids': [one['id'], two['id']], 'mode': 'in_turn'}).json()
+    assert result['mix']['story'] == {'enabled': True, 'mode': 'in_turn', 'profile_ids': [one['id'], two['id']]}
+    with database.connect(write=True) as connection:
+        turns = [text_models.reply_config(connection, 'story')['profile_id'] for _ in range(3)]
+        assert turns == [one['id'], two['id'], one['id']]
+        assert text_models.reply_config(connection, 'chat')['profile_id'] == one['id']
+    client.put('/api/models/mix', json={'profile_ids': [one['id'], two['id']], 'mode': 'random'})
+    with database.connect(write=True) as connection:
+        picked = text_models.reply_config(connection, 'story', chooser=lambda rows: rows[-1])
+        assert picked['profile_id'] == two['id'] and picked['model'] == 'other-model'
+    # A profile in the Mix must keep its model; deleting it leaves one, which is no mix at all.
+    response = client.put(f"/api/models/profiles/{two['id']}", json={
+        'config': {'provider': 'local', 'model': ''}, 'expected_revision': two['revision']})
+    assert response.status_code == 409
+    result = client.delete(f"/api/models/profiles/{two['id']}").json()
+    assert result['mix']['story']['profile_ids'] == [one['id']]
+    with database.connect(write=True) as connection:
+        assert text_models.reply_config(connection, 'story', chooser=lambda rows: 1 / 0)['profile_id'] == one['id']
+    off = client.put('/api/models/mix', json={'profile_ids': [one['id']], 'enabled': False}).json()
+    assert off['mix']['story']['enabled'] is False
+
+
 # --- Provider adapters ----------------------------------------------------------------------------
 
 CONVERSATION = [{'role': 'assistant', 'content': 'Morning!'}, {'role': 'user', 'content': 'Hi'},

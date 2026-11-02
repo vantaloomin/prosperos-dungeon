@@ -99,6 +99,16 @@ five minutes, and Check connection asks again. Nothing polls in the background.
 | Continuity | After each story turn, lists the new facts the narrator brought in for the record ([story.md](story.md#the-record-and-the-story-so-far)); facts are only kept when a profile is chosen for it. Also folds older turns into the story so far, using the Default when it has none. A small, fast model fits. |
 | Semantic recall | Embeddings, from a recall profile, or from built-in recall when it is on. Recall profiles (`purpose: recall`) have their own section, Settings > Models > Recall: an OpenAI, NanoGPT, local or compatible service and an `embedding_model`, with no text model. They do this job and no other, text profiles never do it, and the first one saved takes the job when recall has none. Without one, recall matches keywords only. |
 
+### Mix narrator models
+
+Settings > Models > Story narrator can **Mix narrator models**: tick two or more finished profiles and each
+narration comes from one of them, **At random** or **In turn**, each with its own model and settings
+(`text_models.reply_config`, ported from Prospero's Companion #441). Only the narrator mixes; the Referee,
+Continuity and recall keep one steady model, and rewrites and chapter openers use the narrator's own profile.
+With the Mix off, or fewer than two finished profiles in it, the narrator's profile answers as before. A profile
+in the Mix must keep a model, and deleting one drops it from the Mix. "Add another model" copies the narrator's
+profile so a second model can be set up beside it.
+
 There is no automatic fallback to another profile when a request fails; like the Study, a failed
 request reports its error, and OpenRouter requests forbid OpenRouter's own provider fallbacks. The one
 exception is a rate limit (HTTP 429) before any text arrives: hosted models answer it for a few
@@ -164,4 +174,5 @@ local server.
 | `POST /api/models/profiles/{id}/check` | Test a saved profile |
 | `GET /api/models/profiles/{id}/usage` | Credits or usage the service reports for free, or `null`; `?fresh=true` skips the five-minute cache |
 | `PUT /api/models/routes` | `{job, profile_id}`; `null` returns the job to the conversation profile |
+| `PUT /api/models/mix` | `{job: 'story', profile_ids, mode: 'random' \| 'in_turn', enabled}`: the narrator's Mix |
 | `GET /api/hardware` | This computer: `computer`, `can_run` lines, the `local_text` and `local_images` checked, and `warnings` (`area`, `tone`, `text`); `?fresh=true` scans again |
