@@ -99,6 +99,7 @@ function HexMap({ hexes, at, names, onTravel, onLine }: { hexes: MapHex[]; at: N
   const left = Math.min(...points.map(([x]) => x)) - SIDE - 2, top = Math.min(...points.map(([, y]) => y)) - SIDE - 2
   const width = Math.max(...points.map(([x]) => x)) - left + SIDE + 2, height = Math.max(...points.map(([, y]) => y)) - top + SIDE + 2
   const [hereX, hereY] = centre(at.q, at.r)
+  const seenAt = new Set(near.map((hex) => `${hex.q},${hex.r}`))
   const pick = (hex: MapHex) => {
     const name = hex.place ? names.get(hex.place) : hex.site
     if (name) onTravel(name)
@@ -113,12 +114,20 @@ function HexMap({ hexes, at, names, onTravel, onLine }: { hexes: MapHex[]; at: N
         return <g key={`${hex.q},${hex.r}`} className={`map-hex terrain-${hex.terrain}${hex.visited ? ' visited' : ''}`}
           onClick={() => pick(hex)}>
           <polygon points={corners(x, y)}>
-            <title>{[label, hex.road ? 'a road' : null, TERRAIN_NAMES[hex.terrain]].filter(Boolean).join(', ')}</title>
+            <title>{[label, hex.road ? 'a road' : null, hex.river?.name, TERRAIN_NAMES[hex.terrain]].filter(Boolean).join(', ')}</title>
           </polygon>
           {hex.road && <circle className="map-hex-road" cx={x} cy={y} r={1.6} />}
           {hex.place && <circle className="map-hex-place" cx={x} cy={y} r={3.2} />}
           {hex.site && !hex.place && <rect className="map-hex-site" x={x - 2.4} y={y - 2.4} width={4.8} height={4.8} transform={`rotate(45 ${x} ${y})`} />}
         </g>
+      })}
+      {near.filter((hex) => hex.river?.down).map((hex) => {
+        // Each river hex runs to the next one downstream; drawn only where you have seen both.
+        const [dq, dr] = hex.river!.down!
+        if (!seenAt.has(`${dq},${dr}`)) return null
+        const [x1, y1] = centre(hex.q, hex.r), [x2, y2] = centre(dq, dr)
+        return <line key={`river-${hex.q},${hex.r}`} className="map-hex-river" x1={x1} y1={y1} x2={x2} y2={y2}
+          strokeWidth={1 + Math.sqrt(hex.river!.flow) * 2.5}><title>{hex.river!.name}</title></line>
       })}
       {near.filter((hex) => hex.place || hex.site).map((hex) => {
         const [x, y] = centre(hex.q, hex.r)

@@ -374,3 +374,51 @@ def test_a_day_s_walk_ends_at_dusk_unless_the_line_walks_on_in_the_dark(client, 
     assert late['stop'] in ('dusk', 'water', 'place', 'site')
     through = strike(app, 'I set out west and walk through the night.')
     assert sum(leg['hours'] for leg in through['legs']) > sum(leg['hours'] for leg in late['legs'])
+
+
+def river_map(flow: float) -> dict:
+    """Ten by six hexes of open country with a river down the middle column, a lake, and a road across it."""
+    river = [[5, row - 2] for row in range(6)]  # column 5 as axial hexes
+    return {'world': 'riverland', 'nodes': [
+        {'id': 'a', 'name': 'A', 'region': 'r', 'city': 'c', 'place': 'p', 'safe': True, 'map': {'x': 0.1, 'y': 0.3}},
+        {'id': 'b', 'name': 'B', 'region': 'r', 'city': 'c', 'place': 'q', 'safe': True, 'map': {'x': 0.9, 'y': 0.3}}],
+        'routes': [{'from': 'a', 'to': 'b', 'hours': 7, 'terrain': 'the mill road', 'danger': 'low'}],
+        'regions': {'r': {'danger': 'low'}},
+        'hex_map': {'miles': 6, 'legend': {'.': 'plains'}, 'region_legend': {'r': 'r'},
+                    'terrain': ['.' * 10] * 6, 'regions': ['r' * 10] * 6,
+                    'places': {'a': [1, 2], 'b': [8, -2]},
+                    'rivers': [{'id': 'river-1', 'name': 'the Wend', 'cells': river, 'flow': [flow] * 6}],
+                    'lakes': [[2, 4]]}}
+
+
+def test_a_river_takes_an_hour_to_ford_off_the_road_but_not_to_walk_beside():
+    board = hexes.Grid(river_map(0.8), 'seed')
+    assert board.cell((5, 2))['river']['name'] == 'the Wend' and board.cell((4, 2))['river'] is None
+    across = board.step((4, 2), (5, 2))
+    assert across['crossing'] == {'river': 'the Wend', 'by': 'wading', 'hours': hexes.FORD_HOURS}
+    assert across['hours'] == hexes.TERRAINS['plains']['hours'] + hexes.FORD_HOURS
+    # Walking downstream along the bank crosses nothing.
+    along = board.step((5, 1), (5, 2))
+    assert 'crossing' not in along and along['hours'] == hexes.TERRAINS['plains']['hours']
+    # A storm slows the wading too.
+    assert board.step((4, 2), (5, 2), 'storm')['hours'] == across['hours'] * hexes.SLOW['storm']
+
+
+def test_a_road_crosses_a_big_river_on_a_bridge_and_a_small_one_by_a_ford():
+    for flow, by in ((0.8, 'bridge'), (0.1, 'ford')):
+        board = hexes.Grid(river_map(flow), 'seed')
+        legs = board.way(board.places['a'], board.places['b'])
+        crossed = [leg for leg in legs if leg.get('crossing')]
+        assert len(crossed) == 1 and crossed[0]['road'] and crossed[0]['crossing']['by'] == by
+        assert crossed[0]['hours'] == hexes.ROAD_HOURS
+
+
+def test_a_lake_is_water_and_the_narrator_hears_of_each_crossing():
+    board = hexes.Grid(river_map(0.8), 'seed')
+    assert board.cell((2, 4))['terrain'] == 'water' and board.cell((2, 4))['river'] is None
+    legs = [board.step((4, 2), (5, 2)), board.step((5, 2), (6, 1))]
+    assert 'cross the Wend wading across (an hour more' in ' '.join(
+        travel.lines_for(river_map(0.8), {'from': 'a'}, legs + [{'to': 'b', 'hours': 1, 'terrain': 'x'}], 0, [], 0))
+    bridge = {'crossing': {'river': 'the Wend', 'by': 'bridge', 'hours': 0}}
+    ford = {'crossing': {'river': 'Cold Brook', 'by': 'ford', 'hours': 0}}
+    assert travel.crossings([bridge, bridge, ford]) == "the Wend by the bridge, and Cold Brook at the road's ford"

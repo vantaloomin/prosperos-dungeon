@@ -11,6 +11,10 @@ hexes are flat-topped, in axial coordinates (q, r).
   hexes is all generated around its places, set where the travel map's own positions put them.
 - **Roads.** The travel map's routes are drawn as roads from place to place; a step along a road takes an hour and
   is as dangerous as its route says. Stepping onto a road from the side costs the land's own hours.
+- **Rivers and lakes.** An authored map can list its rivers (each the hexes it runs through, source to mouth, with
+  how much water each carries) and lakes (water hexes). Crossing a river off the road takes an extra hour to ford
+  (for a six-mile hex), unless one walks along its bank; a road crosses on a bridge where the river is big and by a
+  ford where it is small, at no extra time. The narrator is told of every crossing and of a river where one stops.
 - **Sites.** Hexes off the roads hold ruins, lairs, camps, shrines and hamlets, rolled from the map's site table by
   the seed, leaving out entries the intensity levels do not allow (an entry's `intensity`, as cards have). A found
   site is kept as it was found (story_sites), so changing the levels later does not change it. A found hamlet is a
@@ -40,6 +44,10 @@ TERRAINS = {
     'marsh': {'hours': 4, 'sight': 0, 'text': 'the marsh', 'lost': 'hard'},
 }
 ROAD_HOURS = 1
+# Hours to ford a river off the road (for a six-mile hex), and how much of the map's biggest river's water a river
+# must carry where a road crosses it for the road to have a bridge rather than a ford.
+FORD_HOURS = 1
+BRIDGE_FLOW = 0.3
 DIRECTIONS = {'north': (0, -1), 'north-east': (1, -1), 'south-east': (1, 0), 'south': (0, 1), 'south-west': (-1, 1),
               'north-west': (-1, 0)}
 # Due east and west run along no side of a flat-topped hex: the way zigzags between the two either side.
@@ -151,6 +159,7 @@ class Grid:
             for column, (terrain, region) in enumerate(zip(terrain_row, region_row)):
                 self.authored[offset(column, row)] = (legend[terrain], regions.get(region))
         nodes = {node['id']: node for node in travel_map['nodes']}
+        self.rivers = self.read_water(data)
         self.places = {node: tuple(at) for node, at in data.get('places', {}).items()}
         for node in nodes.values():
             self.places.setdefault(node['id'], self.placed(node))
@@ -170,6 +179,23 @@ class Grid:
         self.region_of_place = {self.places[node]: nodes[node]['region'] for node in nodes}
         self.cache: dict[tuple[int, int], dict] = {}
 
+    def read_water(self, data: dict) -> dict[tuple[int, int], dict]:
+        """Make the map's lakes water, whatever the terrain rows say, and read its rivers: each river hex with the
+        river's name, the most water any river carries through it, and the next hex downstream."""
+        for at in data.get('lakes') or []:
+            if tuple(at) in self.authored:
+                self.authored[tuple(at)] = ('water', self.authored[tuple(at)][1])
+        rivers: dict[tuple[int, int], dict] = {}
+        for river in data.get('rivers') or []:
+            cells, flows = [tuple(at) for at in river.get('cells', [])], river.get('flow') or []
+            name = river.get('name') or self.names.get('river') or 'a river'
+            for index, at in enumerate(cells):
+                flow = flows[index] if index < len(flows) else 0.0
+                if at not in rivers or flow > rivers[at]['flow']:
+                    down = list(cells[index + 1]) if index + 1 < len(cells) else None
+                    rivers[at] = {'id': river.get('id', name), 'name': name, 'flow': flow, 'down': down}
+        return rivers
+
     def placed(self, node: dict) -> tuple[int, int]:
         """Where a place with no authored hex sits: its map position, SPAN hexes to the map's width."""
         span = self.generate.get('span', SPAN)
@@ -188,8 +214,9 @@ class Grid:
             elif terrain == 'water' and at not in self.authored and any(
                     other in self.at_place for other in neighbours(*at)):
                 terrain = self.generate.get('swap', {}).get('plains', 'plains')
+            river = self.rivers.get(at) if terrain != 'water' else None
             self.cache[at] = {'q': at[0], 'r': at[1], 'terrain': terrain, 'region': region,
-                              'road': self.roads.get(at), 'place': self.at_place.get(at)}
+                              'road': self.roads.get(at), 'place': self.at_place.get(at), 'river': river}
         return self.cache[at]
 
     def nearest_authored(self, at: tuple[int, int]) -> tuple[int, bool, str | None] | None:
@@ -248,6 +275,28 @@ class Grid:
         hours = ROAD_HOURS if road else TERRAINS[cell['terrain']]['hours']
         return None if hours is None else round(hours * self.miles / 6, 2)
 
+    def crossing(self, here: tuple[int, int], there: tuple[int, int], road: bool) -> dict | None:
+        """Crossing a river stepping into a hex: by the road's bridge or ford, or fording it off the road (which takes
+        FORD_HOURS more); none walking along the bank of the river one is already beside, or where there is none."""
+        river = self.cell(there)['river']
+        if not river:
+            return None
+        if road:
+            return {'river': river['name'], 'by': 'bridge' if river['flow'] >= BRIDGE_FLOW else 'ford', 'hours': 0}
+        beside = self.cell(here)['river']
+        if beside and beside['id'] == river['id'] and (beside['down'] == list(there) or river['down'] == list(here)):
+            return None
+        return {'river': river['name'], 'by': 'wading', 'hours': round(FORD_HOURS * self.miles / 6, 2)}
+
+    def step_hours(self, here: tuple[int, int], there: tuple[int, int]) -> float | None:
+        """Hours for one step, a river's crossing included."""
+        road = self.on_road(here, there)
+        hours = self.hours(self.cell(there), road)
+        if hours is None:
+            return None
+        crossing = self.crossing(here, there, road)
+        return hours + (crossing['hours'] if crossing else 0)
+
     def text(self, cell: dict, road: bool) -> str:
         return cell['road']['name'] if road else self.terrain_text(cell['terrain'])
 
@@ -268,7 +317,7 @@ class Grid:
             for other in neighbours(*at):
                 if not (low_q <= other[0] <= high_q and low_r <= other[1] <= high_r):
                     continue
-                hours = self.hours(self.cell(other), self.on_road(at, other))
+                hours = self.step_hours(at, other)
                 if hours is None:
                     continue
                 total = spent + hours
@@ -286,11 +335,13 @@ class Grid:
     def step(self, here: tuple[int, int], there: tuple[int, int], weather_: str = 'clear') -> dict:
         cell, road = self.cell(there), self.on_road(here, there)
         hours = self.hours(cell, road)
+        crossing = self.crossing(here, there, road) if hours is not None else None
         if hours is not None and not road:
-            hours *= SLOW.get(weather_, 1)
+            hours = (hours + (crossing['hours'] if crossing else 0)) * SLOW.get(weather_, 1)
         leg = {'from': list(here), 'to': list(there), 'hours': hours, 'terrain': self.text(cell, road),
                'danger': self.danger(cell, road), 'region': cell['region']}
-        return leg | ({'place': cell['place']} if cell['place'] else {}) | ({'road': True} if road else {})
+        return (leg | ({'place': cell['place']} if cell['place'] else {}) | ({'road': True} if road else {})
+                | ({'crossing': crossing} if crossing else {}))
 
     def sight(self, at: tuple[int, int]) -> list[tuple[int, int]]:
         cell = self.cell(at)
