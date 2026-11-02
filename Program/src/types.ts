@@ -92,7 +92,7 @@ export type ImageStatus = 'none' | 'queued' | 'running' | 'completed' | 'failed'
 export interface PostImage { status: ImageStatus; job_id: string | null; ref: string | null; error: string | null; updated_at: string | null; outdated?: boolean }
 
 export type BackendKind = 'comfyui' | 'codex' | 'hosted'
-export type HostedProvider = 'openrouter' | 'google' | 'openai' | 'nanogpt' | 'other'
+export type HostedProvider = 'openrouter' | 'google' | 'openai' | 'nanogpt' | 'novelai' | 'other'
 
 export interface ImageBackend {
   id: string
@@ -110,8 +110,14 @@ export interface ImageBackend {
   custom_workflow: boolean
   // ComfyUI: the model family whose built-in workflow runs; null for other kinds.
   family: ImageFamily | null
+  // The style the model family starts prompts with while `style` is '' (Booru and NovelAI: quality tags); null for none.
+  family_style: string | null
+  // Its prompts go out as booru tags (solo, 1boy, ...) rather than sentences.
+  tag_prompts: boolean
   // ComfyUI: files chosen for the built-in workflow ('' means its default); null for other kinds.
   model_files: ModelFiles | null
+  // The smaller Krea 2 model file the app picked for this computer's graphics card, used while no model is chosen.
+  model_fit: string | null
   // ComfyUI: LoRAs applied after the character's own, in order; null for other kinds.
   style_loras: StyleLora[] | null
   // ComfyUI: the built-in workflow's sampler; null in a field means the workflow's own value.
