@@ -399,8 +399,8 @@ walked room by room, the way the hex crawl walks hexes and the town map walks st
   sets the ranges.
 - **Authored core, generated beyond.** Key interiors are authored, in a world package's engine data
   (engine/interiors/<id>.json, or world/data/interiors for a built-in world) and drawn in Worldsmith as a rooms
-  map (rooms are boxes, levels are groups, passages are labelled links, with the Mermaid text kept in step). A
-  place of a town, a travel-map stop or an authored site names its interior. A rolled site (a ruin, cave, lair or
+  map (rooms are boxes, levels are groups, passages are labelled links, with the Mermaid text kept in step; a
+  room keeps where it was drawn as its `map` x/y). A place of a town, a travel-map stop or an authored site names its interior. A rolled site (a ruin, cave, lair or
   ward fort from the hex crawl) gets a generated interior the first time it is entered: laid out from the
   campaign seed and the site's kind (an interior table per kind: how many rooms, which kinds, how deep), so the
   same campaign always finds the same rooms and nothing is stored until it is seen. Generation follows the
