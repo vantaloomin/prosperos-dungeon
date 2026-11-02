@@ -125,3 +125,18 @@ def test_from_ironroot_a_walk_goes_into_the_woods_and_a_drive_still_takes_the_ro
     reply(provider, 'The truck starts on the second try.')
     tell(client, 'I walk back out and drive to Ithaca.', 'story-0002')
     assert ok(client.get('/api/story'))['scene']['place']['id'] == 'ithaca'
+
+
+def test_the_narrator_keeps_to_2009_and_a_later_thing_is_flagged(client, connected, provider, app):
+    # Ported from Companion's Back when (dungeon/world/decades.py).
+    from test_pace import Slow
+    begin(client)
+    app.state.pace_clock = Slow()
+    reply(provider, 'The lounge is half empty.\n\nAcross the room, a girl scrolls Instagram on her phone.')
+    tell(client, 'I look around the lounge.', 'story-0001')
+    narrator = provider.requests[-1]['system']
+    year = narrator.split('## The year: 2009')[1]
+    assert 'flip' in year and 'Not yet invented' in year and 'Instagram' in year
+    flags = ok(client.get('/api/story'))['messages'][-1]['flags']
+    assert [flag['passage'] for flag in flags] == ['Across the room, a girl scrolls Instagram on her phone.']
+    assert 'only came in 2010' in flags[0]['why'][0]

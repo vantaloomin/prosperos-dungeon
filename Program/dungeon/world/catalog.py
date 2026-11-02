@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from dungeon import world_data
 from dungeon.errors import DomainError
 from dungeon.identity import VERSION, data_dir
+from dungeon.world import decades
 from dungeon.world import mend as mending
 from dungeon.world.schema import Career, Careers, City, Featured, Holidays, Names
 
@@ -32,15 +33,24 @@ def careers() -> dict[str, dict]:
 def careers_for(data: dict, *, needs_met: bool = True) -> dict[str, dict]:
     """Careers a city offers: the shared ones for its era, then its own (which win on a shared id).
     A shared career that `needs` a kind of place (a beach) is left out where the city has none and
-    no employer for it, unless `needs_met` is False."""
+    no employer for it, unless `needs_met` is False. In a modern city, a career with `years` is only offered in
+    those years."""
     if not needs_met:
-        return {key: value for key, value in careers().items() if data['era'] in value['eras']} | \
-            {career['id']: career for career in data['careers']}
+        return of_the_year({key: value for key, value in careers().items() if data['era'] in value['eras']} |
+                           {career['id']: career for career in data['careers']}, data)
     kinds = {place['kind'] for place in data.get('places', [])}
     hired = {career for employer in data.get('employers', []) for career in employer['careers']}
     shared = {key: value for key, value in careers().items() if data['era'] in value['eras']
               and (not value['needs'] or kinds & set(value['needs']) or key in hired)}
-    return shared | {career['id']: career for career in data['careers']}
+    return of_the_year(shared | {career['id']: career for career in data['careers']}, data)
+
+
+def of_the_year(offered: dict[str, dict], data: dict) -> dict[str, dict]:
+    """The careers that exist in a modern city's year (dungeon/world/decades.py): one that came later, or had ended,
+    is left out."""
+    year = decades.offered_year(data)
+    return offered if year is None else {key: value for key, value in offered.items()
+                                         if decades.in_years(value, year)}
 
 
 def everyday(offered: dict[str, dict]) -> dict[str, dict]:
