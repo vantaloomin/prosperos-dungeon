@@ -276,3 +276,19 @@ def test_someone_met_with_no_portrait_stands_on_the_stage_in_a_stock_one(client,
     ask(client, 'portrait', here['key'])
     made_one = ok(client.get('/api/story/art/stage'))['portraits']
     assert made_one[0]['url'].endswith('/file') and 'default' not in made_one[0]
+
+
+def test_a_hosted_failure_reaches_a_local_comfyui_and_a_refusal_skips_safe_only_backends(client, adapters):
+    def hosted(provider, model):
+        return ok(client.post('/api/images/backends', json={'kind': 'hosted', 'provider': provider, 'model': model,
+                                                            'api_key': 'k', 'accept_disclosure': True}))
+    hosted('openrouter', 'm')
+    hosted('openai', 'gpt-image-1')
+    local_comfy(client)
+    adapters['hosted'].outcomes = [AdapterError('auth', 'The provider rejected the API key.'), png(96, 64)]
+    assert made(ask(client, 'place'))['status'] == 'done'
+    assert len(adapters['hosted'].requests) == 2 and adapters['comfyui'].requests == []
+    adapters['hosted'].outcomes = [AdapterError('refused', 'The provider refused this image under its content rules.')]
+    assert made(ask(client, 'place'))['status'] == 'done'
+    # The OpenAI API takes safe requests only, so after a refusal the picture goes straight to the local ComfyUI.
+    assert len(adapters['hosted'].requests) == 3 and len(adapters['comfyui'].requests) == 1

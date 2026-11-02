@@ -8,7 +8,8 @@ from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Request
 
-from dungeon.database import decode
+from dungeon import hardware
+from dungeon.database import decode, encode
 from dungeon.errors import DomainError
 from dungeon.images import backends, node_packs
 from dungeon.images.adapters.base import AdapterError
@@ -37,6 +38,21 @@ def adapters(request: Request) -> dict:
     return request.app.state.image_adapters
 
 
+def fit(request: Request, backend_id: str, options=None) -> dict:
+    """Puts a ComfyUI server on this computer on a model file its graphics card holds (hardware.fit_images), and
+    returns the backend as it now is."""
+    computer = request.app.state.hardware.computer()
+    with db(request).connect(write=True) as connection:
+        hardware.fit_images(connection, computer, options, only=backend_id)
+        return backends.get(connection, backend_id)
+
+
+def fitted_view(request: Request, backend_id: str) -> dict:
+    backend = fit(request, backend_id)
+    with db(request).connect() as connection:
+        return backends.view(backend, connection)
+
+
 @router.get('/backends')
 def list_backends(request: Request):
     return {'backends': backends.listing(db(request))}
@@ -44,12 +60,14 @@ def list_backends(request: Request):
 
 @router.post('/backends')
 def create_backend(request: Request, body: BackendCreate):
-    return backends.create(db(request), request.app.state.vault, body)
+    created = backends.create(db(request), request.app.state.vault, body)
+    return fitted_view(request, created['id'])
 
 
 @router.put('/backends/{backend_id}')
 def update_backend(request: Request, backend_id: str, body: BackendFields):
-    return backends.update(db(request), request.app.state.vault, backend_id, body)
+    backends.update(db(request), request.app.state.vault, backend_id, body)
+    return fitted_view(request, backend_id)
 
 
 @router.get('/backends/{backend_id}/workflows')
@@ -75,11 +93,14 @@ def delete_backend(request: Request, backend_id: str):
 
 @router.post('/backends/{backend_id}/check')
 async def check_backend(request: Request, backend_id: str):
-    with db(request).connect() as connection:
-        backend = backends.get(connection, backend_id)
-    key = request.app.state.vault.get(backend['credential_ref']) if backend['credential_ref'] else None
+    backend = fit(request, backend_id)
+    key = backends.backend_key(db(request), request.app.state.vault, backend)
     adapter = adapters(request)[backend['kind']]
-    return (await adapter.check(backend, decode(backend['config']), key)).view()
+    config = decode(backend['config'])
+    card = hardware.best_card(request.app.state.hardware.computer())
+    if config.get('unet_fit') and not config.get('unet_name') and card:
+        config['fit_line'] = hardware.missing_fit_line(config['unet_fit'], card, family_of(config))
+    return (await adapter.check(backend, config, key)).view()
 
 
 @router.post('/backends/{backend_id}/install-nodes/{pack_id}')
@@ -112,11 +133,15 @@ async def list_models(request: Request, body: ModelProbe):
             backend = backends.get(connection, body.backend_id)
         saved = api_base(decode(backend['config']).get('base_url') or '')
         base_url = base_url or saved
-        if not key and backend['credential_ref'] and backend['provider'] == provider and base_url == saved:
-            key = request.app.state.vault.get(backend['credential_ref'])
+        if not key and backend['provider'] == provider and base_url == saved:
+            key = backends.backend_key(db(request), request.app.state.vault, backend)
     if not base_url:
         raise DomainError('Enter the API base URL.', 422)
     validate_compatible_url(base_url)
+    if not key and not body.backend_id:
+        # A new backend lists models with the key a text profile saved for the same service.
+        unsaved = {'kind': 'hosted', 'provider': provider, 'credential_ref': None, 'config': encode({'base_url': base_url})}
+        key = backends.backend_key(db(request), request.app.state.vault, unsaved)
     try:
         models = await adapters(request)['hosted'].models(provider, {'base_url': base_url}, key)
     except AdapterError as error:
@@ -136,7 +161,7 @@ async def backend_files(request: Request, backend_id: str):
     config = decode(backend['config'])
     family = family_of(config)
     keys = [*FAMILIES[family].files, 'lora', *SAMPLER_LISTS]
-    result = {'ok': True, 'error': None, 'family': family, 'defaults': default_files(family),
+    result = {'ok': True, 'error': None, 'family': family, 'defaults': fitted_defaults(family, fit(request, backend_id)),
               'sampler_defaults': default_sampler(family), 'options': {key: [] for key in keys},
               'matching': {key: [] for key in keys}}
     try:
@@ -146,7 +171,15 @@ async def backend_files(request: Request, backend_id: str):
         return result
     for key in keys:
         result['options'][key], result['matching'][key] = family_first(key, found.get(key, []), family)
+    # The default model is the one the app picked for this computer's card from the files the server has.
+    result['defaults'] = fitted_defaults(family, fit(request, backend_id, found.get('unet_name', [])))
     return result
+
+
+def fitted_defaults(family: str, backend: dict) -> dict:
+    """The family's own files, with the model the app picked for this computer's card in place of its own."""
+    picked = decode(backend['config']).get('unet_fit')
+    return {**default_files(family), **({'unet_name': picked} if picked else {})}
 
 
 @router.get('/model-links')

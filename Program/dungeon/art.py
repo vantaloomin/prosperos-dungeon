@@ -14,7 +14,8 @@ when the player asks, through the image backends in Settings (dungeon/images).
   never goes out of date.
 - **Where it goes.** Each request is classified (dungeon/images/content.py) and routed to the enabled backends in
   the player's order (dungeon/images/routing.py): NSFW only to backends that take it, prohibited nowhere. A backend
-  that fails passes the request on to the next.
+  that fails passes the request on to the next, so a hosted API's failure (a rejected key too) reaches a local
+  ComfyUI set up after it. A provider's content refusal passes it on only to backends that take NSFW.
 - **Kept with the chapter** it was made in, so the book can carry it.
 - **Passive art** (the `passive_art` setting, off by default) adds pictures on their own after a turn, at most one a
   turn and PASSIVE_CAP a session, only with a backend enabled: the portrait of someone in the scene who has none,
@@ -221,7 +222,7 @@ def finish(database, art_id: str, status: str, **fields):
 
 def attempt(state, row: dict, backend: dict, reference: bytes | None) -> ImageRequest:
     config = decode(backend['config'])
-    key = state.vault.get(backend['credential_ref']) if backend['credential_ref'] else None
+    key = image_backends.backend_key(state.database, state.vault, backend)
     width, height = size_for(backend['kind'], ASPECT[row['kind']])
     look = image_backends.style_for(backend, row['style'])
     return ImageRequest(job_id=row['id'], prompt=f"{look}. {row['prompt']}" if look else row['prompt'],
@@ -243,13 +244,18 @@ async def make(state, art_id: str):
     if found.refusal:
         finish(database, art_id, 'refused', error=found.refusal)
         return
-    error = 'No image backend could make it.'
+    error, refused = 'No image backend could make it.', False
     for backend in found.backends:
+        # A provider's content refusal counts the picture as NSFW from then on: never offered to a backend that
+        # takes safe requests only (F6), a local ComfyUI or an NSFW-allowed API still may.
+        if refused and not image_backends.accepts_nsfw(backend):
+            continue
         try:
             result = await state.image_adapters[backend['kind']].generate(attempt(state, row, backend, reference))
             kept = storage.store(database, art_id, result.data)
         except AdapterError as failure:
             error = failure.message
+            refused = refused or failure.code == 'refused'
             if failure.code == 'auth':
                 image_backends.block(database, backend['id'], failure.message)
             continue

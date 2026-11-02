@@ -839,6 +839,15 @@ Decided 2026-10-21:
   a world's planned beats (Havenbrooke's seasons, Mabry's season events). How hard it pushes
   depends on the campaign's hand setting (Soft, Guiding or Firm). It never writes the player's
   actions, and the player's choices can take canon somewhere else entirely.
+- **Peoples by share (Vanta, 2026-11-02).** Every world can be home to the standard fantasy
+  peoples and more: 75 built-in kinds of beastkin (canids, felines, serpents, equines, bovines,
+  lagomorphs, cervids, ursines, avians, draconic), fantasy humanoids (four kinds of elf, dwarves,
+  orcs and half-orcs, goblins and hobgoblins, halflings, gnomes, giant-kin, fiends, merfolk and
+  sea-kin) and other peoples (oni, tengu, kappa, mind-eaters, centaurs, fae and more), each with a
+  lifespan and its own naming scheme of at least a hundred given and a hundred family names or
+  titles. A town sets each people's share of its townsfolk (humans are the rest), in the same
+  format as Prospero's Companion's kinds by share; Worldsmith offers the list with a share for
+  each. See docs/world-data.md, "The peoples of fantasy worlds".
 
 ### Worlds set in a past year
 
