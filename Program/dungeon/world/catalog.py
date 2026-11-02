@@ -10,6 +10,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from dungeon import world_data
 from dungeon.errors import DomainError
 from dungeon.identity import VERSION, data_dir
 from dungeon.world import mend as mending
@@ -203,6 +204,21 @@ def _add_pack(path: Path, result: dict, errors: list) -> None:
     result[data['id']] = data | {'builtin': False, 'origin': 'pack', 'pack_file': str(path)}
 
 
+def _add_held(key: str, result: dict, errors: list) -> None:
+    """Load one town an imported world package holds (one made in Worldsmith, say), leniently, as a pack is."""
+    try:
+        data = prepare(world_data.read('cities', key), mend=True)
+    except Exception as error:  # reported, never raised
+        if not isinstance(error, (ValidationError, ValueError, TypeError)):
+            LOG.exception('Skipped the packaged city %s', key)
+        errors.append({'file': f'world package city {key}', 'error': str(error)[:2000]})
+        return
+    if data['id'] != key or data['id'] in result:
+        errors.append({'file': f'world package city {key}', 'error': f'City id {data["id"]!r} is already loaded.'})
+        return
+    result[key] = data | {'builtin': False, 'origin': 'package'}
+
+
 @cache
 def _library() -> tuple[dict[str, dict], tuple[dict, ...]]:
     """Every city that loads, and what went wrong with each file that did not. One bad file must never take every
@@ -210,7 +226,9 @@ def _library() -> tuple[dict[str, dict], tuple[dict, ...]]:
 
     The shipped cities load strictly. A file that is not one of them, such as a city a tester dropped among the
     built-in ones, loads like a pack, mended, and anything that still fails is reported (Settings > Cities >
-    Pack folders)."""
+    Pack folders). Then the towns of imported world packages that no shipped file has (docs/packages.md "In play").
+    Asking for a city that is not there reads them all again (`city`), so a world installed while the app runs is
+    found without a restart."""
     result, errors, strays = {}, [], []
     for path in city_files(BUILTIN_CITIES):
         try:
@@ -225,6 +243,9 @@ def _library() -> tuple[dict[str, dict], tuple[dict, ...]]:
     for path in strays:
         LOG.warning('%s is not a valid built-in city, so it loads like a city pack', path)
         _add_pack(path, result, errors)
+    for key in world_data.keys('cities'):
+        if key not in result:
+            _add_held(key, result, errors)
     for folder in pack_dirs():
         for path in city_files(folder):
             _add_pack(path, result, errors)
@@ -250,6 +271,10 @@ def reload() -> dict:
 def city(city_id: str, extra: dict[str, dict] | None = None) -> dict:
     """A built-in city, or one of `extra` (the user's own cities)."""
     found = cities().get(city_id) or (extra or {}).get(city_id)
+    if not found and world_data.paths():
+        # A world package installed or imported since the list was read (one made in Worldsmith).
+        _library.cache_clear()
+        found = cities().get(city_id)
     if not found:
         raise DomainError(f'No world data for city {city_id!r}.', 404, 'unknown_city')
     return found

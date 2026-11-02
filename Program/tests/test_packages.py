@@ -9,8 +9,9 @@ from test_combat import kingswood
 from test_rulesets import reply
 from test_travel import ok
 
-from dungeon import director, inventory, package_lore, packages, world_data
+from dungeon import director, inventory, package_lore, packages, story, world_data
 from dungeon.errors import DomainError
+from dungeon.world import catalog
 
 
 @pytest.fixture
@@ -161,3 +162,22 @@ def test_place_lore_comes_up_on_more_than_its_exact_name(tmp_path):
     found = {entry['title']: entry['keywords'] for entry in package_lore.entries(contents, 'post-reform')}
     assert any(lore.mentioned(word, 'a blade of dwarven steel') for word in found['Dun Aldun'])
     assert any(lore.mentioned(word, 'out past the badlands') for word in found['The Badlands'])
+
+
+def test_an_imported_worlds_own_town_loads_and_a_campaign_starts_there(client, folder, app):
+    """A world made in Worldsmith carries its towns' city files in its package; Dungeon only read shipped ones, so
+    going to such a world failed with "No world data for city"."""
+    town = json.loads((packages.DATA / 'cities' / 'kingswood.json').read_text(encoding='utf-8')) | {
+        'id': 'reedby', 'name': 'Reedby'}
+    packages.dump(folder / 'engine' / 'cities' / 'reedby.json', town)
+    packages.dump(folder / 'engine' / 'travel' / 'ashmoor.json', {'world': 'ashmoor', 'travel': 'roads', 'nodes': [
+        {'id': 'reedby', 'name': 'Reedby', 'region': 'fen', 'city': 'reedby', 'place': 'felled-oak', 'safe': True}],
+        'routes': [], 'regions': {'fen': {'name': 'The Fen', 'danger': 'low'}}, 'encounters': {}, 'camp': {},
+        'food': []})
+    assert 'reedby' not in catalog.cities()
+    ok(client.post('/api/packages/import', json={'folder': str(folder)}))
+    assert catalog.city('reedby')['name'] == 'Reedby' and catalog.cities()['reedby']['origin'] == 'package'
+    entered = ok(client.post('/api/story/worlds/ashmoor/enter'))['world']
+    assert entered['city_id'] == 'reedby'
+    with app.state.database.connect() as connection:
+        assert story.scene_row(connection)['city_id'] == 'reedby'

@@ -9,6 +9,7 @@ from pydantic import Field
 from dungeon import package_edit, package_import, packages
 from dungeon.errors import require
 from dungeon.models import Input
+from dungeon.world import catalog
 
 router = APIRouter(prefix='/api/packages')
 
@@ -56,7 +57,9 @@ class FolderImport(Input):
 @router.post('/import')
 def import_folder(request: Request, body: FolderImport):
     """A world folder on this computer, checked and made into a package."""
-    return packages.import_folder(root(request), Path(body.folder).expanduser())
+    imported = packages.import_folder(root(request), Path(body.folder).expanduser())
+    catalog.reload()  # Its towns join the city list.
+    return imported
 
 
 class ImportFile(Input):
