@@ -218,7 +218,7 @@ def finish(database, art_id: str, status: str, **fields):
 
 def attempt(state, row: dict, backend: dict, reference: bytes | None) -> ImageRequest:
     config = decode(backend['config'])
-    key = state.vault.get(backend['credential_ref']) if backend['credential_ref'] else None
+    key = image_backends.backend_key(state.database, state.vault, backend)
     width, height = size_for(backend['kind'], ASPECT[row['kind']])
     look = image_backends.style_for(backend, row['style'])
     return ImageRequest(job_id=row['id'], prompt=f"{look}. {row['prompt']}" if look else row['prompt'],
