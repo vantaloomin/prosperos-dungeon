@@ -384,6 +384,39 @@ crawl; nothing is drawn by hand or by an image model, and only what the player l
 - **The Town widget.** Shows the map of the town the story is in (separate from the travel Map widget), with
   where the character is; clicking a place shows it and offers to go there.
 
+### Interiors
+
+Asked 2026-11-02 (Vanta, in the Worldsmith thread: maps for "towns, dungeons, the world"; card: "Rooms map,
+authored + generated"). The inside of a keep, cave, crypt, mine or tower is a map of rooms joined by passages,
+walked room by room, the way the hex crawl walks hexes and the town map walks streets.
+
+- **Rooms and passages, not a grid.** An interior is a graph: rooms (a name, a short description, a kind such as
+  hall, cell, shrine, cavern or stair, a size, and its light: lit, dim or dark) joined by passages (open, door,
+  stairs, ladder, shaft, crawlway, water or secret). Rooms sit on levels (the upper galleries, the flooded deep).
+  A passage can be locked (a key item, or a roll to pick or force it), hidden (found by searching), one-way, or
+  trapped (an action, a difficulty and a threat, like a road encounter). A room can hold foes (the encounter foe
+  shape), a hazard, loot (the finds tables) and lore. Combat inside uses the ruleset's own rules; a room's size
+  sets the ranges.
+- **Authored core, generated beyond.** Key interiors are authored, in a world package's engine data
+  (engine/interiors/<id>.json, or world/data/interiors for a built-in world) and drawn in Worldsmith as a rooms
+  map (rooms are boxes, levels are groups, passages are labelled links, with the Mermaid text kept in step). A
+  place of a town, a travel-map stop or an authored site names its interior. A rolled site (a ruin, cave, lair or
+  ward fort from the hex crawl) gets a generated interior the first time it is entered: laid out from the
+  campaign seed and the site's kind (an interior table per kind: how many rooms, which kinds, how deep), so the
+  same campaign always finds the same rooms and nothing is stored until it is seen. Generation follows the
+  intensity levels, like every table.
+- **Walking it.** "I go down into the mine" at the entrance enters the interior's first room. The narrator is
+  told the room and the ways out the character can see; "I take the stairs down" or "back to the shaft head"
+  moves along a passage (or the quickest known way to a room named). Each move takes time on the story clock.
+  "I search the room" spends time and makes a Mind roll for hidden passages and anything hidden there. A locked
+  door wants its key, a pick or force roll, or another way round. Dark rooms without a light source make every
+  roll harder and hide the far exits. Wandering foes roll from the interior's own encounter table every few
+  moves, like a region's road encounters. Leaving by the entrance (or any other way out) returns to the place or
+  hex outside.
+- **Found, not known.** The interior map widget shows only the rooms the character has seen and the passages
+  they know of, like the town map. A cleared room, an opened door, a sprung trap and taken loot stay that way,
+  kept per branch (story_interiors), so going back to an earlier turn restores them.
+
 ## Inventory and equipment
 
 Decided 2026-10-21. Code owns every item; the narrator can't add, remove or invent gear.
