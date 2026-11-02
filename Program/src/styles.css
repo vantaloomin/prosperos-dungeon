@@ -677,6 +677,10 @@ textarea { resize: vertical; line-height: 1.6; }
 .token-entry p { margin: 0; font-size: 0.875rem; }
 .token-entry small { flex-basis: 100%; color: var(--muted); }
 .token-entry .field { flex: 1 1 280px; }
+/* The shared-key choice gets its own line; the way back lines up with the field's edge (Iris). */
+.token-entry .checkbox-row { flex-basis: 100%; }
+.token-entry .text-button { padding-inline: 0; }
+@media (max-width: 720px) { .model-profile-editor .form-actions:has(.keychain-note) { flex-wrap: wrap; } .model-profile-editor .keychain-note { flex-basis: 100%; } }
 .connection-success { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); }
 .advanced-settings > summary { cursor: pointer; color: var(--muted); }
 .advanced-settings > .form-stack { margin-top: 14px; }
@@ -733,6 +737,11 @@ input[type='range'], input[type='checkbox'], input[type='radio'] { accent-color:
 .font-opendyslexic .reading-font-name { font-family: 'OpenDyslexic', system-ui, sans-serif !important; }
 .checkbox-row { display: flex; align-items: flex-start; gap: 10px; padding-top: 4px; font-size: 0.9375rem; cursor: pointer; }
 .checkbox-row:has(input:disabled) { color: var(--muted); cursor: default; }
+/* Settings > Models: the narrator Mix's choices, without the browser's fieldset box. */
+.plain-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.plain-fieldset small { color: var(--muted); }
+.model-mix { margin-top: 4px; }
+.model-mix-options { margin-top: 10px; }
 .segmented { display: flex; flex-wrap: wrap; width: fit-content; max-width: 100%; border: 1px solid var(--input-border, var(--border)); border-radius: 9px; overflow: hidden; background: var(--surface); }
 .segmented label { flex: 1 1 auto; cursor: pointer; }
 .segmented label + label { border-left: 1px solid var(--border); }
