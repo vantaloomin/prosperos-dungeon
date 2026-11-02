@@ -999,3 +999,12 @@ img.avatar, img.portrait { object-fit: cover; object-position: center top; paddi
 @media (max-width: 640px) { :root[data-layout='novel'] .story-stage + .stage-portraits { width: calc(100% - 32px); margin-top: -6rem; } }
 .story-art select { min-height: 40px; }
 .story-art .form-actions { flex-wrap: wrap; }
+/* The rooms of an interior the character is inside (StoryInterior.tsx). */
+.interior-way { stroke: var(--muted); stroke-width: 2; }
+.interior-way.stub { stroke-dasharray: 3 3; stroke: var(--faint); }
+.interior-way.way-secret { stroke-dasharray: 2 3; }
+.interior-way.way-water { stroke: color-mix(in srgb, #4f7aa8 60%, var(--muted)); }
+.interior-room rect { fill: var(--surface); stroke: var(--muted); stroke-width: 1.2; }
+.interior-room text { fill: var(--muted); font-size: 8px; }
+.interior-room.here rect { fill: var(--accent); stroke: var(--accent); }
+.interior-room.here text { fill: var(--surface); font-weight: 600; }

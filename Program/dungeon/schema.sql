@@ -885,6 +885,51 @@ CREATE TABLE IF NOT EXISTS story_position (
   believed_r INTEGER NOT NULL
 );
 
+-- Where the character is inside an interior (dungeon/delving.py): the interior, the room and the one before, moves
+-- since a wandering encounter, the room a fight began in, and for a rolled site the site it is laid out from (JSON).
+-- Branched with the story (dungeon/timeline.py SAVED).
+CREATE TABLE IF NOT EXISTS story_interior (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  interior TEXT NOT NULL,
+  room TEXT NOT NULL,
+  previous TEXT,
+  moves INTEGER NOT NULL DEFAULT 0,
+  fighting TEXT,
+  site TEXT
+);
+
+-- The rooms of interiors the character has been in, and what they did there. Branched with the story.
+CREATE TABLE IF NOT EXISTS story_interior_rooms (
+  interior TEXT NOT NULL,
+  room TEXT NOT NULL,
+  visited INTEGER NOT NULL DEFAULT 0,
+  searched INTEGER NOT NULL DEFAULT 0,
+  looted INTEGER NOT NULL DEFAULT 0,
+  cleared INTEGER NOT NULL DEFAULT 0,
+  hazard_met INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (interior, room)
+);
+
+-- The passages of interiors the character knows (`a` and `b` the rooms, sorted): found, opened, its trap sprung,
+-- walked through. Branched with the story.
+CREATE TABLE IF NOT EXISTS story_interior_ways (
+  interior TEXT NOT NULL,
+  a TEXT NOT NULL,
+  b TEXT NOT NULL,
+  found INTEGER NOT NULL DEFAULT 0,
+  opened INTEGER NOT NULL DEFAULT 0,
+  sprung INTEGER NOT NULL DEFAULT 0,
+  passed INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (interior, a, b)
+);
+
+-- Each line's move inside an interior, planned once, and what came of it (dungeon/delving.py).
+CREATE TABLE IF NOT EXISTS story_delves (
+  message_id TEXT PRIMARY KEY,
+  plan TEXT NOT NULL,
+  lines TEXT
+);
+
 -- Each line's journey, planned once with its encounter, and what happened on it once walked (dungeon/travel.py).
 CREATE TABLE IF NOT EXISTS story_journeys (
   message_id TEXT PRIMARY KEY,

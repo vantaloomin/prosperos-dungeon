@@ -464,7 +464,7 @@ export type NarrationLength = 'short' | 'medium' | 'long'
 export type ToneCategory = 'violence' | 'sex' | 'horror' | 'cruelty' | 'drugs'
 export type VeilTopic = 'execution' | 'slavery' | 'mutilation' | 'disease' | 'self-harm' | 'addiction' | 'torture' | 'sexual-violence' | 'sacrifice' | 'child-harm'
 export type ToneVoice = 'world' | 'grim' | 'wry' | 'romantic' | 'hopeful' | 'lyrical' | 'plain'
-export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; bands?: BandStep[] | null; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null; injury_persistence: InjuryPersistence; table?: TableRules; factions?: StoryFaction[]; tier?: StoryTier | null; campaign?: StoryCampaign; message_id?: string }
+export interface Story { scene: StoryScene; messages: StoryMessage[]; people: StoryPerson[]; ready: boolean; dice_shown: boolean; bands?: BandStep[] | null; branches: StoryBranch[]; fight: StoryFight; intensity: StoryIntensity; map: StoryMap | null; interior?: StoryInterior | null; injury_persistence: InjuryPersistence; table?: TableRules; factions?: StoryFaction[]; tier?: StoryTier | null; campaign?: StoryCampaign; message_id?: string }
 /** A faction the character knows of (dungeon/factions.py): standing in words, with the number when the dice are shown,
  * and its emblem (dungeon/icons.py) when the world has one. */
 export interface StoryFaction { id: string; name: string; summary: string; standing: string; emblem?: string | null }
@@ -476,6 +476,14 @@ export interface StoryMap {
   /** On a hex crawl (dungeon/hexes.py): the hexes the character has seen, and the hex they believe they are in. */
   hexes?: MapHex[]
   at?: { q: number; r: number; lost: boolean }
+}
+/** The interior the character is inside (dungeon/delving.py view): the rooms they have seen, the passages they know,
+ * and where they are. A room's `map` is where it was drawn (0 to 1 across and down), when it was. */
+export interface StoryInterior {
+  id: string; name: string; style: string
+  levels: { id: string; name: string }[]
+  rooms: { id: string; name: string; level: string | null; kind: string; map: { x: number; y: number } | null; here: boolean; cleared: boolean }[]
+  passages: { between: [string, string]; kind: string; to_known: boolean }[]
 }
 export type HexTerrain = 'water' | 'plains' | 'forest' | 'hills' | 'mountains' | 'waste' | 'marsh'
 /** A seen hex in axial coordinates: its land, whether a road runs through it, the place or found site on it. */
