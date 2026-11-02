@@ -694,7 +694,10 @@ def _family(seed: str, culture: str | None, pronouns: str, names: dict, groups: 
         return naming.gendered(culture, naming.base_family(culture, family), pronouns)
     # Most residents' family names come from the same heritage group; some from anywhere in the city.
     # From people of their own kind: a human isn't a Hrívë Court elf's namesake.
-    same = {key: weight for key, weight in mix.items() if groups[key].get('kind') == names.get('kind')} or mix
+    same = {key: weight for key, weight in mix.items() if groups[key].get('kind') == names.get('kind')}
+    if not same and names.get('kind'):  # A people outside the mix (the peoples bank's dwarves): their own names.
+        same = {key: 1.0 for key, group in groups.items() if group is names}
+    same = same or mix
     other = pick(seed, 'family-group', list(same), list(same.values()))
     return pick(seed, 'family', names['family'] if unit(seed, 'mixed') >= 0.2 else groups[other]['family'])
 

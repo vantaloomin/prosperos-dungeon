@@ -69,11 +69,14 @@ def test_a_kind_is_named_from_its_own_groups_else_like_everyone_else():
         seed = f'town:hollin:names:{index}'
         name = generators.name(data, seed=seed, age=40)
         assert (name['group'] == 'vulcan-names') == (townsfolk.folk_of(data, seed) == 'vulcan'), seed
-    # A built-in kind with only a share keeps its own lifespan, and one with no names of its own is named like humans.
+    # A built-in kind with only a share keeps its own lifespan and takes its names from the peoples bank's group for
+    # it; a kind of the city's own with no names of its own is named like humans.
     plain = city('hollin', {'dwarf': {'share': 0.3}})
     assert plain['kinds'] == {'dwarf': {'share': 0.3}} and lifespans.lifespan_of('dwarf', plain) == 300
     groups = {generators.group_of(plain, f'n{index}') for index in range(300)}
-    assert groups <= set(catalog.name_groups(plain)[1])
+    assert groups <= {*catalog.name_groups(plain)[1], 'dwarf'} and 'dwarf' in groups
+    alone = city('hollin', {'vulcan': VULCAN | {'share': 0.3}})
+    assert {generators.group_of(alone, f'n{index}') for index in range(300)} <= set(catalog.name_groups(alone)[1])
     # A kind's `groups` names where its names come from; groups the city lacks are dropped with a note.
     listed = city('hollin', {'vulcan': VULCAN | {'share': 0.5, 'groups': ['varrow', 'nowhere']}})
     assert listed['kinds']['vulcan']['groups'] == ['varrow'] and any('nowhere' in note for note in listed['import_notes'])

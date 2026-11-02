@@ -59,11 +59,21 @@ def name_groups(data: dict) -> tuple[dict[str, dict], dict[str, float]]:
 
     A city's own `names.mix` wins; a city with its own groups and no mix uses only those; otherwise the era's
     weights apply when the city keeps its era's bank, else every group of the bank weighs the same.
+
+    A kind the city's `kinds` block lists (`{"dwarf": {"share": 0.1}}`) that none of its groups is tied to takes its
+    names from the `peoples` bank's group for it (scripts/world/peoples.py), outside the mix: the share decides how
+    many there are (dungeon/world/lifespans.py `shares`).
     """
     own = data.get('names') or {}
     era = names()['eras'][data['era']]
     bank = own.get('bank') or era['bank']
-    groups = names()['banks'][bank] | own.get('groups', {})
+    base = names()['banks'][bank] | own.get('groups', {})
+    groups = base
+    listed = data.get('kinds')
+    if isinstance(listed, dict) and listed:
+        tied = {group.get('kind') for group in base.values()}
+        peoples = names()['banks'].get('peoples', {})
+        groups = {key: peoples[key] for key in listed if key in peoples and key not in tied} | base
     if own.get('mix'):
         mix = own['mix']
     elif own.get('groups'):
@@ -74,7 +84,7 @@ def name_groups(data: dict) -> tuple[dict[str, dict], dict[str, float]]:
         mix = {}
     # Weights for groups the bank lacks (say, after a city changes era) are ignored.
     mix = {key: weight for key, weight in mix.items() if weight > 0 and key in groups}
-    return groups, mix or dict.fromkeys(groups, 1.0)
+    return groups, mix or dict.fromkeys(base, 1.0)
 
 
 @cache
