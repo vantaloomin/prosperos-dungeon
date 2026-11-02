@@ -10,8 +10,8 @@ import { useReturnFocus } from '../../components/returnFocus'
 import { Field, TextArea, TextInput, Toggle } from '../../components/Fields'
 import { BACKEND_KINDS, NSFW_PROVIDERS, PROVIDERS, disclosureFor } from '../images/imageState'
 import { HardwareWarnings } from './models/HardwareCheck'
-import { HARDWARE_KEY, useHardware } from './models/hardware'
-import { FAMILIES, FAMILY_KEYS, MAX_STYLE_LORAS, MISSING, PRESET_FILES, missingFrom, NEW_STYLE_LORA, TURBO, familyOf, fileChoices, filesBody, hasMatching, isChosen, isTuned, linksByRole, noChoice, serverFiles, shownFiles, shownSampler, stylesBody, type FileSlot } from './modelFiles'
+import { HARDWARE_KEY, useHardware, type HardwareReport } from './models/hardware'
+import { FAMILIES, FAMILY_KEYS, MAX_STYLE_LORAS, MISSING, PRESET_FILES, missingFrom, NEW_STYLE_LORA, TURBO, familyOf, fileChoices, filesBody, filesLabel, hasMatching, isChosen, isTuned, linksByRole, noChoice, serverFiles, shownFiles, shownSampler, stylesBody, fitLine, type FileSlot } from './modelFiles'
 import { SectionPending } from '../../components/SectionPending'
 import { ImageModelField } from './ImageModelField'
 import { LaunchFor } from './models/LocalPrograms'
@@ -107,7 +107,7 @@ function BackendRow({ backend, index, count, refresh, setResult }: { backend: Im
     <li className="backend-row">
       <BackendSummary backend={backend} />
       {backend.blocked_reason && (
-        <Notice tone="error" action={<button type="button" className="button" aria-disabled={busy} onClick={() => void act(() => api(`/images/backends/${backend.id}/unblock`, {}))}>Signed in again</button>}>
+        <Notice tone="error" action={<button type="button" className="button" aria-disabled={busy} onClick={() => void act(() => api(`/images/backends/${backend.id}/unblock`, {}))}>{backend.kind === 'codex' ? 'Signed in again' : 'Try again'}</button>}>
           {backend.blocked_reason}
         </Notice>
       )}
@@ -199,7 +199,7 @@ function BackendConnection({ backend, save }: { backend: ImageBackend; save: (bo
       <summary className="subtle">Connection</summary>
       <div className="form-stack">
         <TextInput label="Name" value={draft.label} onChange={set('label')} />
-        {hosted && <TextInput label="API key" type="password" value={draft.apiKey} onChange={set('apiKey')} placeholder={backend.has_key ? 'Saved; type a new one to replace it' : ''} hint="Saved in your system's credential store." />}
+        {hosted && <TextInput label={backend.provider === 'novelai' ? 'API token' : 'API key'} type="password" value={draft.apiKey} onChange={set('apiKey')} placeholder={backend.has_key ? 'Saved; type a new one to replace it' : ''} hint={keyHint(backend.provider)} />}
         <AddressField backend={backend} draft={draft} onChange={set('baseUrl')} />
         {hosted && <ImageModelField provider={backend.provider} baseUrl={draft.baseUrl} apiKey={draft.apiKey} backendId={backend.id} value={draft.model} onChange={set('model')} />}
         {backend.kind === 'codex' && <TextInput label="Codex CLI location (optional)" value={draft.cliPath} onChange={set('cliPath')} hint="Found on PATH when empty." />}
@@ -219,23 +219,32 @@ function AddressField({ backend, draft, onChange }: { backend: ImageBackend; dra
   return <TextInput label={backend.kind === 'hosted' ? 'API base URL' : 'ComfyUI address'} value={draft.baseUrl} required onChange={onChange} hint={moveHint} />
 }
 
+/** What an empty Prompt style falls back to, and the hint that says so. */
+function styleFallback(backend: ImageBackend) {
+  const fallback = backend.family_style ? "the model's own" : "the world's own"
+  const hint = `Starts every prompt this backend makes, in place of the world's look. Leave empty to use ${fallback}.${
+    backend.tag_prompts && !backend.family_style ? ' Prompts go out as booru tags.' : ''}`
+  return { fallback, hint, reset: backend.family_style ? "Use the model's own style" : "Use the world's look" }
+}
+
 /** The style line that starts this backend's prompts, since each model wants its own (a photo line for
- * Krea 2, a tag-style line for an anime model). */
+ * Krea 2, quality tags for a Booru model). Empty uses the model family's own line, else the world's look. */
 function BackendStyle({ backend, save }: { backend: ImageBackend; save: (style: string) => Promise<boolean> }) {
   const [draft, setDraft] = useState<string | null>(null)
   const store = async (value: string) => { if (await save(value)) setDraft(null) }
+  const { fallback, hint, reset } = styleFallback(backend)
   return (
     <details>
-      <summary className="subtle">Prompt style {backend.style ? '(set)' : '(none)'}</summary>
+      <summary className="subtle">Prompt style {backend.style ? '(its own)' : `(${fallback})`}</summary>
       <div className="form-stack">
-        <TextInput label="Style for this backend" value={draft ?? backend.style} maxLength={500} placeholder="Candid, natural-light photograph"
-          hint="Starts every prompt this backend makes." onChange={setDraft} />
+        <TextArea grows label="Style for this backend" value={draft ?? backend.style} maxLength={500}
+          placeholder={backend.family_style || "The world's own look"} hint={hint} onChange={setDraft} />
         <div className="form-actions">
           {draft !== null && <>
             <button type="button" className="button primary" onClick={() => void store(draft)}>Save style</button>
             <button type="button" className="button" onClick={() => setDraft(null)}>Cancel</button>
           </>}
-          {backend.style && draft === null && <button type="button" className="text-button" onClick={() => void store('')}>Clear the style</button>}
+          {backend.style && draft === null && <button type="button" className="text-button" onClick={() => void store('')}>{reset}</button>}
         </div>
       </div>
     </details>
@@ -245,6 +254,7 @@ function BackendStyle({ backend, save }: { backend: ImageBackend; save: (style: 
 /** Which kind of model this server runs, so the built-in workflow, its files, sampling and prompt style suit it
  * (Vanta, 2026-10-13). Krea 2 until changed; saved on change. A workflow of the user's own runs whatever it says. */
 function FamilyPicker({ backend, save }: { backend: ImageBackend; save: (body: object) => Promise<boolean> }) {
+  const hardware = useHardware()
   // What a switch replaced, so it can be undone (undo over confirm); only when the user had made choices.
   const [undo, setUndo] = useState<{ to: string; body: object; before: string; after: string | null } | null>(null)
   const family = familyOf(backend.family)
@@ -260,7 +270,7 @@ function FamilyPicker({ backend, save }: { backend: ImageBackend; save: (body: o
     setUndo({ to: FAMILIES[next].sampling, body: before, before: was, after: null })
   }
   return <div className="form-stack family-picker">
-    <Field label="Model family" hint={familyHint(family, backend.custom_workflow)}>{(id, describedBy) => (
+    <Field label="Model family" hint={familyHint(family, backend.custom_workflow, fitLine(backend.model_fit, backend.model_files, biggestCard(hardware.data)))}>{(id, describedBy) => (
       <select id={id} aria-describedby={describedBy} value={backend.family ?? 'krea2'} onChange={(event) => void choose(event.target.value as ImageFamily)}>
         {FAMILY_KEYS.map((key) => <option key={key} value={key}>{FAMILIES[key].label}</option>)}
       </select>
@@ -271,10 +281,15 @@ function FamilyPicker({ backend, save }: { backend: ImageBackend; save: (body: o
   </div>
 }
 
+/** The memory of this computer's biggest graphics card, which the app picks model files for. */
+const biggestCard = (report: HardwareReport | undefined) =>
+  report?.computer.gpus.reduce<number | null>((most, gpu) => Math.max(most ?? 0, gpu.memory_gb), null) ?? null
+
 /** The dropdown's hint (Iris's wording). */
-function familyHint(family: ReturnType<typeof familyOf>, custom: boolean): string {
+function familyHint(family: ReturnType<typeof familyOf>, custom: boolean, fitted: string | null): string {
   if (custom) return 'Your own workflow is used for pictures; the family still sets the reference workflow.'
   const lines = [`Sets the built-in workflow, model files and sampling to ${family.sampling}'s. You can change any of them below.`]
+  if (fitted) lines.push(fitted)
   if (family.note) lines.push(family.note)
   return lines.join(' ')
 }
@@ -301,7 +316,7 @@ function ModelFilePicker({ backend, saved, save }: { backend: ImageBackend; save
   const store = async (body: ModelFiles) => { if (await save(body)) setDraft({}) }
   return (
     <details onToggle={(event) => setOpen(event.currentTarget.open)}>
-      <summary className="subtle">Model files for the built-in workflow {isChosen(saved) ? '(your choice)' : '(defaults)'}</summary>
+      <summary className="subtle">Model files for the built-in workflow {filesLabel(saved, backend.model_fit)}</summary>
       <div className="form-stack">
         <p className="subtle">Pick the files your ComfyUI server has. The lists come from the server at this backend's address; nothing is downloaded or installed.</p>
         {open && !server.answered && <p className="subtle">Asking ComfyUI for its files…</p>}
@@ -592,7 +607,7 @@ function BackendSummary({ backend }: { backend: ImageBackend }) {
       <span className="badge">{backend.accepts_nsfw ? (backend.local ? 'Local · safe and NSFW' : 'Safe and NSFW') : 'Safe only'}</span>
       {backend.experimental && <span className="badge">Experimental</span>}
     </div>
-    <p className="subtle">{[where, backend.model, missingKey ? 'no API key' : '', backend.takes_reference ? 'can follow a reference picture' : ''].filter(Boolean).join(' · ')}</p>
+    <p className="subtle">{[where, backend.model, missingKey ? (backend.provider === 'novelai' ? 'no API token' : 'no API key') : '', backend.takes_reference ? 'can follow a reference picture' : ''].filter(Boolean).join(' · ')}</p>
   </>
 }
 
@@ -608,7 +623,7 @@ function backendBody(draft: Draft, disclosure: string | null, accepted: boolean)
 }
 
 const MODEL_EXAMPLES: Record<HostedProvider, string> = {
-  openrouter: 'google/gemini-2.5-flash-image', google: 'imagen-4.0-generate-001', openai: 'gpt-image-1', nanogpt: 'hidream-o1-image', other: 'gpt-image-1',
+  openrouter: 'google/gemini-2.5-flash-image', google: 'imagen-4.0-generate-001', openai: 'gpt-image-1', nanogpt: 'hidream-o1-image', novelai: 'nai-diffusion-4-5-full', other: 'gpt-image-1',
 }
 
 /** The NSFW switch for a new image API backend; Google and the OpenAI API only say they stay safe-only. */
@@ -661,12 +676,12 @@ function AddBackend({ onDone, setResult }: { onDone: () => void; setResult: (res
       </>}
       {kind === 'codex' && <TextInput label="Codex CLI location (optional)" value={cliPath} onChange={setCliPath} hint="Found on PATH when empty. Sign in once with codex login in a terminal; the app never sees your password or token." />}
       {kind === 'hosted' && <>
-        <Field label="Provider" hint="The image service your API key is for.">{(id, hint) => (
+        <Field label="Provider" hint="The image service you are adding.">{(id, hint) => (
           <select id={id} aria-describedby={hint} value={provider} onChange={(event) => { setProvider(event.target.value as HostedProvider); setAccepted(false) }}>
             {PROVIDERS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
           </select>
         )}</Field>
-        <TextInput label="API key" type="password" value={apiKey} onChange={setApiKey} hint="Saved in your system's credential store." />
+        <TextInput label={provider === 'novelai' ? 'API token' : 'API key'} type="password" value={apiKey} onChange={setApiKey} hint={keyHint(provider)} />
         {provider === 'other' && <TextInput label="API base URL" value={baseUrl} required onChange={setBaseUrl} hint="For an OpenAI-compatible image service, usually ending in /v1." />}
         <ImageModelField provider={provider} baseUrl={baseUrl} apiKey={apiKey} value={model} placeholder={MODEL_EXAMPLES[provider]} onChange={setModel} />
         <NsfwChoice provider={provider} checked={nsfw} onChange={(value) => { setNsfw(value); setAccepted(false) }} />
@@ -678,4 +693,11 @@ function AddBackend({ onDone, setResult }: { onDone: () => void; setResult: (res
       </div>
     </form>
   )
+}
+
+/** Where a hosted provider's key comes from: NovelAI calls it a persistent API token. */
+function keyHint(provider: string | null | undefined): string {
+  return provider === 'novelai'
+    ? "Your persistent API token, from Account Settings on novelai.net. Saved in your system's credential store."
+    : "Saved in your system's credential store."
 }

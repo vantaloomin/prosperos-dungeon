@@ -48,7 +48,7 @@ export function provenance(job: ImageJob): [string, string][] {
 export const BACKEND_KINDS: { id: BackendKind; label: string; hint: string }[] = [
   { id: 'comfyui', label: 'ComfyUI', hint: 'A ComfyUI server you run. On this computer it can also make NSFW images.' },
   { id: 'codex', label: 'Codex (ChatGPT subscription)', hint: "Experimental. Uses the Codex CLI's built-in image generation under your own codex login. Safe images only." },
-  { id: 'hosted', label: 'Image API', hint: 'OpenRouter, Google or another provider, with your own API key. Safe images only, unless you switch on NSFW for a provider that allows it.' },
+  { id: 'hosted', label: 'Image API', hint: 'OpenRouter, Google, NovelAI or another provider, with your own API key. Safe images only, unless you switch on NSFW for a provider that allows it.' },
 ]
 
 export const PROVIDERS: { id: HostedProvider; label: string }[] = [
@@ -56,11 +56,12 @@ export const PROVIDERS: { id: HostedProvider; label: string }[] = [
   { id: 'google', label: 'Google' },
   { id: 'openai', label: 'OpenAI API' },
   { id: 'nanogpt', label: 'NanoGPT' },
+  { id: 'novelai', label: 'NovelAI' },
   { id: 'other', label: 'Other OpenAI-compatible API' },
 ]
 
 /** Hosted providers the NSFW switch is offered for, matching the server's NSFW_PROVIDERS. */
-export const NSFW_PROVIDERS: HostedProvider[] = ['openrouter', 'nanogpt', 'other']
+export const NSFW_PROVIDERS: HostedProvider[] = ['openrouter', 'nanogpt', 'novelai', 'other']
 
 export function isLoopback(url: string): boolean {
   try {
@@ -78,7 +79,8 @@ function destinationFor(kind: BackendKind, provider: HostedProvider): string {
 /** What a new backend will receive, matching the server's disclosure; null when nothing leaves this computer. */
 export function disclosureFor(kind: BackendKind, provider: HostedProvider, baseUrl: string, controlled: boolean, nsfw = false): string | null {
   if (kind === 'comfyui' && (isLoopback(baseUrl) || controlled)) return null
-  const text = `Each image request sends its prompt to ${destinationFor(kind, provider)}. Their retention rules apply. The story itself is not sent.`
+  const novelai = kind === 'hosted' && provider === 'novelai' ? ' NovelAI does not take reference pictures, so only the prompt is sent.' : ''
+  const text = `Each image request sends its prompt to ${destinationFor(kind, provider)}. Their retention rules apply. The story itself is not sent.${novelai}`
   return kind === 'hosted' && nsfw && NSFW_PROVIDERS.includes(provider)
     ? `${text} NSFW requests go there too, so their terms decide what they will make and keep. Prohibited requests are still never sent.`
     : text

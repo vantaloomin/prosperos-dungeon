@@ -13,7 +13,7 @@ pictures are gone, and the story's own pictures come back in a later milestone (
 | --- | --- | --- | --- |
 | `comfyui` | `adapters/comfyui.py`: ComfyUI HTTP API (`/prompt`, `/history`, `/view`) | Safe; NSFW too when local | One job at a time |
 | `codex` | `adapters/codex.py`: the Codex CLI's built-in image generation (`codex exec`) | Safe only | One job at a time across every Codex backend |
-| `hosted` | `adapters/hosted.py`: OpenAI-style `/images/generations` or OpenRouter-style `/chat/completions` with image output | Safe only; NSFW too when the user switches it on (OpenRouter, NanoGPT and other APIs only) | Its configured limit (1 to 4) |
+| `hosted` | `adapters/hosted.py`: OpenAI-style `/images/generations`, OpenRouter's image API (`/images`), or a chat-style `/chat/completions` with image output | Safe only; NSFW too when the user switches it on (OpenRouter, NanoGPT, NovelAI and other APIs only) | Its configured limit (1 to 4) |
 
 - **ComfyUI** is local when its address is a loopback address, or when the user marks it as a
   machine they control. A remote address otherwise counts as hosted (F6). The app only connects to
@@ -33,11 +33,20 @@ pictures are gone, and the story's own pictures come back in a later milestone (
   | Qwen Image 2.1 (`qwen21`) | `qwen-image-2.1.json`, empty negative | `qwen_image_2.1_int8_convrot`, `qwen3vl_8b_int8_convrot` (type `qwen_image`), `qwen_image_2.1_vae_bf16` | 25 steps, CFG 1, euler, simple | `qwen-image-2.1-reference.json`: the picture goes to core `TextEncodeQwenImage21` as `<image1>` |
   | Z-Image Turbo (`zimage`) | `z-image-turbo.json`, empty negative | `z_image_turbo_bf16`, `qwen_3_4b` (type `lumina2`), `ae` (Flux VAE); `ModelSamplingAuraFlow` shift 3 | 9 steps, CFG 1, res_multistep, simple | `z-image-turbo-reference.json`: image-to-image at denoise 0.7, core nodes; keeps the picture's pose and colours |
   | Anima (`anima`) | `anima.json`, `masterpiece, best quality, score_7, newest` ahead of the prompt (no rating tag) | `anima-base-v1.0`, `qwen_3_06b_base` (type `stable_diffusion`), `qwen_image_vae` | 30 steps, CFG 4, er_sde, simple | `anima-reference.json`: the Anima Edit LoRA (`AnimeEditV2.safetensors`, on Civitai; no link in the app) and `ApplyCosmosReferenceLatent` from ComfyUI-Cosmos-Reference |
-  | Booru (`booru`: SDXL, Pony, Illustrious) | `booru-sdxl.json`, `masterpiece, best quality, amazing quality, very aesthetic, absurdres, newest` ahead of the prompt | one checkpoint (`ckpt_name`, `Illustrious-XL-v2.0`), clip skip 2 | 30 steps, CFG 6, euler_ancestral, normal | `booru-sdxl-reference.json`: IP-Adapter Plus (ComfyUI_IPAdapter_plus; weight 0.7 ending at 0.5) |
+  | Booru (`booru`: SDXL, Pony, Illustrious) | `booru-sdxl.json`; the prompt goes out as booru tags (below) | one checkpoint (`ckpt_name`, `Illustrious-XL-v2.0`), clip skip 2 | 30 steps, CFG 6, euler_ancestral, normal | `booru-sdxl-reference.json`: IP-Adapter Plus (ComfyUI_IPAdapter_plus; weight 0.7 ending at 0.5) |
 
-  The adopted character LoRA is trained on Krea 2, so only Krea 2 applies it. Anima and Booru
-  backends start their prompts as an "Anime illustration" unless the backend has a style of its own
-  (`backends.own_style`). A reference workflow that needs a custom node pack is still offered; the check
+  The adopted character LoRA is trained on Krea 2, so only Krea 2 applies it. Anima backends start
+  their prompts as an "Anime illustration" unless the backend has a style of its own
+  (`backends.own_style`).
+
+  **Booru tags** (`images/tags.py`). Illustrious, NoobAI and Pony checkpoints read short comma-separated
+  tags, not sentences: a sentence prompt drew a man as a woman, or as two half figures. On the Booru family
+  (or a workflow of the user's own that loads such a checkpoint, `comfyui.tag_kind`) the prompt is turned into
+  tags at dispatch, by rules and after the content check has read it as written: the quality tags first (the
+  family's default Prompt style, `masterpiece, best quality, ...`; Pony checkpoints get `score_9, score_8_up, ...`),
+  then `solo`, `1boy`/`1girl` and `male focus`, then the looks, framing and light as tags. The negative prompt
+  gets the model's own words, plus the other gender and more people for a picture of one person. The built-in
+  Booru workflows add nothing of their own, so the quality tags show and can be edited under Prompt style. A reference workflow that needs a custom node pack is still offered; the check
   names the missing nodes and their page. Only the Krea 2 pack installs with one press. Krea 2 can use a
   separate model for pictures from a reference (`ref_unet_name`, "Same as the Model" by default). With a
   Krea 2 Edit merge (a name with "Edit", such as the KREA 2 Edit SNOFS Merge, recognised by name only), the
@@ -126,25 +135,38 @@ pictures are gone, and the story's own pictures come back in a later milestone (
   user runs `codex login` and chooses **Signed in again**. Nothing is retried automatically. The
   raw output stays in `images/raw/` until it passes the image check. The path is labelled
   experimental and has only been tested against a stand-in `codex`, not a real login.
-- **Hosted APIs** default to OpenRouter (`chat` style), Google's OpenAI-compatible endpoint
+- **Hosted APIs** default to OpenRouter, Google's OpenAI-compatible endpoint
   (`images` style), the OpenAI API or NanoGPT (`https://nano-gpt.com/api/v1`, `images` style;
   **Check** reads its image list at `/images/models`, since its `/models` lists text models only,
   also for a NanoGPT address entered as another API). A base URL saved with a request path on the
   end (`/images/generations`, `/chat/completions`, `/models`, `/images`) is trimmed to the base.
+  An OpenRouter backend (any address at openrouter.ai, whatever style it was saved with) lists models
+  from `/images/models` and makes pictures with `POST /images`, sending the size as the nearest aspect
+  ratio and a reference picture as `input_references`. Its `/models` leaves out models that write no
+  text, so only the Google and OpenAI image models showed there, and the chat route has no
+  endpoint for FLUX, Seedream, Recraft or Krea. SVG-only vector models are left out of the list.
   Each backend's **Connection** panel edits its name, model, API key and address (another API's
   base URL or a ComfyUI address) in place; saving a new address accepts its disclosure again. Keys are stored in the OS vault as `image-backend:<id>`.
   Enabling a hosted backend, a Codex backend or a remote ComfyUI server requires accepting a
   disclosure of what each request sends. Requests carry the prompt only. Provider-reported
   `usage` is stored as given. The tested request shapes are the two above; a model behind an
   aggregator is not assumed to work until an image comes back.
-- **NSFW on an image API** (Vanta, 2026-10-07): an OpenRouter, NanoGPT or other image API backend has an
+- **NSFW on an image API** (Vanta, 2026-10-07): an OpenRouter, NanoGPT, NovelAI or other image API backend has an
   **Also take NSFW requests** switch (`allows_nsfw`), off by default, for a provider whose terms
   allow such images. Google and the OpenAI API never offer it, and Codex stays safe-only. With it on,
   the disclosure adds that NSFW requests go to that provider under its terms, and turning it on for
   an existing backend asks for the disclosure again. The local check still runs before every
   dispatch and still fails closed; the switch only adds that backend to where NSFW requests may go.
-  Prohibited requests are refused everywhere regardless. NovelAI's own image API is not an
-  OpenAI-style endpoint, so it cannot be added as "Other" yet.
+  Prohibited requests are refused everywhere regardless.
+- **NovelAI** (provider `novelai`, `images/adapters/novelai.py`): NovelAI's own image API at
+  `https://image.novelai.net`, with the persistent API token from Account Settings on novelai.net. It is not
+  OpenAI-style: `POST /ai/generate-image` answers with a ZIP holding the PNG. Its models (V3, V4, V4.5, V5) are
+  trained on booru tags, so the prompt goes through `images/tags.convert` (kind `novelai`), the same tag
+  treatment as a Booru ComfyUI family, after the local content check has read it as written; with no style of
+  its own, the backend opens with the Booru family's quality tags. Each request is one picture at 832×1216,
+  1216×832 or 1024×1024 and 28 steps, which an Opus plan makes for free; other plans spend Anlas. NovelAI makes one
+  picture at a time per account, so the backend runs one job at a time and waits out a short 429. It takes no
+  reference picture. Check reads `GET /user/subscription` (plan and whether it is active) and spends nothing.
 
 ## One graphics card or two
 
@@ -155,9 +177,43 @@ loaded. When they don't both fit on one card, ComfyUI runs very slowly from syst
 
 - **Two cards:** start ComfyUI with `--cuda-device 1` (the second card) and keep the text model on the
   bigger one.
-- **One card:** a smaller text model leaves room (Krea 2 in an NVFP4 file needs about 11 GB with its
-  text encoder; an FP8 file about 16 GB), or use a hosted image service for pictures.
-- **Small cards (under about 12 GB):** a hosted image service.
+- **One card:** a smaller text model leaves room (Krea 2 Turbo's FP8 file needs about 14 GB, its NVFP4
+  file about 9 GB and its Q4_K_M GGUF about 9 GB), or use a hosted image service for pictures.
+- **Cards under about 8 GB:** a hosted image service.
+
+### Krea 2 on smaller cards
+
+ComfyUI moves the text encoder off the card while the model draws, so Krea 2 needs about its diffusion
+model's file size plus 2 GB (sizes from the files on Comfy-Org/Krea-2 and the community GGUF repos,
+2026-10-28): bf16 26.5, FP8 14.2, NVFP4 9.1, Q6_K 11.9, Q5_K_M 10.3, Q4_K_M 9.0, Q3_K_M 7.6 GB.
+
+When the built-in FP8 file is too big for the biggest card, a Krea 2 server on this computer starts on
+one that fits (Vanta, 2026-10-28: the app decides, the user overrides): a fitting Turbo file the server
+already lists (Raw/Base and Edit models aside), else the one to download. NVFP4 comes first on a
+Blackwell card (RTX 50-series), which runs it natively; other cards get the largest GGUF that fits. The
+pick is kept as `unet_fit` (`hardware.fit_images`, run by Settings > Images, Check, the file list and
+saving a backend) and used only while the user hasn't chosen a model; Model files shows it as the
+default. A `.gguf` model loads through the ComfyUI-GGUF nodes' `UnetLoaderGGUF` in place of
+`UNETLoader` (the one node swapped); their file list is merged into the model choices, and Check names
+the nodes when the server lacks them. They need the `gguf` Python package, so the app doesn't install
+them.
+
+### Other families on smaller cards
+
+The same pick runs for every family with smaller files (Vanta, 2026-10-28; `hardware.FITS`), each with
+its own sizes (file plus 2 GB) and the files that don't suit its built-in workflow left aside:
+
+- **Qwen Image 2.1:** int8 about 8.8 GB; else Abiray/Qwen-Image-2.1-GGUF Q6_K 7.8, Q5_K_M 7.0, Q4_K_M
+  5.9, Q3_K_M 5.0 GB. Turbo, Edit and I2I files are left aside (the workflow runs 25 steps).
+- **Z-Image Turbo:** bf16 about 13.5 GB; else NVFP4 6.2 (Blackwell only), int8 7.8, then
+  unsloth/Z-Image-Turbo-GGUF Q6_K 7.5, Q5_K_M 7.2, Q4_K_M 6.7, Q3_K_M 5.9 GB. Base and Edit files aside.
+- **Anima:** about 5.9 GB; else Abiray/Anima-base-v1.0-GGUF Q8_0 4.1 down to Q3_K_M 3.0 GB. Turbo
+  files aside.
+- **Booru** (SDXL checkpoints) has no smaller files, so nothing is picked.
+
+Changing a backend's family drops the old pick for the new family's own. A `.gguf` file counts as on
+the server only where `UnetLoaderGGUF` lists it, so the too-big warning's one-press switch never
+offers a file ComfyUI can't load (Iris).
 
 Settings > Models > This computer checks this for you (see [models.md](models.md#this-computer)), and
 Settings > Images repeats any picture warnings.
