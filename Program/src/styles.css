@@ -346,6 +346,7 @@ textarea.grows { resize: none; field-sizing: content; min-height: calc(2lh + 22p
 .hex-map .map-hex-label { fill: var(--text); font-size: 7px; pointer-events: none; paint-order: stroke; stroke: var(--canvas); stroke-width: 2px; }
 .hex-map .map-hex:hover polygon { stroke: var(--accent); }
 .hex-map .map-hex-road { fill: var(--text); opacity: 0.6; pointer-events: none; }
+.hex-map .map-hex-river { stroke: color-mix(in srgb, #2f6aa8 85%, var(--surface)); stroke-linecap: round; pointer-events: none; }
 .hex-map .map-hex-place { fill: var(--text); stroke: var(--canvas); stroke-width: 1; pointer-events: none; }
 .hex-map .map-hex-site { fill: var(--danger); pointer-events: none; }
 .hex-map .map-hex-here { fill: none; stroke: var(--accent); stroke-width: 2; pointer-events: none; }

@@ -496,7 +496,11 @@ export interface StoryInterior {
 }
 export type HexTerrain = 'water' | 'plains' | 'forest' | 'hills' | 'mountains' | 'waste' | 'marsh'
 /** A seen hex in axial coordinates: its land, whether a road runs through it, the place or found site on it. */
-export interface MapHex { q: number; r: number; terrain: HexTerrain; road: boolean; place: string | null; site: string | null; visited: boolean }
+export interface MapHex {
+  q: number; r: number; terrain: HexTerrain; road: boolean; place: string | null; site: string | null; visited: boolean
+  /** A river through the hex: its name, the next hex downstream (none at its mouth) and how much water it carries (0-1). */
+  river?: { name: string; down: [number, number] | null; flow: number } | null
+}
 /** The story after going back, with the line that was taken back to send again. */
 export interface StoryBack extends Story { draft: string }
 

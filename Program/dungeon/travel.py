@@ -666,11 +666,27 @@ def lines_for(travel_map: dict, plan_: dict, legs: list[dict], nights: int, eate
         lines = [f"The player's character travels from {places[plan_['from']]['name']} to "
                  f"{plan_.get('site') or places[end_of(plan_, legs)]['name']} {way}"
                  + (f", {nights} night{'s' if nights > 1 else ''} camped on the road." if nights else '.')]
+    if (crossed := crossings(legs)):
+        lines.append(f"On the way they cross {crossed}.")
     if eaten:
         lines.append(f"They eat from their pack on the way: {', '.join(eaten)}.")
     if hungry:
         lines.append(f"They have nothing to eat for {hungry} day{'s' if hungry > 1 else ''} of it and go hungry.")
     return lines
+
+
+def crossings(legs: list[dict]) -> str:
+    """The rivers a journey crossed and how: 'the Wend by the bridge, and a river wading (an hour more)'."""
+    told = []
+    for leg in legs:
+        crossing = leg.get('crossing')
+        if not crossing:
+            continue
+        how = {'bridge': 'by the bridge', 'ford': "at the road's ford"}.get(
+            crossing['by'], f"wading across ({duration(crossing['hours'])} more, and wet to the waist)")
+        told.append(f"{crossing['river']} {how}")
+    told = list(dict.fromkeys(told))
+    return ', and '.join([', '.join(told[:-1]), told[-1]]) if len(told) > 1 else ''.join(told)
 
 
 def view(connection, city_id: str, place_id: str) -> dict | None:
@@ -691,7 +707,9 @@ def view(connection, city_id: str, place_id: str) -> dict | None:
     board = hexes.grid(connection, travel_map)
     at = here_hex(connection, travel_map, board, here['id'])
     cells = [{'q': cell['q'], 'r': cell['r'], 'terrain': cell['terrain'], 'road': bool(cell['road']),
-              'place': cell['place'], 'site': cell['site'], 'visited': cell['visited']}
+              'place': cell['place'], 'site': cell['site'], 'visited': cell['visited'],
+              'river': {'name': cell['river']['name'], 'down': cell['river']['down'],
+                        'flow': cell['river']['flow']} if cell['river'] else None}
              for cell in hexes.view(connection, board, at)]
     # Lost, the map shows where the character believes they are.
     where = hexes.position(connection, board) if is_wild(travel_map, here['id']) else None
@@ -717,6 +735,8 @@ def wild_text(connection, city_id: str, place_id: str) -> str:
     region = (travel_map['regions'].get(cell['region']) or {}).get('name', 'country nobody has named')
     lines = [f"The player's character is out in the wild, off the roads, in {board.terrain_text(cell['terrain'])} "
              f"in {region}.", f"Today's weather: {today(connection, board, where['at'])}."]
+    if cell['river']:
+        lines.append(f"A river runs through here: {cell['river']['name']}. Crossing it off the road means wading.")
     seen = known(connection, travel_map, here['id'])
     nearby = sorted((hexes.distance(where['believed'], board.places[node]), node) for node in seen
                     if node in board.places)

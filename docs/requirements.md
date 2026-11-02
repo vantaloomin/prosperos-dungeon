@@ -325,6 +325,14 @@ map; the narrator describes what code says is there.
   and rivers that reach the edge carry on. The map can grow in any direction without end. A generated hex is
   stored with the campaign and branched with the story, so going back to an earlier turn forgets land seen
   after it, and seeing it again generates it again exactly as before.
+- **Rivers and lakes** (Vanta card 2026-11-02: "Yes, rivers in play"). An authored map can list its rivers,
+  each the hexes it runs through from source to mouth with how much water each carries, and its lakes (water
+  hexes). Prospero's Worldsmith's map painter works both out from the author's paint (water runs downhill,
+  joins and reaches the sea; basins fill into lakes). Crossing a river off the road costs an hour more to ford
+  (for a six-mile hex), and bad weather slows it like any off-road step; walking along a river's bank crosses
+  nothing. A road crosses a big river on a bridge and a small one by a ford, at no extra time. The narrator is
+  told every river a journey crossed and how, and the river where the character stops out in the wild; the hex
+  map on screen draws the rivers the character has seen.
 - **Sites.** Hexes can hold sites: ruins, lairs, camps, shrines, caves, battlefields, hamlets. Authored sites
   come from the world package; generated hexes roll on their region's site table (filtered by intensity, like
   every table). Some sites can be seen from a distance (a tower, smoke), others are hidden and are only found

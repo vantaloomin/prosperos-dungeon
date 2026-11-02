@@ -775,6 +775,16 @@ Havenbrooke's (car or bus) and BABEL's (the Stair) do. Vallarith's is.
   as straight hex lines between the places the travel map's routes join. A world package can ship its own
   (`engine/hexes/<map>.json`). A hex-crawl map with no hexes file is all generated, its places set from their map
   positions (100 hexes to the map's width).
+- **Rivers and lakes.** A hexes file can list `rivers` (each `{id, name, cells, flow}`: its hexes in axial
+  coordinates from source to mouth, and the share of the map's biggest river's water each carries) and `lakes`
+  (axial hexes, water whatever the terrain rows say); Prospero's Worldsmith's map painter writes both, with the
+  author's `paint` and `painter` settings beside them, which Dungeon ignores. `Grid.cell` gives a hex's `river`
+  (name, flow, the next hex `down`). A step into a river hex off the road fords it (`FORD_HOURS`, an hour for a
+  six-mile hex, slowed by weather like the rest of the step) unless it walks along that river's bank; a road crosses
+  by a bridge where the river carries at least `BRIDGE_FLOW` of the biggest river's water, else a ford, at the
+  road's hour. Each leg says its `crossing`; the journey lines tell the narrator every river crossed and how
+  (`travel.crossings`), and the wild text names the river where one stops. The on-screen hex map draws the rivers
+  seen, each hex to the next downstream.
 - **Past the edge.** A hex nobody authored is generated from the campaign's seed (`story_campaign.seed`, chosen the
   first time it is needed; a new story gets a new one) and its coordinates alone, with smooth noise for land, height
   and wet. Within six hexes of the authored map the coast and the regions carry on; further out it is the map's
