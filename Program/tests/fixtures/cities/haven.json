@@ -2645,7 +2645,8 @@
     "fae",
     "fey",
     "sidhe"
-   ]
+   ],
+   "share": 0
   },
   "half-fae": {
    "label": "Half-fae",
@@ -2653,7 +2654,8 @@
    "words": [
     "half-fae",
     "half fae"
-   ]
+   ],
+   "share": 0
   },
   "kitsune": {
    "label": "Kitsune",
@@ -2661,28 +2663,32 @@
    "words": [
     "kitsune",
     "fox fae"
-   ]
+   ],
+   "share": 0
   },
   "dryad": {
    "label": "Dryad",
    "lifespan": 400,
    "words": [
     "dryad"
-   ]
+   ],
+   "share": 0
   },
   "sylph": {
    "label": "Sylph",
    "lifespan": 500,
    "words": [
     "sylph"
-   ]
+   ],
+   "share": 0
   },
   "selkie": {
    "label": "Selkie",
    "lifespan": 250,
    "words": [
     "selkie"
-   ]
+   ],
+   "share": 0
   }
  }
 }
