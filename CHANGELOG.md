@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Open a Prospero's Dramatis card as who you are.** The persona form has Open a Dramatis card: a card exported from
+  Prospero's Dramatis fills in Name, Gender, Age, Birthday, Kind and About you as Dramatis wrote them for Dungeon, for
+  you to change before you save. Nothing is saved until you do, and other cards are turned away with a reason.
 - **Your Claude and ChatGPT accounts, found for you.** A Claude Code or Codex profile now lists the accounts on this
   PC to pick from: the usual one, plus each second command such as `claude2` (a script on PATH, or a function or
   alias in your PowerShell profile) and account folders like `.claude-account2`, with whether each is signed in and

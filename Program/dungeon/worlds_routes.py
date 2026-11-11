@@ -2,7 +2,8 @@
 from fastapi import APIRouter, Request
 
 from dungeon import legacy, worlds
-from dungeon.models import HomeChange, NewPersona, NewWorld, PersonaInput, WorldChange
+from dungeon.imports import cards
+from dungeon.models import HomeChange, LoreFile, NewPersona, NewWorld, PersonaInput, WorldChange
 
 router = APIRouter(prefix='/api/worlds')
 
@@ -55,6 +56,12 @@ async def switch_world(request: Request, world_id: str):
 def create_persona(request: Request, body: NewPersona):
     """A new persona with a world of their own, in the city they picked. It does not switch to them."""
     return worlds.create_persona(db(request), body)
+
+
+@router.post('/personas/card')
+def persona_card(body: LoreFile):
+    """Who the user is, read from a card made in Prospero's Dramatis, for the persona form; nothing is saved."""
+    return {'persona': cards.dramatis_persona(body.filename, body.data)}
 
 
 @router.patch('/personas/{persona_id}')

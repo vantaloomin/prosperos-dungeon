@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { api } from '../../api'
 import type { KindChoices, Persona, PersonaGender, World, Worlds } from '../../types'
 import { Field, TextArea, TextInput } from '../../components/Fields'
@@ -9,6 +9,7 @@ import { lifeAge, longLived, pickedLifespan } from '../kinds/kindText'
 import { CityPick, SOMEWHERE_NEW } from './CityPick'
 import { PersonaHome } from './PersonaHome'
 import { homeChanged, saveHome, useHomeDraft, type HomeDraft } from './personaHomeText'
+import { fileData } from './loreText'
 
 const BIRTHDAY = /^(?:(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]))?$/
 
@@ -79,6 +80,8 @@ export function PersonaForm({ persona, world, cityId, onSaved, onCancel, kinds }
         <h2 id={headingId}>{text.heading}</h2>
         <p className="subtle">{text.intro} Leave anything but the name blank to keep it to yourself.</p>
       </div>
+      <DramatisCard disabled={saving} onOpened={(opened) => { setDraft((old) => ({ ...old, ...opened })); setNote({ tone: 'info', text: `${opened.name || 'They'} came in from Dramatis. ${persona ? 'Save' : 'Make this persona'} to keep it.` }) }}
+        onError={(text) => setNote({ tone: 'error', text })} />
       <TextInput label="Name" value={draft.name} maxLength={80} required={!persona} onChange={(name) => set({ name })} />
       <Field label="Gender">{(id, describedBy) => (
         <select id={id} aria-describedby={describedBy} value={draft.gender} onChange={(event) => set({ gender: event.target.value as PersonaGender })}>
@@ -99,6 +102,33 @@ export function PersonaForm({ persona, world, cityId, onSaved, onCancel, kinds }
       </div>
       {note && <Notice tone={note.tone}>{note.text}</Notice>}
     </form>
+  )
+}
+
+type DramatisPersona = { name: string | null; gender: PersonaGender | null; age: number | null; about: string | null; birthday: string | null; kind: string | null; lifespan: number | null }
+
+function draftFromCard(persona: DramatisPersona): Draft {
+  return { name: persona.name ?? '', gender: persona.gender ?? '', age: persona.age ? String(persona.age) : '', about: persona.about ?? '',
+    birthday: persona.birthday ?? '', kind: persona.kind ?? '', lifespan: persona.lifespan }
+}
+
+/** A card made in Prospero's Dramatis, read into the form as Dramatis wrote them for Dungeon (dungeon/imports/cards.py
+ * `dramatis_persona`). Nothing is saved until the form is. */
+function DramatisCard({ disabled, onOpened, onError }: { disabled: boolean; onOpened: (draft: Draft) => void; onError: (text: string) => void }) {
+  const picker = useRef<HTMLInputElement>(null)
+  const open = async (file: File | undefined) => {
+    if (!file) return
+    try {
+      const { persona } = await api<{ persona: DramatisPersona }>('/worlds/personas/card', { filename: file.name, data: await fileData(file) })
+      onOpened(draftFromCard(persona))
+    } catch (failure) { onError(failure instanceof Error ? failure.message : 'That card could not be read.') }
+    if (picker.current) picker.current.value = ''
+  }
+  return (
+    <div>
+      <button type="button" className="button quiet" disabled={disabled} onClick={() => picker.current?.click()}>Open a Dramatis card</button>
+      <input ref={picker} type="file" hidden accept=".png,.json" onChange={(event) => void open(event.target.files?.[0])} />
+    </div>
   )
 }
 
