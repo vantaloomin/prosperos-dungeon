@@ -1,4 +1,5 @@
-"""Character Card files (JSON, or PNG with the card embedded) read into plain text for the character helper.
+"""Character Card files (JSON, or PNG with the card embedded) read into plain text for the character helper, and a
+card made in Prospero's Dramatis read into the persona form.
 
 Copied from prosperos-study at bbcbde4: `chunks` and `embedded_card` from
 server/library_formats/png_cards.py and `card_data` from server/library_formats/cards.py. Changes:
@@ -14,6 +15,7 @@ from struct import unpack
 from zlib import crc32
 
 from dungeon.errors import DomainError
+from dungeon.models import PersonaInput
 
 MAX_SOURCE_BYTES = 10 * 1024 * 1024
 SIGNATURE = b'\x89PNG\r\n\x1a\n'
@@ -103,6 +105,28 @@ def card_text(data: dict) -> dict:
 
 
 def read_card(filename: str, encoded: str) -> dict:
+    return card_text(card_data(card_value(filename, encoded)))
+
+
+def dramatis_persona(filename: str, encoded: str) -> dict:
+    """Who the user is, from a card made in Prospero's Dramatis: Dungeon's own shape of them, which Dramatis checked
+    against Dungeon's PersonaInput when it exported it (`extensions.prospero.apps.dungeon.persona`). Checked here again,
+    since the card may come from an older Dramatis or a newer Dungeon."""
+    data = card_data(card_value(filename, encoded))
+    extensions = data.get('extensions')
+    prospero = extensions.get('prospero') if isinstance(extensions, dict) else None
+    apps = prospero.get('apps') if isinstance(prospero, dict) and prospero.get('format') == 'prospero-character' else None
+    shape = apps.get('dungeon') if isinstance(apps, dict) else None
+    if not isinstance(shape, dict) or not isinstance(shape.get('persona'), dict):
+        raise problem("This card wasn't made in Prospero's Dramatis for Dungeon. Write who you are here yourself.")
+    try:
+        return PersonaInput.model_validate(shape['persona']).model_dump()
+    except ValueError as error:
+        raise problem('This Dramatis card does not fit Dungeon as it is now. Export it again from Dramatis.') from error
+
+
+def card_value(filename: str, encoded: str):
+    """The card's JSON, from a JSON file or a PNG with the card embedded."""
     try:
         source = base64.b64decode(encoded, validate=True)
     except (ValueError, binascii.Error) as error:
@@ -115,7 +139,6 @@ def read_card(filename: str, encoded: str) -> dict:
     elif suffix != '.json':
         raise problem('Choose a character card saved as JSON or PNG, or paste the character as text.')
     try:
-        value = json.loads(source.decode('utf-8-sig'))
+        return json.loads(source.decode('utf-8-sig'))
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise problem('This file is not a readable character card.') from error
-    return card_text(card_data(value))

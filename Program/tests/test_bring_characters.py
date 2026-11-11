@@ -5,6 +5,7 @@ import json
 import struct
 import zipfile
 import zlib
+from pathlib import Path
 
 import pytest
 
@@ -131,3 +132,22 @@ def test_unreadable_files_say_why(filename, data, says):
     with pytest.raises(DomainError) as raised:
         formats.read(filename, data)
     assert says in raised.value.message
+
+
+def test_a_dramatis_card_fills_the_persona_form_with_dungeons_own_shape(client):
+    """A card exported from Prospero's Dramatis carries who they are for Dungeon (extensions.prospero.apps.dungeon)."""
+    card = json.loads((Path(__file__).parent / 'data' / 'dramatis-card.json').read_text(encoding='utf-8'))
+    found = client.post('/api/worlds/personas/card', json={'filename': 'dana.json', 'data': as_json(card)})
+    assert found.status_code == 200
+    persona = found.json()['persona']
+    assert persona['name'] == 'Dana Okafor' and persona['gender'] == 'woman' and persona['age'] == 38
+    assert persona['about'].startswith('Dana is 38')
+    png = png_with([(b'IHDR', IHDR), (b'tEXt', b'ccv3\x00' + base64.b64encode(json.dumps(card).encode()))])
+    from_png = client.post('/api/worlds/personas/card', json={'filename': 'dana.png', 'data': encoded(png)})
+    assert from_png.json()['persona'] == persona
+    plain = {'spec': 'chara_card_v2', 'data': {'name': 'Mira', 'description': 'Keeps bees.'}}
+    refused = client.post('/api/worlds/personas/card', json={'filename': 'mira.json', 'data': as_json(plain)})
+    assert refused.status_code == 422 and 'Dramatis' in refused.json()['detail']
+    card['data']['extensions']['prospero']['apps']['dungeon']['persona']['age'] = 12
+    young = client.post('/api/worlds/personas/card', json={'filename': 'dana.json', 'data': as_json(card)})
+    assert young.status_code == 422
